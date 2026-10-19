@@ -17,6 +17,8 @@ Configuration and variables of FreeCAD installer
 !define APP_EXE_NAME "${APP_NAME}"
 !undef APP_NAME
 !define APP_NAME "FreeCAD Sework"
+# identificador sem espaços para chaves de registro, desinstalador e macros
+!define APP_ID "FreeCADSework"
 
 !define APP_VERSION_NUMBER "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}.${APP_VERSION_BUILD}"
 # For the proposed install folder we use the scheme "FreeCAD x.x"
@@ -25,12 +27,12 @@ Configuration and variables of FreeCAD installer
 !define APP_SERIES_NAME "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}"
 !define APP_SERIES_KEY "${APP_VERSION_MAJOR}${APP_VERSION_MINOR}${APP_VERSION_PATCH}${APP_VERSION_EMERGENCY}"
 !define APP_SERIES_KEY2 "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}${APP_EMERGENCY_DOT}${APP_VERSION_EMERGENCY}"
-!define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_NAME}.exe"
+!define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_ID}.exe"
 !define APP_DIR "${APP_NAME} ${APP_SERIES_NAME}"
 # Fixme: FC should use different preferences folder for every release
 # preferências ficam em %APPDATA%\FreeCAD, compartilhadas com o FreeCAD original: a opção
 # "remover preferências" do desinstalador aponta para uma pasta própria e não apaga as dele
-!define APP_DIR_USERDATA "FreeCAD Sework"
+!define APP_DIR_USERDATA "${APP_ID}"
 #!define APP_DIR_USERDATA "${APP_NAME}${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}"
 !define APP_SHORTCUT_INFO "${APP_NAME} - modelagem 3D paramétrica (Sework Engenharia)"
 !define APP_INFO "Install/Uninstall ${APP_NAME}"
@@ -44,7 +46,7 @@ Configuration and variables of FreeCAD installer
 !define BIN_FREECAD "${APP_EXE_NAME}.exe"
 !define BIN_FREECADCMD "${APP_EXE_NAME}cmd.exe"
 
-!define APP_REGKEY "SOFTWARE\${APP_NAME}${APP_SERIES_KEY}" # like "FreeCAD0180"
+!define APP_REGKEY "SOFTWARE\${APP_ID}${APP_SERIES_KEY}" # like "FreeCAD0180"
 !define APP_REGKEY_SETUP "${APP_REGKEY}\Setup"
 !define APP_REGKEY_SETTINGS "${APP_REGKEY}\Settings"
 
@@ -69,8 +71,8 @@ Configuration and variables of FreeCAD installer
 !define SETUP_ICON "icons\FreeCAD.ico"
 !define SETUP_HEADERIMAGE "graphics\header.bmp"
 !define SETUP_WIZARDIMAGE "graphics\banner.bmp"
-!define SETUP_UNINSTALLER "Uninstall-${APP_NAME}.exe"
-!define SETUP_UNINSTALLER_KEY "${APP_NAME}${APP_SERIES_KEY}"
+!define SETUP_UNINSTALLER "Uninstall-${APP_ID}.exe"
+!define SETUP_UNINSTALLER_KEY "${APP_ID}${APP_SERIES_KEY}"
 
 #--------------------------------
 # Variables that are shared between multiple files

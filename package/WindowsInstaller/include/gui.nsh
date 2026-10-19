@@ -53,7 +53,7 @@ BrandingText " "
 # Specify where to install program shortcuts.
 !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
 !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${APP_DIR}"
-!insertmacro MUI_PAGE_STARTMENU ${APP_NAME} $StartmenuFolder
+!insertmacro MUI_PAGE_STARTMENU ${APP_ID} $StartmenuFolder
 
 # Watch the components being installed.
 !insertmacro MUI_PAGE_INSTFILES

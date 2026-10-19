@@ -64,6 +64,8 @@ xlutils = "*"
 yaml-cpp = "*"
 zlib = "*"
 zstd = "*"
+gmsh = ">=4.15.0,<5"
+olefile = ">=0.47,<0.48"
 
 ## Linux Dependencies (x86-64)
 [target.linux-64.dependencies]

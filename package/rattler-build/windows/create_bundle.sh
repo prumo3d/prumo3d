@@ -27,7 +27,7 @@ cp -a ${conda_env}/Library/share ${copy_dir}/share
 # get all the dependency .dlls
 cp -a ${conda_env}/Library/bin/*.dll ${copy_dir}/bin
 # Copy FreeCAD build
-cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin
+cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin 2>/dev/null || true  # FreeCAD Sework: na compilação local os nomes são FreeCAD*
 cp -a ${conda_env}/Library/bin/FreeCAD* ${copy_dir}/bin
 cp -a ${conda_env}/Library/data ${copy_dir}/data
 cp -a ${conda_env}/Library/Ext ${copy_dir}/Ext
@@ -40,7 +40,7 @@ cp -a ${conda_env}/Library/doc/{ThirdPartyLibraries.html,LICENSE.html} ${copy_di
 
 # delete unnecessary stuff
 # FreeCAD Sework: restos de compilação de depuração (arquivo *_d.* com par sem _d) e .pdb
-find ${copy_dir} -name '*_d.*' | while read -r f; do b="${f%_d.*}.${f##*.}"; if [ -e "$b" ]; then rm -f "$f"; fi; done
+find ${copy_dir} \( -name '*_d.dll' -o -name '*_d.pyd' -o -name '*_d.exe' \) | while read -r f; do b="${f%_d.*}.${f##*.}"; if [ -e "$b" ]; then rm -f "$f"; fi; done
 find ${copy_dir} -name \*.pdb -delete
 find ${copy_dir} -name \*.a -delete
 find ${copy_dir} -name \*.lib -delete
@@ -140,9 +140,12 @@ if ! "$SIGN_DIR/bin/freecadcmd.exe" --safe-mode --version; then
   exit 1
 fi
 
+# FreeCAD Sework: SEWORK_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
+if [ "${SEWORK_SEM_7Z:-0}" != "1" ]; then
 7z a -t7z -mx9 -mmt=${NUMBER_OF_PROCESSORS} ${version_name}.7z ${version_name} -bb
 # create hash
 sha256sum ${version_name}.7z > ${version_name}.7z-SHA256.txt
+fi
 
 if [ "${MAKE_INSTALLER}" == "true" ]; then
     FILES_FREECAD="$(cygpath -w $(pwd))\\${version_name}"
