@@ -33,8 +33,8 @@ These typically need to be modified for each FreeCAD release
 #!define FILES_DEPS "${__FILEDIR__}\MSVCRedist"
 
 #--------------------------------
-# get version info from freecadcmd
-!system '${FILES_FREECAD}\bin\freecadcmd.exe --safe-mode "${__FILEDIR__}\write_version_nsh.py"' = 0
+# get version info from Prumo3DCmd (FreeCADCmd renomeado no pacote)
+!system '${FILES_FREECAD}\bin\Prumo3DCmd.exe --safe-mode "${__FILEDIR__}\write_version_nsh.py"' = 0
 !include "${__FILEDIR__}\version.nsh"
 !delfile "${__FILEDIR__}\version.nsh"
 

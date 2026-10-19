@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Identidade do Prumo 3D, lida pelo FreeCAD antes de qualquer outra coisa.
+  Os roteiros de empacotamento (package/rattler-build/*/create_bundle.sh) copiam este arquivo
+  para a pasta "bin" do pacote. Na compilação de desenvolvimento, o prumo-build/compilar.ps1
+  copia para .pixi/envs/default/Library/bin.
+
+  ExeName/ExeVendor também definem a pasta de dados do usuário:
+  %APPDATA%\Prumo3D (Windows) e ~/.local/share/Prumo3D (Linux), separadas do FreeCAD original.
+-->
+<Branding version="1.0">
+  <Application>Prumo 3D</Application>
+  <WindowTitle>Prumo 3D</WindowTitle>
+  <ExeName>Prumo3D</ExeName>
+  <ExeVendor>Prumo3D</ExeVendor>
+  <AppDataSkipVendor>true</AppDataSkipVendor>
+  <!-- caminho relativo à pasta de instalação -->
+  <SplashScreen>Mod/Prumo3D/Resources/splash_image.png</SplashScreen>
+  <SplashTextColor>#003A70</SplashTextColor>
+  <!-- versão desenhada pelo FreeCAD sobre a splash: transparente (a splash já traz o texto) -->
+  <SplashInfoColor>#00FFFFFF</SplashInfoColor>
+  <SplashWarningColor>#C0392B</SplashWarningColor>
+</Branding>

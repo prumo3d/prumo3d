@@ -12,13 +12,14 @@ Configuration and variables of FreeCAD installer
 #--------------------------------
 # Names and version
 
-# FreeCAD Sework: nome próprio para pasta, registro, atalhos e desinstalador, para instalar
-# lado a lado com o FreeCAD original sem sobrescrever nada dele. O executável continua FreeCAD.exe.
+# Prumo 3D: nome próprio para pasta, registro, atalhos e desinstalador, para instalar
+# lado a lado com o FreeCAD original sem sobrescrever nada dele. O executável é Prumo3D.exe
+# (ExeName vem do bin\branding.xml, lido pelo write_version_nsh.py).
 !define APP_EXE_NAME "${APP_NAME}"
 !undef APP_NAME
-!define APP_NAME "FreeCAD Sework"
+!define APP_NAME "Prumo 3D"
 # identificador sem espaços para chaves de registro, desinstalador e macros
-!define APP_ID "FreeCADSework"
+!define APP_ID "Prumo3D"
 
 !define APP_VERSION_NUMBER "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}.${APP_VERSION_BUILD}"
 # For the proposed install folder we use the scheme "FreeCAD x.x"
@@ -30,17 +31,16 @@ Configuration and variables of FreeCAD installer
 !define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_ID}.exe"
 !define APP_DIR "${APP_NAME} ${APP_SERIES_NAME}"
 # Fixme: FC should use different preferences folder for every release
-# preferências ficam em %APPDATA%\FreeCAD, compartilhadas com o FreeCAD original: a opção
-# "remover preferências" do desinstalador aponta para uma pasta própria e não apaga as dele
+# preferências ficam em %APPDATA%\Prumo3D (ExeName do branding.xml), separadas do FreeCAD original
 !define APP_DIR_USERDATA "${APP_ID}"
 #!define APP_DIR_USERDATA "${APP_NAME}${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}"
-!define APP_SHORTCUT_INFO "${APP_NAME} - modelagem 3D paramétrica (Sework Engenharia)"
+!define APP_SHORTCUT_INFO "${APP_NAME} - modelagem 3D paramétrica"
 !define APP_INFO "Install/Uninstall ${APP_NAME}"
-!define APP_WEBPAGE "https://www.freecad.org/"
+!define APP_WEBPAGE "https://github.com/prumo3d/prumo3d"
 !define APP_WEBPAGE_INFO "${APP_NAME} Website"
-!define APP_WIKI "https://wiki.freecad.org/Main_Page"
+!define APP_WIKI "https://wiki.freecad.org/Main_Page" # documentação do FreeCAD, base do Prumo 3D
 !define APP_WIKI_INFO "${APP_NAME} Wiki"
-!define APP_COPYRIGHT "${APP_NAME} is Copyright © 2001-${COPYRIGHT_YEAR} by the ${APP_NAME} Team"
+!define APP_COPYRIGHT "${APP_NAME}, baseado no FreeCAD: Copyright © 2001-${COPYRIGHT_YEAR} FreeCAD Team"
 
 !define APP_RUN "bin\${APP_EXE_NAME}.exe"
 !define BIN_FREECAD "${APP_EXE_NAME}.exe"
@@ -50,7 +50,7 @@ Configuration and variables of FreeCAD installer
 !define APP_REGKEY_SETUP "${APP_REGKEY}\Setup"
 !define APP_REGKEY_SETTINGS "${APP_REGKEY}\Settings"
 
-!define APP_REGNAME_DOC "FreeCADSework.Document"
+!define APP_REGNAME_DOC "FreeCADPrumo.Document"
 
 !define APP_EXT ".FCStd"
 !define APP_EXT1 ".FCStd1"

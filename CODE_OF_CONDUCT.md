@@ -1,8 +1,8 @@
-# Código de Conduta do FreeCAD Sework
+# Código de Conduta do Prumo 3D
 
 ## Princípio
 
-Quem usa e contribui com o FreeCAD Sework vem de lugares, formações e funções diferentes. Essa diversidade é
+Quem usa e contribui com o Prumo 3D vem de lugares, formações e funções diferentes. Essa diversidade é
 uma força do projeto, mas também pode gerar problemas de comunicação e, com eles, desconforto. Para que a
 convivência seja boa para todos, espera-se que todas as pessoas envolvidas (usuários, colaboradores e
 mantenedores) sigam este código de conduta. Resumindo em uma frase: *"tratem-se da melhor forma possível"*.
@@ -40,7 +40,7 @@ ou on-line. O que conta como representação pode ser detalhado pelos mantenedor
 ## Aplicação
 
 Casos de comportamento abusivo, assédio ou outra conduta inaceitável podem ser comunicados à equipe do projeto
-pelo e-mail sework@sework.com.br. Toda reclamação será analisada e investigada e receberá a resposta
+pelo e-mail prumo@prumo.com.br. Toda reclamação será analisada e investigada e receberá a resposta
 considerada necessária e adequada às circunstâncias. A equipe do projeto mantém sigilo sobre quem fez o
 relato. Regras mais específicas de aplicação poderão ser publicadas separadamente.
 

@@ -1,5 +1,5 @@
 name: Pedir correção na versão estável
-description: Sugira que uma mudança do ramo de desenvolvimento (sework-main) seja levada para a versão estável (sework-1.1)
+description: Sugira que uma mudança do ramo de desenvolvimento (prumo-main) seja levada para a versão estável (prumo-1.1)
 title: "[Versão estável] "
 labels: ["needs triage", "backport"]
 body:
@@ -8,7 +8,7 @@ body:
     attributes:
       label: PR original
       description: Link do PR com os commits que devem ir para a versão estável
-      placeholder: https://github.com/sework-engenharia/FreeCAD-Sework/pull/12
+      placeholder: https://github.com/prumo-engenharia/Prumo3D/pull/12
     validations:
       required: true
   - type: textarea

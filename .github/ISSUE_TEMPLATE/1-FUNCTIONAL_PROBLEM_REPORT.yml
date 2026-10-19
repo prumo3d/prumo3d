@@ -11,8 +11,8 @@ body:
         > Se usar IA, leia [nossa política de IA][PoliticaIA] antes. Não é permitido usar IA para escrever o relato.
         > Se o problema também acontece no FreeCAD original, ele deve ser relatado no [repositório do FreeCAD][FreeCAD].
 
-        [Guia]: https://github.com/sework-engenharia/FreeCAD-Sework/blob/sework-main/README.md#como-relatar-problemas
-        [PoliticaIA]: https://github.com/sework-engenharia/FreeCAD-Sework/blob/sework-main/AI_POLICY.md
+        [Guia]: https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/README.md#como-relatar-problemas
+        [PoliticaIA]: https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/AI_POLICY.md
         [FreeCAD]: https://github.com/FreeCAD/FreeCAD/issues
 
   - type: textarea
@@ -29,8 +29,8 @@ body:
     attributes:
       label: Área afetada
       options:
-        - Complemento Sework (faixa, tela inicial, tradução, tema)
-        - Assistente de simulação Sework
+        - Complemento Prumo (faixa, tela inicial, tradução, tema)
+        - Assistente de simulação Prumo
         - Tutorial da primeira peça
         - Instalador
         - Assembly (Montagem)

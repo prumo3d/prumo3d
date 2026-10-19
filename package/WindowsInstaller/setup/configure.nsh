@@ -46,9 +46,9 @@ Section -InstallData
   WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayVersion" "${APP_VERSION}"
   WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayIcon" "$INSTDIR\${APP_RUN}"
   WriteRegStr SHCTX ${APP_UNINST_KEY} "URLUpdateInfo" "${APP_WEBPAGE}"
-  WriteRegStr SHCTX ${APP_UNINST_KEY} "URLInfoAbout" "https://www.freecad.org/"
-  WriteRegStr SHCTX ${APP_UNINST_KEY} "Publisher" "Sework Engenharia"
-  WriteRegStr SHCTX ${APP_UNINST_KEY} "HelpLink" "https://forum.freecad.org/"
+  WriteRegStr SHCTX ${APP_UNINST_KEY} "URLInfoAbout" "https://github.com/prumo3d/prumo3d"
+  WriteRegStr SHCTX ${APP_UNINST_KEY} "Publisher" "Prumo 3D"
+  WriteRegStr SHCTX ${APP_UNINST_KEY} "HelpLink" "https://github.com/prumo3d/prumo3d/issues"
   WriteRegDWORD SHCTX ${APP_UNINST_KEY} "NoModify" 0x00000001
   WriteRegDWORD SHCTX ${APP_UNINST_KEY} "NoRepair" 0x00000001
   WriteRegStr SHCTX ${APP_UNINST_KEY} "StartMenu" "$SMPROGRAMS\$StartmenuFolder"

@@ -3,8 +3,8 @@
 set -e
 set -x
 
-# FreeCAD Sework: SEWORK_CONDA_ENV aponta para um ambiente já compilado e instalado (pixi da raiz)
-conda_env="${SEWORK_CONDA_ENV:-$(pwd)/../.pixi/envs/default/}"
+# Prumo 3D: PRUMO_CONDA_ENV aponta para um ambiente já compilado e instalado (pixi da raiz)
+conda_env="${PRUMO_CONDA_ENV:-$(pwd)/../.pixi/envs/default/}"
 
 copy_dir="FreeCAD_Windows"
 mkdir -p ${copy_dir}/bin
@@ -27,19 +27,24 @@ cp -a ${conda_env}/Library/share ${copy_dir}/share
 # get all the dependency .dlls
 cp -a ${conda_env}/Library/bin/*.dll ${copy_dir}/bin
 # Copy FreeCAD build
-cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin 2>/dev/null || true  # FreeCAD Sework: na compilação local os nomes são FreeCAD*
+cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin 2>/dev/null || true  # Prumo 3D: na compilação local os nomes são FreeCAD*
 cp -a ${conda_env}/Library/bin/FreeCAD* ${copy_dir}/bin
 cp -a ${conda_env}/Library/data ${copy_dir}/data
 cp -a ${conda_env}/Library/Ext ${copy_dir}/Ext
 cp -a ${conda_env}/Library/lib ${copy_dir}/lib
 cp -a ${conda_env}/Library/Mod ${copy_dir}/Mod
-# FreeCAD Sework: complemento Sework embutido (a cópia em %APPDATA%\FreeCAD\...\Mod tem prioridade)
-cp -a ../../../sework-addon/Sework ${copy_dir}/Mod/Sework
+# Prumo 3D: complemento embutido (uma cópia em %APPDATA%\Prumo3D\...\Mod teria prioridade)
+rm -rf ${copy_dir}/Mod/Prumo3D
+cp -a ../../../prumo-addon/Prumo3D ${copy_dir}/Mod/Prumo3D
+# Prumo 3D: identidade (nome, pasta de dados do usuário, splash) e executáveis com o nome do produto
+cp ../../../prumo-addon/Prumo3D/extras/branding.xml ${copy_dir}/bin/branding.xml
+mv ${copy_dir}/bin/FreeCAD.exe ${copy_dir}/bin/Prumo3D.exe
+mv ${copy_dir}/bin/FreeCADCmd.exe ${copy_dir}/bin/Prumo3DCmd.exe
 mkdir -p ${copy_dir}/doc
 cp -a ${conda_env}/Library/doc/{ThirdPartyLibraries.html,LICENSE.html} ${copy_dir}/doc
 
 # delete unnecessary stuff
-# FreeCAD Sework: restos de compilação de depuração (arquivo *_d.* com par sem _d) e .pdb
+# Prumo 3D: restos de compilação de depuração (arquivo *_d.* com par sem _d) e .pdb
 find ${copy_dir} \( -name '*_d.dll' -o -name '*_d.pyd' -o -name '*_d.exe' \) | while read -r f; do b="${f%_d.*}.${f##*.}"; if [ -e "$b" ]; then rm -f "$f"; fi; done
 find ${copy_dir} -name \*.pdb -delete
 find ${copy_dir} -name \*.a -delete
@@ -65,7 +70,7 @@ if [ -x /c/ProgramData/chocolatey/tools/shimgen.exe ]; then
 fi
 
 python_version=$("${copy_dir}"/bin/python.exe -c 'import platform; print("py" + platform.python_version_tuple()[0] + platform.python_version_tuple()[1])')
-version_name="FreeCAD_${BUILD_TAG}-Windows-$(uname -m)-${python_version}"
+version_name="Prumo3D_${BUILD_TAG}-Windows-$(uname -m)-${python_version}"
 
 echo -e "################"
 echo -e "version_name:  ${version_name}"
@@ -124,7 +129,7 @@ if [[ "${WINDOWS_SIGN_RELEASE:-0}" == "1" ]]; then
     done
 
     # Manually check the important one!
-    signtool verify -pa "$SIGN_DIR/bin/FreeCAD.exe"
+    signtool verify -pa "$SIGN_DIR/bin/Prumo3D.exe"
 
     echo "Signing completed."
   else
@@ -134,14 +139,14 @@ else
   echo "Not logged into Azure -- skipping signing."
 fi
 
-echo "Running FreeCAD command-line smoke test..."
-if ! "$SIGN_DIR/bin/freecadcmd.exe" --safe-mode --version; then
-  echo "FreeCAD command-line smoke test failed; the Windows bundle cannot start."
+echo "Running Prumo 3D command-line smoke test..."
+if ! "$SIGN_DIR/bin/Prumo3DCmd.exe" --safe-mode --version; then
+  echo "Prumo 3D command-line smoke test failed; the Windows bundle cannot start."
   exit 1
 fi
 
-# FreeCAD Sework: SEWORK_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
-if [ "${SEWORK_SEM_7Z:-0}" != "1" ]; then
+# Prumo 3D: PRUMO_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
+if [ "${PRUMO_SEM_7Z:-0}" != "1" ]; then
 7z a -t7z -mx9 -mmt=${NUMBER_OF_PROCESSORS} ${version_name}.7z ${version_name} -bb
 # create hash
 sha256sum ${version_name}.7z > ${version_name}.7z-SHA256.txt

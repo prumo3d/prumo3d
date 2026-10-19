@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Obrigado por ajudar a melhorar a qualidade do código do FreeCAD Sework!
+        Obrigado por ajudar a melhorar a qualidade do código do Prumo 3D!
 
         > [!NOTE]
         > Este formulário é **somente para problemas de qualidade de código**, como:
@@ -16,8 +16,8 @@ body:
         >
         > Se o problema afeta o comportamento visível, o fluxo de trabalho ou a interface, use o formulário **Relatar um problema**.
 
-        [Procure nas issues existentes](https://github.com/sework-engenharia/FreeCAD-Sework/issues) antes de enviar.
-        Ao enviar, você concorda em seguir nosso [Código de Conduta](https://github.com/sework-engenharia/FreeCAD-Sework/blob/sework-main/CODE_OF_CONDUCT.md).
+        [Procure nas issues existentes](https://github.com/prumo-engenharia/Prumo3D/issues) antes de enviar.
+        Ao enviar, você concorda em seguir nosso [Código de Conduta](https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/CODE_OF_CONDUCT.md).
 
   - type: dropdown
     id: wb
@@ -25,7 +25,7 @@ body:
       label: Área afetada
       description: Escolha a área principal afetada.
       options:
-        - Complemento Sework
+        - Complemento Prumo
         - Roteiros de compilação e instalador
         - Assembly (Montagem)
         - BIM

@@ -3,7 +3,7 @@
 <!--
 Obrigado pela contribuição!
 Ao abrir um Pull Request você concorda com o processo de contribuição, que está na raiz do código-fonte
-(CONTRIBUTING.md) ou em https://github.com/sework-engenharia/FreeCAD-Sework/blob/sework-main/CONTRIBUTING.md
+(CONTRIBUTING.md) ou em https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/CONTRIBUTING.md
 
 Este modelo orienta como preparar um PR que possa ser revisado e aprovado rapidamente. Os comentários podem
 ser apagados.
@@ -13,7 +13,7 @@ possam ajudar.
 -->
 
 <!--
-O FreeCAD Sework não aceita saída de IA sem verificação em PRs, nem textos escritos por IA em issues, PRs e
+O Prumo 3D não aceita saída de IA sem verificação em PRs, nem textos escritos por IA em issues, PRs e
 comentários. Marque a caixa abaixo:
 -->
 
@@ -36,7 +36,7 @@ A política completa está na raiz do código-fonte (AI_POLICY.md).
 <!-- Se o PR muda a interface, inclua capturas de tela de antes e depois. -->
 
 ## Testes
-<!-- Diga como testou. No complemento Sework, rode os Testes automáticos (aba Sework) e informe o resultado. -->
+<!-- Diga como testou. No complemento Prumo, rode os Testes automáticos (aba Prumo) e informe o resultado. -->
 
 
 
@@ -62,5 +62,5 @@ Qualidade do código
   - O PR está atualizado com o ramo de destino, com commits desnecessários unidos?
 
 Versão
-  - A correção deve ir também para o ramo estável (sework-1.1)?
+  - A correção deve ir também para o ramo estável (prumo-1.1)?
 -->
