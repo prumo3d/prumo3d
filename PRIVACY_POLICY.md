@@ -34,7 +34,7 @@ HTTPS.
 O Prumo 3D é software livre e, por isso, pode ser empacotado por outras pessoas, que podem incluir outros
 programas ou modificar o código-fonte. Não respondemos por esses pacotes de terceiros e não temos como informar
 o que eles contêm nem o que fazem com a sua privacidade. Os pacotes oficiais são apenas os publicados na
-[página de versões](https://github.com/prumo-engenharia/Prumo3D/releases) deste repositório.
+[página de versões](https://github.com/prumo3d/prumo3d/releases) deste repositório.
 
 
 *Esta política é uma tradução adaptada da

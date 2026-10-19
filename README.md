@@ -1,34 +1,33 @@
-<img src="/src/Gui/Icons/freecad.svg" height="100px" width="100px" alt="Prumo 3D">
+<img src="/prumo-addon/Prumo3D/Resources/icons/prumo.svg" height="100px" width="100px" alt="Prumo 3D">
 
 # Prumo 3D
 
-### Modelagem 3D paramétrica em português, com a cara e as ferramentas da Prumo 3D
+### Modelagem 3D paramétrica em português
 
-[Problemas e sugestões](https://github.com/prumo-engenharia/Prumo3D/issues) •
+[Baixar](https://github.com/prumo3d/prumo3d/releases/latest) •
+[Problemas e sugestões](https://github.com/prumo3d/prumo3d/issues) •
 [Como contribuir](CONTRIBUTING.md) •
-[FreeCAD original](https://github.com/FreeCAD/FreeCAD) •
 [Documentação do FreeCAD](https://wiki.freecad.org)
 
-<img src="/.github/images/prumo/02-peca.png" width="800" alt="Peça modelada no Prumo 3D">
-
-O Prumo 3D é uma distribuição do [FreeCAD](https://www.freecad.org), o modelador 3D paramétrico de
-código aberto, preparada pela [Prumo 3D](https://github.com/prumo-engenharia) para quem trabalha com
-projeto mecânico no Brasil. Ele mantém todo o FreeCAD e acrescenta interface em português, identidade visual
-própria e ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
+O Prumo 3D é um modelador 3D paramétrico livre e gratuito, em português, para projeto mecânico:
+peças, montagens, desenho técnico e simulação por elementos finitos. É baseado no
+[FreeCAD](https://www.freecad.org) e mantém tudo o que ele oferece, com uma interface reorganizada e
+ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 
 > [!NOTE]
-> Projeto em desenvolvimento. O instalador para Windows está em testes e a versão para Linux está planejada.
 > O Prumo 3D não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.
+
+<!-- Imagens: serão adicionadas a partir das capturas do Prumo 3D (pasta .github/images/prumo). -->
 
 Visão geral
 -----------
 
 * **Tudo em português** Menus, painéis, nomes de propriedades e opções de listas traduzidos, inclusive termos
-  que a tradução oficial ainda não cobre.
+  que a tradução oficial do FreeCAD ainda não cobre.
 
-* **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Sólidos, Montagem,
-  Desenho, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece sozinha ao editar
-  um esboço.
+* **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Sólidos,
+  Montagem, Desenho, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
+  sozinha ao editar um esboço.
 
 * **Tela inicial** Começa uma peça, montagem, desenho técnico, esboço ou planilha com um clique e mostra os
   arquivos recentes.
@@ -36,14 +35,16 @@ Visão geral
 * **Assistente de simulação** Análise por elementos finitos em etapas guiadas: peça, material, fixações,
   cargas, malha, verificação de pendências, resultados e relatório em PDF.
 
+* **Biblioteca de materiais** Aços estruturais, inoxidáveis, para vasos de pressão, para construção mecânica,
+  tubos, forjados e alumínio, com as especificações usadas no Brasil.
+
 * **Tutorial da primeira peça** Passo a passo interativo (esboço, cotas, extrusão, furo, arredondamento e
   salvar) que acompanha o que você faz na tela.
 
 * **Guia ilustrado** Ao editar extrusão, cavidade, furo, arredondamento, chanfro, padrões e outras operações,
   o painel de tarefas mostra um desenho do que a operação faz no modo escolhido.
 
-* **Identidade visual Prumo** Tema claro nas cores da empresa, ícones redesenhados, tela de abertura e
-  modelos de folha A1 a A4 para desenho técnico.
+* **Visual próprio** Tema claro, ícones redesenhados e tela de abertura do Prumo 3D.
 
 * **Testes automatizados** Um conjunto de testes confere tradução, aparência, assistente de simulação e
   comportamento da interface a cada versão.
@@ -51,40 +52,41 @@ Visão geral
 * **Base sólida** Tudo o que o FreeCAD oferece continua disponível: núcleo geométrico OpenCASCADE, cena 3D
   Coin3D, interface Qt e programação em Python.
 
-Imagens
--------
-
-| | |
-|:---:|:---:|
-| <img src="/.github/images/prumo/01-inicio.png" width="400" alt="Tela inicial"><br>Tela inicial | <img src="/.github/images/prumo/03-esboco.png" width="400" alt="Edição de esboço"><br>Esboço com restrições |
-| <img src="/.github/images/prumo/04-desenho.png" width="400" alt="Desenho técnico"><br>Desenho técnico no modelo A3 Prumo | <img src="/.github/images/prumo/05-simulacao.png" width="400" alt="Simulação"><br>Assistente de simulação com resultado de tensões |
-
 Instalação
 ----------
 
-O instalador para Windows está em fase de testes e será publicado na
-[página de versões](https://github.com/prumo-engenharia/Prumo3D/releases) assim que estiver aprovado.
-Ele instala o Prumo 3D ao lado de um FreeCAD original já existente, sem substituí-lo.
+Baixe a versão mais recente na [página de versões](https://github.com/prumo3d/prumo3d/releases/latest):
 
-A versão para Linux está planejada para depois da aprovação da versão Windows.
-
-Versões do código
------------------
-
-| Ramo | Base | Uso |
+| Sistema | Arquivo | Como usar |
 |---|---|---|
-| `prumo-1.1` | FreeCAD 1.1.4 (estável) | Versão usada para gerar os instaladores |
-| `prumo-main` | Ramo de desenvolvimento do FreeCAD | Onde as novidades são feitas e testadas primeiro |
+| Windows 10/11 (64 bits) | `Prumo3D_…-installer.exe` | Rode o instalador. |
+| Windows (portátil) | `Prumo3D_…-Windows-….7z` | Descompacte e abra `bin\Prumo3D.exe`. |
+| Linux (64 bits) | `Prumo3D_…-Linux-….AppImage` | Marque como executável e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
 
-O complemento Prumo (interface, tradução, assistentes e tema) fica em [`prumo-addon/`](prumo-addon/), os
-roteiros de compilação em [`prumo-build/`](prumo-build/) e as correções no código do FreeCAD em
-[`prumo-patches/`](prumo-patches/).
+O Prumo 3D tem pasta de configurações própria e pode ser instalado ao lado do FreeCAD, sem interferir nele.
+
+Código
+------
+
+| Pasta | Conteúdo |
+|---|---|
+| [`prumo-addon/`](prumo-addon/) | Complemento com a interface do Prumo 3D: faixa, tradução, tela inicial, assistentes, tema e ícones |
+| [`prumo-build/`](prumo-build/) | Roteiro de compilação no Windows |
+| [`prumo-patches/`](prumo-patches/) | Correções aplicadas ao código do FreeCAD |
+| [`package/`](package/) | Instalador Windows e empacotamento (Windows e AppImage) |
+| [`.github/workflows/publicar.yml`](.github/workflows/publicar.yml) | Geração e publicação automática das versões |
+
+O ramo `main` tem como base o FreeCAD 1.1.4 (estável).
 
 Compilação
 ----------
 
-No Windows, o roteiro [`prumo-build/compilar.ps1`](prumo-build/compilar.ps1) confere os pré-requisitos e
-compila. É preciso:
+**Automática:** cada tag `v*` enviada ao GitHub dispara o fluxo
+[Publicar versão](.github/workflows/publicar.yml), que compila no Windows e no Linux e publica os arquivos.
+Ele também pode ser rodado à mão pela aba *Actions*, para testes.
+
+**No Windows, localmente:** o roteiro [`prumo-build/compilar.ps1`](prumo-build/compilar.ps1) confere os
+pré-requisitos e compila. É preciso:
 
 - Visual Studio 2022 com a carga de trabalho *Desenvolvimento para desktop com C++*;
 - Git for Windows;
@@ -92,27 +94,25 @@ compila. É preciso:
 - pelo menos 40 GB livres em disco.
 
 Rode `prumo-build\compilar.ps1 -SomenteVerificar` para conferir o ambiente e depois sem o parâmetro para
-compilar. Para detalhes gerais sobre a compilação do FreeCAD, veja o
-[Manual do Desenvolvedor do FreeCAD](https://freecad.github.io/DevelopersHandbook/gettingstarted/) (em inglês).
+compilar. Detalhes em [`prumo-build/LEIA-ME.md`](prumo-build/LEIA-ME.md). Para a compilação do FreeCAD em
+geral, veja o [Manual do Desenvolvedor do FreeCAD](https://freecad.github.io/DevelopersHandbook/gettingstarted/)
+(em inglês).
 
 Como relatar problemas
 ----------------------
 
-Para relatar um problema:
-
-- Procure nos [problemas já abertos](https://github.com/prumo-engenharia/Prumo3D/issues) para não
-  repetir um relato;
-- Informe a versão em `Ajuda > Sobre o FreeCAD > Copiar para a área de transferência`;
+- Procure nos [problemas já abertos](https://github.com/prumo3d/prumo3d/issues) para não repetir um relato;
+- Informe a versão em `Ajuda > Sobre` (botão de copiar para a área de transferência);
 - Descreva passo a passo como reproduzir o problema;
 - Se puder, anexe um arquivo de exemplo (o `.FCStd` compactado em ZIP);
-- Se o problema também acontece no FreeCAD original, ele provavelmente deve ser relatado no
+- Se o problema também acontece no FreeCAD, ele provavelmente deve ser relatado no
   [repositório do FreeCAD](https://github.com/FreeCAD/FreeCAD/issues).
 
 Uso e ajuda
 -----------
 
-Por ser baseado no FreeCAD, toda a documentação dele vale para o Prumo 3D (wiki em inglês; muitas
-páginas têm versão em português pelo seletor de idioma):
+Por ser baseado no FreeCAD, a documentação dele vale para o Prumo 3D (wiki em inglês; muitas páginas têm
+versão em português pelo seletor de idioma):
 
 - [Primeiros passos](https://wiki.freecad.org/Getting_started)
 - [Lista de recursos](https://wiki.freecad.org/Feature_list)

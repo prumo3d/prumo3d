@@ -11,8 +11,8 @@ body:
         > Se usar IA, leia [nossa política de IA][PoliticaIA] antes. Não é permitido usar IA para escrever o relato.
         > Se o problema também acontece no FreeCAD original, ele deve ser relatado no [repositório do FreeCAD][FreeCAD].
 
-        [Guia]: https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/README.md#como-relatar-problemas
-        [PoliticaIA]: https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/AI_POLICY.md
+        [Guia]: https://github.com/prumo3d/prumo3d/blob/main/README.md#como-relatar-problemas
+        [PoliticaIA]: https://github.com/prumo3d/prumo3d/blob/main/AI_POLICY.md
         [FreeCAD]: https://github.com/FreeCAD/FreeCAD/issues
 
   - type: textarea

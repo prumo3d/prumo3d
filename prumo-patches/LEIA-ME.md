@@ -1,6 +1,6 @@
 # Correções Prumo no código do FreeCAD
 
-Patch gerado sobre o commit `3f29b7272e6d` (o mesmo do clone `prumo-main`).
+Patch gerado originalmente sobre o commit `3f29b7272e6d` do FreeCAD; já está aplicado no ramo `main`.
 Vale quando o fork for compilado — não muda o FreeCAD 1.1.4 instalado.
 
 ## O que corrige

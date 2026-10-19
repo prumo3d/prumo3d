@@ -40,7 +40,7 @@ ou on-line. O que conta como representação pode ser detalhado pelos mantenedor
 ## Aplicação
 
 Casos de comportamento abusivo, assédio ou outra conduta inaceitável podem ser comunicados à equipe do projeto
-pelo e-mail prumo@prumo.com.br. Toda reclamação será analisada e investigada e receberá a resposta
+pelos contatos dos mantenedores indicados na página do projeto no GitHub. Toda reclamação será analisada e investigada e receberá a resposta
 considerada necessária e adequada às circunstâncias. A equipe do projeto mantém sigilo sobre quem fez o
 relato. Regras mais específicas de aplicação poderão ser publicadas separadamente.
 

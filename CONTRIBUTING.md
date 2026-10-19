@@ -9,7 +9,7 @@ O Prumo 3D é formado por duas partes, e cada contribuição tem o seu lugar:
 
 | O que você quer mudar | Onde contribuir |
 |---|---|
-| Complemento Prumo (`prumo-addon/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones, modelos de folha | Aqui, neste repositório |
+| Complemento do Prumo 3D (`prumo-addon/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones | Aqui, neste repositório |
 | Roteiros de compilação e instalador (`prumo-build/`, `package/`) | Aqui, neste repositório |
 | Correção ou recurso no núcleo do FreeCAD que serve para todos os usuários do FreeCAD | No [repositório do FreeCAD](https://github.com/FreeCAD/FreeCAD), seguindo o [processo de contribuição do FreeCAD](https://github.com/FreeCAD/FreeCAD/blob/main/CONTRIBUTING.md) |
 
@@ -19,18 +19,16 @@ o Prumo 3D recebe a correção quando atualizar a base.
 ## 2. Fundamentos
 
 1. O projeto usa o Git e fica hospedado no GitHub, em
-   [prumo-engenharia/Prumo3D](https://github.com/prumo-engenharia/Prumo3D).
+   [prumo3d/prumo3d](https://github.com/prumo3d/prumo3d).
 2. Problemas e sugestões são registrados como
-   [issues](https://github.com/prumo-engenharia/Prumo3D/issues).
+   [issues](https://github.com/prumo3d/prumo3d/issues).
 3. Mudanças no código são propostas por *pull request* (PR).
 4. Cada PR deve resolver um único problema bem definido.
 
 ## 3. Ramos
 
-| Ramo | Base | Uso |
-|---|---|---|
-| `prumo-1.1` | FreeCAD 1.1.4 (estável) | Versão que gera os instaladores. Recebe apenas correções. |
-| `prumo-main` | Ramo de desenvolvimento do FreeCAD | Novidades. Abra seus PRs contra este ramo. |
+O ramo `main` tem como base o FreeCAD 1.1.4 (estável) e é dele que saem as versões publicadas.
+Abra seus PRs contra o `main`.
 
 ## 4. Licença, autoria e créditos
 
@@ -65,8 +63,7 @@ o Prumo 3D recebe a correção quando atualizar a base.
 1. Para pedir uma mudança, abra uma issue descrevendo o problema que você enfrenta ou observa.
 2. A issue deve ser completa: quem lê não deve precisar visitar outros sites para entender o problema.
 3. Concentre-se na tarefa do usuário e no resultado esperado.
-4. Para enviar uma solução, abra um PR contra o ramo `prumo-main` (ou `prumo-1.1`, se for correção da versão
-   estável).
+4. Para enviar uma solução, abra um PR contra o ramo `main`.
 5. A discussão sobre a solução acontece no próprio PR ou na issue relacionada.
 6. Os mantenedores revisam e aceitam ou recusam o PR pela interface do GitHub.
 7. PRs que ainda precisam de bastante trabalho devem ficar como rascunho (*draft*).
@@ -74,8 +71,9 @@ o Prumo 3D recebe a correção quando atualizar a base.
 
 ## 7. Versões
 
-Versões estáveis são marcadas com uma *tag* no ramo `prumo-1.1` e publicadas na
-[página de versões](https://github.com/prumo-engenharia/Prumo3D/releases).
+Versões são marcadas com uma *tag* `v…` no ramo `main` (ex.: `v1.1.4`); o GitHub Actions gera os
+instaladores e publica tudo na
+[página de versões](https://github.com/prumo3d/prumo3d/releases).
 
 ---
 

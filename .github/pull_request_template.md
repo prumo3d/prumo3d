@@ -3,7 +3,7 @@
 <!--
 Obrigado pela contribuição!
 Ao abrir um Pull Request você concorda com o processo de contribuição, que está na raiz do código-fonte
-(CONTRIBUTING.md) ou em https://github.com/prumo-engenharia/Prumo3D/blob/prumo-main/CONTRIBUTING.md
+(CONTRIBUTING.md) ou em https://github.com/prumo3d/prumo3d/blob/main/CONTRIBUTING.md
 
 Este modelo orienta como preparar um PR que possa ser revisado e aprovado rapidamente. Os comentários podem
 ser apagados.
@@ -62,5 +62,4 @@ Qualidade do código
   - O PR está atualizado com o ramo de destino, com commits desnecessários unidos?
 
 Versão
-  - A correção deve ir também para o ramo estável (prumo-1.1)?
 -->
