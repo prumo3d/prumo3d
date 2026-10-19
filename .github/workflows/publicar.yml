@@ -1,0 +1,142 @@
+# Prumo 3D: gera os pacotes para Windows e Linux e publica na página de versões.
+#
+# - Ao enviar uma tag "v*" (ex.: v1.1.4): compila, empacota e cria a versão no GitHub com os arquivos.
+# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota; os arquivos ficam
+#   como artefatos da execução, sem criar versão pública.
+#
+# Formatos:
+#   Windows: instalador (.exe) e versão portátil (.7z)
+#   Linux:   AppImage (arquivo único, roda sem instalar)
+#
+# Baseado no fluxo de publicação do FreeCAD (rattler-build + pixi).
+
+name: Publicar versão
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      rotulo:
+        description: "Rótulo dos arquivos (ex.: teste)"
+        required: false
+        default: "teste"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pacotes:
+    name: Pacote ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-64, os: ubuntu-22.04, pasta: linux }
+          - { target: win-64, os: windows-2022, pasta: windows }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 360
+
+    steps:
+      - name: Liberar espaço em disco (Linux)
+        if: runner.os == 'Linux'
+        uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
+        with:
+          verbose: "true"
+          remove-android: "true"
+          remove-cached-tools: "true"
+
+      - name: Cache do pixi no disco D (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo 'PIXI_CACHE_DIR=D:\rattler' >> "$GITHUB_ENV"
+          echo 'RATTLER_CACHE_DIR=D:\rattler' >> "$GITHUB_ENV"
+
+      - name: Baixar o código
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          submodules: "recursive"
+
+      - uses: prefix-dev/setup-pixi@82d477f15f3a381dbcc8adc1206ce643fe110fb7 # v0.9.3
+        with:
+          pixi-version: v0.59.0
+          cache: false
+          run-install: false
+
+      - name: Definir o rótulo da versão
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            BUILD_TAG="${GITHUB_REF_NAME#v}"
+          else
+            BUILD_TAG="${{ github.event.inputs.rotulo || 'teste' }}-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "BUILD_TAG=${BUILD_TAG}" >> "$GITHUB_ENV"
+          echo "Rótulo: ${BUILD_TAG}"
+
+      - name: Compilar (rattler-build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 package/scripts/write_version_info.py ../prumo3d_version.txt
+          cd package/rattler-build
+          pixi install
+
+      - name: Empacotar
+        shell: bash
+        env:
+          MAKE_INSTALLER: "true"
+          UPLOAD_RELEASE: "false"
+          WINDOWS_SIGN_RELEASE: "0"
+          TARGET_PLATFORM: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          cd package/rattler-build
+          pixi run -e package create_bundle
+          ls -la ${{ matrix.pasta }}
+
+      - name: Guardar os arquivos
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: prumo3d-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.exe
+            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.7z
+            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.AppImage
+            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*-SHA256.txt
+
+  publicar:
+    name: Publicar na página de versões
+    needs: pacotes
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Juntar os arquivos
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: arquivos
+          merge-multiple: true
+
+      - name: Criar a versão
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls -la arquivos
+          notas=".github/notas-da-versao.md"
+          gh release create "${GITHUB_REF_NAME}" arquivos/* \
+            --title "Prumo 3D ${GITHUB_REF_NAME#v}" \
+            --notes-file "${notas}" \
+            --verify-tag
