@@ -48,10 +48,15 @@ concurrency:
 jobs:
   planejar:
     name: Planejar
-    runs-on: ${{ (github.event.inputs.maquina || 'github') == 'pc' && fromJSON('["self-hosted","prumo"]') || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.maquina || 'github') == 'pc' && fromJSON('["self-hosted","prumo","Windows"]') || 'ubuntu-latest' }}
     outputs:
       matriz: ${{ steps.m.outputs.matriz }}
     steps:
+      - name: Git Bash no caminho (Windows, computador próprio)
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\bin"
+
       - id: m
         shell: bash
         run: |
@@ -83,6 +88,12 @@ jobs:
     timeout-minutes: 600
 
     steps:
+      # o "bash" do System32 é o do WSL; os passos precisam do Git Bash
+      - name: Git Bash no caminho (Windows, computador próprio)
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\bin"
+
       - name: Liberar espaço em disco (Linux, máquina do GitHub)
         if: runner.os == 'Linux' && runner.environment == 'github-hosted'
         uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
