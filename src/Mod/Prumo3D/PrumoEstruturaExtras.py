@@ -589,33 +589,6 @@ def gravar_lista_de_soldas(doc, soldas):
 
 
 # ============================================================================ interface
-def _spin(valor, maximo=5000.0, sufixo=" mm", casas=1):
-    s = QtWidgets.QDoubleSpinBox()
-    s.setRange(0.0, maximo)
-    s.setDecimals(casas)
-    s.setSuffix(sufixo)
-    s.setLocale(QtCore.QLocale(QtCore.QLocale.Portuguese, QtCore.QLocale.Brazil))
-    s.setValue(valor)
-    return s
-
-
-def _combo(itens, atual=None):
-    c = QtWidgets.QComboBox()
-    c.addItems(itens)
-    if atual:
-        c.setCurrentText(atual)
-    return c
-
-
-def _botoes(d, texto_ok):
-    bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-    bb.button(QtWidgets.QDialogButtonBox.Ok).setText(texto_ok)
-    bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
-    bb.accepted.connect(d.accept)
-    bb.rejected.connect(d.reject)
-    return bb
-
-
 def _ultimo_material():
     return FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).GetString("UltimoMaterialChapa", "")
 
@@ -624,32 +597,107 @@ def _guardar_material(txt):
     FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).SetString("UltimoMaterialChapa", txt)
 
 
-class DialogoReforco(QtWidgets.QDialog):
-    def __init__(self, em_T=False, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Reforço (mão-francesa)")
-        f = QtWidgets.QFormLayout(self)
-        self.tipo = _combo(TIPOS_REFORCO)
-        self.perna1, self.perna2 = _spin(150.0), _spin(150.0)
-        self.ponta_h = _spin(30.0)
-        self.esp = _spin(8.0, 200.0)
-        self.chanfro = _spin(15.0, 500.0)
-        self.posicao = _combo(POSICOES)
-        self.lados = _combo(["Um lado", "Os dois lados"])
-        self.lados.setEnabled(em_T)
-        self.material = QtWidgets.QLineEdit(_ultimo_material())
+# ---------------------------------------------------------------- painéis de tarefa (estilo PropertyManager)
+import PrumoPainel as P
+
+
+def _filtro_barras(obj, subs):
+    return [(b.Label, b) for b in E.barras_do_item(obj, subs)]
+
+
+def _filtro_tubos(obj, subs):
+    return [(b.Label, b) for b in E.barras_do_item(obj, subs)
+            if PrumoPerfis.perfil(b.Perfil) and PrumoPerfis.perfil(b.Perfil)["tipo"] in ("TUBO", "TQ")]
+
+
+def _filtro_pecas_ou_estrutura(obj, subs):
+    res = []
+    for o, _els in E.resolver_item(obj, subs):
+        if E.eh_estrutura(o):
+            res.append(("%s (todas as juntas)" % o.Label, o))
+        elif E.eh_barra(o) or (hasattr(o, "Shape") and not eh_solda(o) and o.Shape.Solids):
+            res.append((o.Label, o))
+    return res
+
+
+def em_T(a, b):
+    _est, eds, _n, _s = _contexto(a)
+    return any(E._ponto_interior(p, eds[x.Indice]) for x, y in ((a, b), (b, a))
+               for p in (eds[y.Indice].valueAt(eds[y.Indice].FirstParameter),
+                         eds[y.Indice].valueAt(eds[y.Indice].LastParameter)))
+
+
+class PainelReforco(P.PainelTarefa):
+    titulo = "Reforço (mão-francesa)"
+    ajuda = "Selecione as duas barras do canto (ou da ligação em T)."
+
+    def montar(self):
+        f = self.form
+        s1 = f.secao("Barras", "selecao")
+        self.barras = f.caixa(s1, "Barras do canto", _filtro_barras, minimo=2, maximo=2,
+                              dica="As duas barras que se encontram no canto. Selecione na vista ou na árvore.")
+        s2 = f.secao("Forma", "tipo")
+        self.tipo = s2.linha("tipo", P.lista(TIPOS_REFORCO), "Triangular: pontas em canto vivo. Poligonal: "
+                             "pontas cortadas retas (ponta reta abaixo).", "Tipo")
+        self.perna1 = s2.linha("perna", P.numero(150.0), "Quanto o reforço avança sobre a 1ª barra, a partir "
+                               "do canto.", "Perna na 1ª barra")
+        self.perna2 = s2.linha("perna", P.numero(150.0), "Quanto o reforço avança sobre a 2ª barra.",
+                               "Perna na 2ª barra")
+        self.ponta_h = s2.linha("ponta", P.numero(30.0), "Largura das pontas retas (só no tipo poligonal).",
+                                "Ponta reta")
+        self.chanfro = s2.linha("chanfro", P.numero(15.0, maximo=500.0), "Corte no canto interno para a "
+                                "solda das barras passar.", "Chanfro do canto")
+        s3 = f.secao("Chapa", "espessura")
+        self.esp = s3.linha("espessura", P.numero(8.0, maximo=200.0), "Espessura da chapa do reforço.",
+                            "Espessura")
+        self.posicao = s3.linha("posicao", P.lista(POSICOES), "Onde a chapa fica na largura do perfil.",
+                                "Posição")
+        self.lados = s3.linha("lado", P.lista(["Um lado", "Os dois lados"]), "Na ligação em T, reforço de um "
+                              "lado só ou dos dois.", "Ligação em T")
+        self.material = s3.linha("material", QtWidgets.QLineEdit(_ultimo_material()), "Material da chapa "
+                                 "(vai para a lista de materiais).", "Material")
         self.material.setPlaceholderText("ex.: ASTM A36")
-        for rot, w in (("Tipo", self.tipo), ("Perna na 1ª barra", self.perna1), ("Perna na 2ª barra", self.perna2),
-                       ("Pontas retas (poligonal)", self.ponta_h), ("Espessura", self.esp),
-                       ("Chanfro do canto", self.chanfro), ("Posição", self.posicao), ("Ligação em T", self.lados),
-                       ("Material", self.material)):
-            f.addRow(rot, w)
-        f.addRow(_botoes(self, "Inserir"))
+        self.tipo.currentTextChanged.connect(lambda *_: self._tipo())
+        self._tipo()
+
+    def _tipo(self):
+        self.ponta_h.setEnabled(self.tipo.currentText() != TIPOS_REFORCO[0])
+
+    def atualizar(self):
+        bs = self.barras.valores()
+        self.lados.setEnabled(len(bs) == 2 and self._em_T(bs))
+        super().atualizar()
+
+    def _em_T(self, bs):
+        try:
+            return em_T(bs[0], bs[1])
+        except Exception:
+            return False
+
+    def pendencia(self):
+        falta = super().pendencia()
+        if falta:
+            return falta
+        a, b = self.barras.valores()
+        try:
+            no_entre(a, b)
+        except ValueError as ex:
+            return str(ex)
+        return None
 
     def props(self):
         return dict(Tipo=self.tipo.currentText(), Perna1=self.perna1.value(), Perna2=self.perna2.value(),
                     Ponta=self.ponta_h.value(), Espessura=self.esp.value(), Chanfro=self.chanfro.value(),
                     Posicao=self.posicao.currentText(), Material=self.material.text().strip())
+
+    def executar(self):
+        a, b = self.barras.valores()
+        _guardar_material(self.material.text().strip())
+        feitos = [criar_reforco(a, b, **self.props())]
+        if self._em_T([a, b]) and self.lados.currentText() == "Os dois lados":
+            feitos.append(criar_reforco(a, b, InverterLado=True, **self.props()))
+        _relatar(feitos)
+        return feitos
 
 
 def _pontas_livres(b):
@@ -663,24 +711,31 @@ def _ponta_de_baixo(b):
     return 0 if e.valueAt(e.FirstParameter).z <= e.valueAt(e.LastParameter).z else 1
 
 
-class DialogoTampa(QtWidgets.QDialog):
+
+
+class PainelTampa(P.PainelTarefa):
+    titulo = "Tampa de extremidade"
+    ajuda = "Selecione as barras de tubo (redondo ou quadrado) que recebem tampa."
     ESCOLHAS = ["Pontas livres", "Início", "Fim", "As duas pontas"]
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Tampa de extremidade")
-        f = QtWidgets.QFormLayout(self)
-        self.pontas = _combo(self.ESCOLHAS)
-        self.tipo = _combo(TIPOS_TAMPA)
-        self.esp = _spin(3.0, 100.0)
-        self.folga = _spin(1.0, 50.0, casas=2)
-        self.recuo = _spin(0.0, 500.0)
-        self.material = QtWidgets.QLineEdit(_ultimo_material())
-        for rot, w in (("Pontas", self.pontas), ("Tipo", self.tipo), ("Espessura", self.esp),
-                       ("Folga / recuo da borda", self.folga), ("Recuo (interna)", self.recuo),
-                       ("Material", self.material)):
-            f.addRow(rot, w)
-        f.addRow(_botoes(self, "Inserir"))
+    def montar(self):
+        f = self.form
+        s1 = f.secao("Tubos", "selecao")
+        self.barras = f.caixa(s1, "Barras de tubo", _filtro_tubos, minimo=1,
+                              dica="Só tubos redondos e quadrados/retangulares.")
+        s2 = f.secao("Tampa", "tipo")
+        self.pontas = s2.linha("ponta", P.lista(self.ESCOLHAS), "Pontas livres: só as que não encostam em "
+                               "outra barra.", "Pontas")
+        self.tipo = s2.linha("tipo", P.lista(TIPOS_TAMPA), "Por fora: chapa sobre a ponta. Por dentro: "
+                             "chapa encaixada no tubo.", "Tipo")
+        self.esp = s2.linha("espessura", P.numero(3.0, maximo=100.0), "Espessura da chapa da tampa.",
+                            "Espessura")
+        self.folga = s2.linha("folga", P.numero(1.0, maximo=50.0, casas=2), "Folga para a solda (por dentro) "
+                              "ou recuo da borda (por fora).", "Folga / recuo da borda")
+        self.recuo = s2.linha("comprimento", P.numero(0.0, maximo=500.0), "Quanto a tampa interna entra no "
+                              "tubo.", "Recuo (interna)")
+        self.material = s2.linha("material", QtWidgets.QLineEdit(_ultimo_material()), "Material da chapa.",
+                                 "Material")
 
     def pontas_da(self, b):
         e = self.pontas.currentText()
@@ -696,25 +751,46 @@ class DialogoTampa(QtWidgets.QDialog):
         return dict(Tipo=self.tipo.currentText(), Espessura=self.esp.value(), Folga=self.folga.value(),
                     Recuo=self.recuo.value(), Material=self.material.text().strip())
 
+    def pendencia(self):
+        falta = super().pendencia()
+        if falta:
+            return falta
+        if not any(self.pontas_da(b) for b in self.barras.valores()):
+            return "As barras selecionadas não têm pontas livres: escolha Início, Fim ou As duas pontas."
+        return None
 
-class DialogoPlaca(QtWidgets.QDialog):
+    def executar(self):
+        _guardar_material(self.material.text().strip())
+        feitos = [criar_tampa(b, PONTAS[k], **self.props()) for b in self.barras.valores()
+                  for k in self.pontas_da(b)]
+        _relatar(feitos)
+        return feitos
+
+
+class PainelPlaca(P.PainelTarefa):
+    titulo = "Placa de base"
+    ajuda = "Selecione as colunas (barras) que recebem a placa."
     ESCOLHAS = ["Ponta de baixo", "Início", "Fim"]
 
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Placa de base")
-        f = QtWidgets.QFormLayout(self)
-        self.ponta = _combo(self.ESCOLHAS)
-        self.larg, self.comp, self.esp = _spin(250.0), _spin(300.0), _spin(16.0, 200.0)
-        self.furos = _combo(["0", "2", "4"], "4")
-        self.diam, self.borda = _spin(22.0, 200.0), _spin(40.0, 500.0)
-        self.material = QtWidgets.QLineEdit(_ultimo_material())
-        for rot, w in (("Ponta", self.ponta), ("Largura (na largura do perfil)", self.larg),
-                       ("Comprimento (na altura do perfil)", self.comp), ("Espessura", self.esp),
-                       ("Furos", self.furos), ("Diâmetro do furo", self.diam), ("Furo até a borda", self.borda),
-                       ("Material", self.material)):
-            f.addRow(rot, w)
-        f.addRow(_botoes(self, "Inserir"))
+    def montar(self):
+        f = self.form
+        s1 = f.secao("Colunas", "selecao")
+        self.barras = f.caixa(s1, "Colunas", _filtro_barras, minimo=1)
+        s2 = f.secao("Placa", "largura")
+        self.ponta = s2.linha("ponta", P.lista(self.ESCOLHAS), "Em que ponta da coluna fica a placa.",
+                              "Ponta")
+        self.larg = s2.linha("largura", P.numero(250.0), "Medida na direção da largura do perfil.", "Largura")
+        self.comp = s2.linha("altura", P.numero(300.0), "Medida na direção da altura do perfil.",
+                             "Comprimento")
+        self.esp = s2.linha("espessura", P.numero(16.0, maximo=200.0), "Espessura da placa.", "Espessura")
+        self.material = s2.linha("material", QtWidgets.QLineEdit(_ultimo_material()), "Material da placa.",
+                                 "Material")
+        s3 = f.secao("Furação", "furo")
+        self.furos = s3.linha("quantidade", P.lista(["0", "2", "4"], "4"), "Quantidade de furos para os "
+                              "chumbadores.", "Furos")
+        self.diam = s3.linha("furo", P.numero(22.0, maximo=200.0), "Diâmetro do furo.", "Diâmetro")
+        self.borda = s3.linha("folga", P.numero(40.0, maximo=500.0), "Distância do centro do furo até a "
+                              "borda da placa.", "Furo até a borda")
 
     def ponta_da(self, b):
         e = self.ponta.currentText()
@@ -725,29 +801,71 @@ class DialogoPlaca(QtWidgets.QDialog):
                     Furos=self.furos.currentText(), DiametroFuro=self.diam.value(),
                     DistanciaBorda=self.borda.value(), Material=self.material.text().strip())
 
+    def executar(self):
+        _guardar_material(self.material.text().strip())
+        feitos = [criar_placa_base(b, PONTAS[self.ponta_da(b)], **self.props()) for b in self.barras.valores()]
+        _relatar(feitos)
+        return feitos
 
-class DialogoSolda(QtWidgets.QDialog):
-    def __init__(self, parent=None, todas=False):
-        super().__init__(parent)
-        self.setWindowTitle("Cordão de solda" + (" — todas as juntas" if todas else ""))
-        f = QtWidgets.QFormLayout(self)
+
+class PainelSolda(P.PainelTarefa):
+    titulo = "Cordão de solda"
+    ajuda = "Selecione a estrutura inteira (solda todas as juntas) ou duas ou mais peças que se tocam."
+
+    def montar(self):
+        f = self.form
         g = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH)
-        self.perna = _spin(g.GetFloat("UltimaPernaSolda", 5.0), 50.0)
-        self.processo = _combo(PROCESSOS, g.GetString("UltimoProcessoSolda", PROCESSOS[0]))
-        self.eletrodo = QtWidgets.QLineEdit(g.GetString("UltimoEletrodo", ""))
+        s1 = f.secao("Peças", "selecao")
+        self.pecas = f.caixa(s1, "Estrutura ou peças", _filtro_pecas_ou_estrutura, minimo=1,
+                             dica="Estrutura: um cordão em cada junta. Peças: um cordão nas linhas de contato.")
+        s2 = f.secao("Cordão", "solda")
+        self.perna = s2.linha("perna", P.numero(g.GetFloat("UltimaPernaSolda", 5.0), maximo=50.0),
+                              "Perna (z) do filete: o lado do triângulo da solda.", "Perna do filete (z)")
+        self.processo = s2.linha("processo", P.lista(PROCESSOS, g.GetString("UltimoProcessoSolda", PROCESSOS[0])),
+                                 "Processo de soldagem (vai para a lista de soldas).", "Processo")
+        self.eletrodo = s2.linha("eletrodo", QtWidgets.QLineEdit(g.GetString("UltimoEletrodo", "")),
+                                 "Consumível: eletrodo revestido ou arame.", "Eletrodo / arame")
         self.eletrodo.setPlaceholderText("ex.: E7018, ER70S-6")
-        self.obs = QtWidgets.QLineEdit()
-        f.addRow("Perna do filete (z)", self.perna)
-        f.addRow("Processo", self.processo)
-        f.addRow("Eletrodo / arame", self.eletrodo)
-        f.addRow("Observação", self.obs)
-        f.addRow(_botoes(self, "Inserir"))
+        self.obs = s2.linha("texto", QtWidgets.QLineEdit(), "Observação livre (ex.: solda contínua).",
+                            "Observação")
+
+    def _divide(self):
+        vs = self.pecas.valores()
+        return [o for o in vs if E.eh_estrutura(o)], [o for o in vs if not E.eh_estrutura(o)]
+
+    def pendencia(self):
+        ests, pecas = self._divide()
+        if ests:
+            return None
+        if len(pecas) < 2:
+            return "Selecione a estrutura inteira ou duas ou mais peças que se tocam."
+        return None
+
+    def pronto_texto(self):
+        ests, _p = self._divide()
+        if ests:
+            return "Pronto: um cordão em cada junta de %s." % ", ".join(e.Label for e in ests)
+        return "Pronto: um cordão nas linhas de contato entre as peças."
 
     def guardar(self):
         g = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH)
         g.SetFloat("UltimaPernaSolda", self.perna.value())
         g.SetString("UltimoProcessoSolda", self.processo.currentText())
         g.SetString("UltimoEletrodo", self.eletrodo.text().strip())
+
+    def executar(self):
+        self.guardar()
+        ests, pecas = self._divide()
+        args = (self.perna.value(), self.processo.currentText(), self.eletrodo.text().strip(),
+                self.obs.text().strip())
+        if ests:
+            feitos = []
+            for est in ests:
+                feitos += soldar_estrutura(est, *args)
+            return feitos
+        feitos = [criar_solda(pecas, *args)]
+        _relatar(feitos)
+        return feitos
 
 
 def juntas_da_estrutura(est):
@@ -788,116 +906,52 @@ def _relatar(objs):
 class CmdReforco:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("reforco.svg"), "MenuText": "Reforço",
-                "ToolTip": "Mão-francesa (gusset) triangular ou poligonal no canto entre as duas barras "
-                           "selecionadas, apoiada nas faces internas, com chanfro para a solda."}
+                "ToolTip": "Mão-francesa (gusset) triangular ou poligonal no canto entre duas barras, "
+                           "apoiada nas faces internas, com chanfro para a solda. Selecione as barras antes "
+                           "ou depois de abrir o painel."}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
-        bs = E.barras_da_selecao()
-        if len(bs) != 2:
-            _aviso("Reforço", "Selecione as duas barras do canto (ou da ligação em T).")
-            return
-        try:
-            _p, a, b = no_entre(bs[0], bs[1])
-        except ValueError as ex:
-            _aviso("Reforço", str(ex))
-            return
-        _est, eds, _n, _s = _contexto(bs[0])
-        em_T = any(E._ponto_interior(p, eds[x.Indice]) for x, y in ((bs[0], bs[1]), (bs[1], bs[0]))
-                   for p in (eds[y.Indice].valueAt(eds[y.Indice].FirstParameter),
-                             eds[y.Indice].valueAt(eds[y.Indice].LastParameter)))
-        d = DialogoReforco(em_T, FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        _guardar_material(d.material.text().strip())
-        feitos = [criar_reforco(bs[0], bs[1], **d.props())]
-        if em_T and d.lados.currentText() == "Os dois lados":
-            feitos.append(criar_reforco(bs[0], bs[1], InverterLado=True, **d.props()))
-        _relatar(feitos)
+        PainelReforco().mostrar()
 
 
 class CmdTampa:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("tampa.svg"), "MenuText": "Tampa de extremidade",
-                "ToolTip": "Fecha as pontas dos tubos selecionados, por fora ou por dentro, com folga para a solda."}
+                "ToolTip": "Fecha as pontas dos tubos, por fora ou por dentro, com folga para a solda."}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
-        bs = [b for b in E.barras_da_selecao() if PrumoPerfis.perfil(b.Perfil) and
-              PrumoPerfis.perfil(b.Perfil)["tipo"] in ("TUBO", "TQ")]
-        if not bs:
-            _aviso("Tampa de extremidade", "Selecione barras de tubo redondo ou quadrado.")
-            return
-        d = DialogoTampa(FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        _guardar_material(d.material.text().strip())
-        feitos = []
-        for b in bs:
-            for k in d.pontas_da(b):
-                feitos.append(criar_tampa(b, PONTAS[k], **d.props()))
-        if not feitos:
-            _aviso("Tampa de extremidade", "As barras selecionadas não têm pontas livres.")
-        _relatar(feitos)
+        PainelTampa().mostrar()
 
 
 class CmdPlacaBase:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("placa_base.svg"), "MenuText": "Placa de base",
-                "ToolTip": "Sapata com furação na ponta das barras (colunas) selecionadas."}
+                "ToolTip": "Sapata com furação na ponta das colunas."}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
-        bs = E.barras_da_selecao()
-        if not bs:
-            _aviso("Placa de base", "Selecione as colunas (barras) que recebem a placa.")
-            return
-        d = DialogoPlaca(FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        _guardar_material(d.material.text().strip())
-        _relatar([criar_placa_base(b, PONTAS[d.ponta_da(b)], **d.props()) for b in bs])
+        PainelPlaca().mostrar()
 
 
 class CmdSolda:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("solda.svg"), "MenuText": "Cordão de solda",
-                "ToolTip": "Cordão de filete entre as peças selecionadas (barras, reforços, placas). Com a "
-                           "estrutura selecionada, solda todas as juntas."}
+                "ToolTip": "Cordão de filete entre peças (barras, reforços, placas). Com a estrutura "
+                           "selecionada, solda todas as juntas."}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
-        sel = FreeCADGui.Selection.getSelection()
-        ests = [o for o in sel if E.eh_estrutura(o)]
-        if ests:
-            d = DialogoSolda(FreeCADGui.getMainWindow(), todas=True)
-            if not d.exec():
-                return
-            d.guardar()
-            n = 0
-            for est in ests:
-                n += len(soldar_estrutura(est, d.perna.value(), d.processo.currentText(),
-                                          d.eletrodo.text().strip(), d.obs.text().strip()))
-            _aviso("Cordão de solda", "%d cordões criados." % n)
-            return
-        pecas = [o for o in sel if hasattr(o, "Shape") and o.Shape.Solids and not eh_solda(o)]
-        if len(pecas) < 2:
-            _aviso("Cordão de solda", "Selecione duas ou mais peças que se tocam (ou a estrutura inteira).")
-            return
-        d = DialogoSolda(FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        d.guardar()
-        _relatar([criar_solda(pecas, d.perna.value(), d.processo.currentText(), d.eletrodo.text().strip(),
-                              d.obs.text().strip())])
+        PainelSolda().mostrar()
 
 
 class CmdListaSoldas:

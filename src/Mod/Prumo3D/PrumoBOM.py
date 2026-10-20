@@ -19,14 +19,17 @@ except ImportError:  # pragma: no cover
     from PySide2 import QtWidgets
 
 NOME_PLANILHA = "ListaDeMateriais"
-COLUNAS = ["Item", "Qtd.", "Denominação", "Material", "Dimensões (mm)", "Massa unit. (kg)",
+COLUNAS = ["Item", "Qtd.", "Código", "Denominação", "Material", "Dimensões (mm)", "Massa unit. (kg)",
            "Massa total (kg)", "Observação"]
-LARGURAS = [40, 40, 220, 140, 170, 115, 120, 140]
+LARGURAS = [40, 40, 90, 200, 130, 160, 105, 110, 120]
+LETRAS = "ABCDEFGHI"
+ULTIMA = LETRAS[len(COLUNAS) - 1]
 
 
 class Linha:
-    def __init__(self, chave, denominacao, material, dimensoes, massa, obs=""):
+    def __init__(self, chave, denominacao, material, dimensoes, massa, obs="", codigo=""):
         self.chave = chave
+        self.codigo = codigo
         self.qtd = 0
         self.denominacao = denominacao
         self.material = material
@@ -99,6 +102,9 @@ def coletar(objs, densidade_padrao=None):
         elif _prop(base, "Denominacao") and "Norma" in base.PropertiesList:
             # peça padronizada (fixador): iguais pela descrição e material
             chave = ("padrao", str(base.Denominacao), str(_prop(base, "Material") or ""))
+        elif _prop(base, "Codigo"):
+            # peças com código (Propriedades da peça): iguais pelo código e material
+            chave = ("codigo", str(base.Codigo), PrumoUtil.material(base)[0])
         else:
             chave = ("obj", base.Document.Name, base.Name)
         if chave not in linhas:
@@ -126,8 +132,11 @@ def coletar(objs, densidade_padrao=None):
                 nome_mat, definido = (mat_txt, True) if mat_txt else ("—", True)
                 den = "Barra " + str(perfil)
                 obs = "" if _prop(base, "SituacaoDados") in (None, "confirmado") else "perfil a conferir"
+            acab = _prop(base, "Acabamento")
+            if acab:
+                obs = (obs + "; " if obs else "") + str(acab)
             linhas[chave] = Linha(chave, den, nome_mat if definido else "—", _dimensoes(base, sh),
-                                  massa, obs)
+                                  massa, obs, str(_prop(base, "Codigo") or ""))
             ordem.append(chave)
         linhas[chave].qtd += 1
     return [linhas[k] for k in ordem]
@@ -141,32 +150,33 @@ def gravar_planilha(doc, linhas, titulo="Lista de materiais"):
         sheet.Label = titulo
     else:
         sheet.clearAll()
-    cols = "ABCDEFGH"
+    cols = LETRAS
     for i, (nome, larg) in enumerate(zip(COLUNAS, LARGURAS)):
         sheet.set("%s1" % cols[i], nome)
         sheet.setColumnWidth(cols[i], larg)
-    sheet.setStyle("A1:H1", "bold")
-    sheet.setBackground("A1:H1", (0.0, 0.227, 0.439))
-    sheet.setForeground("A1:H1", (1.0, 1.0, 1.0))
-    sheet.setAlignment("A1:H1", "center|vcenter")
+    sheet.setStyle("A1:%s1" % ULTIMA, "bold")
+    sheet.setBackground("A1:%s1" % ULTIMA, (0.0, 0.227, 0.439))
+    sheet.setForeground("A1:%s1" % ULTIMA, (1.0, 1.0, 1.0))
+    sheet.setAlignment("A1:%s1" % ULTIMA, "center|vcenter")
     total = 0.0
     for n, ln in enumerate(linhas, 1):
         r = n + 1
         sheet.set("A%d" % r, str(n))
         sheet.set("B%d" % r, str(ln.qtd))
-        sheet.set("C%d" % r, "'" + ln.denominacao)
-        sheet.set("D%d" % r, "'" + ln.material)
-        sheet.set("E%d" % r, "'" + ln.dimensoes)
-        sheet.set("F%d" % r, "'" + fmt(ln.massa, 3))
-        sheet.set("G%d" % r, "'" + fmt(ln.massa_total, 3))
-        sheet.set("H%d" % r, "'" + ln.obs)
+        sheet.set("C%d" % r, "'" + (ln.codigo or ""))
+        sheet.set("D%d" % r, "'" + ln.denominacao)
+        sheet.set("E%d" % r, "'" + ln.material)
+        sheet.set("F%d" % r, "'" + ln.dimensoes)
+        sheet.set("G%d" % r, "'" + fmt(ln.massa, 3))
+        sheet.set("H%d" % r, "'" + fmt(ln.massa_total, 3))
+        sheet.set("I%d" % r, "'" + ln.obs)
         total += ln.massa_total
     r = len(linhas) + 2
-    sheet.set("F%d" % r, "Total")
-    sheet.set("G%d" % r, "'" + fmt(total, 3))
-    sheet.setStyle("F%d:G%d" % (r, r), "bold")
-    sheet.setAlignment("A2:B%d" % r, "center|vcenter")
-    sheet.setAlignment("F2:G%d" % r, "right|vcenter")
+    sheet.set("G%d" % r, "Total")
+    sheet.set("H%d" % r, "'" + fmt(total, 3))
+    sheet.setStyle("G%d:H%d" % (r, r), "bold")
+    sheet.setAlignment("A2:C%d" % r, "center|vcenter")
+    sheet.setAlignment("G2:H%d" % r, "right|vcenter")
     doc.recompute()
     return sheet
 
@@ -201,7 +211,7 @@ def altura_legenda(page):
 
 def tamanho_tabela(sheet, n_linhas, escala):
     """(largura, altura) da tabela na folha, em mm."""
-    larg = sum(sheet.getColumnWidth(c) for c in "ABCDEFGH") * PX_MM * escala
+    larg = sum(sheet.getColumnWidth(c) for c in LETRAS[:len(COLUNAS)]) * PX_MM * escala
     alt = sum(sheet.getRowHeight(str(r)) for r in range(1, n_linhas + 3)) * PX_MM * escala
     return larg, alt
 
@@ -224,7 +234,7 @@ def inserir_na_folha(page, sheet, n_linhas):
         vista.Source = sheet
         page.addView(vista)
     vista.CellStart = "A1"
-    vista.CellEnd = "H%d" % (n_linhas + 2)
+    vista.CellEnd = "%s%d" % (ULTIMA, n_linhas + 2)
     alt_px = float(sheet.getRowHeight("1")) or 30.0
     escala = ALTURA_LINHA_MM / (alt_px * PX_MM)
     try:

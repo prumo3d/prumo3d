@@ -147,7 +147,8 @@ TABS = [
             ("Sketcher_ValidateSketch", S, "Validar esboço"), ("Std_Measure", L, "Medir"),
         ]),
         ("Prumo", [
-            ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Massa", S, "Propriedades de massa"),
+            ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
+            ("Prumo_Massa", S, "Propriedades de massa"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
         ]),
     ]},
@@ -180,7 +181,7 @@ TABS = [
             ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Assembly_Insert", L, "Inserir\ncomponente"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
-            ("Prumo_Massa", S, "Propriedades de massa"),
+            ("Prumo_Massa", S, "Propriedades de massa"), ("Prumo_Propriedades", S, "Propriedades da peça"),
         ]),
         ("Juntas", [
             ("Assembly_ToggleGrounded", L, "Fixar"), ("Assembly_CreateJointFixed", L, "Junta\nfixa"),
@@ -245,6 +246,7 @@ TABS = [
         ]),
         ("Conferir", [
             ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
+            ("Prumo_Propriedades", S, "Propriedades da peça"),
             ("Std_Measure", S, "Medir"),
         ]),
         ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),
@@ -643,7 +645,7 @@ class RibbonButton(QtWidgets.QToolButton):
         if len(actions) > 1:
             menu = QtWidgets.QMenu(self)
             for a in actions:
-                menu.addAction(a)
+                menu.addAction(_proxy_selecao(a, self) or a)
             menu.triggered.connect(self._on_menu)
             self.setMenu(menu)
             self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
@@ -674,12 +676,19 @@ class RibbonButton(QtWidgets.QToolButton):
             self._ajustar_largura()
 
     def _on_menu(self, action):
-        self._current = action
+        self._current = getattr(action, "_original", action)
         self._sync()
+
+    def nome_comando(self, a=None):
+        a = a or self._current
+        n = a.whatsThis() if a is not None else ""
+        return n or (getattr(self, "_cmd", "") if len(self._actions) == 1 else "")
 
     def _on_click(self):
         a = self._current
-        if a is not None and a.isEnabled():
+        if _pedir_selecao(self.nome_comando(a)):
+            pass
+        elif a is not None and a.isEnabled():
             a.trigger()
         self._sync()
 
@@ -710,12 +719,60 @@ class RibbonButton(QtWidgets.QToolButton):
             self._tipkey = key
             self.setToolTip(_rich_tip(icon, title, desc, sc))
         enabled = any(x.isEnabled() for x in self._actions) if len(self._actions) > 1 else a.isEnabled()
+        if not enabled and _selecao_depois(self.nome_comando(a)):
+            enabled = True     # sem seleção, o clique abre o painel que pede a seleção
         self.setEnabled(enabled)
         # Em grupos (menu), o botão não espelha o estado "marcado" da subopção
         checkable = a.isCheckable() and len(self._actions) == 1
         self.setCheckable(checkable)
         if checkable:
             self.setChecked(a.isChecked())
+
+
+def _selecao_depois(nome):
+    """Comando que exige seleção antes mas que, no Prumo, também aceita a seleção depois."""
+    try:
+        import PrumoSelecao
+        return nome in PrumoSelecao.SELECAO_PRIMEIRO and FreeCAD.ActiveDocument is not None
+    except Exception:
+        return False
+
+
+def _pedir_selecao(nome):
+    """Se o comando precisa de seleção que ainda não existe, abre o painel e devolve True."""
+    try:
+        import PrumoSelecao
+        if PrumoSelecao.precisa_de_painel(nome):
+            PrumoSelecao.pedir_para_comando(nome)
+            return True
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: seleção para {}: {}\n".format(nome, exc))
+    return False
+
+
+def _proxy_selecao(a, parent):
+    """No menu dos grupos, a ação desligada por falta de seleção vira uma cópia sempre ligada."""
+    nome = a.whatsThis()
+    if not _nome_selecao(nome):
+        return None
+    QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
+    px = QAction(a.icon(), a.text(), parent)
+    px.setToolTip(a.toolTip())
+    px._original = a
+
+    def disparar(checked=False, original=a, n=nome):
+        if not _pedir_selecao(n) and original.isEnabled():
+            original.trigger()
+    px.triggered.connect(disparar)
+    return px
+
+
+def _nome_selecao(nome):
+    try:
+        import PrumoSelecao
+        return nome in PrumoSelecao.SELECAO_PRIMEIRO
+    except Exception:
+        return False
 
 
 def _largura_estilo(b, estilo):

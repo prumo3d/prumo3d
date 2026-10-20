@@ -248,38 +248,74 @@ def criar(doc, tipo, m, comp=0.0, placement=None, material=""):
 
 
 # ============================================================================ interface
-class DialogoFixador(QtWidgets.QDialog):
-    def __init__(self, diam_sugerido=None, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Peças padronizadas")
-        lay = QtWidgets.QVBoxLayout(self)
-        form = QtWidgets.QFormLayout()
+import PrumoPainel as P
+
+
+def _filtro_furo(obj, subs):
+    """Aresta circular de um furo → (texto, (placement, diâmetro sugerido))."""
+    res = []
+    for n in subs:
+        if not n.rpartition(".")[2].startswith("Edge"):
+            continue
+        try:
+            pl, furo = posicao_no_furo(obj, n)
+        except Exception:
+            pl = None
+        if pl is not None:
+            r = getattr(furo, "Radius", 0.0) if furo is not None else 0.0
+            res.append(("Furo ⌀%s mm em %s" % (fmt_dim(2 * r) if r else "?", obj.Label),
+                        (n, pl, diametro_para_furo(furo))))
+    return res
+
+
+class PainelFixador(P.PainelTarefa):
+    titulo = "Peças padronizadas"
+    ajuda = "Escolha o fixador. Para encaixar num furo, selecione a aresta do furo (opcional)."
+
+    def __init__(self, diam_sugerido=None):
+        self._sugerido = diam_sugerido
+        super().__init__()
+
+    def montar(self):
+        f = self.form
+        s0 = f.secao("Furo (opcional)", "furo")
+        self.furo = f.caixa(s0, "Aresta do furo", _filtro_furo, minimo=0, maximo=1,
+                            dica="Clique na borda circular do furo: o fixador vai para o furo, com a rosca "
+                                 "sugerida pelo diâmetro.")
+        s1 = f.secao("Fixador", "parafuso")
         self.tipo = QtWidgets.QComboBox()
         for k, v in TIPOS.items():
             self.tipo.addItem("%s (%s)" % (v, NORMA[k]), k)
-        self.diam = QtWidgets.QComboBox()
-        self.comp = QtWidgets.QComboBox()
+        s1.linha("tipo", self.tipo, "Parafuso sextavado, allen, porca ou arruela, conforme a norma.", "Tipo")
+        self.diam = s1.linha("furo", QtWidgets.QComboBox(), "Rosca métrica grossa.", "Rosca")
+        self.comp = s1.linha("comprimento", QtWidgets.QComboBox(), "Comprimento nominal (da cabeça à ponta, "
+                             "no sextavado e no allen). Pode digitar.", "Comprimento (mm)")
         self.comp.setEditable(True)
-        self.material = QtWidgets.QLineEdit(FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).GetString("UltimoMaterialFixador", ""))
+        self.material = s1.linha("material", QtWidgets.QLineEdit(
+            FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).GetString("UltimoMaterialFixador", "")),
+            "Classe e acabamento (vai para a lista de materiais).", "Material")
         self.material.setPlaceholderText("ex.: aço classe 8.8, zincado")
-        self.aviso = QtWidgets.QLabel("")
-        self.aviso.setWordWrap(True)
-        form.addRow("Tipo", self.tipo)
-        form.addRow("Rosca", self.diam)
-        form.addRow("Comprimento (mm)", self.comp)
-        form.addRow("Material", self.material)
-        lay.addLayout(form)
-        lay.addWidget(self.aviso)
+        self.aviso = s1.texto("")
         self.tipo.currentIndexChanged.connect(self._tipo)
         self.diam.currentIndexChanged.connect(self._diam)
-        self._sugerido = diam_sugerido
         self._tipo()
-        bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        bb.button(QtWidgets.QDialogButtonBox.Ok).setText("Inserir")
-        bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
-        bb.accepted.connect(self._ok)
-        bb.rejected.connect(self.reject)
-        lay.addWidget(bb)
+
+    def atualizar(self):
+        fs = self.furo.valores() if hasattr(self, "furo") else []
+        if fs and fs[0][2] and self.diam.currentText() != fs[0][2]:
+            i = self.diam.findText(fs[0][2])
+            if i >= 0:
+                self.diam.setCurrentIndex(i)
+        super().atualizar()
+
+    def pendencia(self):
+        if self.comprimento_valido() is None:
+            return "Comprimento inválido: informe um número em mm, maior que zero."
+        return None
+
+    def pronto_texto(self):
+        return "Pronto: o fixador vai %s." % ("para o furo selecionado" if self.furo.valores()
+                                               else "para a origem (sem furo selecionado)")
 
     def comprimento_valido(self):
         """Comprimento digitado (mm) ou None se inválido (vazio, texto, ≤ 0 ou acima de 10·d + 100)."""
@@ -299,13 +335,6 @@ class DialogoFixador(QtWidgets.QDialog):
         if d and v > 10 * d + 100:
             return None
         return v
-
-    def _ok(self):
-        if self.comprimento_valido() is None:
-            QtWidgets.QMessageBox.warning(self, "Peças padronizadas",
-                                          "Comprimento inválido. Informe um número em mm, maior que zero.")
-            return
-        self.accept()
 
     def _tipo(self, *_a):
         t = self.tipo.currentData()
@@ -341,6 +370,16 @@ class DialogoFixador(QtWidgets.QDialog):
             raise ValueError("comprimento inválido: %s" % self.comp.currentText())
         return t, self.diam.currentText(), comp, self.material.text().strip()
 
+    def executar(self):
+        tipo, m, comp, mat = self.valores()
+        FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).SetString("UltimoMaterialFixador", mat)
+        fs = self.furo.valores()
+        pl = fs[0][1] if fs else None
+        return criar(FreeCAD.ActiveDocument, tipo, m, comp, pl, mat)
+
+
+DialogoFixador = PainelFixador   # nome antigo
+
 
 class CmdFixador:
     def GetResources(self):
@@ -353,21 +392,4 @@ class CmdFixador:
         return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
-        doc = FreeCAD.ActiveDocument
-        pl, diam = None, None
-        # seleção não resolvida: objeto de topo + caminho, para valer a posição global
-        for s in FreeCADGui.Selection.getSelectionEx("", 0):
-            for n in s.SubElementNames:
-                if n.rpartition(".")[2].startswith("Edge"):
-                    pl, furo = posicao_no_furo(s.Object, n)
-                    if pl is not None:
-                        diam = diametro_para_furo(furo)
-                        break
-            if pl is not None:
-                break
-        d = DialogoFixador(diam, FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        tipo, m, comp, mat = d.valores()
-        FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).SetString("UltimoMaterialFixador", mat)
-        criar(doc, tipo, m, comp, pl, mat)
+        PainelFixador().mostrar()

@@ -1326,7 +1326,7 @@ class Assistente(QtWidgets.QWidget):
     def _montar_carga(self, lay):
         lay.addWidget(_dica("Selecione as faces onde a carga atua e escolha o tipo. A força é dividida entre "
                             "as faces selecionadas. Perpendicular à face, ela empurra a face (como a pressão); "
-                            "confira o sentido das setas na vista 3D e use “Inverter” se precisar."))
+                            "confira o sentido das setas na vista 3D. Para puxar a face (tração), escolha “Puxa a face”."))
         self.cb_carga = QtWidgets.QComboBox()
         self.cb_carga.addItem("Força total (N)", "forca")
         self.cb_carga.addItem("Pressão (MPa)", "pressao")
@@ -1341,7 +1341,15 @@ class Assistente(QtWidgets.QWidget):
         self.cb_dir = QtWidgets.QComboBox()
         self.cb_dir.addItem("Perpendicular à face", "normal")
         self.cb_dir.addItem("Na direção de uma aresta (selecione também a aresta)", "aresta")
-        self.ck_inv = QtWidgets.QCheckBox("Inverter sentido (puxar a face em vez de empurrar)")
+        import PrumoPainel
+        # sentido da carga com desenho: empurra (compressão, como pressão ou peso apoiado) ou puxa (tração,
+        # como um gancho puxando a orelha). Vale para a próxima carga; para uma já aplicada, use
+        # "Inverter sentido da selecionada".
+        self.ck_inv = PrumoPainel.Opcoes([
+            ("empurra", "Empurra a face", "empurra", "Compressão: a força aponta para dentro da peça, como uma "
+             "pressão ou um peso apoiado."),
+            ("puxa", "Puxa a face", "puxa", "Tração: a força aponta para fora da peça, como um gancho ou cabo "
+             "puxando.")], "empurra")
         self.ck_inv.setToolTip("Vale para a próxima carga aplicada. Para uma carga já aplicada, use "
                                "“Inverter sentido da selecionada”.")
         lay.addWidget(self.sp_carga)
@@ -1412,7 +1420,7 @@ class Assistente(QtWidgets.QWidget):
                 self._erro("Para a direção por aresta, selecione também uma aresta (Ctrl + clique).")
                 return
         val = self.sp_carga.value()
-        inv = self.ck_inv.isChecked()
+        inv = self.ck_inv.valor() == "puxa"
 
         grupos = None
         if k == "forca" and aresta is None:

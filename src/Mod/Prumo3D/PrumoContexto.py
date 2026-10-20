@@ -142,6 +142,7 @@ def itens_para(selecao):
         itens.append("Prumo_CtxMedir")
     if tem_peca:
         itens.append("Prumo_Massa")
+        itens.append("Prumo_Propriedades")
     return itens
 
 

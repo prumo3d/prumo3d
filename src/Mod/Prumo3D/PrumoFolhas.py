@@ -79,6 +79,14 @@ def campos_padrao(doc, objs=None):
         salvo = g.GetString("Folha_" + chave, "")
         if salvo and not v.get(chave):
             v[chave] = salvo
+    if objs and len(objs) == 1:
+        # uma peça: a legenda vem das propriedades dela (código, denominação, revisão, material, massa)
+        try:
+            import PrumoPropriedades
+            v.update({k: val for k, val in PrumoPropriedades.legenda_de(objs[0]).items() if val})
+            return v
+        except Exception:
+            pass
     if objs:
         try:
             import PrumoMassa
@@ -128,6 +136,12 @@ def nova_folha(doc, formato=FORMATO_PADRAO, norma=NORMA_PADRAO, retrato=None, ca
         if k in et:
             et[k] = str(val)
     tpl.EditableTexts = et
+    if objs and len(objs) == 1:
+        try:
+            import PrumoPropriedades
+            PrumoPropriedades.vincular_folha(page, objs[0])
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: folha ligada à peça: %s\n" % exc)
     if objs:
         _vistas(doc, page, objs, escala)
         valores["escala"] = _texto_escala(page.Scale)
@@ -241,64 +255,92 @@ def _vistas(doc, page, objs, escala=None):
 
 
 # ============================================================================ diálogo
-class DialogoFolha(QtWidgets.QDialog):
-    def __init__(self, doc, objs, parent=None):
-        super().__init__(parent)
-        self.doc = doc
-        self.objs = objs
-        self.setWindowTitle("Nova folha ABNT")
-        lay = QtWidgets.QVBoxLayout(self)
-        form = QtWidgets.QFormLayout()
-        self.formato = QtWidgets.QComboBox()
-        self.formato.addItems(FORMATOS)
-        self.formato.setCurrentText(FREECAD_PARAM().GetString("FolhaFormato", FORMATO_PADRAO))
-        self.retrato = QtWidgets.QCheckBox("Retrato (folha em pé)")
+import PrumoPainel as P
+
+CAMPOS_LEGENDA = (("titulo", "Título", "texto"), ("numero", "Nº do desenho", "quantidade"),
+                  ("empresa", "Empresa", "folha"), ("cliente", "Cliente / obra", "folha"),
+                  ("material", "Material", "material"), ("tolerancias", "Tolerâncias gerais", "folga"),
+                  ("desenhista", "Desenhista", "texto"), ("resp_tecnico", "Responsável técnico", "texto"),
+                  ("crea", "CREA / CFT", "texto"), ("art", "ART nº", "quantidade"), ("revisao", "Revisão", "texto"))
+
+
+def _filtro_pecas(obj, subs):
+    return [(obj.Label, obj)] if PrumoUtil.pecas([obj]) else []
+
+
+class PainelFolha(P.PainelTarefa):
+    titulo = "Nova folha ABNT"
+    ajuda = "Selecione as peças para as vistas (opcional) e confira a legenda."
+
+    def __init__(self, doc=None, objs=None):
+        self.doc = doc or FreeCAD.ActiveDocument
+        self._objs_iniciais = list(objs or [])
+        super().__init__()
+
+    def montar(self):
+        f = self.form
+        s0 = f.secao("Peças", "selecao")
+        self.pecas = f.caixa(s0, "Peças para as vistas", _filtro_pecas, minimo=0,
+                             dica="Peças, corpos, partes ou montagens. Sem peças, a folha sai em branco.")
+        for o in self._objs_iniciais:
+            self.pecas.aceitar(o)
+        s1 = f.secao("Folha", "folha")
+        self.formato = s1.linha("folha", P.lista(FORMATOS, FREECAD_PARAM().GetString("FolhaFormato",
+                                                                                       FORMATO_PADRAO)),
+                                "A0 a A4 (NBR 10068).", "Formato")
+        self.retrato = s1.linha("altura", P.marcar("Retrato (folha em pé)"), "Só no A4.")
         self.norma = QtWidgets.QComboBox()
         for k, v in NORMAS.items():
             self.norma.addItem(v, k)
         idx = self.norma.findData(FREECAD_PARAM().GetString("FolhaNorma", NORMA_PADRAO))
         self.norma.setCurrentIndex(max(idx, 0))
+        s1.linha("tipo", self.norma, "Modelo de legenda: NBR 16752 (atual) ou NBR 10068.", "Padrão da folha")
         self.formato.currentTextChanged.connect(self._formato)
         self._formato(self.formato.currentText())
-        form.addRow("Formato", self.formato)
-        form.addRow("", self.retrato)
-        form.addRow("Padrão da folha", self.norma)
-        valores = campos_padrao(doc, objs)
+        s2 = f.secao("Legenda", "texto")
+        valores = campos_padrao(self.doc, self.pecas.valores())
         self.campos = {}
-        for chave, rotulo in (("titulo", "Título"), ("numero", "Nº do desenho"), ("empresa", "Empresa"),
-                              ("cliente", "Cliente / obra"), ("material", "Material"),
-                              ("tolerancias", "Tolerâncias gerais"), ("desenhista", "Desenhista"),
-                              ("resp_tecnico", "Responsável técnico"), ("crea", "CREA / CFT"),
-                              ("art", "ART nº"), ("revisao", "Revisão")):
-            w = QtWidgets.QLineEdit(valores.get(chave, ""))
-            self.campos[chave] = w
-            form.addRow(rotulo, w)
+        for chave, rotulo, ic in CAMPOS_LEGENDA:
+            self.campos[chave] = s2.linha(ic, QtWidgets.QLineEdit(valores.get(chave, "")), rotulo, rotulo)
         self.massa = valores.get("massa", "")
-        self.vistas = QtWidgets.QCheckBox("Colocar as vistas (frontal, superior, lateral e isométrica)")
+        s3 = f.secao("Vistas", "posicao")
+        self.vistas = s3.linha("posicao", P.marcar("Colocar as vistas (frontal, superior, lateral e "
+                                                   "isométrica)", bool(self.pecas.valores())),
+                               "Vistas no 1º diedro, na escala normalizada que cabe.")
+        self.pecas.mudou.connect(self._pecas_mudaram)
+
+    def _pecas_mudaram(self):
+        objs = self.pecas.valores()
         self.vistas.setChecked(bool(objs))
-        self.vistas.setEnabled(bool(objs))
-        lay.addLayout(form)
-        lay.addWidget(self.vistas)
-        if not objs:
-            dica = QtWidgets.QLabel("Selecione peças antes de abrir para já colocar as vistas.")
-            dica.setStyleSheet("color:#5B6876")
-            lay.addWidget(dica)
-        bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        bb.button(QtWidgets.QDialogButtonBox.Ok).setText("Criar folha")
-        bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
-        bb.accepted.connect(self.accept)
-        bb.rejected.connect(self.reject)
-        lay.addWidget(bb)
+        v = campos_padrao(self.doc, objs)
+        self.massa = v.get("massa", "")
+        for chave in ("material", "numero", "revisao", "titulo"):
+            if v.get(chave) and (not self.campos[chave].text().strip() or chave == "titulo"):
+                self.campos[chave].setText(v[chave])
 
     def _formato(self, f):
         self.retrato.setEnabled(f == "A4")
         self.retrato.setChecked(f == "A4")
+
+    def pendencia(self):
+        if self.doc is None:
+            return "Abra ou crie um documento."
+        return None
+
+    def pronto_texto(self):
+        n = len(self.pecas.valores())
+        return ("Pronto: folha com as vistas de %d peça(s)." % n) if n and self.vistas.isChecked() \
+            else "Pronto: folha em branco (selecione peças para as vistas)."
 
     def valores(self):
         c = {k: w.text().strip() for k, w in self.campos.items()}
         if self.massa:
             c["massa"] = self.massa
         return c
+
+    @property
+    def objs(self):
+        return self.pecas.valores()
 
     def criar(self):
         formato = self.formato.currentText()
@@ -308,7 +350,22 @@ class DialogoFolha(QtWidgets.QDialog):
         campos = self.valores()
         lembrar_campos(campos)
         return nova_folha(self.doc, formato, norma, self.retrato.isChecked() if formato == "A4" else False,
-                          campos, self.objs if self.vistas.isChecked() else None)
+                          campos, self.objs if self.vistas.isChecked() and self.objs else None)
+
+    def executar(self):
+        page = self.criar()
+        QtCore.QTimer.singleShot(0, lambda: _abrir_folha(page))
+        return page
+
+
+def _abrir_folha(page):
+    try:
+        page.ViewObject.doubleClicked()
+    except Exception:
+        pass
+
+
+DialogoFolha = PainelFolha   # nome antigo
 
 
 def FREECAD_PARAM():
@@ -331,12 +388,4 @@ class CmdNovaFolha:
             import TechDrawGui  # noqa: F401
         except ImportError:
             pass
-        doc = FreeCAD.ActiveDocument
-        objs = [o for o in FreeCADGui.Selection.getSelection() if PrumoUtil.pecas([o])]
-        d = DialogoFolha(doc, objs, FreeCADGui.getMainWindow())
-        if d.exec():
-            page = d.criar()
-            try:
-                page.ViewObject.doubleClicked()
-            except Exception:
-                pass
+        PainelFolha(FreeCAD.ActiveDocument).mostrar()

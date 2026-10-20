@@ -1156,11 +1156,17 @@ class DialogoEstrutura(QtWidgets.QDialog):
 
     # ------------------------------------------------------------------ montagem
     def _montar(self):
+        import PrumoPainel as P
+        self.setStyleSheet(P.qss())
         lay = QtWidgets.QVBoxLayout(self)
+        self.mensagem = P.Mensagem("1. Escolha o perfil do grupo Padrão (vale para todas as linhas). "
+                                   "2. Para outro perfil em algumas linhas, crie um grupo e ponha as linhas nele. "
+                                   "3. Confira os cantos e o material.")
+        lay.addWidget(self.mensagem)
         topo = QtWidgets.QHBoxLayout()
         # grupos
         col = QtWidgets.QVBoxLayout()
-        col.addWidget(QtWidgets.QLabel("<b>Grupos de barras</b>"))
+        col.addWidget(P.titulo_secao("Grupos de barras", "tipo"))
         self.lista = QtWidgets.QListWidget()
         self.lista.setMinimumWidth(250)
         self.lista.setMaximumWidth(300)
@@ -1173,8 +1179,9 @@ class DialogoEstrutura(QtWidgets.QDialog):
         col.addLayout(bl)
         topo.addLayout(col)
         # editor do grupo
-        ed = QtWidgets.QGroupBox("Grupo")
+        ed = QtWidgets.QWidget()
         fl = QtWidgets.QFormLayout(ed)
+        fl.addRow(P.titulo_secao("Perfil do grupo", "largura"))
         self.nome = QtWidgets.QLineEdit()
         self.sel = SeletorPerfil(self.grupos_ed[0]["perfil"])
         self.giro = QtWidgets.QDoubleSpinBox()
@@ -1185,10 +1192,11 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.fixacao.addItems(FIXACOES)
         self.fixacao.setToolTip("Ponto da seção que fica sobre a linha do esboço (localizar perfil)")
         self.espelhar = QtWidgets.QCheckBox("Espelhar a seção (abas do U / da cantoneira para o outro lado)")
-        fl.addRow("Nome", self.nome)
+        fl.addRow(P.rotulo("texto", "Nome", "Nome do grupo (aparece na lista de corte)"), self.nome)
         fl.addRow(self.sel)
-        fl.addRow("Giro", self.giro)
-        fl.addRow("Ponto de fixação", self.fixacao)
+        fl.addRow(P.rotulo("angulo", "Giro", "Gira a seção em volta da linha"), self.giro)
+        fl.addRow(P.rotulo("posicao", "Ponto de fixação", "Ponto da seção que fica sobre a linha"),
+                  self.fixacao)
         fl.addRow("", self.espelhar)
         self.sel.aviso.setMinimumHeight(self.sel.aviso.fontMetrics().lineSpacing() * 4 + 6)
         self.sel.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
@@ -1196,8 +1204,9 @@ class DialogoEstrutura(QtWidgets.QDialog):
         topo.addWidget(ed, 1)
         lay.addLayout(topo, 1)
         # linhas do esqueleto
-        lay.addWidget(QtWidgets.QLabel("<b>Linhas do esqueleto</b> — escolha o grupo de cada uma, ou selecione "
-                                       "linhas na tela e use o botão abaixo."))
+        lay.addWidget(P.titulo_secao("Linhas do esqueleto", "selecao"))
+        lay.addWidget(QtWidgets.QLabel("Escolha o grupo de cada linha, ou selecione linhas na tela e use o botão "
+                                       "abaixo."))
         self.tabela = QtWidgets.QTableWidget(len(self.eds), 3)
         self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Grupo"])
         self.tabela.horizontalHeader().setStretchLastSection(True)
@@ -1222,6 +1231,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         bt.addStretch(1)
         lay.addLayout(bt)
         # opções gerais
+        lay.addWidget(P.titulo_secao("Opções", "chanfro"))
         fg = QtWidgets.QFormLayout()
         self.uniao = QtWidgets.QComboBox()
         self.uniao.addItems(UNIOES)
@@ -1232,8 +1242,10 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.material.setPlaceholderText("ex.: ASTM A572 Gr. 50")
         if self.est is not None:
             self.uniao.setCurrentText(self.est.Uniao)
-        fg.addRow("Cantos (padrão)", self.uniao)
-        fg.addRow("Material", self.material)
+        fg.addRow(P.rotulo("chanfro", "Cantos (padrão)", "Cada canto pode ser trocado depois em Cantos"),
+                  self.uniao)
+        fg.addRow(P.rotulo("material", "Material", "Vai para a lista de corte e a lista de materiais"),
+                  self.material)
         lay.addLayout(fg)
         self.aviso = QtWidgets.QLabel("")
         self.aviso.setStyleSheet("color:#B5523F")
@@ -1431,6 +1443,22 @@ def abrir_dialogo(esqueleto, est=None):
     return d
 
 
+def _filtro_esqueleto(obj, subs):
+    if eh_estrutura(obj) or eh_barra(obj):
+        return []
+    try:
+        ok = bool(arestas(obj)) and not (hasattr(obj, "Shape") and obj.Shape.Solids)
+    except Exception:
+        ok = False
+    return [(obj.Label, obj)] if ok else []
+
+
+def _filtro_estrutura_ou_barras(obj, subs):
+    if eh_estrutura(obj):
+        return [("%s (todos os cantos)" % obj.Label, obj)]
+    return [(b.Label, b) for b in barras_do_item(obj, subs)]
+
+
 def _esqueleto_selecionado():
     for o in FreeCADGui.Selection.getSelection():
         if eh_estrutura(o) or eh_barra(o):
@@ -1456,9 +1484,10 @@ class CmdEstrutura:
     def Activated(self):
         esq = _esqueleto_selecionado()
         if esq is None:
-            QtWidgets.QMessageBox.information(
-                FreeCADGui.getMainWindow(), "Estrutura soldada",
-                "Selecione o esboço (ou arame) com as linhas de centro da estrutura.")
+            import PrumoSelecao
+            PrumoSelecao.pedir("Estrutura soldada", "Escolha o esboço com as linhas de centro da estrutura "
+                               "(na vista ou na árvore).", [("Esboço (esqueleto)", _filtro_esqueleto, 1, 1)],
+                               lambda esqs: abrir_dialogo(esqs[0]))
             return
         abrir_dialogo(esq)
 
@@ -1471,7 +1500,7 @@ class CmdEditarEstrutura:
                            "e a que grupo pertence cada linha do esqueleto."}
 
     def IsActive(self):
-        return any(estrutura_de(o) is not None for o in FreeCADGui.Selection.getSelection())
+        return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
         for o in FreeCADGui.Selection.getSelection():
@@ -1479,6 +1508,9 @@ class CmdEditarEstrutura:
             if est is not None:
                 abrir_dialogo(est.Esqueleto, est)
                 return
+        import PrumoSelecao
+        PrumoSelecao.pedir("Editar estrutura", "Escolha a estrutura (ou uma barra dela).",
+                           [("Estrutura", "estruturas", 1, 1)], lambda ests: abrir_dialogo(ests[0].Esqueleto, ests[0]))
 
 
 def barras_da_selecao(sel=None):
@@ -1508,6 +1540,39 @@ def barras_da_selecao(sel=None):
     return res
 
 
+class _ItemSel:
+    def __init__(self, obj, subs):
+        self.Object = obj
+        self.SubElementNames = list(subs)
+
+
+def resolver_item(obj, subs=()):
+    """(objeto, [elementos]) de um item de seleção com caminho completo ("Parte.Barra001.Face2")."""
+    alvos = []
+    for sub in (subs or ("",)):
+        o, el = obj, sub
+        if sub and "." in sub:
+            try:
+                dono = obj.getSubObject(sub, retType=1)
+                if dono is not None:
+                    o = dono
+                    el = sub.rsplit(".", 1)[-1]
+            except Exception:
+                pass
+        alvos.append((o, el))
+    agrup = {}
+    for o, el in alvos:
+        agrup.setdefault(o, [])
+        if el:
+            agrup[o].append(el)
+    return list(agrup.items())
+
+
+def barras_do_item(obj, subs=()):
+    """Barras indicadas por um item de seleção (para as caixas de seleção dos painéis)."""
+    return barras_da_selecao([_ItemSel(o, els) for o, els in resolver_item(obj, subs)])
+
+
 class CmdTrocarPerfil:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("barra.svg"),
@@ -1521,12 +1586,14 @@ class CmdTrocarPerfil:
     def Activated(self):
         bs = barras_da_selecao()
         if not bs:
-            QtWidgets.QMessageBox.information(
-                FreeCADGui.getMainWindow(), "Trocar perfil",
-                "Selecione as barras que vão mudar de perfil (na tela ou na árvore). Também vale "
-                "selecionar linhas do esqueleto ou a estrutura inteira.\n\nPara separar a estrutura em "
-                "grupos de perfis, use \"Editar estrutura\".")
+            import PrumoSelecao
+            PrumoSelecao.pedir("Trocar perfil", "Escolha as barras que vão mudar de perfil (na tela ou na "
+                               "árvore). Para separar a estrutura em grupos de perfis, use Editar estrutura.",
+                               [("Barras", "barras", 1, None)], lambda barras: self.trocar(barras))
             return
+        self.trocar(bs)
+
+    def trocar(self, bs):
         d = QtWidgets.QDialog(FreeCADGui.getMainWindow())
         d.setWindowTitle("Trocar perfil — %d barra(s)" % len(bs))
         lay = QtWidgets.QVBoxLayout(d)
@@ -1569,7 +1636,10 @@ class DialogoCantos(QtWidgets.QDialog):
         self.est = est
         self.setWindowTitle("Cantos da estrutura")
         self.setMinimumSize(1060, 380)
+        import PrumoPainel as P
+        self.setStyleSheet(P.qss())
         lay = QtWidgets.QVBoxLayout(self)
+        lay.addWidget(P.titulo_secao("Tratamento dos cantos", "chanfro"))
         todos = cantos(est)
         if barras:
             idx = {b.Indice for b in barras}
@@ -1710,19 +1780,35 @@ class CmdCantos:
                            "pelo contorno nas ligações em T. Cantos parecidos são tratados de uma vez."}
 
     def IsActive(self):
-        return any(estrutura_de(o) is not None for o in FreeCADGui.Selection.getSelection())
+        return FreeCAD.ActiveDocument is not None
 
     def Activated(self):
         sel = FreeCADGui.Selection.getSelection()
         est = next((estrutura_de(o) for o in sel if estrutura_de(o) is not None), None)
-        barras = [o for o in sel if eh_barra(o) and o.Estrutura == est]
-        d = DialogoCantos(est, barras if barras and not any(eh_estrutura(o) for o in sel) else None,
-                          FreeCADGui.getMainWindow())
-        if not d.linhas:
-            QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Cantos",
-                                              "Não há cantos de duas barras nem ligações em T aqui.")
+        if est is None:
+            import PrumoSelecao
+            PrumoSelecao.pedir("Cantos", "Escolha a estrutura inteira (todos os cantos) ou algumas barras (só "
+                               "os cantos delas).", [("Estrutura ou barras", _filtro_estrutura_ou_barras, 1, None)],
+                               lambda itens: abrir_cantos(itens))
             return
-        d.exec()
+        barras = [o for o in sel if eh_barra(o) and o.Estrutura == est]
+        abrir_cantos([est] if any(eh_estrutura(o) for o in sel) or not barras else barras)
+
+
+def abrir_cantos(itens):
+    """Diálogo Cantos para a estrutura (itens = [estrutura]) ou para as barras escolhidas."""
+    est = next((estrutura_de(o) for o in itens if estrutura_de(o) is not None), None)
+    if est is None:
+        return None
+    barras = [o for o in itens if eh_barra(o) and o.Estrutura == est]
+    d = DialogoCantos(est, barras if barras and not any(eh_estrutura(o) for o in itens) else None,
+                      FreeCADGui.getMainWindow())
+    if not d.linhas:
+        QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Cantos",
+                                          "Não há cantos de duas barras nem ligações em T aqui.")
+        return d
+    d.exec()
+    return d
 
 
 class CmdListaDeCorte:

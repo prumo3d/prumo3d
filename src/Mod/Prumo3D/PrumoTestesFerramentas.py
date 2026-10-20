@@ -570,9 +570,10 @@ class T14ListaMateriais(unittest.TestCase):
         linhas = PrumoBOM.coletar([b], 1000)
         sh = PrumoBOM.gravar_planilha(self.doc, linhas)
         self.assertEqual(sh.get("A1"), "Item")
-        self.assertEqual(sh.get("C2"), "Bloco")
-        self.assertEqual(sh.get("F3"), "Total")
-        self.assertEqual(sh.get("G3"), "0,001")
+        self.assertEqual(sh.get("C1"), "Código")
+        self.assertEqual(sh.get("D2"), "Bloco")
+        self.assertEqual(sh.get("G3"), "Total")
+        self.assertEqual(sh.get("H3"), "0,001")
         # atualizar não duplica
         sh2 = PrumoBOM.gravar_planilha(self.doc, linhas)
         self.assertIs(sh, sh2)
@@ -673,7 +674,7 @@ class T14ListaMateriais(unittest.TestCase):
         sh = PrumoBOM.gravar_planilha(self.doc, linhas)
         v = PrumoBOM.inserir_na_folha(page, sh, len(linhas))
         self.assertIn(v, page.Views)
-        self.assertEqual(v.CellEnd, "H3")
+        self.assertEqual(v.CellEnd, "I3")
         v2 = PrumoBOM.inserir_na_folha(page, sh, len(linhas))
         self.assertIs(v, v2)
 
@@ -2070,14 +2071,15 @@ class T25EstruturaInterface(unittest.TestCase):
         col = PrumoEstrutura.barras_de(PrumoEstrutura.criar(self.doc, sk2, TQ50))[0]
         self.assertEqual(X._pontas_livres(col), [0, 1])
         self.assertEqual(X._ponta_de_baixo(col), 0)
-        for D in (X.DialogoReforco, X.DialogoTampa, X.DialogoPlaca):
+        FreeCADGui.Selection.clearSelection()
+        for D in (X.PainelReforco, X.PainelTampa, X.PainelPlaca):
             dl = D()
             self.assertIn("Material", dl.props())
-            dl.close()
-        dt = X.DialogoTampa()
+            dl.form.deleteLater()
+        dt = X.PainelTampa()
         dt.pontas.setCurrentText("Pontas livres")
         self.assertEqual(dt.pontas_da(col), [0, 1])
-        dt.close()
+        dt.form.deleteLater()
         for nome in ("Prumo_Estrutura", "Prumo_EditarEstrutura", "Prumo_Cantos", "Prumo_Reforco", "Prumo_Tampa",
                      "Prumo_PlacaBase", "Prumo_Solda", "Prumo_ListaSoldas"):
             self.assertIn(nome, FreeCADGui.Command.listAll())
@@ -2761,8 +2763,450 @@ class T32Arvore(unittest.TestCase):
                 self.assertTrue(r.isValid())
 
 
+class T33PaineisVisuais(unittest.TestCase):
+    """Painéis de tarefa no estilo PropertyManager: kit e painéis dos comandos."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.doc = novo_doc("PrumoTestePaineis")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        FreeCADGui.Selection.clearSelection()
+
+    def tearDown(self):
+        FreeCADGui.Selection.clearSelection()
+        if FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _estrutura(self, perfil=None):
+        import PrumoEstrutura as E
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)), ((1000, 600), (0, 600)),
+                                      ((0, 600), (0, 0))], "XZ")
+        est = E.criar(self.doc, sk, perfil or TQ50, uniao="Topo")
+        self.doc.recompute()
+        return est, E.barras_de(est)
+
+    # ---- kit
+    def test_icones_validos(self):
+        import PrumoPainel as P
+        try:
+            from PySide6 import QtSvg
+        except ImportError:  # pragma: no cover
+            from PySide2 import QtSvg
+        for nome in P.ICONES:
+            r = QtSvg.QSvgRenderer(QtCore.QByteArray(P.svg_icone(nome).encode("utf-8")))
+            self.assertTrue(r.isValid(), nome)
+            self.assertFalse(P.icone(nome).isNull(), nome)
+
+    def test_secao_recolhe_e_opcoes(self):
+        import PrumoPainel as P
+        s = P.Secao("Teste", "tipo")
+        campo = s.linha("espessura", P.numero(5.0), "dica do campo", "Espessura")
+        self.assertEqual(campo.toolTip(), "dica do campo")
+        s.topo.setChecked(False)
+        self.assertTrue(s.corpo.isHidden())
+        s.topo.setChecked(True)
+        self.assertFalse(s.corpo.isHidden())
+        o = P.Opcoes([("a", "A", "empurra", ""), ("b", "B", "puxa", "")], "b")
+        self.assertEqual(o.valor(), "b")
+        visto = []
+        o.mudou.connect(visto.append)
+        o.definir("a")
+        self.assertEqual((o.valor(), visto), ("a", ["a"]))
+        m = P.Mensagem()
+        m.mostrar("erro x", "erro")
+        self.assertEqual(m.tipo, "erro")
+
+    def test_caixa_de_selecao_minimo_maximo(self):
+        import PrumoPainel as P
+        _est, bs = self._estrutura()
+        c = P.CaixaSelecao("Barras", lambda o, s: [(o.Label, o)], minimo=2, maximo=2)
+        self.assertFalse(c.pronta())
+        c.aceitar(bs[0])
+        c.aceitar(bs[0])               # repetida não entra
+        self.assertEqual(len(c.valores()), 1)
+        c.aceitar(bs[1])
+        self.assertTrue(c.pronta())
+        c.aceitar(bs[2])               # cheia: a mais antiga sai
+        self.assertEqual(c.valores(), [bs[1], bs[2]])
+        self.assertIn("✓", c.rotulo.text())
+        c.limpar()
+        self.assertIn("falta 2", c.rotulo.text())
+
+    # ---- painéis dos comandos
+    def test_reforco_selecao_antes_de_abrir(self):
+        import PrumoEstruturaExtras as X
+        _est, bs = self._estrutura()
+        FreeCADGui.Selection.addSelection(bs[0])
+        FreeCADGui.Selection.addSelection(bs[1])
+        p = X.PainelReforco()
+        self.assertEqual(p.barras.valores(), [bs[0], bs[1]])
+        self.assertIsNone(p.pendencia())
+        self.assertEqual(p.form.mensagem.tipo, "ok")
+        self.assertTrue(p.accept())
+        self.assertEqual(len([o for o in self.doc.Objects if "Perna1" in o.PropertiesList]), 1)
+
+    def test_reforco_selecao_depois_de_abrir(self):
+        import PrumoEstruturaExtras as X
+        _est, bs = self._estrutura()
+        p = X.PainelReforco().mostrar()
+        try:
+            self.assertFalse(p.barras.pronta())
+            self.assertFalse(p.accept(), "sem as barras não executa")
+            self.assertEqual(p.form.mensagem.tipo, "erro")
+            FreeCADGui.Selection.addSelection(bs[2])
+            FreeCADGui.Selection.addSelection(bs[3])
+            FreeCADGui.updateGui()
+            self.assertEqual(p.barras.valores(), [bs[2], bs[3]])
+            self.assertTrue(p.accept())
+        finally:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        self.assertEqual(len([o for o in self.doc.Objects if "Perna1" in o.PropertiesList]), 1)
+
+    def test_reforco_barras_que_nao_se_tocam(self):
+        import PrumoEstruturaExtras as X
+        _est, bs = self._estrutura()
+        p = X.PainelReforco()
+        p.barras.aceitar(bs[0])
+        p.barras.aceitar(bs[2])        # opostas: não se tocam
+        self.assertTrue(p.pendencia())
+        self.assertFalse(p.accept())
+        p.close()
+
+    def test_tampa_placa_e_solda(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._estrutura()
+        pt = X.PainelPlaca()
+        pt.barras.aceitar(bs[1])
+        self.assertTrue(pt.accept())
+        ps = X.PainelSolda()
+        self.assertTrue(ps.pendencia())
+        ps.pecas.aceitar(est)
+        self.assertIsNone(ps.pendencia())
+        self.assertIn("todas as juntas", ps.pecas.lista.item(0).text())
+        self.assertTrue(ps.accept())
+        self.assertGreaterEqual(len(X.lista_de_soldas([est])), 4)
+        # tampa: estrutura de topo tem tubos sem ponta livre -> pede escolher a ponta
+        tp = X.PainelTampa()
+        tp.barras.aceitar(bs[0])
+        tp.pontas.setCurrentText("Início")
+        self.assertIsNone(tp.pendencia())
+        self.assertTrue(tp.accept())
+
+    def test_folha_pelo_painel(self):
+        import PrumoFolhas
+        b = self.doc.addObject("Part::Box", "Bloco")
+        self.doc.recompute()
+        FreeCADGui.Selection.addSelection(b)
+        p = PrumoFolhas.PainelFolha(self.doc)
+        self.assertEqual(p.objs, [b])
+        self.assertTrue(p.vistas.isChecked())
+        p.campos["titulo"].setText("BLOCO DE TESTE")
+        self.assertTrue(p.accept())
+        paginas = [o for o in self.doc.Objects if o.TypeId == "TechDraw::DrawPage"]
+        self.assertEqual(len(paginas), 1)
+
+    def test_fixador_pelo_painel(self):
+        import PrumoFixadores as F
+        p = F.PainelFixador("M10")
+        self.assertEqual(p.diam.currentText(), "M10")
+        p.comp.setEditText("abc")
+        self.assertTrue(p.pendencia())
+        p.comp.setEditText("40")
+        self.assertIsNone(p.pendencia())
+        self.assertTrue(p.accept())
+        self.assertTrue(any("M10" in o.Label for o in self.doc.Objects))
+
+    def test_carga_empurra_ou_puxa_com_desenho(self):
+        import PrumoPainel as P
+        o = P.Opcoes([("empurra", "Empurra a face", "empurra", ""), ("puxa", "Puxa a face", "puxa", "")])
+        self.assertEqual(o.valor(), "empurra")
+        self.assertEqual(set(o.botoes), {"empurra", "puxa"})
+
+    def test_dialogos_grandes_com_mensagem_e_icones(self):
+        import PrumoEstrutura as E
+        est, _bs = self._estrutura()
+        d = E.DialogoEstrutura(est.Esqueleto, est)
+        self.assertTrue(d.mensagem.text())
+        d.close()
+        c = E.DialogoCantos(est)
+        self.assertTrue(c.nota.text())
+        c.close()
+
+
+class T34FluxoDeSelecao(unittest.TestCase):
+    """Função antes ou peça antes: os dois caminhos funcionam."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.doc = novo_doc("PrumoTesteFluxo")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        FreeCADGui.Selection.clearSelection()
+        self.a = self.doc.addObject("Part::Box", "A")
+        self.b = self.doc.addObject("Part::Cylinder", "B")
+        self.b.Radius, self.b.Height = 3, 20
+        self.doc.recompute()
+
+    def tearDown(self):
+        FreeCADGui.Selection.clearSelection()
+        if FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _esperar(self, n=10):
+        for _ in range(n):
+            FreeCADGui.updateGui()
+
+    def test_comandos_cobertos_existem_e_sao_de_selecao_antes(self):
+        import PrumoSelecao as S
+        for cmd in ("Part_Cut", "Part_Fuse", "Part_Common", "Part_Section"):
+            self.assertIn(cmd, S.SELECAO_PRIMEIRO)
+            self.assertTrue(S.precisa_de_painel(cmd), cmd + " sem seleção deveria pedir o painel")
+
+    def test_subtrair_funcao_antes(self):
+        import PrumoSelecao as S
+        p = S.pedir_para_comando("Part_Cut", mostrar=True, adiar=False)
+        try:
+            self.assertFalse(p.accept())
+            FreeCADGui.Selection.addSelection(self.a)
+            self._esperar()
+            self.assertEqual(p.caixas[0].valores(), [self.a])
+            self.assertTrue(p.caixas[1].ativa, "base cheia: a vez passa para a ferramenta")
+            FreeCADGui.Selection.addSelection(self.b)
+            self._esperar()
+            self.assertEqual(p.caixas[1].valores(), [self.b])
+            self.assertTrue(p.accept())
+        finally:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        self._esperar()
+        cortes = [o for o in self.doc.Objects if o.TypeId == "Part::Cut"]
+        self.assertEqual(len(cortes), 1)
+        self.assertIs(cortes[0].Base, self.a)
+        self.assertIs(cortes[0].Tool, self.b)
+
+    def test_subtrair_peca_antes_preenche_na_ordem(self):
+        import PrumoSelecao as S
+        FreeCADGui.Selection.addSelection(self.b)
+        FreeCADGui.Selection.addSelection(self.a)
+        self.assertFalse(S.precisa_de_painel("Part_Cut"), "com seleção o comando roda direto")
+        p = S.pedir_para_comando("Part_Cut", mostrar=False, adiar=False)
+        self.assertEqual(p.caixas[0].valores(), [self.b])
+        self.assertEqual(p.caixas[1].valores(), [self.a])
+        p.close()
+
+    def test_unir_aceita_varias(self):
+        import PrumoSelecao as S
+        c = self.doc.addObject("Part::Sphere", "C")
+        self.doc.recompute()
+        p = S.pedir_para_comando("Part_Fuse", mostrar=False, adiar=False)
+        for o in (self.a, self.b, c):
+            p.distribuir(o)
+        self.assertEqual(len(p.caixas[0].valores()), 3)
+        self.assertTrue(p.accept())
+        self._esperar()
+        self.assertTrue(any(o.TypeId in ("Part::MultiFuse", "Part::Fuse") for o in self.doc.Objects))
+
+    def test_filtro_recusa_o_que_nao_serve(self):
+        import PrumoSelecao as S
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        self.doc.recompute()
+        p = S.pedir_para_comando("Part_Fuse", mostrar=False, adiar=False)
+        self.assertIsNone(p.distribuir(sk))
+        self.assertEqual(p.caixas[0].valores(), [])
+        p.close()
+
+    def test_botao_da_faixa_fica_ligado_e_abre_o_painel(self):
+        import PrumoRibbon
+        rb = PrumoRibbon._state.get("ribbon")
+        if rb is None:
+            self.skipTest("faixa Prumo não instalada")
+        rb.select_tab("solidos", user=True)
+        self._esperar()
+        bts = [b for b in rb.findChildren(PrumoRibbon.RibbonButton)
+               if any(a.whatsThis() == "Part_Cut" for a in b._actions)]
+        if not bts:
+            self.skipTest("Subtrair não está na faixa desta sessão")
+        b = bts[0]
+        b._current = [a for a in b._actions if a.whatsThis() == "Part_Cut"][0]
+        b._sync()
+        self.assertTrue(b.isEnabled(), "sem seleção o botão continua clicável")
+        b._on_click()
+        self._esperar()
+        dlg = FreeCADGui.Control.activeDialog()
+        self.assertTrue(dlg)
+        FreeCADGui.Control.closeDialog()
+
+    def test_comandos_do_prumo_pedem_a_selecao_depois(self):
+        import PrumoEstrutura as E
+        for nome in ("Prumo_EditarEstrutura", "Prumo_Cantos", "Prumo_TrocarPerfil", "Prumo_Estrutura"):
+            self.assertTrue(FreeCADGui.Command.get(nome).isActive(), nome)
+        sk = esboco_linhas(self.doc, [((0, 0), (800, 0)), ((800, 0), (800, 500))], "XZ")
+        FreeCADGui.runCommand("Prumo_Estrutura", 0)
+        self._esperar()
+        dlg = FreeCADGui.Control.activeDialog()
+        self.assertTrue(dlg, "sem esboço selecionado abre o painel que pede o esboço")
+        FreeCADGui.Selection.addSelection(sk)
+        self._esperar()
+        FreeCADGui.Control.closeDialog()
+        est = E.criar(self.doc, sk, TQ50)
+        self.doc.recompute()
+        FreeCADGui.Selection.clearSelection()
+        for nome in ("Prumo_Cantos", "Prumo_TrocarPerfil", "Prumo_EditarEstrutura"):
+            FreeCADGui.runCommand(nome, 0)
+            self._esperar()
+            self.assertTrue(FreeCADGui.Control.activeDialog(), nome)
+            FreeCADGui.Control.closeDialog()
+            self._esperar()
+
+    def test_filtros_da_estrutura(self):
+        import PrumoEstrutura as E
+        import PrumoSelecao as S
+        sk = esboco_linhas(self.doc, [((0, 0), (800, 0)), ((800, 0), (800, 500))], "XZ")
+        est = E.criar(self.doc, sk, TQ50)
+        self.doc.recompute()
+        b0 = E.barras_de(est)[0]
+        self.assertEqual(S.FILTROS["estruturas"](b0, ()), [(est.Label, est)])
+        self.assertEqual(S.FILTROS["barras"](b0, ()), [(b0.Label, b0)])
+        self.assertEqual(E._filtro_esqueleto(sk, ()), [(sk.Label, sk)])
+        self.assertEqual(E._filtro_esqueleto(b0, ()), [])
+        self.assertEqual(len(E._filtro_estrutura_ou_barras(est, ())), 1)
+
+
+class T35PropriedadesDaPeca(unittest.TestCase):
+    """Código, denominação, revisão e material da peça na lista de materiais e na legenda."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTestePropriedades")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        import PrumoPropriedades
+        self.P = PrumoPropriedades
+        PrumoPropriedades.install()
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _esperar(self):
+        for _ in range(5):
+            if FreeCAD.GuiUp:
+                FreeCADGui.updateGui()
+            QtCore.QCoreApplication.processEvents()
+
+    def _peca(self, nome="Suporte"):
+        b = self.doc.addObject("Part::Box", nome)
+        b.Length, b.Width, b.Height = 100, 50, 10
+        self.doc.recompute()
+        return b
+
+    def _a36(self):
+        uuids = [u for n, u in self.P.materiais_prumo() if n == "ASTM A36"]
+        if not uuids:
+            self.skipTest("biblioteca Prumo não carregada")
+        return uuids[0]
+
+    def test_garantir_cria_as_propriedades(self):
+        b = self.P.garantir(self._peca())
+        for nome, _r, _i, _d in self.P.CAMPOS:
+            self.assertIn(nome, b.PropertiesList)
+        self.assertEqual(b.getGroupOfProperty("Codigo"), self.P.GRUPO)
+        self.P.garantir(b)  # segunda vez não falha
+
+    def test_legenda_da_peca(self):
+        b = self.P.garantir(self._peca())
+        b.Codigo, b.Denominacao, b.Revisao = "SW-101", "Suporte do motor", "B"
+        self.P.definir_material(b, self._a36())
+        self.doc.recompute()
+        v = self.P.legenda_de(b)
+        self.assertEqual(v["titulo"], "SUPORTE DO MOTOR")
+        self.assertEqual(v["numero"], "SW-101")
+        self.assertEqual(v["revisao"], "B")
+        self.assertEqual(v["material"], "ASTM A36")
+        import PrumoUtil
+        self.assertEqual(v["massa"], PrumoUtil.fmt(100 * 50 * 10 * 7850e-9, 3))   # 100×50×10 mm³ × 7850 kg/m³
+
+    def test_lista_de_materiais_com_codigo_e_acabamento(self):
+        import PrumoBOM
+        a = self.P.garantir(self._peca("A"))
+        a.Codigo, a.Denominacao, a.Acabamento = "SW-1", "Chapa de apoio", "zincado"
+        b = self.P.garantir(self._peca("B"))
+        b.Codigo, b.Denominacao, b.Acabamento = "SW-1", "Chapa de apoio", "zincado"
+        self.doc.recompute()
+        linhas = PrumoBOM.coletar([a, b])
+        self.assertEqual(len(linhas), 1, "mesmo código e material: uma linha só")
+        self.assertEqual(linhas[0].qtd, 2)
+        self.assertEqual(linhas[0].codigo, "SW-1")
+        self.assertEqual(linhas[0].denominacao, "Chapa de apoio")
+        self.assertIn("zincado", linhas[0].obs)
+        sh = PrumoBOM.gravar_planilha(self.doc, linhas)
+        self.assertEqual(sh.get("C2"), "SW-1")
+        self.assertEqual(sh.get("D2"), "Chapa de apoio")
+
+    def test_folha_ligada_acompanha_a_peca(self):
+        import PrumoFolhas
+        b = self.P.garantir(self._peca())
+        b.Codigo, b.Denominacao, b.Revisao = "SW-200", "Suporte", "0"
+        self.doc.recompute()
+        page = PrumoFolhas.nova_folha(self.doc, "A4", "NBR16752", True, None, [b])
+        self.assertIs(page.PrumoPeca, b)
+        et = page.Template.EditableTexts
+        self.assertEqual(et.get("numero"), "SW-200")
+        self.assertEqual(et.get("titulo"), "SUPORTE")
+        # muda a peça: a legenda acompanha
+        b.Revisao = "1"
+        b.Denominacao = "Suporte reforçado"
+        self.doc.recompute()
+        self._esperar()
+        et = page.Template.EditableTexts
+        self.assertEqual(et.get("revisao"), "1")
+        self.assertEqual(et.get("titulo"), "SUPORTE REFORÇADO")
+        # material novo: massa e material na legenda
+        self.P.definir_material(b, self._a36())
+        self.doc.recompute()
+        self._esperar()
+        et = page.Template.EditableTexts
+        self.assertEqual(et.get("material"), "ASTM A36")
+        # legenda manual: desligar a automática
+        page.LegendaAutomatica = False
+        b.Revisao = "2"
+        self.doc.recompute()
+        self._esperar()
+        self.assertEqual(page.Template.EditableTexts.get("revisao"), "1")
+
+    def test_folha_de_varias_pecas_nao_liga(self):
+        import PrumoFolhas
+        a, b = self._peca("A"), self._peca("B")
+        page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, None, [a, b])
+        self.assertNotIn("PrumoPeca", page.PropertiesList)
+
+    def test_painel_de_propriedades(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        b = self._peca()
+        p = self.P.PainelPropriedades()
+        self.assertTrue(p.pendencia())
+        p.peca.aceitar(b)
+        p.campos["Codigo"].setText("SW-300")
+        p.campos["Denominacao"].setText("Base")
+        i = p.material.findText("ASTM A36")
+        if i >= 0:
+            p.material.setCurrentIndex(i)
+        self.assertTrue(p.accept())
+        self.assertEqual(b.Codigo, "SW-300")
+        if i >= 0:
+            self.assertEqual(self.P.material(b), "ASTM A36")
+        self.assertIn("Prumo_Propriedades", FreeCADGui.Command.listAll())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
            T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura,
-           T30Faixa, T31Bancadas, T32Arvore]
+           T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
+           T34FluxoDeSelecao, T35PropriedadesDaPeca]
