@@ -534,7 +534,7 @@ double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos, 
 {
     // Prumo: atalhos analíticos/limites inferiores para não projetar (OCC) em cada curva do esboço
     // a cada movimento do mouse; só curvas que podem estar a menos de tol seguem para a projeção.
-    const double far = std::numeric_limits<double>::max();
+    const double longe = std::numeric_limits<double>::max();
     if (const auto* seg = dynamic_cast<const Part::GeomLineSegment*>(curve)) {
         const Base::Vector3d a3 = seg->getStartPoint();
         const Base::Vector3d b3 = seg->getEndPoint();
@@ -550,22 +550,22 @@ double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos, 
         const double dc = Base::Vector2d(pos.x - c.x, pos.y - c.y).Length();
         if (const auto* circ = dynamic_cast<const Part::GeomCircle*>(curve)) {
             if (std::abs(dc - circ->getRadius()) > tol) {
-                return far;
+                return longe;
             }
         }
         else if (const auto* arc = dynamic_cast<const Part::GeomArcOfCircle*>(curve)) {
             if (std::abs(dc - arc->getRadius()) > tol) {
-                return far;
+                return longe;
             }
         }
         else if (const auto* el = dynamic_cast<const Part::GeomEllipse*>(curve)) {
             if (dc - el->getMajorRadius() > tol || el->getMinorRadius() - dc > tol) {
-                return far;
+                return longe;
             }
         }
         else if (const auto* ael = dynamic_cast<const Part::GeomArcOfEllipse*>(curve)) {
             if (dc - ael->getMajorRadius() > tol || ael->getMinorRadius() - dc > tol) {
-                return far;
+                return longe;
             }
         }
     }
@@ -581,7 +581,7 @@ double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos, 
                 y1 = std::max(y1, q.y);
             }
             if (pos.x < x0 - tol || pos.x > x1 + tol || pos.y < y0 - tol || pos.y > y1 + tol) {
-                return far;
+                return longe;
             }
         }
     }
