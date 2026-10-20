@@ -54,8 +54,8 @@ jobs:
     steps:
       - name: Git Bash no caminho (Windows, computador próprio)
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        shell: powershell
-        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\bin"
+        shell: cmd   # o cmd não depende da política de execução de scripts do PowerShell
+        run: echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
 
       - id: m
         shell: bash
@@ -91,8 +91,8 @@ jobs:
       # o "bash" do System32 é o do WSL; os passos precisam do Git Bash
       - name: Git Bash no caminho (Windows, computador próprio)
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        shell: powershell
-        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\bin"
+        shell: cmd   # o cmd não depende da política de execução de scripts do PowerShell
+        run: echo C:\Program Files\Git\bin>>"%GITHUB_PATH%"
 
       - name: Liberar espaço em disco (Linux, máquina do GitHub)
         if: runner.os == 'Linux' && runner.environment == 'github-hosted'
