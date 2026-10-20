@@ -2129,7 +2129,37 @@ class T21EnquadrarEsboco(unittest.TestCase):
         self.assertTrue(g.GetBool("EnquadrarAoSairDoEsboco", True))
 
 
+class T26Versao(unittest.TestCase):
+    def test_texto_e_base(self):
+        import PrumoVersao
+        self.assertEqual(PrumoVersao.texto(), "0.1 beta")
+        self.assertRegex(PrumoVersao.base_freecad(), r"^\d+\.\d+(\.\d+)?$")
+
+    def test_informacoes_do_sistema(self):
+        import PrumoVersao
+        txt = PrumoVersao.info_sistema()
+        for chave in ("Prumo 3D 0.1 beta", "Base: FreeCAD", "Sistema:", "Python:", "Pasta de dados:"):
+            self.assertIn(chave, txt)
+
+    def test_sobre_copia_para_a_area_de_transferencia(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoSobre
+        from PySide import QtWidgets
+        d = PrumoSobre.SobreDialog("0.1 beta · base FreeCAD 1.1", "FreeCAD 1.1")
+        txt = d.copiar_info()
+        self.assertEqual(QtWidgets.QApplication.clipboard().text(), txt)
+        self.assertIn("Copiado", d.bt_copiar.text())
+        d.close()
+
+    def test_versao_no_pacote(self):
+        import re
+        pasta = os.path.dirname(os.path.abspath(__file__))
+        txt = open(os.path.join(pasta, "package.xml"), encoding="utf-8").read()
+        self.assertEqual(re.search(r"<version>([^<]+)</version>", txt).group(1), "0.1.0")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
-           T25EstruturaInterface]
+           T25EstruturaInterface, T26Versao]

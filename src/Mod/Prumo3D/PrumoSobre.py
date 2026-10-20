@@ -83,6 +83,12 @@ class SobreDialog(QtWidgets.QDialog):
             ("Projeto", URL_PROJETO),
             ("Base", base),
         ]
+        try:
+            import PrumoVersao
+            if PrumoVersao.commit():
+                linhas.append(("Código", PrumoVersao.commit()))
+        except Exception:
+            pass
         for i, (r, val) in enumerate(linhas, start=1):
             a = QtWidgets.QLabel(r)
             a.setObjectName("SwSobreRotulo")
@@ -108,6 +114,9 @@ class SobreDialog(QtWidgets.QDialog):
         v.addLayout(lw)
 
         bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
+        self.bt_copiar = bb.addButton("Copiar informações do sistema", QtWidgets.QDialogButtonBox.ActionRole)
+        self.bt_copiar.setToolTip("Versão, sistema e placa de vídeo — cole junto ao relato de um problema")
+        self.bt_copiar.clicked.connect(self.copiar_info)
         bb.rejected.connect(self.reject)
         bb.button(QtWidgets.QDialogButtonBox.Close).setText("Fechar")
         bb.button(QtWidgets.QDialogButtonBox.Close).setDefault(True)
@@ -115,6 +124,15 @@ class SobreDialog(QtWidgets.QDialog):
         bw.setContentsMargins(20, 0, 20, 0)
         bw.addWidget(bb)
         v.addLayout(bw)
+
+
+    def copiar_info(self):
+        import PrumoVersao
+        txt = PrumoVersao.info_sistema()
+        QtWidgets.QApplication.clipboard().setText(txt)
+        self.bt_copiar.setText("Copiado ✓")
+        QtCore.QTimer.singleShot(2000, lambda: self.bt_copiar.setText("Copiar informações do sistema"))
+        return txt
 
 
 def mostrar(versao, base, parent=None):

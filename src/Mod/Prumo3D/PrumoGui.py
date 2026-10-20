@@ -408,7 +408,8 @@ class CmdSobre:
 
     def Activated(self):
         import PrumoSobre
-        PrumoSobre.mostrar("{} · FreeCAD {}".format(_addon_version(), _version_text()),
+        import PrumoVersao
+        PrumoSobre.mostrar("{} · base FreeCAD {}".format(PrumoVersao.texto(), _version_text()),
                             "FreeCAD {} (freecad.org)".format(_version_text()),
                             FreeCADGui.getMainWindow())
 

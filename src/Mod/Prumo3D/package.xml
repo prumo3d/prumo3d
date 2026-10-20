@@ -2,7 +2,7 @@
 <package format="1">
   <name>Prumo</name>
   <description>Interface do Prumo 3D: faixa de ferramentas, tradução pt-BR, tela inicial, assistente de simulação, tutorial, tema e ícones.</description>
-  <version>0.3.0</version>
+  <version>0.1.0</version>
   <date>2026-10-16</date>
   <maintainer email="">Prumo 3D</maintainer>
   <license file="LICENSE">LGPL-2.1-or-later</license>
