@@ -156,6 +156,8 @@ jobs:
           UPLOAD_RELEASE: "false"
           WINDOWS_SIGN_RELEASE: "0"
           TARGET_PLATFORM: ${{ matrix.target }}
+          # no computador próprio, o 7-Zip do ambiente pixi falha (código 2): só o instalador
+          PRUMO_SEM_7Z: ${{ runner.environment != 'github-hosted' && '1' || '0' }}
         run: |
           set -euo pipefail
           cd package/rattler-build
@@ -169,7 +171,10 @@ jobs:
           set -euo pipefail
           destino="${PRUMO_PACOTES:-$HOME/Prumo3D-pacotes}/${BUILD_TAG}"
           mkdir -p "$destino"
-          cp -v package/rattler-build/${{ matrix.pasta }}/Prumo3D_* "$destino"/
+          # só os arquivos (instalador, .7z, AppImage, somas); a pasta montada fica no runner
+          find package/rattler-build/${{ matrix.pasta }} -maxdepth 1 -type f -name 'Prumo3D_*' \
+            -exec cp -v {} "$destino"/ \;
+          ls "$destino"/Prumo3D_* >/dev/null 2>&1 || { echo "nenhum pacote gerado"; exit 1; }
           echo "Pacotes em: $destino"
           echo "### Pacotes em \`$destino\`" >> "$GITHUB_STEP_SUMMARY"
           ls -la "$destino" >> "$GITHUB_STEP_SUMMARY"
