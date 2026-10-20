@@ -1,6 +1,7 @@
-# Prumo 3D — complemento de interface
+# Prumo 3D — módulo de interface
 
-Complemento em Python com a interface do Prumo 3D. Vem embutido nos instaladores e também funciona sobre o FreeCAD 1.1 oficial, sem compilar.
+Módulo em Python com a interface do Prumo 3D. Faz parte do programa: é compilado e instalado junto com os
+outros módulos (`Mod/Prumo3D`), sem instalação separada.
 
 ## O que ele faz
 
@@ -10,7 +11,7 @@ Complemento em Python com a interface do Prumo 3D. Vem embutido nos instaladores
 | Aba Esboço automática | Ao editar um esboço, a faixa mostra a aba Esboço e volta à anterior ao concluir. |
 | Tradução pt-BR completa | `translations/prumo_ptbr.qm` (tradução mais recente do repositório do FreeCAD, mais completa que a da versão 1.1.4) + dicionário `PrumoI18n.EXTRA` para o que nem o repositório traduz. Instalada com prioridade sobre a oficial. |
 | Tema "Prumo Claro" | Acento azul #003A70, pré-seleção amarela #F7BE00, vista 3D em degradê branco → #CBD5E0, menus e painéis claros. Força o esquema claro mesmo com o Windows em modo escuro. |
-| Tema de ícones "Prumo Sóbrio" | 1.582 ícones do FreeCAD recoloridos para a paleta do Prumo 3D (azul-aço, âmbar, tijolo, sálvia, cinza frio), contornos em ardósia e degradê vertical em todo preenchimento chapado (efeito 3D). Vale para faixa, menus e árvore do modelo. Fica em `Resources/tema-icones-prumo.zip`; o addon descompacta em `<dados do usuário>/PrumoIcones` e registra em `Bitmaps/CustomPathPrumo`. Liga/desliga na aba Prumo (vale ao reabrir). |
+| Tema de ícones "Prumo Sóbrio" | 1.582 ícones do FreeCAD recoloridos para a paleta do Prumo 3D (azul-aço, âmbar, tijolo, sálvia, cinza frio), contornos em ardósia e degradê vertical em todo preenchimento chapado (efeito 3D). Vale para faixa, menus e árvore do modelo. Fica em `Resources/tema-icones-prumo.zip`; o módulo descompacta em `<dados do usuário>/PrumoIcones` e registra em `Bitmaps/CustomPathPrumo`. Liga/desliga na aba Prumo (vale ao reabrir). |
 | Guia ilustrado nas tarefas | Ao editar Extrusão, Cavidade, Revolução, Ranhura, Furo, Arredondar, Chanfro, Padrão linear/circular, Espelhar, Casca e Ângulo de saída, aparece no topo do painel Tarefas um desenho isométrico do que a função faz **no modo escolhido** (acompanha as trocas de modo), com legenda e instrução curta. Desenhos em `PrumoIlustra.py`, textos e regras em `PrumoGuia.py`. Desligar: parâmetro `GuiaIlustrado`. |
 | Qualidade de exibição | Anti-aliasing MSAA 8x (linhas sem serrilhado) e tesselação mais fina (desvio 0,1 %, ângulo 12°) para curvas lisas. Aplicado uma vez; ajuste em `QUALITY` no `PrumoGui.py`. |
 | Splash, título e ícone | Splash Prumo, "Prumo 3D" no título, ícone Prumo. |
@@ -22,15 +23,17 @@ Complemento em Python com a interface do Prumo 3D. Vem embutido nos instaladores
 - `PrumoRibbon.py` — a faixa de ferramentas (abas e comandos ficam na lista `TABS`)
 - `PrumoI18n.py` — tradução com prioridade e dicionário `EXTRA`
 - `PrumoPropNames.py` — nomes de propriedades e grupos do painel Dados/Vista (~500 termos, contexto `App::Property`)
-- `Prumo Claro/` — tema (pacote de preferências; o FreeCAD procura nesta pasta)
+- `extras/branding.xml` — identidade do programa (nome, splash, pasta de dados)
 - `Resources/` — splash e ícones
 - `translations/prumo_ptbr.qm` — tradução compilada
 
-## Instalar
+## Como entra no programa
 
-1. Instale o FreeCAD 1.1 oficial e abra uma vez.
-2. Rode `instalar.ps1` (botão direito → *Executar com o PowerShell*). Copia a pasta `Prumo3D` para `%APPDATA%\FreeCAD\v1-1\Mod` (e `Mod` de outras versões).
-3. Abra o FreeCAD.
+- `CMakeLists.txt` copia o módulo para `Mod/Prumo3D` (pasta de compilação e instalação) e o
+  `extras/branding.xml` para a pasta `bin` do programa. O `branding.xml` dá o nome "Prumo 3D", a tela de
+  abertura e a pasta de dados própria (`%APPDATA%\Prumo3D`, `~/.local/share/Prumo3D`).
+- O tema "Prumo Claro" fica em `src/Gui/PreferencePacks/Prumo Claro`, entre os pacotes de preferências embutidos.
+- Opção do CMake: `BUILD_PRUMO3D` (padrão ON).
 
 ## Mudar a faixa
 
@@ -47,7 +50,7 @@ Comando que não existir na versão instalada é ignorado.
 
 ## Atualizar o tema de ícones
 
-`tools/gerar_tema_icones.py <clone do FreeCAD> <pasta de saída>` gera os SVGs. Paleta e intensidade do degradê
+`prumo-build/ferramentas/gerar_tema_icones.py <clone do FreeCAD> <pasta de saída>` gera os SVGs. Paleta e intensidade do degradê
 ficam nas funções `recolor()` e `shade()`. Depois compacte a pasta em `Resources/tema-icones-prumo.zip`.
 
 ## Atualizar a tradução

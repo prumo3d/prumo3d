@@ -31,15 +31,13 @@ cp ${conda_env}/bin_tmp/pyside6-rcc ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/gmsh ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/dot ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/unflatten ${conda_env}/bin/
+cp ${conda_env}/bin_tmp/branding.xml ${conda_env}/bin/  # Prumo 3D: nome, splash e pasta de dados próprios
 rm -rf ${conda_env}/bin_tmp
 
 sed -i '1s|.*|#!/usr/bin/env python|' ${conda_env}/bin/pip
 
-# Prumo 3D: complemento embutido e identidade (nome, pasta de dados do usuário, splash)
-mkdir -p ${conda_env}/Mod
-rm -rf ${conda_env}/Mod/Prumo3D
-cp -a ../../../prumo-addon/Prumo3D ${conda_env}/Mod/Prumo3D
-cp ../../../prumo-addon/Prumo3D/extras/branding.xml ${conda_env}/bin/branding.xml
+# Prumo 3D: o módulo Prumo3D vem em usr/Mod (instalado pelo CMake, como os outros módulos)
+test -f ${conda_env}/Mod/Prumo3D/InitGui.py || { echo "erro: módulo Prumo3D ausente em usr/Mod"; exit 1; }
 
 echo -e "\nCopying Icon and Desktop file"
 # Prumo 3D: atalho e ícone próprios
@@ -56,7 +54,7 @@ Terminal=false
 Categories=Graphics;Science;Engineering;
 MimeType=application/x-extension-fcstd;
 DESKTOP
-cp ../../../prumo-addon/Prumo3D/Resources/icons/prumo.svg AppDir/org.prumo3d.Prumo3D.svg
+cp ../../../src/Mod/Prumo3D/Resources/icons/prumo.svg AppDir/org.prumo3d.Prumo3D.svg
 
 # Remove __pycache__ folders and .pyc files
 find . -path "*/__pycache__/*" -delete

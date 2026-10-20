@@ -705,7 +705,7 @@ def _safe(fn):
 
 
 def install():
-    """Chamado na inicialização do addon."""
+    """Chamado na inicialização do módulo Prumo3D."""
     if not _params().GetBool("EstiloJanelas", True):
         return
     write_ui_files()

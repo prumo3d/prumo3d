@@ -33,11 +33,11 @@ cp -a ${conda_env}/Library/data ${copy_dir}/data
 cp -a ${conda_env}/Library/Ext ${copy_dir}/Ext
 cp -a ${conda_env}/Library/lib ${copy_dir}/lib
 cp -a ${conda_env}/Library/Mod ${copy_dir}/Mod
-# Prumo 3D: complemento embutido (uma cópia em %APPDATA%\Prumo3D\...\Mod teria prioridade)
-rm -rf ${copy_dir}/Mod/Prumo3D
-cp -a ../../../prumo-addon/Prumo3D ${copy_dir}/Mod/Prumo3D
-# Prumo 3D: identidade (nome, pasta de dados do usuário, splash) e executáveis com o nome do produto
-cp ../../../prumo-addon/Prumo3D/extras/branding.xml ${copy_dir}/bin/branding.xml
+# Prumo 3D: o módulo Prumo3D já vem em Library/Mod (instalado pelo CMake, como os outros módulos);
+# o branding.xml (nome, pasta de dados do usuário, splash) é instalado em Library/bin
+test -f ${copy_dir}/Mod/Prumo3D/InitGui.py || { echo "erro: módulo Prumo3D ausente em Library/Mod"; exit 1; }
+cp -a ${conda_env}/Library/bin/branding.xml ${copy_dir}/bin/branding.xml
+# Prumo 3D: executáveis com o nome do produto
 mv ${copy_dir}/bin/FreeCAD.exe ${copy_dir}/bin/Prumo3D.exe
 mv ${copy_dir}/bin/FreeCADCmd.exe ${copy_dir}/bin/Prumo3DCmd.exe
 mkdir -p ${copy_dir}/doc

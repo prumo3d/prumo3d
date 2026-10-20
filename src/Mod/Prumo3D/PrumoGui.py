@@ -21,8 +21,15 @@ ADDON_DIR = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = os.path.join(ADDON_DIR, "Resources")
 ICON_PATH = os.path.join(RES_DIR, "icons", "prumo.png")
 SPLASH_SRC = os.path.join(RES_DIR, "splash_image.png")
-# O FreeCAD procura o pacote em <addon>/<nome do pacote>/<nome>.cfg
-PACK_CFG = os.path.join(ADDON_DIR, "Prumo Claro", "Prumo Claro.cfg")
+# Tema "Prumo Claro": pacote de preferências embutido (share/Gui/PreferencePacks);
+# a cópia ao lado do módulo é aceita para quem roda o módulo solto, fora do programa compilado.
+PACK_CFG = next(
+    (c for c in (
+        os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Prumo Claro", "Prumo Claro.cfg"),
+        os.path.join(ADDON_DIR, "Prumo Claro", "Prumo Claro.cfg"),
+    ) if os.path.isfile(c)),
+    os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Prumo Claro", "Prumo Claro.cfg"),
+)
 
 
 def _params():

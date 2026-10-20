@@ -1,4 +1,4 @@
-<img src="/prumo-addon/Prumo3D/Resources/icons/prumo.svg" height="100px" width="100px" alt="Prumo 3D">
+<img src="/src/Mod/Prumo3D/Resources/icons/prumo.svg" height="100px" width="100px" alt="Prumo 3D">
 
 # Prumo 3D
 
@@ -70,8 +70,9 @@ Código
 
 | Pasta | Conteúdo |
 |---|---|
-| [`prumo-addon/`](prumo-addon/) | Complemento com a interface do Prumo 3D: faixa, tradução, tela inicial, assistentes, tema e ícones |
-| [`prumo-build/`](prumo-build/) | Roteiro de compilação no Windows |
+| [`src/Mod/Prumo3D/`](src/Mod/Prumo3D/) | Módulo da interface do Prumo 3D, parte do programa: faixa, tradução, tela inicial, assistentes, tema, ícones e identidade (`extras/branding.xml`) |
+| [`src/Gui/PreferencePacks/Prumo Claro/`](src/Gui/PreferencePacks/) | Tema Prumo Claro, embutido como pacote de preferências |
+| [`prumo-build/`](prumo-build/) | Roteiro de compilação no Windows e ferramentas que geram ícones, tema de ícones e materiais |
 | [`prumo-patches/`](prumo-patches/) | Correções aplicadas ao código do FreeCAD |
 | [`package/`](package/) | Instalador Windows e empacotamento (Windows e AppImage) |
 | [`.github/workflows/publicar.yml`](.github/workflows/publicar.yml) | Geração e publicação automática das versões |

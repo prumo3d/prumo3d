@@ -36,7 +36,7 @@ A política completa está na raiz do código-fonte (AI_POLICY.md).
 <!-- Se o PR muda a interface, inclua capturas de tela de antes e depois. -->
 
 ## Testes
-<!-- Diga como testou. No complemento Prumo, rode os Testes automáticos (aba Prumo) e informe o resultado. -->
+<!-- Diga como testou. No módulo Prumo3D, rode os Testes automáticos (aba Prumo) e informe o resultado. -->
 
 
 

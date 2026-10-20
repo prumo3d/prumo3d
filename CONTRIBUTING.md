@@ -9,7 +9,7 @@ O Prumo 3D é formado por duas partes, e cada contribuição tem o seu lugar:
 
 | O que você quer mudar | Onde contribuir |
 |---|---|
-| Complemento do Prumo 3D (`prumo-addon/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones | Aqui, neste repositório |
+| Módulo de interface do Prumo 3D (`src/Mod/Prumo3D/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones | Aqui, neste repositório |
 | Roteiros de compilação e instalador (`prumo-build/`, `package/`) | Aqui, neste repositório |
 | Correção ou recurso no núcleo do FreeCAD que serve para todos os usuários do FreeCAD | No [repositório do FreeCAD](https://github.com/FreeCAD/FreeCAD), seguindo o [processo de contribuição do FreeCAD](https://github.com/FreeCAD/FreeCAD/blob/main/CONTRIBUTING.md) |
 
@@ -45,11 +45,11 @@ Abra seus PRs contra o `main`.
 2. Use uma conta do GitHub com seu nome real ou um apelido conhecido.
 3. O PR deve ser uma resposta mínima e precisa a um problema identificado.
 4. Evite acrescentar novas dependências ao projeto, a menos que não haja alternativa.
-5. O código deve seguir o estilo do arquivo que está sendo alterado. No complemento Prumo, textos de interface
+5. O código deve seguir o estilo do arquivo que está sendo alterado. No módulo Prumo3D, textos de interface
    são escritos em português do Brasil.
 6. Cada commit de um PR deve compilar e funcionar sozinho. Commits intermediários ("checkpoint") devem ser
    unidos antes do envio.
-7. O PR deve compilar e passar nos testes do projeto. No complemento Prumo, rode os testes pela aba Prumo
+7. O PR deve compilar e passar nos testes do projeto. No módulo Prumo3D, rode os testes pela aba Prumo
    (comando *Testes automáticos*) antes de enviar.
 8. A mensagem de cada commit deve explicar de forma direta o que ele faz.
 9. O título do PR deve resumir o que ele faz. Se o PR mudar a interface, a descrição deve trazer imagens de

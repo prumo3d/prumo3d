@@ -15,13 +15,5 @@
       <subdirectory>./</subdirectory>
       <icon>Resources/icons/prumo.png</icon>
     </workbench>
-    <preferencepack>
-      <name>Prumo Claro</name>
-      <type>Theme</type>
-      <description>Tema claro do Prumo 3D (azul #003A70, amarelo #F7BE00, fundo #F5F8FC).</description>
-      <version>0.1.0</version>
-      <tag>prumo</tag>
-      <tag>light</tag>
-    </preferencepack>
   </content>
 </package>

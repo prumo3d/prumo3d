@@ -118,6 +118,10 @@ if(BUILD_START)
     add_subdirectory(Start)
 endif(BUILD_START)
 
+if(BUILD_PRUMO3D)
+    add_subdirectory(Prumo3D)
+endif(BUILD_PRUMO3D)
+
 if(BUILD_SURFACE)
   add_subdirectory(Surface)
 endif(BUILD_SURFACE)

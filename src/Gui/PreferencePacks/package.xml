@@ -35,5 +35,14 @@
       <tag>background</tag>
       <tag>dark</tag>
     </preferencepack>
+    <preferencepack>
+      <name>Prumo Claro</name>
+      <type>Theme</type>
+      <description>Tema claro do Prumo 3D (azul #003A70, amarelo #F7BE00, fundo #F5F8FC).</description>
+      <version>1.0.0</version>
+      <tag>built-in</tag>
+      <tag>prumo</tag>
+      <tag>light</tag>
+    </preferencepack>
   </content>
 </package>

@@ -139,24 +139,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Complemento Prumo 3D e identidade no próprio ambiente compilado (como no pacote):
-# - Library\Mod\Prumo3D: complemento (o perfil do usuário não é tocado);
-# - Library\bin\branding.xml: nome Prumo 3D, splash e pasta de dados %APPDATA%\Prumo3D.
-try {
-    $src = Join-Path $repo "prumo-addon\Prumo3D"
-    $lib = Join-Path $repo ".pixi\envs\default\Library"
-    if ((Test-Path $src) -and (Test-Path $lib)) {
-        $mod = Join-Path $lib "Mod\Prumo3D"
-        if (Test-Path $mod) { Remove-Item -Recurse -Force $mod }
-        New-Item -ItemType Directory -Force -Path $mod | Out-Null
-        Copy-Item -Path (Join-Path $src "*") -Destination $mod -Recurse -Force
-        New-Item -ItemType Directory -Force -Path (Join-Path $lib "bin") | Out-Null
-        Copy-Item (Join-Path $src "extras\branding.xml") (Join-Path $lib "bin\branding.xml") -Force
-        Ok "Complemento Prumo 3D e branding.xml instalados em $lib"
-    } else {
-        Aviso "Ambiente compilado não encontrado: complemento Prumo 3D não instalado."
-    }
-} catch { Aviso "Não foi possível instalar o complemento Prumo 3D: $_" }
+# O módulo Prumo3D (src\Mod\Prumo3D) e o branding.xml fazem parte da compilação: vão para
+# build\debug\Mod\Prumo3D e build\debug\bin, e para o ambiente com "pixi run install".
 
 Write-Host ""
 Write-Host "Compilado. Para abrir o Prumo 3D compilado:  pixi run freecad" -ForegroundColor Green

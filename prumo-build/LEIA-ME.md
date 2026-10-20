@@ -47,8 +47,9 @@ powershell -ExecutionPolicy Bypass -File .\prumo-build\compilar.ps1
 pixi run freecad
 ```
 
-O `compilar.ps1` já coloca o complemento Prumo 3D e o `branding.xml` no ambiente compilado,
-então ele abre como Prumo 3D, com dados em `%APPDATA%\Prumo3D`.
+O módulo de interface (`src/Mod/Prumo3D`) e o `branding.xml` fazem parte da compilação, como os outros
+módulos: o programa compilado já abre como Prumo 3D, com dados em `%APPDATA%\Prumo3D`.
+Para desligar o módulo numa compilação de teste: `-DBUILD_PRUMO3D=OFF` na configuração do CMake.
 
 ## 5. Testar as correções
 
@@ -57,3 +58,11 @@ então ele abre como Prumo 3D, com dados em `%APPDATA%\Prumo3D`.
 - **Balão** clicando numa face de uma vista do Desenho técnico.
 - Preferências → Part → Geral → Experimental → ligar recursos experimentais e conferir o
   botão de espaçamentos variáveis no Padrão linear/circular.
+
+## Ferramentas (`ferramentas/`)
+
+| Arquivo | Para quê |
+|---|---|
+| `icones/gerar_icones.py` | Desenha os ícones próprios do Prumo 3D |
+| `gerar_tema_icones.py` | Recolore os ícones do FreeCAD; o resultado, compactado, vira `src/Mod/Prumo3D/Resources/tema-icones-prumo.zip` |
+| `gerar_materiais.py` | Gera a biblioteca `src/Mod/Prumo3D/Resources/MateriaisPrumo` |
