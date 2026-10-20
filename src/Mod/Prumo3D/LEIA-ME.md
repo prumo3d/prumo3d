@@ -31,6 +31,16 @@ outros módulos (`Mod/Prumo3D`), sem instalação separada.
 | Tutoriais "primeira peça" e "estrutura soldada" | `PrumoTutorial.py` | abas Prumo e Estruturas, tela inicial |
 | Árvore do modelo (reabre o painel) | `PrumoGui.CmdArvore` | aba Início |
 | Tradução da faixa e dos menus (varredura 0.1 beta) | `PrumoI18n.py` | automática |
+| Nomes em português na árvore (objetos novos) | `PrumoNomes.py` | automática (desliga em `NomesEmPortugues`) |
+| Painéis de tarefa visuais (kit) | `PrumoPainel.py` | usado pelos comandos do Prumo |
+| Seleção antes ou depois do comando (booleanas e comandos Prumo) | `PrumoSelecao.py` | faixa |
+| Propriedades da peça → lista de materiais e legenda ligada | `PrumoPropriedades.py` | abas Peça, Montagem, Estruturas; botão direito |
+| Fator K, espessuras comerciais, planificar em DXF | `PrumoChapa.py` | aba Chapa |
+| Variantes da peça (P, M, G) | `PrumoVariantes.py` | aba Peça |
+| Modelos com regras (placa, flange, suporte em L, eixo) | `PrumoModelos.py` | aba Peça |
+| Verificar interferência | `PrumoInterferencia.py` | abas Montagem e Estruturas |
+| Copiar projeto (Pack and Go) | `PrumoCopiarProjeto.py` | aba Início |
+| Guia "vindo do SolidWorks / ZW3D" | `PrumoGuiaMigracao.py` | aba Prumo, tela inicial |
 | Reforço, tampa de tubo, placa de base, cordão e lista de soldas | `PrumoEstruturaExtras.py` | aba Estruturas |
 | Vaso de pressão (ASME VIII-1, UG-27/UG-32) | `PrumoVaso.py` | desligado por enquanto (sem botão) |
 | Parafusos, porcas e arruelas (ISO 4017, 4762, 4032, 7089) | `PrumoFixadores.py`, `Resources/fixadores/` | aba Estruturas |

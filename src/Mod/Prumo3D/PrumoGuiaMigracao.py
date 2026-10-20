@@ -88,7 +88,7 @@ EQUIVALENCIAS = [
 ]
 
 CONCEITOS = [
-    ("Corpo (Body)", "Toda peça do Peça fica dentro de um Corpo, que guarda as operações em ordem. Em geral, "
+    ("Corpo (Body)", "Toda peça da aba Peça fica dentro de um Corpo, que guarda as operações em ordem. Em geral, "
                      "um corpo = uma peça."),
     ("Árvore do modelo", "É a FeatureManager. Se o painel sumir, Início → Árvore do modelo traz de volta."),
     ("Ponta (Tip)", "A barra de reversão do SolidWorks é a 'ponta' do corpo: botão direito na operação → "
@@ -150,8 +150,12 @@ class GuiaMigracao(QtWidgets.QWidget):
         self.tabela.setRowCount(len(self._linhas))
         for r, e in enumerate(self._linhas):
             for c, v in enumerate((e[0], e[1], e[2], e[3], e[6])):
-                self.tabela.setItem(r, c, QtWidgets.QTableWidgetItem(v))
+                it = QtWidgets.QTableWidgetItem(v)
+                it.setToolTip(v)
+                self.tabela.setItem(r, c, it)
         self.tabela.resizeColumnsToContents()
+        self.tabela.setWordWrap(True)
+        self.tabela.resizeRowsToContents()
         if self._linhas:
             self.tabela.selectRow(0)
 

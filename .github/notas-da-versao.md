@@ -9,7 +9,15 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 ### O que tem de novo em relação ao FreeCAD
 
 - **Interface em português** com faixa de abas (Início, Esboço, Peça, Sólidos, Montagem, Desenho,
-  Estruturas, Chapa, Planilha, Simulação), tema claro e escuro e tela inicial com exemplos.
+  Estruturas, Chapa, Planilha, Simulação), tema claro e escuro e tela inicial com exemplos. A faixa
+  muda de altura arrastando a borda de baixo, e os grupos de botões se alargam pelos divisores.
+- **Painéis de tarefa visuais** (como o PropertyManager do SolidWorks): mensagem no topo, seções com
+  ícone, dica em cada campo e caixas de seleção que aceitam a seleção feita antes **ou depois** de
+  abrir o comando. Subtrair, Unir e as outras booleanas também pedem a seleção se você chamar sem ela.
+- **Árvore do modelo** com nomes em português (Extrusão, Cavidade, Corpo...) e seleção em azul.
+- **Materiais usados no Brasil**: a biblioteca traz só aços estruturais (NBR 7007, NBR 6648, ASTM),
+  chapas, aços para vaso de pressão, tubos, inox, construção mecânica, ferro fundido, alumínio e latão,
+  com norma e fonte em cada um.
 - **Tutoriais interativos**: "primeira peça" e "estrutura soldada". Cada passo é marcado sozinho
   quando você o faz, e "Mostrar onde" pisca o botão certo na faixa.
 - **Esboço:** pontos-ímã em quadrantes, pontos médios e interseções; linhas de inferência
@@ -18,13 +26,22 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Menu do botão direito** pela seleção (extrusão, cavidade, arredondamento, medir, massa).
 - **Propriedades de massa** (massa, centro de gravidade, inércia) e **lista de materiais** com tabela
   na folha.
+- **Propriedades da peça** (código, denominação, revisão, acabamento, material): vão para a lista de
+  materiais e para a legenda da folha, que acompanha quando a peça muda.
+- **Variantes da peça** (P, M, G...) numa tabela de parâmetros ligada às cotas, como as configurações
+  do SolidWorks, e **modelos com regras** (placa com furos, flange, suporte em L, eixo escalonado) que
+  avisam quando o projeto não fecha.
 - **Folhas A0 a A4 no padrão ABNT** (NBR 16752 e NBR 10068), com legenda brasileira (responsável
   técnico, CREA/CFT, ART), vistas no 1º diedro e escalas normalizadas.
 - **Estruturas soldadas** com perfis brasileiros (W, HP, U, I, cantoneiras, tubos e metalon):
   grupos de perfis, ponto de fixação, cantos em meia-esquadria ou de topo, recorte pelo contorno,
   reforços (mão-francesa), tampas de tubo, placas de base, cordões de solda, lista de corte e lista
   de soldas. O diálogo Cantos mostra um desenho de cada tratamento.
-- **Chapa metálica** (bancada SheetMetal embutida): paredes, dobras e planificação.
+- **Chapa metálica** (bancada SheetMetal embutida): paredes, dobras e planificação, com **fator K por
+  material** (aço, inox, alumínio, DIN 6935) e **planificação em DXF num clique** (contorno e dobras).
+- **Montagem:** restrições com os nomes do SolidWorks (coincidente, concêntrica...), **verificar
+  interferência** e **copiar projeto** (como o Pack and Go: copia montagem e peças renomeando).
+- **Guia "vindo do SolidWorks / ZW3D"**: onde fica cada comando que você já conhece.
 - **Peças padronizadas:** parafusos, porcas e arruelas métricas.
 
 ### Como baixar
@@ -51,8 +68,12 @@ Clique em **Mais informações → Executar assim mesmo**.
 4. **Desenho:** com a peça selecionada, crie uma **Folha ABNT A3** e depois a **Lista de materiais**.
 5. **Estruturas:** faça o **Tutorial da estrutura** (aba Estruturas → Tutorial): esqueleto, dois
    grupos de perfis, cantos, reforço, cordões de solda e lista de corte.
-6. **Chapa:** crie uma chapa base, uma dobra e planifique.
-7. Salve, feche e abra de novo.
+6. **Chapa:** abra o exemplo da chapa dobrada e use **Planificar em DXF**; abra o DXF no seu CAD 2D.
+7. **Montagem:** coloque duas peças que se invadem e use **Verificar interferência**; depois
+   **Copiar projeto** para outra pasta.
+8. **Peça:** use **Modelo com regras** para gerar uma placa com furos; mude a distância à borda e veja
+   o aviso. Em **Variantes da peça**, crie P/M/G e troque a variante ativa.
+9. Salve, feche e abra de novo.
 
 ### Limitações conhecidas
 

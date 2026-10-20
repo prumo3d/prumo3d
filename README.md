@@ -47,7 +47,18 @@ Visão geral
   estrutura soldada mostra o desenho de cada tratamento (meia-esquadria, de topo, recorte pelo contorno).
 
 * **Árvore do modelo** Se o painel da árvore for fechado sem querer, o botão Início → Árvore do modelo
-  traz de volta.
+  traz de volta. Objetos novos ganham nome em português (Extrusão, Cavidade, Corpo).
+
+* **Painéis visuais e seleção nos dois sentidos** Painéis de tarefa no estilo PropertyManager (mensagem,
+  seções com ícone, dica por campo) e caixas de seleção que aceitam selecionar antes ou depois de chamar
+  o comando; booleanas e comandos do Prumo pedem a seleção quando chamados sem ela.
+
+* **Propriedades da peça, variantes e modelos com regras** Código/denominação/revisão/material na lista
+  de materiais e na legenda (que acompanha a peça); tabela de variantes P/M/G ligada às cotas; placa
+  com furos, flange, suporte em L e eixo escalonado gerados por formulário, com regras de projeto.
+
+* **Chapa e montagem** Fator K por material e planificação em DXF; verificar interferência; copiar
+  projeto (Pack and Go). Guia "vindo do SolidWorks / ZW3D" com a equivalência dos comandos.
 
 * **Esboço com ímãs e inferência** Ao desenhar, aparecem pontos-ímã nos quadrantes de círculos e arcos, no
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
