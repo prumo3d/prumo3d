@@ -305,6 +305,9 @@ class Opcoes(QtWidgets.QWidget):
             self.botoes[chave] = b
             b.toggled.connect(lambda on, k=chave: on and self.mudou.emit(k))
         self.definir(atual or opcoes[0][0])
+        # estilo próprio (destaque do botão marcado), para valer também fora dos painéis do Prumo,
+        # como no Assistente de simulação
+        self.setStyleSheet(qss())
 
     def valor(self):
         for k, b in self.botoes.items():
@@ -315,6 +318,39 @@ class Opcoes(QtWidgets.QWidget):
     def definir(self, chave):
         if chave in self.botoes:
             self.botoes[chave].setChecked(True)
+
+
+def resolver(raiz, sub):
+    """(objeto dono do elemento, elemento) de um caminho de seleção ("Parte.Corpo.Face3").
+
+    Igual ao que o FreeCAD devolve em getSelection(): o objeto mais interno e o nome curto."""
+    if not sub or "." not in sub:
+        return raiz, sub or ""
+    elemento = sub.rsplit(".", 1)[-1]
+    try:
+        dono = raiz.getSubObject(sub, retType=1)
+    except Exception:
+        dono = None
+    return (dono if dono is not None else raiz), elemento
+
+
+def agrupar_selecao(raiz, subs):
+    """[(objeto, [elementos], [caminhos completos])] de um item de getSelectionEx("", 0)."""
+    grupos = []
+    for sub in (subs or ("",)):
+        o, el = resolver(raiz, sub)
+        g = next((x for x in grupos if x[0] is o), None)
+        if g is None:
+            g = (o, [], [])
+            grupos.append(g)
+        if el:
+            g[1].append(el)
+        if sub:
+            g[2].append(sub)
+    return grupos
+
+
+_ATIVO = {"painel": None}   # painel do Prumo aberto no painel de tarefas
 
 
 class CaixaSelecao(QtWidgets.QFrame):
@@ -518,14 +554,24 @@ class PainelTarefa:
     # ---- seleção
     def _preencher_com_selecao(self):
         for s in FreeCADGui.Selection.getSelectionEx("", 0):
-            self.distribuir(s.Object, s.SubElementNames)
+            for obj, els, caminhos in agrupar_selecao(s.Object, s.SubElementNames):
+                self.distribuir(obj, els, s.Object, caminhos)
 
-    def distribuir(self, obj, subnomes=()):
-        """Seleção nova vai para a caixa ativa; se ela não aceitar, tenta as outras."""
+    def distribuir(self, obj, subnomes=(), raiz=None, caminhos=None):
+        """Seleção nova vai para a caixa ativa; se ela não aceitar, tenta as outras.
+
+        obj/subnomes: o objeto dono do elemento e o nome curto ("Face3"), como em
+        getSelection(); raiz/caminhos: o objeto do topo e o caminho completo
+        ("Parte.Corpo.Face3"), para os filtros marcados com caminho_completo = True.
+        """
         ativa = self.form.caixa_ativa()
         ordem = ([ativa] if ativa else []) + [c for c in self.form.caixas if c is not ativa]
         for c in ordem:
-            if c.aceitar(obj, subnomes):
+            if getattr(c.filtro, "caminho_completo", False) and raiz is not None:
+                n = c.aceitar(raiz, caminhos if caminhos is not None else subnomes)
+            else:
+                n = c.aceitar(obj, subnomes)
+            if n:
                 return c
         return None
 
@@ -545,15 +591,28 @@ class PainelTarefa:
         if not self._vivo():
             QtCore.QTimer.singleShot(0, self._parar)
             return
+        if getattr(self, "_ignorar_selecao", False):
+            return
         try:
-            o = FreeCAD.getDocument(doc).getObject(obj)
+            raiz = FreeCAD.getDocument(doc).getObject(obj)
         except Exception:
             return
-        if o is not None:
+        if raiz is not None:
             try:
-                self.distribuir(o, (sub,) if sub else ())
+                for o, els, caminhos in agrupar_selecao(raiz, (sub,) if sub else ()):
+                    self.distribuir(o, els, raiz, caminhos)
             except (RuntimeError, AttributeError):
                 QtCore.QTimer.singleShot(0, self._parar)
+
+    def selecionar_sem_preencher(self, objs):
+        """Seleciona na tela sem que a seleção vá para as caixas do painel."""
+        self._ignorar_selecao = True
+        try:
+            FreeCADGui.Selection.clearSelection()
+            for o in objs:
+                FreeCADGui.Selection.addSelection(o)
+        finally:
+            self._ignorar_selecao = False
 
     def setSelection(self, doc):
         pass
@@ -576,11 +635,37 @@ class PainelTarefa:
 
     # ---- painel de tarefas do FreeCAD
     def mostrar(self):
+        """Abre no painel de tarefas. Outro painel do Prumo aberto é cancelado; uma tarefa do
+        FreeCAD em andamento (edição de esboço, extrusão...) não é fechada à força: avisa e não abre."""
         if FreeCADGui.Control.activeDialog():
-            FreeCADGui.Control.closeDialog()
-        FreeCADGui.Selection.addObserver(self)
+            anterior = _ATIVO.get("painel")
+            if anterior is not None and anterior is not self and anterior._vivo():
+                try:
+                    anterior.reject()
+                except Exception:
+                    pass
+                FreeCADGui.Control.closeDialog()
+            else:
+                self.aberto = False
+                msg = ("Há uma tarefa aberta no painel de tarefas. Termine (OK) ou cancele essa tarefa "
+                       "antes de abrir \"%s\"." % self.titulo)
+                FreeCAD.Console.PrintWarning("Prumo: %s\n" % msg)
+                try:   # não modal: não trava quem chamou
+                    caixa = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Information, self.titulo, msg,
+                                                  QtWidgets.QMessageBox.Ok, FreeCADGui.getMainWindow())
+                    caixa.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+                    caixa.show()
+                    _ATIVO["aviso"] = caixa
+                except Exception:
+                    pass
+                self.close()
+                return self
+        # seleção sem resolver (objeto do topo + caminho), igual à lida ao abrir o painel
+        FreeCADGui.Selection.addObserver(self, 0)
         self._observando = True
         FreeCADGui.Control.showDialog(self)
+        _ATIVO["painel"] = self
+        self.aberto = True
         return self
 
     def _parar(self):

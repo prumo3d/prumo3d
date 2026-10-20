@@ -119,17 +119,22 @@ class PainelSelecao(P.PainelTarefa):
     def _preencher_com_selecao(self):
         # a seleção anterior vai enchendo as caixas na ordem (base, depois ferramenta...)
         for sel in FreeCADGui.Selection.getSelectionEx("", 0):
-            for c in self.caixas:
-                cheia = c.maximo is not None and len(c.valores()) >= c.maximo
-                if not cheia and c.aceitar(sel.Object, sel.SubElementNames):
-                    break
+            for obj, els, caminhos in P.agrupar_selecao(sel.Object, sel.SubElementNames):
+                for c in self.caixas:
+                    cheia = c.maximo is not None and len(c.valores()) >= c.maximo
+                    if getattr(c.filtro, "caminho_completo", False):
+                        alvo, subs = sel.Object, caminhos
+                    else:
+                        alvo, subs = obj, els
+                    if not cheia and c.aceitar(alvo, subs):
+                        break
         for c in self.caixas:
             if not c.pronta():
                 self.form.ativar_caixa(c)
                 break
 
-    def distribuir(self, obj, subnomes=()):
-        c = super().distribuir(obj, subnomes)
+    def distribuir(self, obj, subnomes=(), raiz=None, caminhos=None):
+        c = super().distribuir(obj, subnomes, raiz, caminhos)
         # caixa cheia passa a vez para a próxima (como o "próxima seleção" do SolidWorks)
         if c is not None and c.maximo is not None and len(c.valores()) >= c.maximo:
             i = self.caixas.index(c)

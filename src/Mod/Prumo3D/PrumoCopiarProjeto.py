@@ -23,6 +23,32 @@ def documentos(doc):
         return list(doc.getDependentDocuments())
 
 
+INVALIDOS = '<>:"/\\|?*'
+
+
+def nome_valido(nome):
+    """Nome de arquivo aceito no Windows (sem <>:"/\\|?*, sem ponto ou espaço no fim)."""
+    base = os.path.splitext(nome)[0]
+    return bool(base.strip()) and not any(c in nome for c in INVALIDOS) and not nome.endswith((".", " "))
+
+
+def documentos_afetados(passos):
+    """Outros documentos abertos (fora do projeto) que usam peças do projeto: o "Salvar como"
+    passaria a ligá-los às cópias."""
+    nomes = {d.Name for d, _o, _n in passos}
+    res = []
+    for d in FreeCAD.listDocuments().values():
+        if d.Name in nomes:
+            continue
+        try:
+            deps = documentos(d)
+        except Exception:
+            continue
+        if any(x.Name in nomes for x in deps):
+            res.append(d)
+    return res
+
+
 def nome_novo(caminho, prefixo="", sufixo="", trocar=("", "")):
     base = os.path.splitext(os.path.basename(caminho))[0]
     if trocar and trocar[0]:
@@ -38,6 +64,8 @@ def plano(doc, pasta, prefixo="", sufixo="", trocar=("", ""), nomes=None):
         if not d.FileName:
             raise ValueError("salve %s antes de copiar o projeto" % d.Label)
         novo = (nomes or {}).get(d.FileName) or nome_novo(d.FileName, prefixo, sufixo, trocar)
+        if not nome_valido(novo):
+            raise ValueError("nome de arquivo inválido: %s (não use < > : \" / \\ | ? *)" % novo)
         destino = os.path.join(pasta, novo)
         if os.path.normcase(destino) in usados:
             raise ValueError("dois arquivos ficariam com o mesmo nome: %s" % novo)
@@ -60,20 +88,49 @@ def copiar_projeto(doc, pasta, prefixo="", sufixo="", trocar=("", ""), nomes=Non
     existentes = [n for _d, _o, n in passos if os.path.exists(n)]
     if existentes and not sobrescrever:
         raise ValueError("já existe na pasta: %s" % ", ".join(os.path.basename(n) for n in existentes))
+    outros = documentos_afetados(passos)
+    if outros:
+        raise ValueError("feche antes %s: usa peças deste projeto e passaria a apontar para a cópia"
+                         % ", ".join(d.Label for d in outros))
+    if not os.access(pasta, os.W_OK):
+        raise ValueError("sem permissão para gravar em %s" % pasta)
     principal_orig = doc.FileName
+    nomes_docs = [d.Name for d, _o, _n in passos]
     mapa = {}
-    for d, orig, novo in passos:
-        d.saveAs(novo)
-        mapa[orig] = novo
+    try:
+        for d, orig, novo in passos:
+            _salvar_como(d, novo)
+            mapa[orig] = novo
+    except Exception as ex:
+        # volta atrás: os originais no disco não mudaram; fecha tudo SEM salvar e reabre o original
+        for nome in reversed(nomes_docs):
+            try:
+                FreeCAD.closeDocument(nome)
+            except Exception:
+                pass
+        for n in mapa.values():
+            if n not in existentes:
+                try:
+                    os.remove(n)
+                except OSError:
+                    pass
+        FreeCAD.openDocument(principal_orig)
+        raise ValueError("a cópia falhou e foi desfeita (os originais não mudaram): %s" % ex)
     principal_novo = mapa[principal_orig]
     # fecha as cópias (que agora estão abertas no lugar dos originais) e reabre o lado pedido
-    for d, _o, _n in reversed(passos):
+    for nome in reversed(nomes_docs):
         try:
-            FreeCAD.closeDocument(d.Name)
+            FreeCAD.closeDocument(nome)
         except Exception:
             pass
     FreeCAD.openDocument(principal_novo if abrir_copia else principal_orig)
     return mapa
+
+
+def _salvar_como(d, caminho):
+    d.saveAs(caminho)
+    if not os.path.isfile(caminho):
+        raise IOError("não foi possível gravar %s" % caminho)
 
 
 def _modificado(d):

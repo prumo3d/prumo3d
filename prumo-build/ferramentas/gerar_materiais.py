@@ -171,6 +171,9 @@ def cartao(pasta, nome, norma, grau, tipo, sy, su, base, fonte):
 
 
 def main(destino):
+    # trava: a limpeza abaixo apaga subpastas; só roda numa pasta chamada MateriaisPrumo
+    if os.path.basename(os.path.normpath(os.path.abspath(destino))) != "MateriaisPrumo":
+        raise SystemExit("destino precisa ser a pasta MateriaisPrumo (recebido: %s)" % destino)
     # recria a biblioteca do zero (cartões que saíram da lista não ficam para trás)
     if os.path.isdir(destino):
         for nome in os.listdir(destino):

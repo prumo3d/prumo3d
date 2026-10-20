@@ -304,6 +304,7 @@ class T05Materiais(unittest.TestCase):
             PrumoGui.install_materials()
             self.assertIn("Aparências", mods.GetGroups())
             self.assertIn("Fluidos", mods.GetGroups())
+            self.assertIn(PrumoGui.BIBLIOTECA_COMPAT, mods.GetGroups(), "arquivos antigos perderiam o material")
             self.assertTrue(FreeCAD.ParamGet(PrumoGui.MAT_RES + "/Modules/Prumo").GetString("ModuleModelDir"))
             # a escolha do usuário vale: a marca de versão não deixa desligar de novo
             r.SetBool("UseBuiltInMaterials", True)
@@ -323,6 +324,29 @@ class T05Materiais(unittest.TestCase):
                 "UseBuiltInMaterials", True):
             self.assertIn("Aparências", libs)
             self.assertIn("Padrão", libs)
+            self.assertEqual(padrao.LibraryName, "Padrão", "o material padrão foi parar na compatibilidade")
+
+    def test_arquivo_antigo_mantem_material(self):
+        """Peça salva no FreeCAD original com Steel-Generic abre com o mesmo material."""
+        import os
+        import tempfile
+        import Materials
+        import Part
+        mm = Materials.MaterialManager()
+        aco = next((u for u, m in mm.Materials.items() if m.Name == "Steel-Generic"), None)
+        self.assertIsNotNone(aco, "cartões do sistema não carregados (biblioteca de compatibilidade)")
+        doc = FreeCAD.newDocument("CompatMat")
+        try:
+            o = doc.addObject("Part::Feature", "Bloco")
+            o.Shape = Part.makeBox(10, 10, 10)
+            o.ShapeMaterial = mm.getMaterial(aco)
+            arq = os.path.join(tempfile.mkdtemp(), "compat.FCStd")
+            doc.saveAs(arq)
+            FreeCAD.closeDocument(doc.Name)
+            doc = FreeCAD.openDocument(arq)
+            self.assertEqual(doc.getObject("Bloco").ShapeMaterial.UUID, aco)
+        finally:
+            FreeCAD.closeDocument(doc.Name)
 
 
 class T05bMateriaisPrumo(unittest.TestCase):

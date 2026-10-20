@@ -1011,6 +1011,7 @@ MATERIAIS_DIR = os.path.join(ADDON_DIR, "Resources", "MateriaisPrumo")
 MATERIAIS_PADRAO_DIR = os.path.join(RES_DIR, "MateriaisPadrao")
 MAT_RES = "User parameter:BaseApp/Preferences/Mod/Material/Resources"
 VERSAO_BIBLIOTECA = 1
+BIBLIOTECA_COMPAT = "Compatibilidade (arquivos do FreeCAD)"
 
 
 def _registrar_biblioteca(nome, pasta, icone=ICON_PATH):
@@ -1030,6 +1031,31 @@ def pasta_materiais_sistema(sub=""):
     return os.path.join(base, sub) if sub else base
 
 
+def pasta_compatibilidade():
+    """Cópia dos cartões do sistema (sem o material padrão, que já está na biblioteca "Padrão":
+    o mesmo identificador em duas bibliotecas faria um esconder o outro)."""
+    origem = pasta_materiais_sistema("Standard")
+    destino = os.path.join(FreeCAD.getUserAppDataDir(), "Prumo", "MateriaisCompatibilidade")
+    marca = os.path.join(destino, ".origem")
+    try:
+        assinatura = "%s|%s|%s" % (origem, os.path.getmtime(origem), ".".join(FreeCAD.Version()[:3]))
+        with open(marca, encoding="utf-8") as f:
+            if f.read() == assinatura:
+                return destino
+    except OSError:
+        pass
+    try:
+        if os.path.isdir(destino):
+            shutil.rmtree(destino)
+        shutil.copytree(origem, destino,
+                        ignore=lambda d, nomes: [n for n in nomes if n == "Default.FCMat"])
+        with open(marca, "w", encoding="utf-8") as f:
+            f.write(assinatura)
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: biblioteca de compatibilidade de materiais: %s\n" % exc)
+    return destino
+
+
 def install_materials():
     """Bibliotecas de materiais do Prumo.
 
@@ -1038,7 +1064,9 @@ def install_materials():
     - "Padrão": o material genérico que o FreeCAD usa em peças sem material;
     - "Aparências" e "Fluidos": cores/acabamentos e fluidos da biblioteca do FreeCAD.
     A biblioteca do sistema do FreeCAD (aços europeus, plásticos, madeira, concreto...) fica
-    desligada uma vez por perfil; quem quiser religa em Preferências → Material.
+    desligada uma vez por perfil; quem quiser religa em Preferências → Material. Os cartões dela
+    continuam carregados numa biblioteca à parte, "Compatibilidade", para que arquivos antigos
+    abram com o material certo.
     """
     _registrar_biblioteca("Prumo", MATERIAIS_DIR)
     _registrar_biblioteca("Padrão", MATERIAIS_PADRAO_DIR)
@@ -1057,8 +1085,11 @@ def install_materials():
     if not FreeCAD.ParamGet(MAT_RES).GetBool("UseBuiltInMaterials", True):
         _registrar_biblioteca("Aparências", pasta_materiais_sistema("Appearance"))
         _registrar_biblioteca("Fluidos", pasta_materiais_sistema("Fluid"))
+        # Arquivos feitos no FreeCAD original guardam só o identificador do material: sem os
+        # cartões do sistema carregados, a peça abriria sem material (e perderia ao salvar).
+        _registrar_biblioteca(BIBLIOTECA_COMPAT, pasta_compatibilidade())
     else:   # com a do sistema ligada, não duplica
-        for nome in ("Aparências", "Fluidos"):
+        for nome in ("Aparências", "Fluidos", BIBLIOTECA_COMPAT):
             FreeCAD.ParamGet(MAT_RES + "/Modules").RemGroup(nome)
 
 

@@ -210,7 +210,8 @@ class Seletor:
         if prop != "Variante" or getattr(self, "aplicando", False):
             return
         doc = obj.Document
-        if getattr(doc, "Restoring", False):
+        # abrindo o arquivo ou no Desfazer/Refazer: a planilha já volta com os valores certos
+        if getattr(doc, "Restoring", False) or getattr(doc, "Transacting", False):
             return
         try:
             v = obj.Variante
@@ -296,7 +297,42 @@ def PainelVariantes(doc=None):
 
         def __init__(self):
             self.doc = doc or FreeCAD.ActiveDocument
+            self._mostrado = {}
+            # tudo o que o painel faz (criar a tabela, parâmetros, ligar cotas, trocar a variante)
+            # fica numa transação: Cancelar desfaz, OK vira um passo só no Desfazer
+            self._transacao = self.doc is not None
+            if self._transacao:
+                self.doc.openTransaction(self.titulo)
             super().__init__()
+
+        def _fechar_transacao(self, gravar):
+            if not self._transacao:
+                return
+            self._transacao = False
+            if gravar:
+                self.doc.commitTransaction()
+            else:
+                self.doc.abortTransaction()
+            self.doc.recompute()
+
+        def accept(self):
+            try:
+                self.resultado = self.executar()
+            except Exception as ex:
+                self.form.mensagem.mostrar(str(ex), "erro")
+                return False
+            self._fechar_transacao(True)
+            self._parar()
+            return True
+
+        def reject(self):
+            self._fechar_transacao(False)
+            self._parar()
+            return True
+
+        def close(self):
+            self._fechar_transacao(False)
+            super().close()
 
         def montar(self):
             f = self.form
@@ -352,6 +388,7 @@ def PainelVariantes(doc=None):
             self.tabela.setColumnCount(len(vs) + 1)
             self.tabela.setHorizontalHeaderLabels(["Unidade"] + vs)
             self.tabela.setVerticalHeaderLabels([n for _r, n, _u in ps])
+            self._mostrado = {}
             for i, (r, n, u) in enumerate(ps):
                 self.tabela.setItem(i, 0, QtWidgets.QTableWidgetItem(u))
                 for j, v in enumerate(vs):
@@ -359,6 +396,7 @@ def PainelVariantes(doc=None):
                     if u and txt.endswith(" " + u):
                         txt = txt[:-len(u) - 1]
                     self.tabela.setItem(i, j + 1, QtWidgets.QTableWidgetItem(txt))
+                    self._mostrado[(n, v)] = txt
             self.tabela.blockSignals(False)
             self.ativa.blockSignals(True)
             self.ativa.clear()
@@ -377,11 +415,16 @@ def PainelVariantes(doc=None):
                     it = self.tabela.item(i, j + 1)
                     if it is None:
                         continue
-                    txt = it.text().strip().replace(",", ".")
+                    bruto = it.text().strip()
+                    if bruto == self._mostrado.get((n, v)):
+                        continue   # não mexeu: fica como está (inclusive fórmulas)
                     try:
-                        definir_valor(self.sh, n, v, float(txt))
+                        definir_valor(self.sh, n, v, float(bruto.replace(",", ".")))
                     except ValueError:
-                        definir_valor(self.sh, n, v, it.text().strip())
+                        # fórmula ou valor com unidade ("largura/2", "20 mm"): grava como expressão
+                        definir_valor(self.sh, n, v, bruto if bruto.startswith("=") or not bruto
+                                      else "=" + bruto)
+                    self._mostrado[(n, v)] = bruto
 
         def _add_parametro(self):
             nome = self.novo_par.text().strip()

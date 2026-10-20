@@ -268,6 +268,9 @@ def _filtro_furo(obj, subs):
     return res
 
 
+_filtro_furo.caminho_completo = True   # precisa do caminho: posição dos contêineres e vínculos
+
+
 class PainelFixador(P.PainelTarefa):
     titulo = "Peças padronizadas"
     ajuda = "Escolha o fixador. Para encaixar num furo, selecione a aresta do furo (opcional)."

@@ -75,7 +75,13 @@ def vincular_folha(page, obj):
         page.addProperty("App::PropertyBool", "LegendaAutomatica", "Prumo",
                          "A legenda acompanha as propriedades da peça")
         page.LegendaAutomatica = True
+    if "LegendaUltima" not in page.PropertiesList:
+        page.addProperty("App::PropertyMap", "LegendaUltima", "Prumo",
+                         "Últimos valores que a legenda automática escreveu (o que foi digitado à mão "
+                         "na legenda é mantido)")
+        page.setPropertyStatus("LegendaUltima", "Hidden")
     page.PrumoPeca = obj
+    page.LegendaUltima = {k: str(v) for k, v in legenda_de(obj).items()}
     return page
 
 
@@ -88,9 +94,21 @@ def atualizar_legenda(page):
         tpl = page.Template
         et = dict(tpl.EditableTexts)
         novo = dict(et)
+        ultima = dict(page.LegendaUltima) if "LegendaUltima" in page.PropertiesList else {}
+        escritos = dict(ultima)
         for k, val in legenda_de(obj).items():
-            if k in novo:
-                novo[k] = str(val)
+            val = str(val)
+            if k not in novo or not val:
+                continue
+            atual = novo[k].strip()
+            # só troca o que a legenda automática escreveu (ou está vazio): o que o usuário
+            # digitou à mão na legenda fica
+            if atual and k in ultima and atual != ultima[k].strip():
+                continue
+            novo[k] = val
+            escritos[k] = val
+        if escritos != ultima and "LegendaUltima" in page.PropertiesList:
+            page.LegendaUltima = escritos
         if novo != et:
             tpl.EditableTexts = novo
             return True
@@ -100,14 +118,17 @@ def atualizar_legenda(page):
     return False
 
 
-def folhas_da_peca(obj):
-    doc = obj.Document
+def folhas_ligadas(doc):
+    """Folhas do documento ligadas a uma peça."""
+    return [p for p in doc.Objects if p.TypeId == "TechDraw::DrawPage" and "PrumoPeca" in p.PropertiesList]
+
+
+def folhas_da_peca(obj, folhas=None):
     res = []
-    for p in doc.Objects:
-        if p.TypeId == "TechDraw::DrawPage" and "PrumoPeca" in p.PropertiesList:
-            alvo = p.PrumoPeca
-            if alvo is obj or (alvo is not None and obj in getattr(alvo, "OutListRecursive", [])):
-                res.append(p)
+    for p in (folhas_ligadas(obj.Document) if folhas is None else folhas):
+        alvo = p.PrumoPeca
+        if alvo is obj or (alvo is not None and obj in getattr(alvo, "OutListRecursive", [])):
+            res.append(p)
     return res
 
 
@@ -116,16 +137,55 @@ class Observador:
 
     def __init__(self):
         self._pendentes = set()
+        self._cache = {}   # documento → folhas ligadas (recalculado quando entra/sai folha)
+
+    def _folhas(self, doc):
+        lst = self._cache.get(doc.Name)
+        if lst is None:
+            lst = self._cache[doc.Name] = folhas_ligadas(doc)
+        return lst
+
+    def _invalidar(self, obj):
+        try:
+            self._cache.pop(obj.Document.Name, None)
+        except Exception:
+            self._cache.clear()
+
+    def slotCreatedObject(self, obj):
+        if obj.TypeId == "TechDraw::DrawPage":
+            self._invalidar(obj)
+
+    def slotDeletedObject(self, obj):
+        if obj.TypeId == "TechDraw::DrawPage":
+            self._invalidar(obj)
+
+    def slotDeletedDocument(self, doc):
+        self._cache.pop(doc.Name, None)
+
+    def slotFinishRestoreDocument(self, doc):
+        self._cache.pop(doc.Name, None)
+
+    def slotUndoDocument(self, doc):
+        self._cache.pop(doc.Name, None)
+
+    def slotRedoDocument(self, doc):
+        self._cache.pop(doc.Name, None)
 
     def slotChangedObject(self, obj, prop):
+        if prop == "PrumoPeca":
+            self._invalidar(obj)
         if prop not in ACOMPANHADAS:
             return
         try:
             doc = obj.Document
             if doc.Restoring:
                 return
-            folhas = folhas_da_peca(obj)
+            ligadas = self._folhas(doc)
+            if not ligadas:      # caso comum: nenhuma folha ligada, sai sem percorrer o documento
+                return
+            folhas = folhas_da_peca(obj, ligadas)
         except Exception:
+            self._cache.pop(getattr(getattr(obj, "Document", None), "Name", ""), None)
             return
         for p in folhas:
             chave = (doc.Name, p.Name)

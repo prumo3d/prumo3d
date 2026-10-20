@@ -182,6 +182,25 @@ GERADORES = {"placa": _placa, "flange": _flange, "suporte": _suporte, "eixo": _e
 
 
 # ------------------------------------------------------------------ regras de projeto
+def impossivel(tipo, p):
+    """Erros que impedem gerar a peça (geometria que não existe). None = pode gerar."""
+    if tipo == "suporte":
+        minimo = p["Espessura"] + p["RaioDobra"]
+        for aba, nome in (("Aba1", "horizontal"), ("Aba2", "vertical")):
+            if p[aba] <= minimo + 1e-6:
+                return ("A aba %s (%s mm) precisa ser maior que espessura + raio da dobra (%s mm)."
+                        % (nome, _f(p[aba]), _f(minimo)))
+    elif tipo == "flange":
+        if p["DiametroInterno"] >= p["DiametroExterno"]:
+            return "O diâmetro interno precisa ser menor que o externo."
+    elif tipo == "eixo":
+        try:
+            trechos(p["Trechos"])
+        except ValueError as ex:
+            return str(ex)
+    return None
+
+
 def regras(tipo, p):
     """Avisos (não impedem gerar): o que pode estar errado no projeto."""
     av = []
@@ -251,6 +270,9 @@ class Modelo:
 
     def execute(self, obj):
         p = self.parametros(obj)
+        erro = impossivel(obj.TipoModelo, p)
+        if erro:
+            raise ValueError(erro)
         obj.Shape = GERADORES[obj.TipoModelo](p)
         obj.Avisos = regras(obj.TipoModelo, p)
 
@@ -379,12 +401,10 @@ def PainelModelo(obj=None):
         def pendencia(self):
             if FreeCAD.ActiveDocument is None:
                 return "Abra ou crie um documento."
-            if self.tipo.currentData() == "eixo":
-                try:
-                    trechos(self.campos["Trechos"].text())
-                except ValueError as ex:
-                    return str(ex)
-            return None
+            try:
+                return impossivel(self.tipo.currentData(), self.valores())
+            except (KeyError, ValueError) as ex:
+                return str(ex)
 
         def pronto_texto(self):
             return "Pronto: OK %s a peça." % ("atualiza" if self.obj is not None else "gera")

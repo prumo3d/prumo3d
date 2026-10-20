@@ -290,6 +290,8 @@ def materiais():
                 continue
             if "YoungsModulus" not in p or not p.get("YoungsModulus"):
                 continue
+            if m.LibraryName.startswith("Compatibilidade"):  # só para abrir arquivos antigos
+                continue
             pasta = m.Directory or ""
             grupo = "Outros"
             if m.LibraryName == "Prumo":

@@ -302,6 +302,7 @@ class PainelFolha(P.PainelTarefa):
         self.campos = {}
         for chave, rotulo, ic in CAMPOS_LEGENDA:
             self.campos[chave] = s2.linha(ic, QtWidgets.QLineEdit(valores.get(chave, "")), rotulo, rotulo)
+        self._auto = {k: valores.get(k, "") for k in self.campos if valores.get(k)}
         self.massa = valores.get("massa", "")
         s3 = f.secao("Vistas", "posicao")
         self.vistas = s3.linha("posicao", P.marcar("Colocar as vistas (frontal, superior, lateral e "
@@ -314,9 +315,14 @@ class PainelFolha(P.PainelTarefa):
         self.vistas.setChecked(bool(objs))
         v = campos_padrao(self.doc, objs)
         self.massa = v.get("massa", "")
+        auto = getattr(self, "_auto", {})
         for chave in ("material", "numero", "revisao", "titulo"):
-            if v.get(chave) and (not self.campos[chave].text().strip() or chave == "titulo"):
+            atual = self.campos[chave].text().strip()
+            # troca só o que estava vazio ou foi preenchido automaticamente (não o digitado)
+            if v.get(chave) and (not atual or atual == auto.get(chave)):
                 self.campos[chave].setText(v[chave])
+                auto[chave] = v[chave]
+        self._auto = auto
 
     def _formato(self, f):
         self.retrato.setEnabled(f == "A4")

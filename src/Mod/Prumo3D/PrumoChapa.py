@@ -34,7 +34,8 @@ TABELAS_K = {
                           4.0: 0.48, 1000.0: 0.50}, FONTE_DIN),
 }
 
-RAIO_MINIMO = {"Aço carbono": 1.0, "Aço inoxidável": 1.5, "Alumínio 5052": 0.8, "Alumínio 6061": 1.5}
+RAIO_MINIMO = {"Aço carbono": 1.0, "Aço inoxidável": 1.5, "Alumínio 5052": 0.8, "Alumínio 6061": 1.5,
+               "Alumínio": 1.5}   # família sem liga definida: o pior caso (6061)
 
 # (espessura mm, designação comercial)
 ESPESSURAS = {
@@ -73,7 +74,13 @@ def k_din(raio, espessura):
     return (0.65 + 0.5 * math.log10(rt)) / 2.0
 
 
-def raio_minimo(material, espessura):
+def raio_minimo(material, espessura, nome=""):
+    """Raio interno mínimo recomendado. nome: material da peça (ex.: "Alumínio 5052-H32"),
+    para pegar a liga dentro da família."""
+    for chave in RAIO_MINIMO:
+        liga = chave.split(" ", 1)[1] if chave.startswith("Alumínio ") else None
+        if liga and material == "Alumínio" and liga in (nome or ""):
+            return RAIO_MINIMO[chave] * espessura
     return RAIO_MINIMO.get(material, 1.0) * espessura
 
 
@@ -167,16 +174,19 @@ def _no_plano_xy(forma, dobras, normal):
     faces = [f for f in forma.Faces
              if abs(abs(f.normalAt(0, 0).dot(normal)) - 1.0) < 1e-6]
     alvo = max(faces, key=lambda f: f.Area)
-    pl = FreeCAD.Placement(FreeCAD.Vector(), rot)
-    face = alvo.transformGeometry(pl.toMatrix())
-    z = face.BoundBox.ZMin
-    face.translate(FreeCAD.Vector(-face.BoundBox.XMin, -face.BoundBox.YMin, -z))
-    desl = FreeCAD.Vector(-face.BoundBox.XMin, -face.BoundBox.YMin, 0)
+    m = FreeCAD.Placement(FreeCAD.Vector(), rot).toMatrix()
+    # transformação rígida (transformShape): furos e raios continuam círculos e arcos no DXF;
+    # transformGeometry converteria tudo em BSpline (e o DXF sairia em segmentos de reta)
+    face = alvo.copy()
+    face.transformShape(m)
+    bb = face.BoundBox
+    desl = FreeCAD.Vector(-bb.XMin, -bb.YMin, -bb.ZMin)
+    face.translate(desl)
     linhas = []
     if dobras is not None and dobras.Edges:
-        d = dobras.transformGeometry(pl.toMatrix())
-        bb_ref = alvo.transformGeometry(pl.toMatrix()).BoundBox
-        d.translate(FreeCAD.Vector(-bb_ref.XMin, -bb_ref.YMin, -bb_ref.ZMin))
+        d = dobras.copy()
+        d.transformShape(m)
+        d.translate(desl)
         linhas = d.Edges
     return face, linhas
 
@@ -302,7 +312,12 @@ def PainelChapaDXF():
                 k = k_fator(mat, r, t)
                 txt = "Espessura %s mm · raio %s mm · r/t %s · K = %s" % (
                     _f(t), _f(r), _f(r / t, 2), _f(k, 3))
-                rmin = raio_minimo("Aço carbono" if mat.startswith("DIN") else mat, t)
+                try:
+                    import PrumoUtil
+                    nome_mat = PrumoUtil.material(obj)[0]
+                except Exception:
+                    nome_mat = ""
+                rmin = raio_minimo("Aço carbono" if mat.startswith("DIN") else mat, t, nome_mat)
                 if r + 1e-9 < rmin:
                     txt += "<br><span style='color:#B5523F'>Raio menor que o mínimo recomendado (%s mm).</span>" \
                         % _f(rmin)
@@ -359,7 +374,12 @@ class CmdTabelaK:
     def Activated(self):
         doc = FreeCAD.ActiveDocument
         doc.openTransaction("Tabelas de fator K")
-        for m in TABELAS_K:
-            criar_tabela_k(doc, m)
+        try:
+            for m in TABELAS_K:
+                criar_tabela_k(doc, m)
+        except Exception as exc:
+            doc.abortTransaction()
+            FreeCAD.Console.PrintError("Prumo: tabelas de fator K: %s\n" % exc)
+            return
         doc.commitTransaction()
         FreeCAD.Console.PrintMessage("Prumo: tabelas de fator K criadas (escolha no Planificar do SheetMetal).\n")

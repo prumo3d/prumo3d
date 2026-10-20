@@ -80,7 +80,17 @@ def mostrar(doc, interferencias):
 
 
 # ------------------------------------------------------------------ painel
+def _eh_resultado(obj):
+    """Sólidos vermelhos do grupo Interferências (não são peças da montagem)."""
+    try:
+        return obj.Name == NOME_GRUPO or any(p.Name == NOME_GRUPO for p in obj.InList)
+    except Exception:
+        return False
+
+
 def _filtro(obj, subs):
+    if _eh_resultado(obj):
+        return []
     return [(obj.Label, obj)] if PrumoUtil.tem_peca([obj]) else []
 
 
@@ -121,7 +131,7 @@ def PainelInterferencia():
             if vs:
                 return vs
             doc = FreeCAD.ActiveDocument
-            return [o for o in doc.RootObjects if PrumoUtil.tem_peca([o]) and o.Name != NOME_GRUPO] if doc else []
+            return [o for o in doc.RootObjects if PrumoUtil.tem_peca([o]) and not _eh_resultado(o)] if doc else []
 
         def verificar(self):
             self.resultado = verificar(self._alvos(), self.tol.value(), self.contatos.isChecked())
@@ -140,9 +150,8 @@ def PainelInterferencia():
         def _selecionar(self, r):
             if 0 <= r < len(self.resultado):
                 it = self.resultado[r]
-                FreeCADGui.Selection.clearSelection()
-                FreeCADGui.Selection.addSelection(it.a)
-                FreeCADGui.Selection.addSelection(it.b)
+                # só mostra o par: não muda o que vai ser verificado
+                self.selecionar_sem_preencher([it.a, it.b])
 
         def executar(self):
             if not self.resultado:
@@ -150,7 +159,11 @@ def PainelInterferencia():
             return self.resultado
 
         def accept(self):
-            self.executar()
+            try:
+                self.executar()
+            except Exception as ex:
+                self.form.mensagem.mostrar(str(ex), "erro")
+                return False
             self._parar()
             return True
 
