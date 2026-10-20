@@ -78,10 +78,10 @@ def _thumb(path, size):
 
 
 # ---------------------------------------------------------------- ações
-def _abrir_tutorial():
+def _abrir_tutorial(chave="peca"):
     try:
         import PrumoTutorial
-        PrumoTutorial.mostrar()
+        PrumoTutorial.mostrar(chave)
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: tutorial indisponível: {}\n".format(exc))
 
@@ -302,8 +302,15 @@ class InicioPrumo(QtWidgets.QWidget):
         tut.setStyleSheet(PrumoEstilo.tema(
             "QPushButton#SwTutLink { text-align: left; color: #003A70; font-weight: 600; border: none; "
             "background: transparent; padding: 6px 2px; } QPushButton#SwTutLink:hover { color: #C99A00; }"))
-        tut.clicked.connect(_abrir_tutorial)
+        tut.clicked.connect(lambda *_: _abrir_tutorial("peca"))
         self.v.addWidget(tut)
+        tut2 = QtWidgets.QPushButton("Vai fazer estrutura metálica?  Tutorial da estrutura soldada (9 passos)  ›")
+        tut2.setObjectName("SwTutLink")
+        tut2.setCursor(QtCore.Qt.PointingHandCursor)
+        tut2.setFlat(True)
+        tut2.setStyleSheet(tut.styleSheet())
+        tut2.clicked.connect(lambda *_: _abrir_tutorial("estrutura"))
+        self.v.addWidget(tut2)
 
         # exemplos prontos
         exs = [e for e in EXEMPLOS if os.path.isfile(os.path.join(EXEMPLOS_DIR, e[0]))]
@@ -475,7 +482,14 @@ def _on_subwindow(sub):
         return
     docks = [d for d in mw.findChildren(QtWidgets.QDockWidget) if d.objectName() in SIDE_DOCKS]
     hidden = _hidden_names()
-    if _is_start(sub):
+    inicio = _is_start(sub)
+    # só esconde ao ENTRAR na tela inicial: se o usuário reabrir a árvore com ela na frente
+    # (botão Árvore do modelo), o painel fica
+    ja_estava = _side.get("no_inicio", False)
+    _side["no_inicio"] = inicio
+    if inicio and ja_estava:
+        return
+    if inicio:
         newly = [d.objectName() for d in docks if d.isVisible()]
         for d in docks:
             if d.isVisible():

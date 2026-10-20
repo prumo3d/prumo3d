@@ -10,6 +10,8 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 
 - **Interface em português** com faixa de abas (Início, Esboço, Peça, Sólidos, Montagem, Desenho,
   Estruturas, Chapa, Planilha, Simulação), tema claro e escuro e tela inicial com exemplos.
+- **Tutoriais interativos**: "primeira peça" e "estrutura soldada". Cada passo é marcado sozinho
+  quando você o faz, e "Mostrar onde" pisca o botão certo na faixa.
 - **Esboço:** pontos-ímã em quadrantes, pontos médios e interseções; linhas de inferência
   (alinhamento com pontos existentes); ao concluir o esboço, a vista enquadra o modelo.
 - **Cotas na tela:** duplo clique na peça mostra as cotas da operação para editar ali mesmo.
@@ -21,7 +23,7 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Estruturas soldadas** com perfis brasileiros (W, HP, U, I, cantoneiras, tubos e metalon):
   grupos de perfis, ponto de fixação, cantos em meia-esquadria ou de topo, recorte pelo contorno,
   reforços (mão-francesa), tampas de tubo, placas de base, cordões de solda, lista de corte e lista
-  de soldas.
+  de soldas. O diálogo Cantos mostra um desenho de cada tratamento.
 - **Chapa metálica** (bancada SheetMetal embutida): paredes, dobras e planificação.
 - **Peças padronizadas:** parafusos, porcas e arruelas métricas.
 
@@ -41,13 +43,14 @@ Clique em **Mais informações → Executar assim mesmo**.
 
 ### Roteiro de teste (15 minutos)
 
-1. Abra o Prumo 3D e confira a tela de abertura e a tela inicial.
+1. Abra o Prumo 3D e confira a tela de abertura e a tela inicial. Se o painel da árvore (à esquerda)
+   sumir, use **Início → Árvore do modelo**.
 2. Em **Exemplos**, abra os três arquivos e explore a árvore à esquerda.
 3. **Peça:** faça um esboço com um círculo e uma linha (veja os pontos-ímã), extrude e dê duplo
    clique na peça para mudar uma cota.
 4. **Desenho:** com a peça selecionada, crie uma **Folha ABNT A3** e depois a **Lista de materiais**.
-5. **Estruturas:** desenhe um retângulo de linhas, crie a **Estrutura soldada** com dois grupos de
-   perfis, mude um canto em **Cantos**, insira um **Reforço** e um **Cordão de solda**.
+5. **Estruturas:** faça o **Tutorial da estrutura** (aba Estruturas → Tutorial): esqueleto, dois
+   grupos de perfis, cantos, reforço, cordões de solda e lista de corte.
 6. **Chapa:** crie uma chapa base, uma dobra e planifique.
 7. Salve, feche e abra de novo.
 

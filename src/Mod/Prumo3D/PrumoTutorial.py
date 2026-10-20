@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Tutorial interativo "Primeira peça" — 10 passos com detecção automática.
+"""Tutoriais interativos com detecção automática dos passos.
 
-O painel acompanha o documento: cada passo fica concluído sozinho quando o usuário faz a
-ação (criar corpo, esboço, retângulo, cotas, extrusão, furo, arredondamento, salvar).
+- "Primeira peça" (10 passos): corpo, esboço, retângulo, cotas, extrusão, furo, arredondamento, salvar.
+- "Estrutura soldada" (9 passos): esqueleto, estrutura, grupos de perfis, cantos, reforço, solda,
+  lista de corte, salvar.
+
+O painel acompanha o documento: cada passo fica concluído sozinho quando o usuário faz a ação.
 "Mostrar onde" leva a faixa até a aba certa e faz o botão piscar em amarelo.
 """
 import os
@@ -111,10 +114,135 @@ PASSOS = [
 ]
 
 
-def estado():
+# ------------------------------------------------------------------ estrutura soldada
+def _estruturas():
+    try:
+        import PrumoEstrutura
+    except Exception:
+        return []
+    d = _doc()
+    return [o for o in d.Objects if PrumoEstrutura.eh_estrutura(o)] if d else []
+
+
+def _tem_esqueleto():
+    for s in _objs("Sketcher::SketchObject"):
+        n = 0
+        for i, g in enumerate(getattr(s, "Geometry", [])):
+            try:
+                construcao = s.getConstruction(i)
+            except Exception:
+                construcao = False
+            if g.TypeId == "Part::GeomLineSegment" and not construcao:
+                n += 1
+        if n >= 4:
+            return True
+    return False
+
+
+def _tem_grupos():
+    """Mais de um perfil: um grupo extra (Editar estrutura) ou uma barra trocada (Trocar perfil)."""
+    import PrumoEstrutura
+    for e in _estruturas():
+        try:
+            if PrumoEstrutura.grupos_para_edicao(e)[1]:
+                return True
+        except Exception:
+            if PrumoEstrutura.grupos(e):
+                return True
+    return False
+
+
+def _tem_canto():
+    return any(list(getattr(e, "Cantos", []) or []) for e in _estruturas())
+
+
+def _proxy_e(nome):
+    d = _doc()
+    return bool(d) and any(getattr(getattr(o, "Proxy", None), "__class__", None).__name__ == nome
+                           for o in d.Objects if getattr(o, "Proxy", None) is not None)
+
+
+def _tem_solda():
+    try:
+        import PrumoEstruturaExtras
+    except Exception:
+        return False
+    d = _doc()
+    return bool(d) and any(PrumoEstruturaExtras.eh_solda(o) for o in d.Objects)
+
+
+def _tem_lista_de_corte():
+    try:
+        import PrumoEstrutura
+    except Exception:
+        return False
+    d = _doc()
+    return bool(d) and d.getObject(PrumoEstrutura.NOME_LISTA) is not None
+
+
+PASSOS_ESTRUTURA = [
+    ("Criar um documento",
+     "Clique em Novo, na barra de acesso rápido no canto superior direito.",
+     None, ["Std_New"], lambda: _doc() is not None),
+    ("Desenhar o esqueleto",
+     "Na aba Esboço, clique em Novo esboço e escolha o plano XZ (frente). Desenhe com Linha um retângulo de "
+     "1500 × 900 mm e uma linha vertical no meio. Cada linha vira uma barra. Depois clique em Concluir esboço.",
+     "esboco", ["Sketcher_NewSketch"], lambda: _tem_esqueleto() and _fora_da_edicao()),
+    ("Criar a estrutura soldada",
+     "Selecione o esboço na árvore. Na aba Estruturas, clique em Estrutura soldada, escolha a família e o "
+     "perfil (por exemplo, W 150 × 13,0) e clique em Criar estrutura. Todas as linhas viram barras do mesmo "
+     "perfil.",
+     "estruturas", ["Prumo_Estrutura"], lambda: bool(_estruturas())),
+    ("Usar dois perfis (grupos)",
+     "Com a estrutura selecionada, clique em Editar estrutura e em Novo grupo. Dê o nome Colunas e escolha "
+     "outro perfil. Selecione na vista as duas barras verticais das pontas e clique em \"Pôr as linhas "
+     "selecionadas na tela no grupo atual\". Clique em Aplicar.",
+     "estruturas", ["Prumo_EditarEstrutura"], _tem_grupos),
+    ("Ajustar um canto",
+     "Clique em Cantos, escolha um dos cantos da lista e troque o tratamento (meia-esquadria, de topo ou "
+     "recortado pelo contorno). O desenho ao lado mostra cada opção. Clique em Aplicar.",
+     "estruturas", ["Prumo_Cantos"], _tem_canto),
+    ("Inserir um reforço",
+     "Selecione na vista as duas barras que se encontram num canto (Ctrl + clique) e clique em Reforço. "
+     "Escolha o tipo e as pernas da mão-francesa.",
+     "estruturas", ["Prumo_Reforco"], lambda: _proxy_e("Reforco")),
+    ("Soldar as juntas",
+     "Selecione a estrutura na árvore e clique em Cordão de solda. Com a estrutura inteira selecionada, "
+     "o Prumo cria um cordão em cada junta. Informe a perna (ex.: 5 mm) e o processo.",
+     "estruturas", ["Prumo_Solda"], _tem_solda),
+    ("Gerar a lista de corte",
+     "Clique em Lista de corte. A planilha traz cada barra com perfil, comprimento, ângulos de corte e massa.",
+     "estruturas", ["Prumo_ListaDeCorte"], _tem_lista_de_corte),
+    ("Salvar o projeto",
+     "Clique em Salvar e escolha a pasta e o nome do arquivo.",
+     None, ["Std_Save"], _salvo),
+]
+
+
+TUTORIAIS = {
+    "peca": {
+        "titulo": "Tutorial: primeira peça",
+        "sub": "Uma placa com furo, em 10 passos. Cada passo conclui sozinho quando você o faz.",
+        "fim": "Pronto! Você modelou a primeira peça: esboço, cotas, extrusão, furo e arredondamento. "
+               "Próximo passo sugerido: gerar o desenho técnico na aba Desenho, ou fazer o tutorial "
+               "de estrutura soldada.",
+        "passos": PASSOS,
+    },
+    "estrutura": {
+        "titulo": "Tutorial: estrutura soldada",
+        "sub": "Uma base soldada com dois perfis, em 9 passos. Cada passo conclui sozinho quando você o faz.",
+        "fim": "Pronto! Você fez uma estrutura soldada com grupos de perfis, cantos, reforço, soldas e lista "
+               "de corte. Próximo passo sugerido: Placa de base nas colunas e a Lista de soldas, ou uma "
+               "Folha ABNT na aba Desenho.",
+        "passos": PASSOS_ESTRUTURA,
+    },
+}
+
+
+def estado(chave="peca"):
     """Lista de bool: passo concluído?"""
     out = []
-    for _t, _x, _a, _c, chk in PASSOS:
+    for _t, _x, _a, _c, chk in TUTORIAIS[chave]["passos"]:
         try:
             out.append(bool(chk()))
         except Exception:
@@ -138,18 +266,23 @@ def destacar(aba, comandos):
         rb = None
     if rb is None:
         return False
-    if aba:
-        rb.select_tab(aba)
-    QtWidgets.QApplication.processEvents()
     alvo = []
-    for cmd in comandos:
-        acts = list(PrumoRibbon._cmd_actions(cmd))
-        proprio = getattr(PrumoRibbon, "_OWN_ACTIONS", {}).get(cmd)
-        if proprio is not None:
-            acts.append(proprio)       # botões da barra rápida usam ação própria
-        for b in rb.findChildren(QtWidgets.QToolButton):
-            if any(a in acts for a in getattr(b, "_actions", [])) and b.isVisible():
-                alvo.append(b)
+    # duas tentativas: uma troca de bancada pendente pode mudar a aba logo depois
+    for _tentativa in range(2):
+        if aba:
+            rb.select_tab(aba)
+        QtWidgets.QApplication.processEvents()
+        for cmd in comandos:
+            acts = list(PrumoRibbon._cmd_actions(cmd))
+            proprio = getattr(PrumoRibbon, "_OWN_ACTIONS", {}).get(cmd)
+            if proprio is not None:
+                acts.append(proprio)       # botões da barra rápida usam ação própria
+            for b in rb.findChildren(QtWidgets.QToolButton):
+                if (getattr(b, "_cmd", None) == cmd or any(a in acts for a in getattr(b, "_actions", []))) \
+                        and b.isVisible():
+                    alvo.append(b)
+            if alvo:
+                break
         if alvo:
             break
     if not alvo:
@@ -198,8 +331,11 @@ QPushButton#SwPrimario:hover { background: #0B4F8F; }
 
 
 class Tutorial(QtWidgets.QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, chave="peca"):
         super().__init__(parent)
+        self.chave = chave
+        tut = TUTORIAIS[chave]
+        self.passos = tut["passos"]
         self.setObjectName("SwTut")
         self.setStyleSheet(PrumoEstilo.tema(QSS))
         raiz = QtWidgets.QVBoxLayout(self)
@@ -214,9 +350,9 @@ class Tutorial(QtWidgets.QWidget):
         tl.addWidget(ic)
         tv = QtWidgets.QVBoxLayout()
         tv.setSpacing(0)
-        t = QtWidgets.QLabel("Tutorial: primeira peça")
+        t = QtWidgets.QLabel(tut["titulo"])
         t.setObjectName("SwTutTitulo")
-        self.sub = QtWidgets.QLabel("Uma placa com furo, em 10 passos. Cada passo conclui sozinho quando você o faz.")
+        self.sub = QtWidgets.QLabel(tut["sub"])
         self.sub.setObjectName("SwTutSub")
         self.sub.setWordWrap(True)
         tv.addWidget(t)
@@ -229,7 +365,7 @@ class Tutorial(QtWidgets.QWidget):
         cv.setContentsMargins(12, 12, 12, 12)
         cv.setSpacing(10)
         self.barra = QtWidgets.QProgressBar()
-        self.barra.setRange(0, len(PASSOS))
+        self.barra.setRange(0, len(self.passos))
         self.barra.setTextVisible(False)
         self.lb_prog = QtWidgets.QLabel("")
         self.lb_prog.setObjectName("SwTutSub")
@@ -257,9 +393,7 @@ class Tutorial(QtWidgets.QWidget):
         kv.addLayout(hl)
         cv.addWidget(self.cartao)
 
-        self.fim = QtWidgets.QLabel("Pronto! Você modelou a primeira peça: esboço, cotas, extrusão, furo e "
-                                    "arredondamento. Próximo passo sugerido: gerar o desenho técnico na aba "
-                                    "Desenho, ou simular a peça com o Assistente de simulação.")
+        self.fim = QtWidgets.QLabel(tut["fim"])
         self.fim.setObjectName("SwTutFim")
         self.fim.setWordWrap(True)
         cv.addWidget(self.fim)
@@ -267,7 +401,7 @@ class Tutorial(QtWidgets.QWidget):
         self.itens = []
         lista = QtWidgets.QVBoxLayout()
         lista.setSpacing(0)
-        for i, (tit, _x, _a, _c, _k) in enumerate(PASSOS):
+        for i, (tit, _x, _a, _c, _k) in enumerate(self.passos):
             lb = QtWidgets.QLabel()
             lb.setObjectName("SwTutItem")
             self.itens.append(lb)
@@ -284,30 +418,30 @@ class Tutorial(QtWidgets.QWidget):
         self.atualizar()
 
     def _mostrar_onde(self):
-        i = passo_atual(estado())
-        if i < len(PASSOS):
-            _t, _x, aba, cmds, _k = PASSOS[i]
+        i = passo_atual(estado(self.chave))
+        if i < len(self.passos):
+            _t, _x, aba, cmds, _k = self.passos[i]
             if not destacar(aba, cmds):
                 QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), "Esse botão aparece depois do passo anterior.")
 
     def atualizar(self):
-        feitos = estado()
+        feitos = estado(self.chave)
         if feitos == self._ultimo:
             return
         self._ultimo = feitos
         i = passo_atual(feitos)
         n = sum(feitos)
         self.barra.setValue(n)
-        self.lb_prog.setText("{} de {} passos concluídos".format(n, len(PASSOS)))
-        terminou = i >= len(PASSOS)
+        self.lb_prog.setText("{} de {} passos concluídos".format(n, len(self.passos)))
+        terminou = i >= len(self.passos)
         self.cartao.setVisible(not terminou)
         self.fim.setVisible(terminou)
         if not terminou:
-            tit, txt, _a, _c, _k = PASSOS[i]
+            tit, txt, _a, _c, _k = self.passos[i]
             self.lb_tit.setText("Passo {} · {}".format(i + 1, tit))
             self.lb_txt.setText(txt)
         for j, lb in enumerate(self.itens):
-            lb.setText("{}  {}".format("✓" if feitos[j] else "{:>2}.".format(j + 1), PASSOS[j][0]))
+            lb.setText("{}  {}".format("✓" if feitos[j] else "{:>2}.".format(j + 1), self.passos[j][0]))
             lb.setProperty("feito", "true" if feitos[j] else "false")
             lb.setProperty("atual", "true" if j == i else "false")
             lb.style().unpolish(lb)
@@ -317,20 +451,29 @@ class Tutorial(QtWidgets.QWidget):
 _estado = {"dock": None}
 
 
-def mostrar():
+def mostrar(chave="peca"):
     mw = FreeCADGui.getMainWindow()
     dock = _estado["dock"]
     try:
         vivo = dock is not None and dock.objectName() is not None
     except RuntimeError:
         vivo = False
+    if vivo and getattr(dock.widget(), "chave", "peca") != chave:
+        w = dock.widget()
+        try:
+            w.timer.stop()
+        except Exception:
+            pass
+        dock.setWidget(Tutorial(dock, chave))
+        dock.setWindowTitle(TUTORIAIS[chave]["titulo"])
+        w.deleteLater()
     if not vivo:
         for velho in mw.findChildren(QtWidgets.QDockWidget, "PrumoTutorial"):
             velho.setParent(None)
             velho.deleteLater()
-        dock = QtWidgets.QDockWidget("Tutorial: primeira peça", mw)
+        dock = QtWidgets.QDockWidget(TUTORIAIS[chave]["titulo"], mw)
         dock.setObjectName("PrumoTutorial")
-        dock.setWidget(Tutorial(dock))
+        dock.setWidget(Tutorial(dock, chave))
         dock.setMinimumWidth(330)
         mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         _estado["dock"] = dock
@@ -349,3 +492,15 @@ class CmdTutorial:
 
     def Activated(self):
         mostrar()
+
+
+class CmdTutorialEstrutura:
+    def GetResources(self):
+        return {"Pixmap": ICON, "MenuText": "Tutorial: estrutura soldada",
+                "ToolTip": "Passo a passo interativo: esqueleto, perfis, cantos, reforço, solda e lista de corte"}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        mostrar("estrutura")

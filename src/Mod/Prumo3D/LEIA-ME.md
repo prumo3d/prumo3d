@@ -27,7 +27,10 @@ outros módulos (`Mod/Prumo3D`), sem instalação separada.
 | Lista de materiais (planilha e tabela na folha) | `PrumoBOM.py` | abas Peça, Montagem, Desenho, Estruturas |
 | Folhas ABNT A0–A4 (NBR 16752 e NBR 10068) | `PrumoFolhas.py`, `Resources/folhas/` | abas Desenho e Peça |
 | Biblioteca de perfis (W, HP, U, I, L, tubos, metalon) | `PrumoPerfis.py`, `Resources/perfis/perfis.json` | usada pela estrutura e pelo vaso |
-| Estrutura soldada (grupos, ponto de fixação, cantos), trocar perfil, lista de corte | `PrumoEstrutura.py` | aba Estruturas |
+| Estrutura soldada (grupos, ponto de fixação, cantos com desenho de cada tratamento), trocar perfil, lista de corte | `PrumoEstrutura.py`, `PrumoIlustra.canto_svg` | aba Estruturas |
+| Tutoriais "primeira peça" e "estrutura soldada" | `PrumoTutorial.py` | abas Prumo e Estruturas, tela inicial |
+| Árvore do modelo (reabre o painel) | `PrumoGui.CmdArvore` | aba Início |
+| Tradução da faixa e dos menus (varredura 0.1 beta) | `PrumoI18n.py` | automática |
 | Reforço, tampa de tubo, placa de base, cordão e lista de soldas | `PrumoEstruturaExtras.py` | aba Estruturas |
 | Vaso de pressão (ASME VIII-1, UG-27/UG-32) | `PrumoVaso.py` | desligado por enquanto (sem botão) |
 | Parafusos, porcas e arruelas (ISO 4017, 4762, 4032, 7089) | `PrumoFixadores.py`, `Resources/fixadores/` | aba Estruturas |

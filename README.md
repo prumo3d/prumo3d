@@ -38,11 +38,16 @@ Visão geral
 * **Biblioteca de materiais** Aços estruturais, inoxidáveis, para vasos de pressão, para construção mecânica,
   tubos, forjados e alumínio, com as especificações usadas no Brasil.
 
-* **Tutorial da primeira peça** Passo a passo interativo (esboço, cotas, extrusão, furo, arredondamento e
-  salvar) que acompanha o que você faz na tela.
+* **Tutoriais interativos** "Primeira peça" (esboço, cotas, extrusão, furo, arredondamento e salvar) e
+  "Estrutura soldada" (esqueleto, grupos de perfis, cantos, reforço, solda e lista de corte). O painel
+  acompanha o que você faz na tela e marca cada passo sozinho.
 
 * **Guia ilustrado** Ao editar extrusão, cavidade, furo, arredondamento, chanfro, padrões e outras operações,
-  o painel de tarefas mostra um desenho do que a operação faz no modo escolhido.
+  o painel de tarefas mostra um desenho do que a operação faz no modo escolhido. O diálogo Cantos da
+  estrutura soldada mostra o desenho de cada tratamento (meia-esquadria, de topo, recorte pelo contorno).
+
+* **Árvore do modelo** Se o painel da árvore for fechado sem querer, o botão Início → Árvore do modelo
+  traz de volta.
 
 * **Esboço com ímãs e inferência** Ao desenhar, aparecem pontos-ímã nos quadrantes de círculos e arcos, no
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas

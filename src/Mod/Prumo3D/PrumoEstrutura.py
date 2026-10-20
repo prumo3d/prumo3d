@@ -1568,7 +1568,7 @@ class DialogoCantos(QtWidgets.QDialog):
         super().__init__(parent)
         self.est = est
         self.setWindowTitle("Cantos da estrutura")
-        self.setMinimumSize(720, 360)
+        self.setMinimumSize(1060, 380)
         lay = QtWidgets.QVBoxLayout(self)
         todos = cantos(est)
         if barras:
@@ -1599,7 +1599,46 @@ class DialogoCantos(QtWidgets.QDialog):
             self.tabela.setCellWidget(r, 2, cb)
             self.combos.append(cb)
         self.tabela.resizeColumnsToContents()
-        lay.addWidget(self.tabela, 1)
+        cab = self.tabela.horizontalHeader()
+        cab.setStretchLastSection(False)
+        cab.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        cab.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        cab.setSectionResizeMode(2, QtWidgets.QHeaderView.Fixed)
+        self.tabela.setColumnWidth(2, 250)
+        for r in range(self.tabela.rowCount()):
+            it = self.tabela.item(r, 0)
+            it.setToolTip(it.text())
+        meio = QtWidgets.QHBoxLayout()
+        meio.addWidget(self.tabela, 1)
+        # guia ilustrado: desenho do tratamento da linha atual
+        guia = QtWidgets.QVBoxLayout()
+        self.desenho = None
+        try:
+            from PySide6 import QtSvgWidgets
+            self.desenho = QtSvgWidgets.QSvgWidget()
+        except ImportError:  # pragma: no cover
+            try:
+                from PySide2 import QtSvg
+                self.desenho = QtSvg.QSvgWidget()
+            except ImportError:
+                self.desenho = None
+        if self.desenho is not None:
+            self.desenho.setFixedSize(260, 200)
+            guia.addWidget(self.desenho)
+        self.nota = QtWidgets.QLabel("")
+        self.nota.setWordWrap(True)
+        self.nota.setFixedWidth(260)
+        self.nota.setStyleSheet("color: #003A70;")
+        guia.addWidget(self.nota)
+        guia.addStretch(1)
+        meio.addLayout(guia)
+        lay.addLayout(meio, 1)
+        self.tabela.currentCellChanged.connect(lambda *_: self.atualizar_desenho())
+        for cb in self.combos:
+            cb.currentTextChanged.connect(lambda *_: self.atualizar_desenho())
+        if self.linhas:
+            self.tabela.setCurrentCell(0, 2)
+        self.atualizar_desenho()
         bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         bb.button(QtWidgets.QDialogButtonBox.Ok).setText("Aplicar")
         bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
@@ -1609,6 +1648,39 @@ class DialogoCantos(QtWidgets.QDialog):
 
     def escolher(self, linha, opcao):
         self.combos[linha].setCurrentText(opcao)
+
+    def opcao_mostrada(self):
+        """(tipo, opção) que o desenho mostra: a escolha da linha atual ou, em "(manter)", a de hoje."""
+        r = self.tabela.currentRow()
+        if r < 0 or r >= len(self.linhas):
+            return None
+        c = self.linhas[r][0]
+        op = self.combos[r].currentText()
+        if op == self.MANTER:
+            hoje = c.descricao_tratamento()
+            opcoes = OPCOES_ESQUADRIA if c.tipo == "esquadria" else OPCOES_T
+            if hoje in opcoes:
+                op = hoje
+            elif hoje.startswith("Topo — passa a barra"):
+                n = int(hoje.rsplit(" ", 1)[-1]) - 1
+                op = OPCOES_ESQUADRIA[1] if n == min(c.i, c.j) else OPCOES_ESQUADRIA[2]
+            else:
+                op = opcoes[0]
+        return c.tipo, op
+
+    def atualizar_desenho(self):
+        escolha = self.opcao_mostrada()
+        if escolha is None:
+            return
+        try:
+            import PrumoIlustra
+            svg, nota = PrumoIlustra.canto_svg(escolha[1], escolha[0])
+        except Exception as ex:  # pragma: no cover
+            self.nota.setText(str(ex))
+            return
+        if self.desenho is not None:
+            self.desenho.load(QtCore.QByteArray(svg.encode("utf-8")))
+        self.nota.setText("<b>%s</b><br>%s" % (escolha[1], nota))
 
     def aplicar(self):
         doc = self.est.Document

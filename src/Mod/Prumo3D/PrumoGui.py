@@ -412,6 +412,55 @@ class CmdAplicarTema:
         return True
 
 
+PAINEIS_ARVORE = ("Combo View", "ComboView", "Tree view", "TreeView", "Model")
+
+
+def painel_arvore():
+    """O painel da árvore do modelo (Visão combinada; ou Árvore, se o usuário separou os painéis)."""
+    from PySide import QtWidgets
+    mw = FreeCADGui.getMainWindow()
+    docks = {d.objectName(): d for d in mw.findChildren(QtWidgets.QDockWidget)}
+    for nome in PAINEIS_ARVORE:
+        if nome in docks:
+            return docks[nome]
+    return None
+
+
+def mostrar_arvore(mostrar=None):
+    """Abre (ou fecha, se já estiver à vista) o painel da árvore. Retorna se ficou visível."""
+    d = painel_arvore()
+    if d is None:
+        return False
+    if mostrar is None:
+        mostrar = not (d.isVisible() and not d.visibleRegion().isEmpty())
+    # Pela ação do menu Exibir → Painéis: o FreeCAD grava o estado do painel quando ela é usada
+    # (sem disparar a reaplicação do estado de todos os painéis, o que mexeria nos outros).
+    act = d.toggleViewAction()
+    if act is not None and d.isVisible() != bool(mostrar):
+        act.trigger()
+    if bool(mostrar) != d.isVisible():
+        d.setVisible(bool(mostrar))
+    if mostrar:
+        d.raise_()
+    return d.isVisible()
+
+
+class CmdArvore:
+    def GetResources(self):
+        return {
+            "Pixmap": "tree-doc-single",
+            "MenuText": "Árvore do modelo",
+            "ToolTip": "Mostra ou esconde o painel da árvore do modelo (à esquerda). "
+                       "Use se o painel foi fechado sem querer.",
+        }
+
+    def Activated(self):
+        mostrar_arvore()
+
+    def IsActive(self):
+        return True
+
+
 class CmdSobre:
     def GetResources(self):
         return {
@@ -750,6 +799,7 @@ MENU_EXTRA = ["Prumo_TemaIcones", "Prumo_BarrasClassicas", "Prumo_RemoverSplash"
 def register_commands():
     FreeCADGui.addCommand("Prumo_AplicarTema", CmdAplicarTema())
     FreeCADGui.addCommand("Prumo_Sobre", CmdSobre())
+    FreeCADGui.addCommand("Prumo_Arvore", CmdArvore())
     FreeCADGui.addCommand("Prumo_RemoverSplash", CmdRemoverSplash())
     FreeCADGui.addCommand("Prumo_BarrasClassicas", CmdBarrasClassicas())
     FreeCADGui.addCommand("Prumo_TemaIcones", CmdTemaIcones())
@@ -787,6 +837,7 @@ def register_commands():
         FreeCADGui.addCommand("Prumo_Testes", PrumoTestes.CmdTestes())
         import PrumoTutorial
         FreeCADGui.addCommand("Prumo_Tutorial", PrumoTutorial.CmdTutorial())
+        FreeCADGui.addCommand("Prumo_TutorialEstrutura", PrumoTutorial.CmdTutorialEstrutura())
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: assistente de simulação indisponível: {}\n".format(exc))
 

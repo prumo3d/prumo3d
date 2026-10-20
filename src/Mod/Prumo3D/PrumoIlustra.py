@@ -376,3 +376,79 @@ def draft():
     g.text3((10.5, 6, 0), "Plano neutro", dx=6, dy=6)
     _legend(g, [(TARGET, "Face inclinada"), (SOLID[0], "Peça")])
     return g
+
+
+# ---------------------------------------------------------------- cantos da estrutura (vista 2D)
+def canto_svg(opcao, tipo="esquadria"):
+    """Desenho em planta do tratamento de canto escolhido no diálogo Cantos.
+
+    tipo: "esquadria" (duas pontas que se encontram) ou "topo_T" (uma barra encosta no meio da outra).
+    Retorna (svg, nota): o SVG completo (260 × 200) e uma frase que explica o tratamento.
+    """
+    A, B, CORTE = "#A9C4E0", "#D3E0EE", AMBER
+    p = []
+
+    def poly(pts, fill, sw=1.3):
+        p.append('<polygon points="%s" fill="%s" stroke="%s" stroke-width="%.1f" stroke-linejoin="round"/>'
+                 % (" ".join("%g,%g" % q for q in pts), fill, OUT, sw))
+
+    def linha(a, b, cor=CORTE, sw=3.0):
+        p.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" stroke-width="%.1f" stroke-linecap="round"/>'
+                 % (a[0], a[1], b[0], b[1], cor, sw))
+
+    def texto(x, y, t, ancora="start", cor=TXT, peso="400"):
+        p.append('<text x="%g" y="%g" font-family="Poppins, Segoe UI, sans-serif" font-size="11" fill="%s" '
+                 'font-weight="%s" text-anchor="%s">%s</text>' % (x, y, cor, peso, ancora, t))
+
+    nota = ""
+    if tipo == "esquadria":
+        horiz_passa = None
+        if opcao.startswith("Meia"):
+            poly([(20, 110), (130, 110), (160, 140), (20, 140)], A)
+            poly([(130, 20), (160, 20), (160, 140), (130, 110)], B)
+            linha((130, 110), (160, 140))
+            nota = "As duas barras cortadas a 45° (metade do ângulo)"
+        else:
+            if "menor" in opcao or "horizontal" in opcao:
+                horiz_passa = True
+            elif "maior" in opcao or "vertical" in opcao:
+                horiz_passa = False
+            if horiz_passa:
+                poly([(20, 110), (160, 110), (160, 140), (20, 140)], A)
+                poly([(130, 20), (160, 20), (160, 110), (130, 110)], B)
+                linha((130, 110), (160, 110))
+                texto(24, 132, "passa inteira", peso="600")
+            else:
+                poly([(130, 20), (160, 20), (160, 140), (130, 140)], A)
+                poly([(20, 110), (130, 110), (130, 140), (20, 140)], B)
+                linha((130, 110), (130, 140))
+                texto(168, 40, "passa", peso="600")
+                texto(168, 54, "inteira", peso="600")
+            if "número" in opcao:
+                texto(60, 104, "barra 1")
+                texto(168, 90, "barra 2")
+            nota = "Corte reto: uma barra passa, a outra encosta nela"
+    else:
+        # barra que passa vista de topo (tubo redondo cortado) e a que chega
+        p.append('<circle cx="130" cy="140" r="38" fill="%s" stroke="%s" stroke-width="1.3"/>' % (A, OUT))
+        p.append('<circle cx="130" cy="140" r="31" fill="#FFFFFF" stroke="%s" stroke-width="1.0"/>' % OUT)
+        texto(130, 194, "barra que passa (em corte)", "middle")
+        if opcao.startswith("Recorte"):
+            # ponta da barra que chega acompanha o contorno (boca de lobo)
+            import math
+            xs = [108 + i * 2 for i in range(23)]
+            arco = [(x, 140 - math.sqrt(max(38 ** 2 - (x - 130) ** 2, 0))) for x in xs]
+            poly([(108, 20)] + arco + [(152, 20)], B)
+            p.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="3" stroke-linecap="round"/>'
+                     % (" ".join("%g,%g" % q for q in arco), CORTE))
+            nota = "A ponta acompanha o contorno da outra barra (encaixe sem folga)"
+        else:
+            topo = 140 - 38
+            poly([(108, 20), (152, 20), (152, topo), (108, topo)], B)
+            linha((108, topo), (152, topo))
+            nota = "Ponta cortada reta, encostando na face mais próxima"
+        texto(160, 40, "barra que chega")
+    corpo = "\n".join(p)
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="200" viewBox="0 0 260 200">'
+           '<rect width="260" height="200" fill="#FFFFFF"/>%s</svg>' % corpo)
+    return svg, nota

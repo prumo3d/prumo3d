@@ -101,9 +101,11 @@ class SMWorkbench(Workbench):
                              "SheetMetal_UnattendedUnfold")
 
         # Create a new toolbar with commands.
-        self.appendToolbar(FreeCAD.Qt.translate("SheetMetal", "Sheet Metal"), self.list)
+        # Prumo 3D: nomes de barra/menu vão sem traduzir; o FreeCAD traduz no contexto
+        # "Workbench" ao mostrar (passar o texto já traduzido estragava os acentos do menu)
+        self.appendToolbar("Sheet Metal", self.list)
         # Create a new menu.
-        self.appendMenu(FreeCAD.Qt.translate("SheetMetal", "&Sheet Metal"), self.list)
+        self.appendMenu("&Sheet Metal", self.list)
         # # Append a submenu to an existing menu.
         # self.appendMenu(["An existing Menu","My submenu"],self.list)
         Gui.addPreferencePage(os.path.join(SMWBPath, "Resources/panels/SMprefs.ui"), "SheetMetal")
@@ -121,7 +123,7 @@ class SMWorkbench(Workbench):
         """Execute whenever the user right-clicks on screen."""
         # `recipient` will be either `view` or `tree`.
         #
-        self.appendContextMenu(FreeCAD.Qt.translate("SheetMetal", "Sheet Metal"), self.list)
+        self.appendContextMenu("Sheet Metal", self.list)
         if recipient and "tree" in str(recipient).lower():
             import SheetMetalTools
             sel = Gui.Selection.getSelection()

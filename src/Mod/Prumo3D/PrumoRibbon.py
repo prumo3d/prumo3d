@@ -69,7 +69,8 @@ TABS = [
         ]),
         ("Ferramentas", [
             ("Std_Measure", L, "Medir"), ("Part_SelectFilter", S, "Filtro de seleção"),
-            ("Std_ToggleClipPlane", S, "Plano de corte"), ("Std_TreeViewActions", S, "Árvore"),
+            ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),
+            ("Std_TreeViewActions", S, "Opções da árvore"),
             ("Std_DlgMacroExecute", S, "Macros"), ("Std_DlgPreferences", L, "Preferências"),
         ]),
         ("Estrutura", [
@@ -246,6 +247,7 @@ TABS = [
             ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
             ("Std_Measure", S, "Medir"),
         ]),
+        ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),
     ]},
     {"id": "chapa", "label": "Chapa", "wb": "SMWorkbench", "panels": [
         ("Criar", [
@@ -307,7 +309,8 @@ TABS = [
             ("Prumo_TemaIcones", S, "Tema de ícones"), ("Prumo_BarrasClassicas", S, "Barras clássicas"),
             ("Prumo_RemoverSplash", S, "Splash original"), ("Prumo_ModoDistribuicao", S, "Modo distribuição"),
         ]),
-        ("Aprender", [("Prumo_Tutorial", L, "Tutorial\nprimeira peça")]),
+        ("Aprender", [("Prumo_Tutorial", L, "Tutorial\nprimeira peça"),
+                      ("Prumo_TutorialEstrutura", L, "Tutorial\nestrutura")]),
         ("Qualidade", [("Prumo_Testes", L, "Testes\nautomáticos")]),
     ]},
 ]
@@ -430,8 +433,19 @@ def _own_action(name, cmd):
     import os as _os
     QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
     act = QAction(FreeCADGui.getMainWindow())
-    act.setText(info.get("menuText") or name)
-    tip = info.get("toolTip") or ""
+
+    def tr(texto):
+        # getInfo devolve o texto de origem (inglês): traduz como o FreeCAD faria
+        if not texto:
+            return texto
+        for ctx in (name, cmd.__class__.__name__ if hasattr(cmd, "__class__") else name):
+            t = QtCore.QCoreApplication.translate(ctx, texto)
+            if t and t != texto:
+                return t
+        return texto
+
+    act.setText(tr(info.get("menuText")) or name)
+    tip = tr(info.get("toolTip") or "")
     act.setToolTip(tip)
     act.setStatusTip(tip)
     pix = info.get("pixmap") or ""
@@ -830,6 +844,7 @@ class PrumoRibbon(QtWidgets.QWidget):
                         acts = [a]
             if acts:
                 b = RibbonButton(acts[:1], S, "", box)
+                b._cmd = name
                 b.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
                 b.setIconSize(QtCore.QSize(18, 18))
                 b.setFixedSize(28, 28)
@@ -974,7 +989,9 @@ class PrumoRibbon(QtWidgets.QWidget):
                 acts = _cmd_actions(cmd)
                 if not acts:
                     continue
-                panel.add(RibbonButton(acts, size, label, panel), size)
+                btn = RibbonButton(acts, size, label, panel)
+                btn._cmd = cmd      # o tutorial acha o botão pelo nome do comando
+                panel.add(btn, size)
             if panel.count == 0:
                 panel.deleteLater()
                 continue

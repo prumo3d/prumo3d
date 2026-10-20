@@ -2256,7 +2256,198 @@ class T27Exemplos(unittest.TestCase):
         w.close()
 
 
+class T28TraducaoEArvore(unittest.TestCase):
+    """Varredura de tradução da 0.1 beta e botão que reabre a árvore do modelo."""
+
+    def test_textos_da_varredura_traduzidos(self):
+        import PrumoI18n
+        if PrumoI18n._state["tr"] is None:
+            self.skipTest("tradução Prumo desligada")
+        from PySide import QtCore
+        tr = QtCore.QCoreApplication.translate
+        casos = [("StdCmdNew", "&New Document", "&Novo documento"),
+                 ("CmdSketcherCreateFillet", "Fillet", "Arredondamento"),
+                 ("CmdPartDefeaturing", "Defeaturing", "Remover detalhes"),
+                 ("Workbench", "&Part", "&Sólidos"),
+                 ("Workbench", "&Sheet Metal", "&Chapa metálica"),
+                 ("FEM_Analysis", "New Analysis", "Nova análise"),
+                 ("Part_ExplodeCompound", "Explode Compound", "Separar composto"),
+                 ("CmdTechDrawRadiusDimension", "Inserts a radius dimension of a circular edge or arc",
+                  "Insere a cota de raio de um círculo ou arco")]
+        for ctx, origem, esperado in casos:
+            self.assertEqual(tr(ctx, origem), esperado, origem)
+
+    def test_menu_da_chapa_sem_acento_quebrado(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoI18n
+        if PrumoI18n._state["tr"] is None:
+            self.skipTest("tradução Prumo desligada")
+        ativa = FreeCADGui.activeWorkbench().name()
+        try:
+            FreeCADGui.activateWorkbench("SMWorkbench")
+            FreeCADGui.updateGui()
+            menus = [a.text() for a in FreeCADGui.getMainWindow().menuBar().actions()]
+            self.assertIn("&Chapa metálica", menus)
+            self.assertFalse(any("Ã" in m for m in menus), menus)
+        finally:
+            FreeCADGui.activateWorkbench(ativa)
+
+    def test_botao_arvore_reabre_o_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGui
+        import time
+        # troca de bancada (outros testes) restaura os painéis com atraso: espera assentar
+        t = time.time()
+        while time.time() - t < 1.0:
+            FreeCADGui.updateGui()
+        d = PrumoGui.painel_arvore()
+        self.assertIsNotNone(d)
+        visivel = d.isVisible()
+        try:
+            PrumoGui.mostrar_arvore(False)
+            FreeCADGui.updateGui()
+            self.assertFalse(d.isVisible())
+            FreeCADGui.runCommand("Prumo_Arvore", 0)
+            FreeCADGui.updateGui()
+            self.assertTrue(d.isVisible())
+            # continua aberto (a tela inicial e o FreeCAD reaplicam estados com atraso)
+            t = time.time()
+            while time.time() - t < 1.0:
+                FreeCADGui.updateGui()
+            self.assertTrue(d.isVisible(), "o painel da árvore fechou sozinho")
+        finally:
+            PrumoGui.mostrar_arvore(visivel)
+
+    def test_botao_arvore_na_faixa(self):
+        import PrumoRibbon
+        inicio = [t for t in PrumoRibbon.TABS if t["id"] == "inicio"][0]
+        cmds = [c for _p, itens in inicio["panels"] for c, _s, _r in itens]
+        self.assertIn("Prumo_Arvore", cmds)
+
+
+class T29GuiaEstrutura(unittest.TestCase):
+    """Tutorial da estrutura soldada e desenhos do diálogo Cantos."""
+
+    def test_passos_do_tutorial_detectados_em_ordem(self):
+        import PrumoTutorial as T
+        import PrumoEstrutura as E
+        import PrumoEstruturaExtras as X
+        doc = novo_doc("PrumoTesteTutEstrutura")
+        try:
+            FreeCAD.setActiveDocument(doc.Name)
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 1)
+            sk = esboco_linhas(doc, [((0, 0), (1500, 0)), ((1500, 0), (1500, 900)), ((1500, 900), (0, 900)),
+                                     ((0, 900), (0, 0)), ((750, 0), (750, 900))], "XZ")
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 2, "esqueleto → próximo é a estrutura")
+            est = E.criar(doc, sk, "W 150 x 13,0")
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 3, "estrutura → próximo são os grupos")
+            E.definir_grupos(est, [{"nome": "Colunas", "perfil": TQ50, "arestas": [1, 3]}])
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 4, "grupos → próximo é o canto")
+            E.aplicar_opcao(est, [c for c in E.cantos(est) if c.tipo == "esquadria"], E.OPCOES_ESQUADRIA[3])
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 5, "canto → próximo é o reforço")
+            bs = E.barras_de(est)
+            X.criar_reforco(bs[2], bs[1], Perna1=200, Perna2=200, Espessura=8)
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 6, "reforço → próximo é a solda")
+            X.soldar_estrutura(est, 5)
+            doc.recompute()
+            self.assertEqual(T.passo_atual(T.estado("estrutura")), 7, "solda → próximo é a lista de corte")
+            E.gravar_lista_de_corte(doc, E.lista_de_corte([est]))
+            doc.recompute()
+            feitos = T.estado("estrutura")
+            self.assertEqual(feitos[:8], [True] * 8, feitos)
+            self.assertFalse(feitos[8], "documento não salvo ainda")
+            # o tutorial da peça não se confunde com a estrutura
+            self.assertFalse(T.estado("peca")[1])
+        finally:
+            fechar(doc)
+
+    def test_painel_do_tutorial_da_estrutura(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTutorial as T
+        from PySide import QtWidgets
+        w = T.Tutorial(None, "estrutura")
+        try:
+            self.assertEqual(len(w.itens), len(T.PASSOS_ESTRUTURA))
+            self.assertIn("estrutura soldada", w.findChildren(QtWidgets.QLabel)[0].text().lower() +
+                          " ".join(l.text().lower() for l in w.findChildren(QtWidgets.QLabel)))
+        finally:
+            w.timer.stop()
+            w.deleteLater()
+
+    def test_trocar_de_tutorial_no_mesmo_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTutorial as T
+        d1 = T.mostrar("peca")
+        d2 = T.mostrar("estrutura")
+        try:
+            self.assertIs(d1, d2)
+            self.assertEqual(d2.widget().chave, "estrutura")
+            self.assertEqual(d2.windowTitle(), "Tutorial: estrutura soldada")
+        finally:
+            d2.widget().timer.stop()
+            d2.close()
+
+    def test_mostrar_onde_encontra_botoes_da_estrutura(self):
+        import PrumoRibbon
+        import PrumoTutorial as T
+        if PrumoRibbon._state.get("ribbon") is None:
+            self.skipTest("faixa Prumo não instalada nesta sessão")
+        for i in (2, 3, 4, 5, 6, 7):
+            _t, _x, aba, cmds, _k = T.PASSOS_ESTRUTURA[i]
+            self.assertTrue(T.destacar(aba, cmds), "botão do passo %d não encontrado" % (i + 1))
+
+    def test_desenhos_dos_cantos_validos(self):
+        import PrumoIlustra
+        import PrumoEstrutura as E
+        try:
+            from PySide6 import QtSvg
+        except ImportError:  # pragma: no cover
+            from PySide2 import QtSvg
+        from PySide import QtCore
+        vistos = set()
+        for tipo, opcoes in (("esquadria", E.OPCOES_ESQUADRIA), ("topo_T", E.OPCOES_T)):
+            for op in opcoes:
+                svg, nota = PrumoIlustra.canto_svg(op, tipo)
+                self.assertTrue(QtSvg.QSvgRenderer(QtCore.QByteArray(svg.encode("utf-8"))).isValid(), op)
+                self.assertTrue(nota)
+                vistos.add(svg)
+        self.assertGreaterEqual(len(vistos), 5, "opções diferentes devem ter desenhos diferentes")
+
+    def test_dialogo_cantos_acompanha_a_escolha(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEstrutura as E
+        doc = novo_doc("PrumoTesteCantosGuia")
+        try:
+            sk = esboco_linhas(doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)), ((1000, 600), (0, 600)),
+                                     ((0, 600), (0, 0)), ((500, 0), (500, 600))], "XZ")
+            est = E.criar(doc, sk, "W 150 x 13,0")
+            doc.recompute()
+            d = E.DialogoCantos(est)
+            r = [k for k, g in enumerate(d.linhas) if g[0].tipo == "topo_T"][0]
+            d.tabela.setCurrentCell(r, 2)
+            d.escolher(r, "Recorte pelo contorno")
+            self.assertEqual(d.opcao_mostrada(), ("topo_T", "Recorte pelo contorno"))
+            self.assertIn("Recorte pelo contorno", d.nota.text())
+            r2 = [k for k, g in enumerate(d.linhas) if g[0].tipo == "esquadria"][0]
+            d.tabela.setCurrentCell(r2, 2)
+            self.assertEqual(d.opcao_mostrada()[0], "esquadria")
+            self.assertIn("Meia-esquadria", d.nota.text())   # (manter) mostra o tratamento de hoje
+            d.close()
+        finally:
+            fechar(doc)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
-           T25EstruturaInterface, T26Versao, T27Exemplos]
+           T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura]
