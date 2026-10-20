@@ -148,6 +148,7 @@ TABS = [
         ]),
         ("Prumo", [
             ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
+            ("Prumo_Variantes", L, "Variantes\nda peça"),
             ("Prumo_Massa", S, "Propriedades de massa"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
         ]),
@@ -267,7 +268,8 @@ TABS = [
             ("SheetMetal_AddCornerRelief", S, "Alívio de canto"), ("SheetMetal_Forming", S, "Estampar"),
         ]),
         ("Planificar", [
-            ("SheetMetal_Unfold", L, "Planificar"), ("SheetMetal_UnfoldUpdate", S, "Atualizar planificações"),
+            ("SheetMetal_Unfold", L, "Planificar"), ("Prumo_ChapaDXF", L, "Planificar\nem DXF"),
+            ("SheetMetal_UnfoldUpdate", S, "Atualizar planificações"), ("Prumo_TabelaK", S, "Tabela de fator K"),
         ]),
     ]},
     {"id": "planilha", "label": "Planilha", "wb": "SpreadsheetWorkbench", "panels": [

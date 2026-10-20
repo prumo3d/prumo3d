@@ -812,6 +812,10 @@ def register_commands():
         FreeCAD.Console.PrintWarning("Prumo: tela inicial indisponível: {}\n".format(exc))
     for modulo, registro in (("PrumoCotas", lambda m: FreeCADGui.addCommand("Prumo_Cotas", m.CmdCotas())),
                              ("PrumoMassa", lambda m: FreeCADGui.addCommand("Prumo_Massa", m.CmdMassa())),
+                             ("PrumoVariantes", lambda m: FreeCADGui.addCommand("Prumo_Variantes",
+                                                                                m.CmdVariantes())),
+                             ("PrumoChapa", lambda m: (FreeCADGui.addCommand("Prumo_ChapaDXF", m.CmdChapaDXF()),
+                                                       FreeCADGui.addCommand("Prumo_TabelaK", m.CmdTabelaK()))),
                              ("PrumoPropriedades", lambda m: (FreeCADGui.addCommand("Prumo_Propriedades",
                                                                                     m.CmdPropriedades()),
                                                               m.install())),

@@ -3204,9 +3204,241 @@ class T35PropriedadesDaPeca(unittest.TestCase):
         self.assertIn("Prumo_Propriedades", FreeCADGui.Command.listAll())
 
 
+class T36ChapaFatorKeDXF(unittest.TestCase):
+    """Fator K por material, espessuras comerciais e planificação em DXF."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteChapaK")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.pasta = tempfile.mkdtemp()
+
+    def tearDown(self):
+        fechar(self.doc)
+
+    def _chapa(self, t=2.0, r=2.0):
+        import Part
+        import SheetMetalBaseCmd
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Perfil")
+        sk.Placement = FreeCAD.Placement(V(), FreeCAD.Rotation(V(1, 0, 0), 90))
+        for a, b in (((0, 60), (0, 0)), ((0, 0), (80, 0)), ((80, 0), (80, 40))):
+            sk.addGeometry(Part.LineSegment(V(a[0], a[1], 0), V(b[0], b[1], 0)))
+        self.doc.recompute()
+        base = self.doc.addObject("Part::FeaturePython", "Chapa")
+        SheetMetalBaseCmd.SMBaseBend(base, sk)
+        base.Thickness, base.Radius, base.Length = t, r, 120.0
+        self.doc.recompute()
+        return base
+
+    def test_fator_k_por_material_e_faixa(self):
+        import PrumoChapa as C
+        self.assertEqual(C.k_fator("Aço carbono", 1.0, 2.0), 0.40)    # r/t = 0,5
+        self.assertEqual(C.k_fator("Aço carbono", 4.0, 2.0), 0.44)    # r/t = 2
+        self.assertEqual(C.k_fator("Aço carbono", 10.0, 2.0), 0.50)   # r/t = 5
+        self.assertEqual(C.k_fator("Alumínio", 1.0, 2.0), 0.33)
+        self.assertEqual(C.k_fator("Aço inoxidável", 4.0, 2.0), 0.46)
+        self.assertAlmostEqual(C.k_din(2.0, 2.0), 0.325, places=4)    # (0,65 + 0)/2
+        self.assertAlmostEqual(C.k_din(20.0, 2.0), 0.5)
+        for mat, (tab, fonte) in C.TABELAS_K.items():
+            self.assertTrue(fonte)
+            self.assertTrue(all(0.0 < v <= 0.5 for v in tab.values()), mat)
+        with self.assertRaises(ValueError):
+            C.k_fator("Aço carbono", 1.0, 0.0)
+
+    def test_espessuras_e_raio_minimo(self):
+        import PrumoChapa as C
+        self.assertEqual(C.espessura_comercial("Aço carbono", 3.1), (3.00, "#11"))
+        self.assertEqual(C.espessura_comercial("Aço carbono", 6.0), (6.30, '1/4"'))
+        self.assertEqual(C.espessura_comercial("Aço inoxidável", 1.5)[1], "USG 16")
+        self.assertAlmostEqual(C.raio_minimo("Aço inoxidável", 2.0), 3.0)
+        self.assertEqual(C.familia_do_material("AISI 304 (A240)"), "Aço inoxidável")
+        self.assertEqual(C.familia_do_material("Alumínio 5052-H32"), "Alumínio")
+        self.assertEqual(C.familia_do_material("ASTM A36"), "Aço carbono")
+
+    def test_tabela_no_formato_do_sheetmetal(self):
+        import PrumoChapa as C
+        import SheetMetalKfactor
+        sh = C.criar_tabela_k(self.doc, "Aço inoxidável")
+        t = SheetMetalKfactor.KFactorLookupTable(sh.Label)
+        self.assertEqual(t.k_factor_standard, "ansi")
+        self.assertEqual(t.k_factor_lookup, C.TABELAS_K["Aço inoxidável"][0])
+        self.assertIn(sh, SheetMetalKfactor.getSpreadSheetNames())
+        rotulo = sh.Label
+        C.criar_tabela_k(self.doc, "Aço inoxidável")      # recriar não duplica
+        self.assertEqual(len(self.doc.getObjectsByLabel(rotulo)), 1)
+
+    def test_planificar_e_dxf(self):
+        import PrumoChapa as C
+        base = self._chapa()
+        arq, plana, info = C.exportar_dxf(base, os.path.join(self.pasta, "chapa.dxf"), "Aço carbono")
+        self.assertTrue(os.path.isfile(arq))
+        txt = open(arq, encoding="ascii").read()
+        for marca in ("SECTION", "ENTITIES", "CONTORNO", "DOBRAS", "EOF", "AC1009"):
+            self.assertIn(marca, txt)
+        self.assertEqual(info["dobras"], 2)
+        self.assertAlmostEqual(info["altura"], 120.0, places=3)
+        self.assertAlmostEqual(plana.BoundBox.ZLength, 0.0, places=6)
+        self.assertEqual(info["k"], 0.40)
+        # com K menor (alumínio) a planificação encurta 2 dobras × π/2 × ΔK × t
+        _a, plana_al, _i = C.exportar_dxf(base, os.path.join(self.pasta, "al.dxf"), "Alumínio")
+        esperado = 2 * (math.pi / 2) * (0.40 - 0.33) * 2.0
+        self.assertAlmostEqual(plana.BoundBox.XLength - plana_al.BoundBox.XLength, esperado, places=2)
+
+    def test_dxf_tem_arcos_e_circulos(self):
+        import Part
+        import PrumoChapa as C
+        f = Part.makePlane(100, 50)
+        furo = Part.Face(Part.Wire(Part.makeCircle(5, FreeCAD.Vector(30, 25, 0))))
+        placa = f.cut(furo)
+        arco = Part.ArcOfCircle(Part.Circle(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 0, 1), 10), 0, math.pi / 2)
+        arq = C.escrever_dxf(os.path.join(self.pasta, "x.dxf"), placa.Edges + [arco.toShape()])
+        txt = open(arq, encoding="ascii").read()
+        self.assertIn("CIRCLE", txt)
+        self.assertIn("ARC", txt)
+        self.assertGreaterEqual(txt.count("\nLINE"), 4)
+
+    def test_painel_planificar(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoChapa as C
+        base = self._chapa()
+        p = C.PainelChapaDXF()
+        p.chapa.aceitar(base)
+        self.assertIn("K = 0,4", p.info.text().replace("0,400", "0,4"))
+        p.caminho.setText(os.path.join(self.pasta, "painel.dxf"))
+        p.tabela.setChecked(True)
+        self.assertTrue(p.accept())
+        self.assertTrue(os.path.isfile(p.arquivo))
+        self.assertTrue(self.doc.getObjectsByLabel("material_A_o_carbono") or
+                        [o for o in self.doc.Objects if o.Label.startswith("material_")])
+        for n in ("Prumo_ChapaDXF", "Prumo_TabelaK"):
+            self.assertIn(n, FreeCADGui.Command.listAll())
+
+    def test_raio_abaixo_do_minimo_avisa(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoChapa as C
+        base = self._chapa(t=3.0, r=1.0)
+        p = C.PainelChapaDXF()
+        p.chapa.aceitar(base)
+        self.assertIn("mínimo recomendado", p.info.text())
+        p.close()
+
+
+class T37Variantes(unittest.TestCase):
+    """Variantes da peça (P, M, G) ligadas às cotas do modelo."""
+
+    def setUp(self):
+        import PrumoVariantes
+        self.V = PrumoVariantes
+        self.doc = novo_doc("PrumoTesteVariantes")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.caixa = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _tabela(self):
+        return self.V.criar(self.doc, [("comprimento", "mm", [100, 200, 300]), ("altura", "mm", [10, 20, 30])],
+                            ["P", "M", "G"])
+
+    def test_criar_aplicar_e_seletor(self):
+        sh = self._tabela()
+        self.assertEqual(self.V.nomes_variantes(sh), ["P", "M", "G"])
+        self.assertEqual([n for _r, n, _u in self.V.parametros(sh)], ["comprimento", "altura"])
+        self.V.ligar(self.caixa, "Length", "comprimento")
+        self.V.ligar(self.caixa, "Height", "altura")
+        self.assertAlmostEqual(self.caixa.Length.Value, 100.0)
+        self.V.aplicar(self.doc, "G")
+        self.assertAlmostEqual(self.caixa.Length.Value, 300.0)
+        self.assertAlmostEqual(self.caixa.Height.Value, 30.0)
+        self.assertEqual(self.V.ativa(self.doc), "G")
+        sel = self.V.seletor(self.doc)
+        sel.Variante = "M"
+        self.doc.recompute()
+        self.assertAlmostEqual(self.caixa.Length.Value, 200.0)
+        self.assertEqual(self.V.valor(sh, "altura", "M"), "20 mm")
+
+    def test_nova_variante_e_valores(self):
+        sh = self._tabela()
+        self.V.ligar(self.caixa, "Length", "comprimento")
+        self.V.adicionar_variante(sh, "GG", "G")
+        self.assertIn("GG", self.V.seletor(self.doc).getEnumerationsOfProperty("Variante"))
+        self.V.definir_valor(sh, "comprimento", "GG", 450)
+        self.V.aplicar(self.doc, "GG")
+        self.assertAlmostEqual(self.caixa.Length.Value, 450.0)
+        self.assertEqual(self.V.valor(sh, "altura", "GG"), "30 mm", "copiou os outros valores da G")
+        with self.assertRaises(ValueError):
+            self.V.adicionar_variante(sh, "GG")
+        with self.assertRaises(ValueError):
+            self.V.aplicar(self.doc, "XX")
+
+    def test_nomes_de_parametro_validados(self):
+        sh = self._tabela()
+        for ruim in ("com espaço", "1abc", "", "altura"):
+            with self.assertRaises(ValueError):
+                self.V.adicionar_parametro(sh, ruim)
+
+    def test_cota_de_esboco(self):
+        import Part
+        import Sketcher
+        sh = self._tabela()
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        sk.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(50, 0, 0)))
+        sk.addConstraint(Sketcher.Constraint("DistanceX", 0, 1, 0, 2, 50.0))
+        sk.renameConstraint(0, "largura")
+        self.doc.recompute()
+        self.assertIn("Constraints.largura", self.V.propriedades_numericas(sk))
+        self.V.ligar(sk, "Constraints.largura", "comprimento")
+        self.V.aplicar(self.doc, "M")
+        self.assertAlmostEqual(sk.Shape.Edges[0].Length, 200.0, places=4)
+
+    def test_salvar_e_reabrir(self):
+        sh = self._tabela()
+        self.V.ligar(self.caixa, "Length", "comprimento")
+        self.V.aplicar(self.doc, "G")
+        caminho = os.path.join(tempfile.mkdtemp(), "variantes.FCStd")
+        self.doc.saveAs(caminho)
+        nome = self.doc.Name
+        fechar(self.doc)
+        self.doc = FreeCAD.openDocument(caminho)
+        self.assertEqual(self.V.ativa(self.doc), "G")
+        self.assertAlmostEqual(self.doc.getObject("Caixa").Length.Value, 300.0)
+        self.V.aplicar(self.doc, "P")
+        self.assertAlmostEqual(self.doc.getObject("Caixa").Length.Value, 100.0)
+
+    def test_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        sh = self._tabela()
+        p = self.V.PainelVariantes(self.doc)
+        self.assertEqual(p.tabela.rowCount(), 2)
+        self.assertEqual(p.tabela.columnCount(), 4)
+        p.tabela.item(0, 3).setText("350")          # comprimento na G
+        p.novo_par.setText("largura")
+        p._add_parametro()
+        self.assertEqual(p.tabela.rowCount(), 3)
+        p.nova_var.setText("XG")
+        p._add_variante()
+        self.assertIn("XG", self.V.nomes_variantes(sh))
+        p.objeto.aceitar(self.caixa)
+        p.prop.setCurrentText("Length")
+        p.par.setCurrentText("comprimento")
+        p._ligar()
+        self.assertEqual(p.form.mensagem.tipo, "ok")
+        p.ativa.setCurrentText("G")
+        self.assertTrue(p.accept())
+        self.assertAlmostEqual(self.caixa.Length.Value, 350.0)
+        self.assertIn("Prumo_Variantes", FreeCADGui.Command.listAll())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
            T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura,
            T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
-           T34FluxoDeSelecao, T35PropriedadesDaPeca]
+           T34FluxoDeSelecao, T35PropriedadesDaPeca,
+           T36ChapaFatorKeDXF, T37Variantes]

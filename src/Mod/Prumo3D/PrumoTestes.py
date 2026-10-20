@@ -97,7 +97,7 @@ class T01Modulos(unittest.TestCase):
         for nome in ("PrumoGui", "PrumoEstilo", "PrumoRibbon", "PrumoI18n", "PrumoInicio", "PrumoGuia",
                      "PrumoSobre", "PrumoFEM", "PrumoFEMRelatorio", "PrumoUtil", "PrumoCotas", "PrumoMassa",
                      "PrumoBOM", "PrumoContexto", "PrumoFolhas", "PrumoPerfis", "PrumoEstrutura", "PrumoVaso",
-                     "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao", "PrumoNomes", "PrumoPainel", "PrumoSelecao", "PrumoPropriedades"):
+                     "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao", "PrumoNomes", "PrumoPainel", "PrumoSelecao", "PrumoPropriedades", "PrumoChapa", "PrumoVariantes"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):
