@@ -1,8 +1,13 @@
 # Prumo 3D: gera os pacotes para Windows e Linux e publica na página de versões.
 #
-# - Ao enviar uma tag "v*" (ex.: v1.1.4): compila, empacota e cria a versão no GitHub com os arquivos.
-# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota; os arquivos ficam
-#   como artefatos da execução, sem criar versão pública.
+# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota.
+#     Máquina "pc" (padrão): roda no computador próprio registrado como runner (rótulo "prumo"),
+#       sem gastar minutos do GitHub; os arquivos ficam no próprio computador, na pasta
+#       PRUMO_PACOTES (padrão: <pasta do usuário>/Prumo3D-pacotes/<rótulo>).
+#     Máquina "github": roda nas máquinas do GitHub e guarda os arquivos como artefatos da
+#       execução (gasta minutos e armazenamento do plano).
+# - Ao enviar uma tag "v*" (ex.: v1.1.4): compila nas máquinas do GitHub, empacota e cria a
+#   versão com os arquivos (pensado para quando o repositório for público, em que é gratuito).
 #
 # Formatos:
 #   Windows: instalador (.exe) e versão portátil (.7z)
@@ -22,6 +27,16 @@ on:
         description: "Rótulo dos arquivos (ex.: teste)"
         required: false
         default: "teste"
+      maquina:
+        description: "Onde compilar: pc (runner próprio, sem custo) ou github (gasta minutos)"
+        type: choice
+        options: [pc, github]
+        default: pc
+      plataformas:
+        description: "Quais pacotes"
+        type: choice
+        options: [win-64, linux-64, ambas]
+        default: win-64
 
 permissions:
   contents: write
@@ -31,28 +46,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  planejar:
+    name: Planejar
+    runs-on: ${{ (github.event.inputs.maquina || 'github') == 'pc' && fromJSON('["self-hosted","prumo"]') || 'ubuntu-latest' }}
+    outputs:
+      matriz: ${{ steps.m.outputs.matriz }}
+    steps:
+      - id: m
+        shell: bash
+        run: |
+          maquina="${{ github.event.inputs.maquina || 'github' }}"
+          plat="${{ github.event.inputs.plataformas || 'ambas' }}"
+          if [ "$maquina" = "pc" ]; then
+            lin='["self-hosted","prumo","Linux"]'; win='["self-hosted","prumo","Windows"]'
+          else
+            lin='"ubuntu-22.04"'; win='"windows-2022"'
+          fi
+          itens=()
+          if [ "$plat" = "linux-64" ] || [ "$plat" = "ambas" ]; then
+            itens+=("{\"target\":\"linux-64\",\"pasta\":\"linux\",\"maquina\":$lin}")
+          fi
+          if [ "$plat" = "win-64" ] || [ "$plat" = "ambas" ]; then
+            itens+=("{\"target\":\"win-64\",\"pasta\":\"windows\",\"maquina\":$win}")
+          fi
+          matriz="{\"include\":[$(IFS=,; echo "${itens[*]}")]}"
+          echo "matriz=$matriz" >> "$GITHUB_OUTPUT"
+          echo "Matriz: $matriz"
+
   pacotes:
     name: Pacote ${{ matrix.target }}
+    needs: planejar
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { target: linux-64, os: ubuntu-22.04, pasta: linux }
-          - { target: win-64, os: windows-2022, pasta: windows }
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 360
+      matrix: ${{ fromJSON(needs.planejar.outputs.matriz) }}
+    runs-on: ${{ matrix.maquina }}
+    timeout-minutes: 600
 
     steps:
-      - name: Liberar espaço em disco (Linux)
-        if: runner.os == 'Linux'
+      - name: Liberar espaço em disco (Linux, máquina do GitHub)
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
         uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
         with:
           verbose: "true"
           remove-android: "true"
           remove-cached-tools: "true"
 
-      - name: Cache do pixi no disco D (Windows)
-        if: runner.os == 'Windows'
+      - name: Cache do pixi no disco D (Windows, máquina do GitHub)
+        if: runner.os == 'Windows' && runner.environment == 'github-hosted'
         shell: bash
         run: |
           echo 'PIXI_CACHE_DIR=D:\rattler' >> "$GITHUB_ENV"
@@ -63,6 +103,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: "recursive"
+          # no computador próprio, mantém o ambiente do pixi entre execuções (bem mais rápido);
+          # os arquivos do repositório são restaurados mesmo assim
+          clean: ${{ runner.environment == 'github-hosted' }}
 
       - uses: prefix-dev/setup-pixi@82d477f15f3a381dbcc8adc1206ce643fe110fb7 # v0.9.3
         with:
@@ -85,8 +128,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 package/scripts/write_version_info.py ../prumo3d_version.txt
+          # Python do próprio pixi: o computador próprio não precisa ter Python instalado
+          pixi exec --spec "python=3.11" python package/scripts/write_version_info.py ../prumo3d_version.txt
           cd package/rattler-build
+          rm -rf "${{ matrix.pasta }}"   # pacotes de execuções anteriores (computador próprio)
           pixi install
 
       - name: Empacotar
@@ -102,13 +147,26 @@ jobs:
           pixi run -e package create_bundle
           ls -la ${{ matrix.pasta }}
 
-      - name: Guardar os arquivos
+      - name: Guardar no computador próprio
+        if: runner.environment != 'github-hosted'
+        shell: bash
+        run: |
+          set -euo pipefail
+          destino="${PRUMO_PACOTES:-$HOME/Prumo3D-pacotes}/${BUILD_TAG}"
+          mkdir -p "$destino"
+          cp -v package/rattler-build/${{ matrix.pasta }}/Prumo3D_* "$destino"/
+          echo "Pacotes em: $destino"
+          echo "### Pacotes em \`$destino\`" >> "$GITHUB_STEP_SUMMARY"
+          ls -la "$destino" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar os arquivos (máquina do GitHub)
+        if: runner.environment == 'github-hosted'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: prumo3d-${{ matrix.target }}
           if-no-files-found: error
-          # Prumo 3D: o plano gratuito inclui pouco armazenamento para artefatos; a versão publicada
-          # fica na página de versões, então os artefatos da execução expiram logo
+          # o plano gratuito inclui pouco armazenamento para artefatos; a versão publicada fica
+          # na página de versões, então os artefatos da execução expiram logo
           retention-days: 3
           path: |
             package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.exe
