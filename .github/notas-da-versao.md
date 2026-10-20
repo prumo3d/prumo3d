@@ -17,7 +17,8 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Árvore do modelo** com nomes em português (Extrusão, Cavidade, Corpo...) e seleção em azul.
 - **Materiais usados no Brasil**: a biblioteca traz só aços estruturais (NBR 7007, NBR 6648, ASTM),
   chapas, aços para vaso de pressão, tubos, inox, construção mecânica, ferro fundido, alumínio e latão,
-  com norma e fonte em cada um.
+  com norma e fonte em cada um. Arquivos feitos no FreeCAD original abrem com o material certo
+  (biblioteca "Compatibilidade", separada).
 - **Tutoriais interativos**: "primeira peça" e "estrutura soldada". Cada passo é marcado sozinho
   quando você o faz, e "Mostrar onde" pisca o botão certo na faixa.
 - **Esboço:** pontos-ímã em quadrantes, pontos médios e interseções; linhas de inferência
