@@ -778,7 +778,17 @@ protected:
             case Sketcher::Vertical: {
                 auto c = std::make_unique<Sketcher::Constraint>();
                 c->Type = ac.Type;
-                c->First = (geoId2 != Sketcher::GeoEnum::GeoUndef ? geoId2 : geoId1);
+                if (posId2 != Sketcher::PointPos::none && posId1 != Sketcher::PointPos::none
+                    && geoId2 != Sketcher::GeoEnum::GeoUndef) {
+                    // Prumo: dois pontos na mesma horizontal/vertical (ponto-ímã de quadrante)
+                    c->First = geoId1;
+                    c->FirstPos = posId1;
+                    c->Second = geoId2;
+                    c->SecondPos = posId2;
+                }
+                else {
+                    c->First = (geoId2 != Sketcher::GeoEnum::GeoUndef ? geoId2 : geoId1);
+                }
                 AutoConstraints.push_back(std::move(c));
             } break;
             case Sketcher::Tangent: {

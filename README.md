@@ -26,7 +26,7 @@ Visão geral
   que a tradução oficial do FreeCAD ainda não cobre.
 
 * **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Sólidos,
-  Montagem, Desenho, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
+  Montagem, Desenho, Estruturas, Chapa, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
   sozinha ao editar um esboço.
 
 * **Tela inicial** Começa uma peça, montagem, desenho técnico, esboço ou planilha com um clique e mostra os
@@ -43,6 +43,33 @@ Visão geral
 
 * **Guia ilustrado** Ao editar extrusão, cavidade, furo, arredondamento, chanfro, padrões e outras operações,
   o painel de tarefas mostra um desenho do que a operação faz no modo escolhido.
+
+* **Esboço com ímãs e inferência** Ao desenhar, aparecem pontos-ímã nos quadrantes de círculos e arcos, no
+  meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
+  de inferência alinham o cursor na horizontal ou na vertical com pontos existentes.
+
+* **Cotas na tela** Duplo clique numa face mostra as cotas da operação que a criou (comprimento da extrusão,
+  raio do arredondamento, diâmetro do furo, cotas do esboço) para mudar o valor ali mesmo.
+
+* **Menu de contexto pela seleção** O botão direito oferece o que faz sentido para o que está selecionado:
+  esboço na face, extrudar, cavidade, arredondar, chanfro, medir e propriedades de massa.
+
+* **Propriedades de massa e lista de materiais** Massa, centro de gravidade e momentos de inércia com o
+  material de cada peça; lista de materiais da montagem em planilha e como tabela na folha de desenho.
+
+* **Folhas ABNT** Folhas A0 a A4 no padrão da ABNT NBR 16752 (e no da NBR 10068), com legenda brasileira
+  (responsável técnico, CREA/CFT, ART, 1º diedro) preenchida a partir do documento e vistas no 1º diedro.
+
+* **Estruturas soldadas** Barras de perfis brasileiros (W, HP, U, I, cantoneiras, tubos e metalon, de
+  catálogos de fabricantes) sobre um esqueleto de linhas, com meia-esquadria, recorte nas ligações em T e
+  lista de corte com ângulos e massa.
+
+* **Chapa metálica** Parede base, abas, dobras, recortes, alívios e planificação (bancada SheetMetal embutida).
+
+* **Peças padronizadas** Parafusos, porcas e arruelas métricas para inserir no modelo.
+
+* **Vaso de pressão** Costado, tampos (elíptico 2:1, torisférico e hemisférico) e bocais, com espessuras
+  pelo ASME VIII-1 (UG-27 e UG-32), PMTA e memória de cálculo de pré-dimensionamento.
 
 * **Visual próprio** Tema claro, ícones redesenhados e tela de abertura do Prumo 3D.
 
@@ -72,6 +99,7 @@ Código
 |---|---|
 | [`src/Mod/Prumo3D/`](src/Mod/Prumo3D/) | Módulo da interface do Prumo 3D, parte do programa: faixa, tradução, tela inicial, assistentes, tema, ícones e identidade (`extras/branding.xml`) |
 | [`src/Gui/PreferencePacks/Prumo Claro/`](src/Gui/PreferencePacks/) | Tema Prumo Claro, embutido como pacote de preferências |
+| [`src/Mod/SheetMetal/`](src/Mod/SheetMetal/) | Bancada de chapa metálica (SheetMetal, LGPL), embutida |
 | [`prumo-build/`](prumo-build/) | Roteiro de compilação no Windows e ferramentas que geram ícones, tema de ícones e materiais |
 | [`prumo-patches/`](prumo-patches/) | Correções aplicadas ao código do FreeCAD |
 | [`package/`](package/) | Instalador Windows e empacotamento (Windows e AppImage) |

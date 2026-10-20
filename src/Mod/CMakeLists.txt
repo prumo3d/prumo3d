@@ -122,6 +122,10 @@ if(BUILD_PRUMO3D)
     add_subdirectory(Prumo3D)
 endif(BUILD_PRUMO3D)
 
+if(BUILD_SHEETMETAL)
+    add_subdirectory(SheetMetal)
+endif(BUILD_SHEETMETAL)
+
 if(BUILD_SURFACE)
   add_subdirectory(Surface)
 endif(BUILD_SURFACE)

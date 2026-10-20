@@ -16,6 +16,27 @@ outros módulos (`Mod/Prumo3D`), sem instalação separada.
 | Qualidade de exibição | Anti-aliasing MSAA 8x (linhas sem serrilhado) e tesselação mais fina (desvio 0,1 %, ângulo 12°) para curvas lisas. Aplicado uma vez; ajuste em `QUALITY` no `PrumoGui.py`. |
 | Splash, título e ícone | Splash Prumo, "Prumo 3D" no título, ícone Prumo. |
 
+## Ferramentas de projeto
+
+| Ferramenta | Módulo | Onde fica |
+|---|---|---|
+| Cotas da operação (duplo clique numa face; Shift+D) | `PrumoCotas.py` | aba Peça, menu de contexto |
+| Menu de contexto pela seleção | `PrumoContexto.py` | botão direito (vista 3D e árvore) |
+| Propriedades de massa (massa, CG, inércia) | `PrumoMassa.py` | abas Peça, Montagem, Estruturas |
+| Lista de materiais (planilha e tabela na folha) | `PrumoBOM.py` | abas Peça, Montagem, Desenho, Estruturas |
+| Folhas ABNT A0–A4 (NBR 16752 e NBR 10068) | `PrumoFolhas.py`, `Resources/folhas/` | abas Desenho e Peça |
+| Biblioteca de perfis (W, HP, U, I, L, tubos, metalon) | `PrumoPerfis.py`, `Resources/perfis/perfis.json` | usada pela estrutura e pelo vaso |
+| Estrutura soldada, trocar perfil, lista de corte | `PrumoEstrutura.py` | aba Estruturas |
+| Vaso de pressão (ASME VIII-1, UG-27/UG-32) | `PrumoVaso.py` | aba Estruturas |
+| Parafusos, porcas e arruelas (ISO 4017, 4762, 4032, 7089) | `PrumoFixadores.py`, `Resources/fixadores/` | aba Estruturas |
+| Chapa metálica | bancada SheetMetal embutida (`src/Mod/SheetMetal`) | aba Chapa |
+
+Dados de normas e catálogos: cada perfil e cada fixador tem fonte e situação ("confirmado" ou "a
+conferir"); o Prumo mostra o aviso na hora da escolha. Os dados de origem e os geradores ficam em
+`prumo-build/ferramentas/` (`gerar_perfis.py`, `gerar_fixadores.py`, `gerar_folhas_abnt.py`, pasta `dados/`).
+
+Testes: `PrumoTestesFerramentas.py` (entram no comando *Testes automáticos*).
+
 ## Arquivos
 
 - `InitGui.py` — ponto de entrada (carregado pelo FreeCAD)

@@ -458,6 +458,8 @@ struct EditModeScenegraphNodes
     SoMaterial* SnapMarkersMaterials;
     SoCoordinate3* SnapMarkersCoordinate;
     SoMarkerSet* SnapMarkerSet;
+    SoCoordinate3* SnapAlignCoordinate;
+    SoLineSet* SnapAlignLineSet;
     //@}
 
     /** @name Temporal edit text nodes*/

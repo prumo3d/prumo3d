@@ -443,10 +443,11 @@ def apply_document_prefs():
 
 
 def apply_template_prefs():
-    """O Prumo 3D usa os modelos de folha do próprio FreeCAD.
+    """Folhas ABNT do Prumo 3D (Resources/folhas) como padrão do Desenho técnico.
 
-    Versões anteriores apontavam o Desenho técnico para modelos próprios, que foram removidos:
-    se a preferência ainda aponta para um deles e o arquivo não existe mais, volta ao padrão.
+    Versões anteriores apontavam para modelos que foram removidos: se a preferência aponta para
+    um arquivo que não existe mais, passa a usar a folha ABNT A3. Depois da primeira vez, a
+    escolha do usuário é respeitada (ver PrumoFolhas.aplicar_preferencias).
     """
     f = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/TechDraw/Files")
     for chave in ("TemplateDir", "TemplateFile"):
@@ -454,6 +455,8 @@ def apply_template_prefs():
         antigo = ("Prumo" in cur or "Sework" in cur) and "templates" in cur.replace("\\", "/")
         if antigo and not os.path.exists(cur):
             f.RemString(chave)
+    import PrumoFolhas
+    PrumoFolhas.aplicar_preferencias()
 
 
 class _FolhaObserver:
@@ -564,6 +567,8 @@ def _fix_folha_date(obj):
             et["data"] = time.strftime("%d/%m/%Y")
             obj.EditableTexts = et
     except Exception as exc:
+        if "deleted" in str(exc):
+            return  # a folha (ou o documento) foi fechada antes do ajuste adiado
         FreeCAD.Console.PrintWarning("Prumo: data da folha: {}\n".format(exc))
 
 
@@ -740,6 +745,24 @@ def register_commands():
         FreeCADGui.addCommand("Prumo_Inicio", PrumoInicio.CmdInicio())
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: tela inicial indisponível: {}\n".format(exc))
+    for modulo, registro in (("PrumoCotas", lambda m: FreeCADGui.addCommand("Prumo_Cotas", m.CmdCotas())),
+                             ("PrumoMassa", lambda m: FreeCADGui.addCommand("Prumo_Massa", m.CmdMassa())),
+                             ("PrumoBOM", lambda m: FreeCADGui.addCommand("Prumo_ListaMateriais",
+                                                                          m.CmdListaMateriais())),
+                             ("PrumoFolhas", lambda m: FreeCADGui.addCommand("Prumo_NovaFolha", m.CmdNovaFolha())),
+                             ("PrumoEstrutura", lambda m: (
+                                 FreeCADGui.addCommand("Prumo_Estrutura", m.CmdEstrutura()),
+                                 FreeCADGui.addCommand("Prumo_TrocarPerfil", m.CmdTrocarPerfil()),
+                                 FreeCADGui.addCommand("Prumo_ListaDeCorte", m.CmdListaDeCorte()),
+                                 FreeCADGui.addCommand("Prumo_AtualizarEstrutura", m.CmdAtualizarEstrutura()))),
+                             ("PrumoVaso", lambda m: (FreeCADGui.addCommand("Prumo_Vaso", m.CmdVaso()),
+                                                      FreeCADGui.addCommand("Prumo_MemoriaVaso", m.CmdMemoriaVaso()))),
+                             ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
+                             ("PrumoContexto", lambda m: m.registrar_comandos())):
+        try:
+            registro(__import__(modulo))
+        except Exception as exc:
+            FreeCAD.Console.PrintWarning("Prumo: {} indisponível: {}\n".format(modulo, exc))
     try:
         import PrumoFEM
         FreeCADGui.addCommand("Prumo_AssistenteFEM", PrumoFEM.CmdAssistenteFEM())
@@ -773,6 +796,15 @@ def _start_ribbon():
         PrumoRibbon.install()
     except Exception as exc:
         FreeCAD.Console.PrintError("Prumo: falha ao montar a faixa: {}\n".format(exc))
+
+
+def _start_ferramentas():
+    """Menu de contexto pela seleção e duplo clique para as cotas da operação."""
+    for modulo in ("PrumoContexto", "PrumoCotas"):
+        try:
+            __import__(modulo).install()
+        except Exception as exc:
+            FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(modulo, exc))
 
 
 def _start_guia():
@@ -833,6 +865,7 @@ def startup():
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: estilo não instalado: {}\n".format(exc))
     QtCore.QTimer.singleShot(600, _start_ribbon)
+    QtCore.QTimer.singleShot(700, _start_ferramentas)
     QtCore.QTimer.singleShot(900, _start_guia)
     QtCore.QTimer.singleShot(1300, _start_inicio)
     QtCore.QTimer.singleShot(1500, apply_modo_distribuicao)

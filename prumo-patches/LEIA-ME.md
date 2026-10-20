@@ -26,14 +26,24 @@ aparecem losangos amarelos nos pontos notáveis das curvas perto do cursor:
 - interseções entre duas curvas.
 
 Perto de um deles, o cursor é atraído (o losango fica azul e maior) e o ponto criado já recebe as
-restrições que o mantêm ali: ponto sobre a curva no quadrante, simetria no ponto médio da linha e
-ponto sobre as duas curvas na interseção. Um vértice existente continua tendo prioridade (coincidência).
+restrições que o mantêm ali: no quadrante, ponto sobre a curva e horizontal (0°/180°) ou vertical
+(90°/270°) com o centro, o que deixa o ponto totalmente definido; simetria no ponto médio da linha; ponto
+sobre as duas curvas na interseção. Um vértice existente continua tendo prioridade (coincidência).
+Com muitas curvas no esboço, as que estão longe do cursor são descartadas por contas rápidas (distância
+exata à reta, faixa do raio no círculo/arco/elipse, caixa dos polos na B-spline) antes da projeção.
 
 Liga/desliga: parâmetro `SnapToKeyPoints` em `BaseApp/Preferences/Mod/Sketcher/Snap` (padrão ligado);
 depende também de "Snap" e "Snap to objects" ligados.
 
+**Linhas de inferência:** com uma ferramenta de desenho ativa e o cursor sem nada pré-selecionado, quando a
+coordenada X (ou Y) do cursor fica perto da de um ponto existente do esboço ou da geometria externa
+(extremidades, centros, pontos médios de retas, origem),
+o cursor é alinhado e aparece uma linha tracejada azul ligando o ponto de referência ao cursor. Liga/desliga:
+parâmetro `SnapAlignment` no mesmo grupo (padrão ligado).
+
 Arquivos: `Mod/Sketcher/Gui/SnapManager.cpp/.h`, `DrawSketchHandler.cpp/.h`,
-`EditModeCoinManager.cpp/.h`, `EditModeCoinManagerParameters.h`, `ViewProviderSketch.cpp/.h`.
+`DrawSketchDefaultHandler.h`, `EditModeCoinManager.cpp/.h`, `EditModeCoinManagerParameters.h`,
+`ViewProviderSketch.cpp/.h`.
 
 ## Aplicar (PowerShell, na pasta do clone)
 

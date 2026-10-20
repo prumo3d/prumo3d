@@ -62,6 +62,14 @@ inline bool ViewProviderSketchSnapAttorney::isHandlerActive(const ViewProviderSk
     return vp.getSketchMode() == ViewProviderSketch::STATUS_SKETCH_UseHandler;
 }
 
+inline void ViewProviderSketchSnapAttorney::drawSnapAlignment(
+    ViewProviderSketch& vp,
+    const std::vector<Base::Vector2d>& segments
+)
+{
+    vp.drawSnapAlignment(segments);
+}
+
 inline void ViewProviderSketchSnapAttorney::drawSnapMarkers(
     ViewProviderSketch& vp,
     const std::vector<Base::Vector2d>& markers,
@@ -97,6 +105,7 @@ void SnapManager::ParameterObserver::initParameters()
         {"SnapAngle", [this](const std::string& param) { updateSnapAngleParameter(param); }},
         {"SnapToKeyPoints",
          [this](const std::string& param) { updateSnapToKeyPointsParameter(param); }},
+        {"SnapAlignment", [this](const std::string& param) { updateSnapAlignmentParameter(param); }},
     };
 
     for (auto& val : str2updatefunction) {
@@ -143,6 +152,16 @@ void SnapManager::ParameterObserver::updateSnapToKeyPointsParameter(const std::s
     client.snapToKeyPointsRequested = hGrp->GetBool(parametername.c_str(), true);
     if (!client.snapToKeyPointsRequested) {
         client.clearKeyPointMarkers();
+    }
+}
+
+void SnapManager::ParameterObserver::updateSnapAlignmentParameter(const std::string& parametername)
+{
+    ParameterGrp::handle hGrp = getParameterGrpHandle();
+
+    client.snapToAlignmentRequested = hGrp->GetBool(parametername.c_str(), true);
+    if (!client.snapToAlignmentRequested) {
+        client.clearAlignmentLines();
     }
 }
 
@@ -200,6 +219,7 @@ SnapManager::SnapManager(ViewProviderSketch& vp)
     , snapToObjectsRequested(true)
     , snapToGridRequested(false)
     , snapToKeyPointsRequested(true)
+    , snapToAlignmentRequested(true)
     , referencePoint(Base::Vector2d(0., 0.))
     , lastMouseAngle(0.0)
 {
@@ -229,6 +249,7 @@ Base::Vector2d SnapManager::snap(Base::Vector2d inputPos, SnapType mask)
     }
 
     if (!snapRequested) {
+        clearAlignmentLines();
         return inputPos;
     }
 
@@ -240,6 +261,7 @@ Base::Vector2d SnapManager::snap(Base::Vector2d inputPos, SnapType mask)
     if ((static_cast<int>(mask) & static_cast<int>(SnapType::Angle)) && angleSnapRequested
         && QApplication::keyboardModifiers() == Qt::ControlModifier
         && snapAtAngle(inputPos, snapPos)) {
+        clearAlignmentLines();
         return snapPos;
     }
     else {
@@ -252,8 +274,26 @@ Base::Vector2d SnapManager::snap(Base::Vector2d inputPos, SnapType mask)
         const int CrsId = ViewProviderSketchSnapAttorney::getPreselectCross(viewProvider);
         if (VtId < 0 && CrsId != 0) {
             lastKeyPointSnap = keyPoint;
+            clearAlignmentLines();
             return keyPoint.pos;
         }
+    }
+
+    // 2b - Prumo 3D: linhas de inferência — alinhamento com pontos existentes, só quando nada está
+    // pré-selecionado (com o cursor sobre uma curva ou ponto, valem o snap normal e as restrições)
+    {
+        const int VtId = ViewProviderSketchSnapAttorney::getPreselectPoint(viewProvider);
+        const int CrsId = ViewProviderSketchSnapAttorney::getPreselectCross(viewProvider);
+        const int CrvId = ViewProviderSketchSnapAttorney::getPreselectCurve(viewProvider);
+        const bool nadaPreselecionado = VtId < 0 && CrsId < 0 && CrvId > Sketcher::GeoEnum::RefExt
+            && CrvId < 0;
+        Base::Vector2d alinhado = inputPos;
+        if (snapToObjectsRequested && snapToAlignmentRequested && wantsPoints && handlerActive
+            && nadaPreselecionado && !keyPointFound
+            && snapToAlignment(inputPos, alinhado, handlerActive)) {
+            return alinhado;
+        }
+        clearAlignmentLines();
     }
 
     // 2 - Snap to objects (may partially snap to axis, leaving other coordinate for grid)
@@ -490,8 +530,61 @@ struct KeyCandidate
     int geoId2;
 };
 
-double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos)
+double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos, double tol)
 {
+    // Prumo: atalhos analíticos/limites inferiores para não projetar (OCC) em cada curva do esboço
+    // a cada movimento do mouse; só curvas que podem estar a menos de tol seguem para a projeção.
+    const double far = std::numeric_limits<double>::max();
+    if (const auto* seg = dynamic_cast<const Part::GeomLineSegment*>(curve)) {
+        const Base::Vector3d a3 = seg->getStartPoint();
+        const Base::Vector3d b3 = seg->getEndPoint();
+        const Base::Vector2d a(a3.x, a3.y);
+        const Base::Vector2d ab(b3.x - a3.x, b3.y - a3.y);
+        const double len2 = ab.x * ab.x + ab.y * ab.y;
+        double t = len2 > 0 ? ((pos.x - a.x) * ab.x + (pos.y - a.y) * ab.y) / len2 : 0.;
+        t = std::clamp(t, 0., 1.);
+        return Base::Vector2d(a.x + t * ab.x - pos.x, a.y + t * ab.y - pos.y).Length();
+    }
+    if (const auto* conic = dynamic_cast<const Part::GeomConic*>(curve)) {
+        const Base::Vector3d c = conic->getCenter();
+        const double dc = Base::Vector2d(pos.x - c.x, pos.y - c.y).Length();
+        if (const auto* circ = dynamic_cast<const Part::GeomCircle*>(curve)) {
+            if (std::abs(dc - circ->getRadius()) > tol) {
+                return far;
+            }
+        }
+        else if (const auto* arc = dynamic_cast<const Part::GeomArcOfCircle*>(curve)) {
+            if (std::abs(dc - arc->getRadius()) > tol) {
+                return far;
+            }
+        }
+        else if (const auto* el = dynamic_cast<const Part::GeomEllipse*>(curve)) {
+            if (dc - el->getMajorRadius() > tol || el->getMinorRadius() - dc > tol) {
+                return far;
+            }
+        }
+        else if (const auto* ael = dynamic_cast<const Part::GeomArcOfEllipse*>(curve)) {
+            if (dc - ael->getMajorRadius() > tol || ael->getMinorRadius() - dc > tol) {
+                return far;
+            }
+        }
+    }
+    else if (const auto* bs = dynamic_cast<const Part::GeomBSplineCurve*>(curve)) {
+        // a curva fica dentro do fecho convexo dos polos: caixa dos polos + tol
+        const std::vector<Base::Vector3d> poles = bs->getPoles();
+        if (!poles.empty()) {
+            double x0 = poles[0].x, x1 = x0, y0 = poles[0].y, y1 = y0;
+            for (const auto& q : poles) {
+                x0 = std::min(x0, q.x);
+                x1 = std::max(x1, q.x);
+                y0 = std::min(y0, q.y);
+                y1 = std::max(y1, q.y);
+            }
+            if (pos.x < x0 - tol || pos.x > x1 + tol || pos.y < y0 - tol || pos.y > y1 + tol) {
+                return far;
+            }
+        }
+    }
     try {
         Base::Vector3d p(pos.x, pos.y, 0.);
         double u = 0.;
@@ -614,7 +707,7 @@ bool SnapManager::findKeyPoint(Base::Vector2d inputPos, bool showMarkers, KeyPoi
         if (!curve) {
             return;
         }
-        const double d = distanceToCurve(curve, inputPos);
+        const double d = distanceToCurve(curve, inputPos, showTol);
         if (d < showTol) {
             nearCurves.push_back({geoId, curve, d});
         }
@@ -729,4 +822,108 @@ void SnapManager::clearKeyPointMarkers()
     }
     keyPointMarkersShown = false;
     ViewProviderSketchSnapAttorney::drawSnapMarkers(viewProvider, {}, -1);
+}
+
+/********************** Prumo 3D: linhas de inferência (alinhamento H/V) ************************/
+
+bool SnapManager::snapToAlignment(Base::Vector2d inputPos, Base::Vector2d& snapPos, bool showLines)
+{
+    Sketcher::SketchObject* obj = viewProvider.getSketchObject();
+    if (!obj) {
+        clearAlignmentLines();
+        return false;
+    }
+    const double scale = viewProvider.getScaleFactor();
+    const double captureTol = 0.3 * scale;  // um pouco menor que a dos pontos-ímã
+
+    // pontos de referência: extremidades, centros e pontos médios de retas, da geometria do esboço
+    // e da geometria externa (inclui a origem; os eixos H/V ficam de fora)
+    std::vector<Base::Vector2d> pontos;
+    pontos.emplace_back(0.0, 0.0);
+    std::vector<int> geoIds;
+    for (int i = 0; i <= obj->getHighestCurveIndex(); ++i) {
+        geoIds.push_back(i);
+    }
+    for (int k = 2; k < obj->getExternalGeometryCount(); ++k) {
+        geoIds.push_back(Sketcher::GeoEnum::RefExt - (k - 2));
+    }
+    for (int geoId : geoIds) {
+        if (pontos.size() >= 4000) {
+            break;
+        }
+        const Part::Geometry* geo = obj->getGeometry(geoId);
+        if (!geo) {
+            continue;
+        }
+        for (auto pos : {Sketcher::PointPos::start, Sketcher::PointPos::end, Sketcher::PointPos::mid}) {
+            try {
+                Base::Vector3d p = obj->getPoint(geoId, pos);
+                if (std::isfinite(p.x) && std::isfinite(p.y)) {
+                    pontos.emplace_back(p.x, p.y);
+                }
+            }
+            catch (const Base::Exception&) {
+            }
+        }
+        if (const auto* seg = dynamic_cast<const Part::GeomLineSegment*>(geo)) {
+            const Base::Vector3d m = (seg->getStartPoint() + seg->getEndPoint()) / 2.0;
+            pontos.emplace_back(m.x, m.y);
+        }
+    }
+
+    // ponto mais próximo em X (linha vertical) e em Y (linha horizontal), dentro da captura
+    int iv = -1;
+    int ih = -1;
+    double dv = captureTol;
+    double dh = captureTol;
+    for (int k = 0; k < static_cast<int>(pontos.size()); ++k) {
+        const auto& p = pontos[k];
+        if ((p - inputPos).Length() < captureTol) {
+            continue;  // em cima do ponto: isso é snap de vértice, não alinhamento
+        }
+        const double ex = std::fabs(p.x - inputPos.x);
+        const double ey = std::fabs(p.y - inputPos.y);
+        if (ex < dv) {
+            dv = ex;
+            iv = k;
+        }
+        if (ey < dh) {
+            dh = ey;
+            ih = k;
+        }
+    }
+    if (iv < 0 && ih < 0) {
+        clearAlignmentLines();
+        return false;
+    }
+    snapPos = inputPos;
+    if (iv >= 0) {
+        snapPos.x = pontos[iv].x;
+    }
+    if (ih >= 0) {
+        snapPos.y = pontos[ih].y;
+    }
+    if (showLines) {
+        std::vector<Base::Vector2d> seg;
+        if (iv >= 0) {
+            seg.push_back(pontos[iv]);
+            seg.push_back(snapPos);
+        }
+        if (ih >= 0) {
+            seg.push_back(pontos[ih]);
+            seg.push_back(snapPos);
+        }
+        ViewProviderSketchSnapAttorney::drawSnapAlignment(viewProvider, seg);
+        alignmentLinesShown = true;
+    }
+    return true;
+}
+
+void SnapManager::clearAlignmentLines()
+{
+    if (!alignmentLinesShown) {
+        return;
+    }
+    alignmentLinesShown = false;
+    ViewProviderSketchSnapAttorney::drawSnapAlignment(viewProvider, {});
 }

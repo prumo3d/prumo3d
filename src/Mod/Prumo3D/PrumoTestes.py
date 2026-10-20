@@ -21,6 +21,21 @@ import FreeCAD
 import FreeCADGui
 
 LOG = os.path.join(FreeCAD.getUserAppDataDir(), "PrumoTestes.log")
+
+
+def _user_cfg():
+    """user.cfg: no Windows fica na pasta de dados; no Linux, na pasta de configuração (XDG)."""
+    pastas = []
+    try:
+        pastas.append(FreeCAD.getUserConfigDir())
+    except Exception:
+        pass
+    pastas.append(FreeCAD.getUserAppDataDir())
+    for p in pastas:
+        c = os.path.join(p, "user.cfg")
+        if os.path.isfile(c):
+            return c
+    return os.path.join(pastas[0], "user.cfg")
 NUMEROS = []   # (grandeza, FEM, analítico, unidade) registrados pela validação numérica
 
 
@@ -80,7 +95,9 @@ def _estudo_viga(doc, L=200.0, b=10.0, h=20.0, tipo="static"):
 class T01Modulos(unittest.TestCase):
     def test_importa_modulos(self):
         for nome in ("PrumoGui", "PrumoEstilo", "PrumoRibbon", "PrumoI18n", "PrumoInicio", "PrumoGuia",
-                     "PrumoSobre", "PrumoFEM", "PrumoFEMRelatorio"):
+                     "PrumoSobre", "PrumoFEM", "PrumoFEMRelatorio", "PrumoUtil", "PrumoCotas", "PrumoMassa",
+                     "PrumoBOM", "PrumoContexto", "PrumoFolhas", "PrumoPerfis", "PrumoEstrutura", "PrumoVaso",
+                     "PrumoFixadores"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):
@@ -181,7 +198,7 @@ class T03bTrocaDeTema(unittest.TestCase):
     def test_preferencias_gravadas_no_disco(self):
         import PrumoGui
         self.assertTrue(PrumoGui.salvar_parametros())
-        cfg = os.path.join(FreeCAD.getUserAppDataDir(), "user.cfg")
+        cfg = _user_cfg()
         self.assertLess(time.time() - os.path.getmtime(cfg), 10, "user.cfg não foi gravado agora")
 
     def test_aplicar_tema_e_voltar(self):
@@ -191,7 +208,7 @@ class T03bTrocaDeTema(unittest.TestCase):
         try:
             PrumoGui.aplicar_tema(not antes)
             self.assertEqual(PrumoEstilo.escuro(), not antes)
-            with open(os.path.join(FreeCAD.getUserAppDataDir(), "user.cfg"), encoding="utf-8") as f:
+            with open(_user_cfg(), encoding="utf-8") as f:
                 txt = f.read()
             self.assertIn('Name="TemaEscuro" Value="%d"' % int(not antes), txt)
         finally:
@@ -824,6 +841,11 @@ class T10Tutorial(unittest.TestCase):
 # ======================================================================= execução
 RAPIDOS = [T01Modulos, T02Formatacao, T03Tema, T03bTrocaDeTema, T04Glossario, T05Materiais, T05bMateriaisPrumo, T06Pendencias, T06bSentidoDaCarga,
            T09Interface, T10Tutorial]
+try:  # ferramentas: cotas, menu de contexto, massa, listas, folhas ABNT, estruturas, chapa, vaso...
+    import PrumoTestesFerramentas as _TF
+    RAPIDOS = RAPIDOS + list(_TF.RAPIDOS)
+except Exception as _exc:  # nunca impedir os testes antigos de rodarem
+    FreeCAD.Console.PrintWarning("Prumo: testes das ferramentas indisponíveis: %s\n" % _exc)
 COMPLETOS = RAPIDOS + [T07Validacao, T08Relatorio]
 
 

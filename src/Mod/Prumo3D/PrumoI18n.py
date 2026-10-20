@@ -161,6 +161,63 @@ GLOSSARIO = {
     ("CmdTechDrawSectionGroup", "Section View"): "Vista em corte",
     ("TechDrawGui::TaskBalloon", "Balloon"): "Balão",
     ("DrawViewBalloon", "Balloon"): "Balão",
+    # Chapa metálica (SheetMetal): textos sem tradução pt-BR na versão embutida
+    ("SheetMetal", "&Sheet Metal"): "&Chapa metálica",
+    ("SheetMetal", "Extruded Cutout"): "Recorte por extrusão",
+    ("SheetMetal", "Extruded cutout from sketch extrusion\n1. Select a face of the sheet metal part (must not be "
+                   "the thickness face) and\n2. Select a sketch for the extruded cut (the sketch must be closed).\n"
+                   "3. Use Property editor to modify other parameters"):
+        "Recorte a partir da extrusão de um esboço\n1. Selecione uma face da chapa (não a face da espessura) e\n"
+        "2. Selecione o esboço do recorte (fechado).\n3. Ajuste os demais parâmetros no editor de propriedades",
+    ("SheetMetal", "Create a sheetmetal wall from a sketch\n1. Select a Sketch to create bends with walls.\n"
+                   "2. Use Property editor to modify other parameters"):
+        "Cria a parede de chapa a partir de um esboço\n1. Selecione o esboço (perfil com as dobras).\n"
+        "2. Ajuste espessura, raio e comprimento no editor de propriedades",
+    ("SheetMetal", "Add base shape"): "Forma pronta",
+    ("SheetMetal", "Add basic sheet metal object."): "Insere uma peça de chapa pronta (cantoneira, U, caixa...).",
+    ("SheetMetal", "Extends one or more face, connected by a bend on existing sheet metal.\n1. Select edges to create "
+                   "bends with walls.\n2. Use Property editor to modify other parameters"):
+        "Cria abas ligadas por dobra na chapa existente\n1. Selecione as arestas onde ficam as dobras.\n"
+        "2. Ajuste comprimento, ângulo e raio no editor de propriedades",
+    ("SheetMetal", "Corner Relief to metal sheet corner.\n1. Select 2 Edges (on flat face that shared with bend faces) "
+                   "tocreate Relief on sheetmetal.\n2. Use Property editor to modify default parameters"):
+        "Alívio no canto da chapa\n1. Selecione 2 arestas (na face plana vizinha às dobras).\n"
+        "2. Ajuste os parâmetros no editor de propriedades",
+    ("SheetMetal", "Extends one or more face, on existing sheet metal.\n1. Select edges or thickness side faces to "
+                   "extend walls.\n2. Use Property-editor / Task-panel to modify other parameters"):
+        "Estende faces da chapa existente\n1. Selecione arestas ou faces de espessura.\n"
+        "2. Ajuste no editor de propriedades ou no painel de tarefas",
+    ("SheetMetal", "Extend by Sketch"): "Estender por esboço",
+    ("SheetMetal", "Extends a side face using a sketch.\n1. Select a sketch to shape the extension (Good for creating "
+                   "tabs).\n2. Make sure the sketch is attached to a non-edge face.\n3. Use Property-editor / "
+                   "Task-panel to modify other parameters"):
+        "Estende uma face lateral com o formato de um esboço (bom para orelhas)\n1. Selecione o esboço.\n"
+        "2. O esboço deve estar apoiado numa face (não numa aresta).\n3. Ajuste os demais parâmetros",
+    ("SheetMetal", "Fold a wall of metal sheet\n1. Select a flat face on sheet metal and\n2. Select a bend line "
+                   "(sketch) on same face (ends of sketch bend lines must extend beyond edges of face) to create "
+                   "sheetmetal fold.\n3. Use Property editor to modify other parameters"):
+        "Dobra a chapa por uma linha\n1. Selecione uma face plana da chapa e\n2. o esboço com a linha de dobra na "
+        "mesma face (a linha deve passar das bordas).\n3. Ajuste os demais parâmetros",
+    ("SheetMetal", "Unfold Update"): "Atualizar planificações",
+    ("SheetMetal", "Update all unfold objects.\n"): "Recalcula todas as planificações.",
+    ("SheetMetal", "Flatten folded sheet metal object with default options\n1. Select flat face on sheetmetal shape.\n"
+                   "2. Click this command to unfold the object with last used parameters."):
+        "Planifica com as últimas opções usadas\n1. Selecione uma face plana da chapa.\n2. Clique neste comando.",
+    ("SheetMetal", "Convert to Sheet Metal"): "Converter em chapa",
+    ("SheetMetal", "Convert a solid/shell to a sheet metal object.\n1. Select faces to remove from end result SheetMetal."
+                   "\n2. Select edges to rip (mark a seam).\n3. Use Task Panel editor to modify other parameters."):
+        "Converte um sólido/casca em chapa\n1. Selecione as faces a retirar.\n2. Selecione as arestas de "
+        "abertura (costura).\n3. Ajuste no painel de tarefas.",
+    ("SheetMetal", "Make Hem"): "Bainha",
+    ("SheetMetal", "Create hems on edges.\n1. Select edges to create bends with walls.\n2. Use Property editor to "
+                   "modify other parameters"):
+        "Cria bainhas nas arestas\n1. Selecione as arestas.\n2. Ajuste os demais parâmetros",
+    ("SheetMetal", "Wrap Cutout"): "Recorte envolvente",
+    ("SheetMetal", "Wrap cutout from a Sketch On Sheet metal faces\n1. Select a flat face on sheet metal and\n"
+                   "2. Select a sketch on same face to create sheetmetal wrapped cut.\n3. Use Property editor to "
+                   "modify other parameters"):
+        "Recorte que acompanha as dobras, a partir de um esboço na chapa\n1. Selecione uma face plana e\n"
+        "2. o esboço na mesma face.\n3. Ajuste os demais parâmetros",
 }
 
 
@@ -231,16 +288,14 @@ def _language_is_ptbr():
 
 
 def idioma_padrao_ptbr():
-    """Perfil novo (idioma nunca escolhido) em Windows em português: usa pt-BR.
+    """Perfil novo (idioma nunca escolhido): usa pt-BR, o idioma do Prumo 3D.
 
-    Sem isso o FreeCAD segue o sistema e cai no português de Portugal ("Ficheiro"),
-    e a tradução Prumo não é instalada. Não mexe se o usuário já escolheu um idioma.
-    Retorna True se definiu o idioma agora.
+    Sem isso o FreeCAD segue o sistema: cai no português de Portugal ("Ficheiro") ou no inglês,
+    e a tradução Prumo não é instalada. Não mexe se o usuário já escolheu um idioma
+    (Editar > Preferências > Geral > Idioma). Retorna True se definiu o idioma agora.
     """
     grp = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/General")
     if grp.GetString("Language", ""):
-        return False
-    if not QtCore.QLocale.system().name().lower().startswith("pt"):
         return False
     grp.SetString("Language", IDIOMA_PTBR)
     try:

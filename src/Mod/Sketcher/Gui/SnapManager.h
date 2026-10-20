@@ -57,6 +57,8 @@ private:
         const std::vector<Base::Vector2d>& markers,
         int active
     );
+    // Prumo 3D: linhas de inferência (pares de pontos: origem e ponto alinhado)
+    static inline void drawSnapAlignment(ViewProviderSketch& vp, const std::vector<Base::Vector2d>& segments);
 
     friend class SnapManager;
 };
@@ -129,6 +131,7 @@ class SnapManager
         void updateSnapToGridParameter(const std::string& parametername);
         void updateSnapAngleParameter(const std::string& parametername);
         void updateSnapToKeyPointsParameter(const std::string& parametername);
+        void updateSnapAlignmentParameter(const std::string& parametername);
 
         static ParameterGrp::handle getParameterGrpHandle();
 
@@ -158,6 +161,8 @@ public:
     }
     /// Prumo 3D: apaga os marcadores de pontos-ímã da tela
     void clearKeyPointMarkers();
+    /// Prumo 3D: apaga as linhas de inferência da tela
+    void clearAlignmentLines();
 
     struct SnapHandle
     {
@@ -181,6 +186,12 @@ private:
     bool snapToObjectsRequested;
     bool snapToGridRequested;
     bool snapToKeyPointsRequested;
+    bool snapToAlignmentRequested;
+
+    /// Prumo 3D: alinha o cursor na horizontal/vertical com pontos existentes do esboço
+    /// (linhas de inferência tracejadas). Retorna true se alinhou alguma coordenada.
+    bool snapToAlignment(Base::Vector2d inputPos, Base::Vector2d& snapPos, bool showLines);
+    bool alignmentLinesShown = false;
 
     /// Prumo 3D: procura pontos-ímã perto do cursor, desenha os marcadores e devolve o mais
     /// próximo dentro da tolerância de captura

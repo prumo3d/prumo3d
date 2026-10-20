@@ -585,7 +585,23 @@ bool DrawSketchHandler::seekKeyPointAutoConstraint(
             const bool isLine = geo && geo->is<Part::GeomLineSegment>();
             add(isLine ? Sketcher::Symmetric : Sketcher::PointOnObject, keyPoint.geoId1);
         } break;
-        case KeyPointKind::Quadrant:
+        case KeyPointKind::Quadrant: {
+            add(Sketcher::PointOnObject, keyPoint.geoId1);
+            // Prumo: também trava o ponto na horizontal/vertical do centro do círculo/arco,
+            // para que o ponto do quadrante fique totalmente definido.
+            const Part::Geometry* geo = sketchgui->getSketchObject()->getGeometry(keyPoint.geoId1);
+            const Part::GeomConic* conic = dynamic_cast<const Part::GeomConic*>(geo);
+            if (conic && (geo->is<Part::GeomCircle>() || geo->is<Part::GeomArcOfCircle>())) {
+                const Base::Vector3d c = conic->getCenter();
+                const double dx = Pos.x - c.x;
+                const double dy = Pos.y - c.y;
+                AutoConstraint constr;
+                constr.Type = std::abs(dy) < std::abs(dx) ? Sketcher::Horizontal : Sketcher::Vertical;
+                constr.GeoId = keyPoint.geoId1;
+                constr.PosId = PointPos::mid;
+                suggestedConstraints.push_back(constr);
+            }
+        } break;
         case KeyPointKind::AxisVertex:
             add(Sketcher::PointOnObject, keyPoint.geoId1);
             break;
@@ -894,6 +910,19 @@ void DrawSketchHandler::createAutoConstraints(
                     // case the caller as to set geoId2, then it will be used as target instead of
                     // geoId2
                 case Sketcher::Horizontal: {
+                    if (cstr.PosId != Sketcher::PointPos::none && posId1 != Sketcher::PointPos::none
+                        && geoId2 != GeoEnum::GeoUndef) {
+                        // Prumo: dois pontos na mesma horizontal (ponto-ímã de quadrante)
+                        Gui::cmdAppObjectArgs(
+                            sketchgui->getObject(),
+                            "addConstraint(Sketcher.Constraint('Horizontal',%d,%d,%d,%d)) ",
+                            geoId1,
+                            static_cast<int>(posId1),
+                            geoId2,
+                            static_cast<int>(cstr.PosId)
+                        );
+                        break;
+                    }
                     Gui::cmdAppObjectArgs(
                         sketchgui->getObject(),
                         "addConstraint(Sketcher.Constraint('Horizontal',%d)) ",
@@ -901,6 +930,18 @@ void DrawSketchHandler::createAutoConstraints(
                     );
                 } break;
                 case Sketcher::Vertical: {
+                    if (cstr.PosId != Sketcher::PointPos::none && posId1 != Sketcher::PointPos::none
+                        && geoId2 != GeoEnum::GeoUndef) {
+                        Gui::cmdAppObjectArgs(
+                            sketchgui->getObject(),
+                            "addConstraint(Sketcher.Constraint('Vertical',%d,%d,%d,%d)) ",
+                            geoId1,
+                            static_cast<int>(posId1),
+                            geoId2,
+                            static_cast<int>(cstr.PosId)
+                        );
+                        break;
+                    }
                     Gui::cmdAppObjectArgs(
                         sketchgui->getObject(),
                         "addConstraint(Sketcher.Constraint('Vertical',%d)) ",

@@ -29,6 +29,7 @@ WB_NAMES = {
     "TechDrawWorkbench": "Desenho técnico",
     "SpreadsheetWorkbench": "Planilha",
     "PrumoWorkbench": "Prumo",
+    "SMWorkbench": "Chapa metálica",
     "DraftWorkbench": "Desenho 2D",
     "BIMWorkbench": "BIM / Arquitetura",
     "CAMWorkbench": "Usinagem (CAM)",
@@ -88,7 +89,7 @@ TABS = [
         ("Desenhar", [
             ("Sketcher_CreateLine", L, "Linha"), ("Sketcher_CompCreateRectangles", L, "Retângulo"),
             ("Sketcher_CompCreateConic", L, "Círculo"), ("Sketcher_CompCreateArc", L, "Arco"),
-            ("Sketcher_CreatePolyline", S, "Polilinha"), ("Sketcher_CreatePoint", S, "Ponto"),
+            ("Sketcher_CreatePolyline", S, "Linha e arco tangente"), ("Sketcher_CreatePoint", S, "Ponto"),
             ("Sketcher_CompCreateRegularPolygon", S, "Polígono"), ("Sketcher_CompSlot", S, "Rasgo"),
             ("Sketcher_CompCreateBSpline", S, "Curva B-spline"), ("Sketcher_ToggleConstruction", S, "Construção"),
         ]),
@@ -144,6 +145,10 @@ TABS = [
             ("PartDesign_Boolean", S, "Booleana"), ("Part_CheckGeometry", S, "Verificar geometria"),
             ("Sketcher_ValidateSketch", S, "Validar esboço"), ("Std_Measure", L, "Medir"),
         ]),
+        ("Prumo", [
+            ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Massa", S, "Propriedades de massa"),
+            ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
+        ]),
     ]},
     {"id": "solidos", "label": "Sólidos", "wb": "PartWorkbench", "panels": [
         ("Primitivas", [
@@ -173,7 +178,8 @@ TABS = [
         ("Montagem", [
             ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Assembly_Insert", L, "Inserir\ncomponente"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
-            ("Assembly_CreateSimulation", S, "Simulação"), ("Assembly_CreateBom", S, "Lista de materiais"),
+            ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
+            ("Prumo_Massa", S, "Propriedades de massa"),
         ]),
         ("Juntas", [
             ("Assembly_ToggleGrounded", L, "Fixar"), ("Assembly_CreateJointFixed", L, "Junta\nfixa"),
@@ -187,7 +193,8 @@ TABS = [
     ]},
     {"id": "desenho", "label": "Desenho", "wb": "TechDrawWorkbench", "panels": [
         ("Folha", [
-            ("TechDraw_PageDefault", L, "Nova\nfolha"), ("TechDraw_PageTemplate", S, "Folha de modelo"),
+            ("Prumo_NovaFolha", L, "Folha\nABNT"), ("TechDraw_PageDefault", S, "Nova folha"),
+            ("TechDraw_PageTemplate", S, "Folha de modelo"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
             ("TechDraw_FillTemplateFields", S, "Preencher carimbo"), ("TechDraw_RedrawPage", S, "Redesenhar"),
             ("TechDraw_PrintAll", S, "Imprimir tudo"),
         ]),
@@ -216,6 +223,41 @@ TABS = [
         ]),
         ("Exportar", [
             ("Std_PrintPdf", L, "PDF"), ("TechDraw_ExportPageDXF", S, "DXF"), ("TechDraw_ExportPageSVG", S, "SVG"),
+        ]),
+    ]},
+    {"id": "estruturas", "label": "Estruturas", "wb": None, "panels": [
+        ("Estrutura soldada", [
+            ("Prumo_Estrutura", L, "Estrutura\nsoldada"), ("Prumo_ListaDeCorte", L, "Lista de\ncorte"),
+            ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
+        ]),
+        ("Vaso de pressão", [
+            ("Prumo_Vaso", L, "Vaso de\npressão"), ("Prumo_MemoriaVaso", S, "Memória de cálculo"),
+        ]),
+        ("Peças padronizadas", [
+            ("Prumo_Fixador", L, "Parafuso,\nporca, arruela"),
+        ]),
+        ("Conferir", [
+            ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
+            ("Std_Measure", S, "Medir"),
+        ]),
+    ]},
+    {"id": "chapa", "label": "Chapa", "wb": "SMWorkbench", "panels": [
+        ("Criar", [
+            ("SheetMetal_AddBase", L, "Parede\nbase"), ("SheetMetal_BaseShape", S, "Formas prontas"),
+            ("SheetMetal_FromSolid", S, "Chapa de sólido"), ("SheetMetal_SketchOnSheet", S, "Esboço na chapa"),
+        ]),
+        ("Dobras e abas", [
+            ("SheetMetal_AddWall", L, "Aba"), ("SheetMetal_AddFoldWall", L, "Dobrar\npor linha"),
+            ("SheetMetal_Extrude", S, "Estender"), ("SheetMetal_ExtendBySketch", S, "Estender por esboço"),
+            ("SheetMetal_AddBend", S, "Dobra em aresta"), ("SheetMetal_AddHem", S, "Bainha"),
+            ("SheetMetal_AddJunction", S, "Junção (fenda)"),
+        ]),
+        ("Recortes", [
+            ("SheetMetal_AddCutout", L, "Recorte"), ("SheetMetal_AddRelief", S, "Alívio de dobra"),
+            ("SheetMetal_AddCornerRelief", S, "Alívio de canto"), ("SheetMetal_Forming", S, "Estampar"),
+        ]),
+        ("Planificar", [
+            ("SheetMetal_Unfold", L, "Planificar"), ("SheetMetal_UnfoldUpdate", S, "Atualizar planificações"),
         ]),
     ]},
     {"id": "planilha", "label": "Planilha", "wb": "SpreadsheetWorkbench", "panels": [

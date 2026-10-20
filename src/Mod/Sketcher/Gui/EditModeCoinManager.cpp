@@ -606,6 +606,25 @@ void EditModeCoinManager::drawSnapMarkers(const std::vector<Base::Vector2d>& mar
     nodes.SnapMarkerSet->numPoints = n;
 }
 
+void EditModeCoinManager::drawSnapAlignment(const std::vector<Base::Vector2d>& segments)
+{
+    auto& nodes = editModeScenegraphNodes;
+    const int nseg = static_cast<int>(segments.size() / 2);
+    const float z = ViewProviderSketchCoinAttorney::getViewOrientationFactor(viewProvider)
+        * drawingParameters.zEdit;
+    nodes.SnapAlignCoordinate->point.setNum(2 * nseg);
+    nodes.SnapAlignLineSet->numVertices.setNum(nseg);
+    SbVec3f* verts = nodes.SnapAlignCoordinate->point.startEditing();
+    int32_t* num = nodes.SnapAlignLineSet->numVertices.startEditing();
+    for (int i = 0; i < nseg; ++i) {
+        verts[2 * i].setValue(segments[2 * i].x, segments[2 * i].y, z);
+        verts[2 * i + 1].setValue(segments[2 * i + 1].x, segments[2 * i + 1].y, z);
+        num[i] = 2;
+    }
+    nodes.SnapAlignCoordinate->point.finishEditing();
+    nodes.SnapAlignLineSet->numVertices.finishEditing();
+}
+
 void EditModeCoinManager::drawEdit(const std::vector<Base::Vector2d>& EditCurve, GeometryCreationMode mode)
 {
     editModeScenegraphNodes.EditCurveSet->numVertices.setNum(1);
@@ -1060,6 +1079,26 @@ void EditModeCoinManager::createEditModeInventorNodes()
     editModeScenegraphNodes.SnapMarkerSet = new SoMarkerSet;
     editModeScenegraphNodes.SnapMarkerSet->setName("SnapMarkerSet");
     snapMarkersRoot->addChild(editModeScenegraphNodes.SnapMarkerSet);
+
+    // Prumo 3D: linhas de inferência tracejadas
+    SoSeparator* snapAlignRoot = new SoSeparator;
+    snapAlignRoot->setName("SnapAlignRoot");
+    editModeScenegraphNodes.EditRoot->addChild(snapAlignRoot);
+    SoPickStyle* alignPick = new SoPickStyle();
+    alignPick->style.setValue(SoPickStyle::UNPICKABLE);
+    snapAlignRoot->addChild(alignPick);
+    SoMaterial* alignMat = new SoMaterial;
+    alignMat->diffuseColor = SbColor(0.0f, 0.227f, 0.439f);  // #003A70
+    snapAlignRoot->addChild(alignMat);
+    SoDrawStyle* alignStyle = new SoDrawStyle;
+    alignStyle->lineWidth = 1 * drawingParameters.pixelScalingFactor;
+    alignStyle->linePattern = 0x0F0F;
+    snapAlignRoot->addChild(alignStyle);
+    editModeScenegraphNodes.SnapAlignCoordinate = new SoCoordinate3;
+    snapAlignRoot->addChild(editModeScenegraphNodes.SnapAlignCoordinate);
+    editModeScenegraphNodes.SnapAlignLineSet = new SoLineSet;
+    editModeScenegraphNodes.SnapAlignLineSet->numVertices.setNum(0);
+    snapAlignRoot->addChild(editModeScenegraphNodes.SnapAlignLineSet);
 
     // stuff for the edit coordinates ++++++++++++++++++++++++++++++++++++++
     SoSeparator* Coordsep = new SoSeparator();

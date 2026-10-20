@@ -941,6 +941,8 @@ private:
     );
     /// Prumo 3D: draw the snap key points ("magnets"); active = index of the captured one or -1
     void drawSnapMarkers(const std::vector<Base::Vector2d>& markers, int active);
+    /// Prumo 3D: draw the dashed inference lines (pairs of points)
+    void drawSnapAlignment(const std::vector<Base::Vector2d>& segments);
     /// set the pick style of the sketch coordinate axes
     void setAxisPickStyle(bool on);
 

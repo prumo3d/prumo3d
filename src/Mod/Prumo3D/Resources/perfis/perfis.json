@@ -1,0 +1,4690 @@
+{
+ "descricao": "Biblioteca de perfis do Prumo 3D. Gerada por gerar_perfis.py.",
+ "unidades": "mm, kg/m",
+ "fontes": {
+  "F_NBR10068_IFSC": {
+   "chave": "F_NBR10068_IFSC",
+   "nome": "Copia didatica da ABNT NBR 10068 'Folha de desenho - Leiaute e dimensoes' (out/1987), hospedada pelo IFSC (prof. Gian Paulo Medeiros)",
+   "url": "https://docente.ifsc.edu.br/gianpaulo.medeiros/MaterialDidatico/Desenho%20Mecatr%c3%b4nica%20/aula%202/NBR%2010068-Folha%20de%20desenho%20-%20Leiaute%20e%20dimensoes.pdf"
+  },
+  "F_UFSJ_PCG": {
+   "chave": "F_UFSJ_PCG",
+   "nome": "UFSJ - prof. Shiroma, apostila 'PCG' (formatos NBR 10068, margens NBR 10582, dobramento NBR 13142, simbolo de diedro)",
+   "url": "https://ufsj.edu.br/portal2-repositorio/File/prof_shiroma/PCG_impressao(1).pdf"
+  },
+  "F_NORMAS_16752": {
+   "chave": "F_NORMAS_16752",
+   "nome": "Target/normas.com.br - ficha da ABNT NBR 16752 (publicada 01/2020, 'Vigente', 23 p.)",
+   "url": "https://www.normas.com.br/visualizar/abnt-nbr-nm/11569/abnt-nbr16752-desenho-tecnico-requisitos-para-apresentacao-em-folhas-de-desenho"
+  },
+  "F_UFRN_NORMAS": {
+   "chave": "F_UFRN_NORMAS",
+   "nome": "UFRN Vetorial - slides 'Normas' (afirma que NBR 16752:2020 substitui NBR 10582:1988)",
+   "url": "https://www.vetorial.design.ufrn.br/src/pdfs/Normas.pdf"
+  },
+  "F_UFABC_BIB": {
+   "chave": "F_UFABC_BIB",
+   "nome": "UFABC - Bibliografia da disciplina de Desenho (cita NBR 16752:2020, NBR 16861:2020, NBR 17006:2021, NBR 17068:2022)",
+   "url": "https://graduacao.ufabc.edu.br/eiar/docentes/Riascos/ensino/disciplinas/Desenho/Bibliografia.pdf"
+  },
+  "F_UDESC": {
+   "chave": "F_UDESC",
+   "nome": "UDESC - gabarito de Representacao Grafica (cita 'NBR 16752, Rio de Janeiro, 2020, 23p.', legenda nas p.10-11)",
+   "url": "https://www.udesc.br/arquivos/ceavi/id_cpmenu/1539/gab_repr_graf_17005096784559_1539.pdf"
+  },
+  "F_GRAN_16752": {
+   "chave": "F_GRAN_16752",
+   "nome": "Gran Questoes - questoes de concurso sobre NBR 16752 (FUVEST 2025: margens ISO-A 20/10/10/10 mm)",
+   "url": "https://questoes.grancursosonline.com.br/questoes-de-concursos/legislacao-dos-orgaos-nbr-16752-abnt-432581"
+  },
+  "F_NC_ISO5457": {
+   "chave": "F_NC_ISO5457",
+   "nome": "NC-ISO 5457:2005 (Cuba), adocao identica da ISO 5457:1999 - Folhas de desenho",
+   "url": "https://ftp.isdi.co.cu/Biblioteca/BIBLIOTECA%20UNIVERSITARIA%20DEL%20ISDI/COLECCION%20DIGITAL%20DE%20NORMAS%20CUBANAS/2005/NC%20ISO%205457%20%20a2005%2010p%20sie.pdf"
+  },
+  "F_NC_ISO7200": {
+   "chave": "F_NC_ISO7200",
+   "nome": "NC-ISO 7200:2005 (Cuba), adocao identica da ISO 7200:2004 - Campos de dados em legendas",
+   "url": "https://ftp.isdi.co.cu/Biblioteca/BIBLIOTECA%20UNIVERSITARIA%20DEL%20ISDI/COLECCION%20DIGITAL%20DE%20NORMAS%20CUBANAS/2005/NC%20ISO%207200%20%20a2005%209p%20rez.pdf"
+  },
+  "F_GERDAU_PE": {
+   "chave": "F_GERDAU_PE",
+   "nome": "Gerdau - 'Perfis Estruturais Gerdau - Informacoes Tecnicas', secao 'Tabela de Bitolas' (sem data; pag. 10/12) - copia hospedada no AECweb",
+   "url": "https://api.aecweb.com.br/cls/catalogos/28792/22314/catalogo-gerdau-perfis-estruturais.pdf"
+  },
+  "F_GERDAU_PE2": {
+   "chave": "F_GERDAU_PE2",
+   "nome": "Gerdau - Folder 'Perfis Estruturais Gerdau - Informacoes Tecnicas' (gsn.gerdau.com): bitolas 150 a 610 mm, NBR 15980:2011 e ASTM A6/A6M",
+   "url": "https://gsn.gerdau.com/sites/gsn_gerdau/files/downloadable_files/Folder%20Perfis%20Estruturais%20Gerdau%20-%20Informa%C3%A7%C3%B5es%20T%C3%A9cnicas.pdf"
+  },
+  "F_FAPRO_W": {
+   "chave": "F_FAPRO_W",
+   "nome": "Fabrica do Projeto - 'Tabela de Perfil Gerdau W - H - HP'",
+   "url": "https://www.fabricadoprojeto.com.br/en/tabelas-de-laminados-trefilados-e-itens-comerciais/tabela-de-perfil-w-h-hp/"
+  },
+  "F_GERDAU_BP": {
+   "chave": "F_GERDAU_BP",
+   "nome": "Gerdau - 'Barras e Perfis - Aco para Industria', ed. 02/14 (lista produtos; tabelas dimensionais nao extraiveis)",
+   "url": "https://gsn.gerdau.com/sites/gsn_gerdau/files/downloadable_files/catalogo-barras-e-perfis.pdf"
+  },
+  "F_AM_2019": {
+   "chave": "F_AM_2019",
+   "nome": "ArcelorMittal - 'Perfis e Barras - Linha Estrutural e Serralheria, Acos Longos', edicao abril/2019 (ABNT NBR 15980/11)",
+   "url": "https://brasil.arcelormittal.com/files/produtos-catalogos/8933d1bc-6cec-4fee-9eb7-608946846726"
+  },
+  "F_FAPRO_U": {
+   "chave": "F_FAPRO_U",
+   "nome": "Fabrica do Projeto - 'Tabela de Viga U Padrao Americano'",
+   "url": "https://www.fabricadoprojeto.com.br/tabelas-de-laminados-trefilados-e-itens-comerciais/tabela-de-viga-u-padrao-americano/"
+  },
+  "F_FAPRO_I": {
+   "chave": "F_FAPRO_I",
+   "nome": "Fabrica do Projeto - 'Tabela de Viga I Padrao Americano'",
+   "url": "https://www.fabricadoprojeto.com.br/tabelas-de-laminados-trefilados-e-itens-comerciais/tabela-de-viga-i-padrao-americano/"
+  },
+  "F_AECWEB_SCH": {
+   "chave": "F_AECWEB_SCH",
+   "nome": "'Tabela de Conversao de Polegada para Milimetro de Tubos' (ASTM A-53/A-106), PDF no AECweb, fabricante nao identificado",
+   "url": "https://api.aecweb.com.br/cls/catalogos/schedule/padroes_conducao_hidraulica.pdf"
+  },
+  "F_FLUIDS": {
+   "chave": "F_FLUIDS",
+   "nome": "Biblioteca 'fluids' (Caleb Bell), modulo fluids.piping - transcricao das tabelas da ASME B36.10M-2004",
+   "url": "https://fluids.readthedocs.io/_modules/fluids/piping.html"
+  },
+  "F_FAPRO_SCH": {
+   "chave": "F_FAPRO_SCH",
+   "nome": "Fabrica do Projeto - 'Tabela de Tubos SCH 5-10-40-80-160-XXS (NBR 5590)'",
+   "url": "https://www.fabricadoprojeto.com.br/en/tabelas-de-laminados-trefilados-e-itens-comerciais/tabelas-fapro-tubos-nbr5590-sch5-sch10-sch40-sch80-sch160-schxxs/"
+  },
+  "F_ORSE": {
+   "chave": "F_ORSE",
+   "nome": "ORSE/CEHOP-SE - especificacao ES00099 (tubos ASTM A53 / ABNT EB 332)",
+   "url": "https://orse.cehop.se.gov.br/esp/ES00099.pdf"
+  },
+  "F_VALLOUREC_EST": {
+   "chave": "F_VALLOUREC_EST",
+   "nome": "Vallourec Tubos do Brasil - 'Tubos Estruturais sem Costura: Graus de Aco, Propriedades Mecanicas e Aplicacoes' (sem data)",
+   "url": "https://www.vallourec.com/app/uploads/sites/2/2023/10/BR-Catalogo-de-Acos-Estruturais.pdf"
+  },
+  "F_FAPRO_TQ": {
+   "chave": "F_FAPRO_TQ",
+   "nome": "Fabrica do Projeto - 'Tabela de Tubo Industrial Quadrado' (massa teorica, sem norma citada)",
+   "url": "https://www.fabricadoprojeto.com.br/tabelas-de-laminados-trefilados-e-itens-comerciais/tabelas-fapro-tubo-industrial-quadrado/"
+  },
+  "F_USI_CG": {
+   "chave": "F_USI_CG",
+   "nome": "Usiminas - catalogo 'Chapas Grossas' (atualizado jul/2022; ultima pag. dez/2022)",
+   "url": "https://usiminas.com/wp-content/uploads/2024/04/CatalagoChapasGrossas.pdf"
+  },
+  "F_USI_LF": {
+   "chave": "F_USI_LF",
+   "nome": "Usiminas - catalogo 'Laminados a Frio' (atualizado jul/2021)",
+   "url": "https://usiminas.com/wp-content/uploads/2024/04/LaminadosAFrio.pdf"
+  },
+  "F_AM_CONTAGEM": {
+   "chave": "F_AM_CONTAGEM",
+   "nome": "ArcelorMittal Contagem - 'Tubos, Perfis e Acos Planos - Catalogo de Produtos' (sem data)",
+   "url": "https://brasil.arcelormittal.com/files/produtos-catalogos/b65b4723-fea6-49d5-94e1-aed5b2c97884"
+  },
+  "F_FAPRO_CH": {
+   "chave": "F_FAPRO_CH",
+   "nome": "Fabrica do Projeto - 'Tabela de Chapa Lisa Fina e Grossa' (mod. 29/04/2024)",
+   "url": "https://www.fabricadoprojeto.com.br/tabelas-de-laminados-trefilados-e-itens-comerciais/tabela-de-chapa-lisa-fina-e-grossa/"
+  },
+  "F_IFPR_RUG": {
+   "chave": "F_IFPR_RUG",
+   "nome": "IFPR Paranagua - apostila '21 Representacao de rugosidade' (cita ABNT NBR 8404/1984)",
+   "url": "https://ifpr.edu.br/paranagua/wp-content/uploads/sites/20/2014/03/21_representacao-de-rugosidade.pdf"
+  },
+  "F_SIS_1302": {
+   "chave": "F_SIS_1302",
+   "nome": "SIS (Suecia) - ficha ISO 1302:2002: 'Withdrawn', substituida por ISO 21920-1:2021",
+   "url": "https://www.sis.se/en/produkter/standardization/technical-drawings/mechanical-engineering-drawings/iso13022002"
+  },
+  "F_ISO_2553DIS": {
+   "chave": "F_ISO_2553DIS",
+   "nome": "ISO - ficha ISO/DIS 2553 (ed. 6), estagio 40.60 (votacao encerrada 2026-08-20), substituira a ISO 2553:2019",
+   "url": "https://committee.iso.org/standard/90897.html?browse=ics"
+  },
+  "F_ANSI_A24": {
+   "chave": "F_ANSI_A24",
+   "nome": "ANSI Webstore - AWS A2.4:2020 'Standard Symbols for Welding, Brazing, and Nondestructive Examination' (revisa a A2.4:2012)",
+   "url": "https://webstore.ansi.org/standards/aws/AWSA22020"
+  }
+ },
+ "familias": [
+  {
+   "id": "W",
+   "nome": "Perfil W (laminado, abas paralelas)",
+   "norma": "ABNT NBR 15980 / ASTM A6 (catálogo Gerdau)",
+   "fonte": {
+    "chave": "F_GERDAU_PE",
+    "nome": "Gerdau - 'Perfis Estruturais Gerdau - Informacoes Tecnicas', secao 'Tabela de Bitolas' (sem data; pag. 10/12) - copia hospedada no AECweb",
+    "url": "https://api.aecweb.com.br/cls/catalogos/28792/22314/catalogo-gerdau-perfis-estruturais.pdf"
+   },
+   "itens": [
+    {
+     "nome": "W 150 x 13,0",
+     "tipo": "I",
+     "d": 148.0,
+     "bf": 100.0,
+     "tw": 4.3,
+     "tf": 4.9,
+     "R": 10.1,
+     "massa": 13.0,
+     "area_cm2": 16.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 150 x 18,0",
+     "tipo": "I",
+     "d": 153.0,
+     "bf": 102.0,
+     "tw": 5.8,
+     "tf": 7.1,
+     "R": 9.9,
+     "massa": 18.0,
+     "area_cm2": 23.4,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 150 x 22,5",
+     "tipo": "I",
+     "d": 152.0,
+     "bf": 152.0,
+     "tw": 5.8,
+     "tf": 6.6,
+     "R": 9.9,
+     "massa": 22.5,
+     "area_cm2": 29.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 150 x 24,0",
+     "tipo": "I",
+     "d": 160.0,
+     "bf": 102.0,
+     "tw": 6.6,
+     "tf": 10.3,
+     "R": 12.2,
+     "massa": 24.0,
+     "area_cm2": 31.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 150 x 29,8",
+     "tipo": "I",
+     "d": 157.0,
+     "bf": 153.0,
+     "tw": 6.6,
+     "tf": 9.3,
+     "R": 10.2,
+     "massa": 29.8,
+     "area_cm2": 38.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 150 x 37,1",
+     "tipo": "I",
+     "d": 162.0,
+     "bf": 154.0,
+     "tw": 8.1,
+     "tf": 11.6,
+     "R": 9.9,
+     "massa": 37.1,
+     "area_cm2": 47.8,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 15,0",
+     "tipo": "I",
+     "d": 200.0,
+     "bf": 100.0,
+     "tw": 4.3,
+     "tf": 5.2,
+     "R": 9.8,
+     "massa": 15.0,
+     "area_cm2": 19.4,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 19,3",
+     "tipo": "I",
+     "d": 203.0,
+     "bf": 102.0,
+     "tw": 5.8,
+     "tf": 6.5,
+     "R": 10.0,
+     "massa": 19.3,
+     "area_cm2": 25.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 22,5",
+     "tipo": "I",
+     "d": 206.0,
+     "bf": 102.0,
+     "tw": 6.2,
+     "tf": 8.0,
+     "R": 10.0,
+     "massa": 22.5,
+     "area_cm2": 29.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 26,6",
+     "tipo": "I",
+     "d": 207.0,
+     "bf": 133.0,
+     "tw": 5.8,
+     "tf": 8.4,
+     "R": 10.1,
+     "massa": 26.6,
+     "area_cm2": 34.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 31,3",
+     "tipo": "I",
+     "d": 210.0,
+     "bf": 134.0,
+     "tw": 6.4,
+     "tf": 10.2,
+     "R": 9.8,
+     "massa": 31.3,
+     "area_cm2": 40.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 35,9",
+     "tipo": "I",
+     "d": 201.0,
+     "bf": 165.0,
+     "tw": 6.2,
+     "tf": 10.2,
+     "R": 9.8,
+     "massa": 35.9,
+     "area_cm2": 45.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 41,7",
+     "tipo": "I",
+     "d": 205.0,
+     "bf": 166.0,
+     "tw": 7.2,
+     "tf": 11.8,
+     "R": 12.2,
+     "massa": 41.7,
+     "area_cm2": 53.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 46,1",
+     "tipo": "I",
+     "d": 203.0,
+     "bf": 203.0,
+     "tw": 7.2,
+     "tf": 11.0,
+     "R": 10.0,
+     "massa": 46.1,
+     "area_cm2": 58.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 52,0",
+     "tipo": "I",
+     "d": 206.0,
+     "bf": 204.0,
+     "tw": 7.9,
+     "tf": 12.6,
+     "R": 11.9,
+     "massa": 52.0,
+     "area_cm2": 66.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 59,0",
+     "tipo": "I",
+     "d": 210.0,
+     "bf": 205.0,
+     "tw": 9.1,
+     "tf": 14.2,
+     "R": 11.8,
+     "massa": 59.0,
+     "area_cm2": 76.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 71,0",
+     "tipo": "I",
+     "d": 216.0,
+     "bf": 206.0,
+     "tw": 10.2,
+     "tf": 17.4,
+     "R": 10.1,
+     "massa": 71.0,
+     "area_cm2": 91.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 200 x 86,0",
+     "tipo": "I",
+     "d": 222.0,
+     "bf": 209.0,
+     "tw": 13.0,
+     "tf": 20.6,
+     "R": 11.9,
+     "massa": 86.0,
+     "area_cm2": 110.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 17,9",
+     "tipo": "I",
+     "d": 251.0,
+     "bf": 101.0,
+     "tw": 4.8,
+     "tf": 5.3,
+     "R": 10.2,
+     "massa": 17.9,
+     "area_cm2": 23.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 22,3",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 102.0,
+     "tw": 5.8,
+     "tf": 6.9,
+     "R": 10.1,
+     "massa": 22.3,
+     "area_cm2": 28.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 25,3",
+     "tipo": "I",
+     "d": 257.0,
+     "bf": 102.0,
+     "tw": 6.1,
+     "tf": 8.4,
+     "R": 10.1,
+     "massa": 25.3,
+     "area_cm2": 32.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 28,4",
+     "tipo": "I",
+     "d": 260.0,
+     "bf": 102.0,
+     "tw": 6.4,
+     "tf": 10.0,
+     "R": 10.0,
+     "massa": 28.4,
+     "area_cm2": 36.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 32,7",
+     "tipo": "I",
+     "d": 258.0,
+     "bf": 146.0,
+     "tw": 6.1,
+     "tf": 9.1,
+     "R": 9.9,
+     "massa": 32.7,
+     "area_cm2": 42.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 38,5",
+     "tipo": "I",
+     "d": 262.0,
+     "bf": 147.0,
+     "tw": 6.6,
+     "tf": 11.2,
+     "R": 9.8,
+     "massa": 38.5,
+     "area_cm2": 49.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 44,8",
+     "tipo": "I",
+     "d": 266.0,
+     "bf": 148.0,
+     "tw": 7.6,
+     "tf": 13.0,
+     "R": 10.0,
+     "massa": 44.8,
+     "area_cm2": 57.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 73,0",
+     "tipo": "I",
+     "d": 253.0,
+     "bf": 254.0,
+     "tw": 8.6,
+     "tf": 14.2,
+     "R": 11.8,
+     "massa": 73.0,
+     "area_cm2": 92.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 80,0",
+     "tipo": "I",
+     "d": 256.0,
+     "bf": 255.0,
+     "tw": 9.4,
+     "tf": 15.6,
+     "R": 11.9,
+     "massa": 80.0,
+     "area_cm2": 101.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 89,0",
+     "tipo": "I",
+     "d": 260.0,
+     "bf": 256.0,
+     "tw": 10.7,
+     "tf": 17.3,
+     "R": 12.2,
+     "massa": 89.0,
+     "area_cm2": 113.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 101,0",
+     "tipo": "I",
+     "d": 264.0,
+     "bf": 257.0,
+     "tw": 11.9,
+     "tf": 19.6,
+     "R": 11.9,
+     "massa": 101.0,
+     "area_cm2": 128.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 250 x 115,0",
+     "tipo": "I",
+     "d": 269.0,
+     "bf": 259.0,
+     "tw": 13.5,
+     "tf": 22.1,
+     "R": 11.9,
+     "massa": 115.0,
+     "area_cm2": 146.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 21,0",
+     "tipo": "I",
+     "d": 303.0,
+     "bf": 101.0,
+     "tw": 5.1,
+     "tf": 5.7,
+     "R": 9.8,
+     "massa": 21.0,
+     "area_cm2": 27.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 23,8",
+     "tipo": "I",
+     "d": 305.0,
+     "bf": 101.0,
+     "tw": 5.6,
+     "tf": 6.7,
+     "R": 9.8,
+     "massa": 23.8,
+     "area_cm2": 30.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 28,3",
+     "tipo": "I",
+     "d": 309.0,
+     "bf": 102.0,
+     "tw": 6.0,
+     "tf": 8.9,
+     "R": 10.1,
+     "massa": 28.3,
+     "area_cm2": 36.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 32,7",
+     "tipo": "I",
+     "d": 313.0,
+     "bf": 102.0,
+     "tw": 6.6,
+     "tf": 10.8,
+     "R": 10.2,
+     "massa": 32.7,
+     "area_cm2": 42.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 38,7",
+     "tipo": "I",
+     "d": 310.0,
+     "bf": 165.0,
+     "tw": 5.8,
+     "tf": 9.7,
+     "R": 9.8,
+     "massa": 38.7,
+     "area_cm2": 49.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 44,5",
+     "tipo": "I",
+     "d": 313.0,
+     "bf": 166.0,
+     "tw": 6.6,
+     "tf": 11.2,
+     "R": 9.8,
+     "massa": 44.5,
+     "area_cm2": 57.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 52,0",
+     "tipo": "I",
+     "d": 317.0,
+     "bf": 167.0,
+     "tw": 7.6,
+     "tf": 13.2,
+     "R": 9.8,
+     "massa": 52.0,
+     "area_cm2": 67.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 97,0",
+     "tipo": "I",
+     "d": 308.0,
+     "bf": 305.0,
+     "tw": 9.9,
+     "tf": 15.4,
+     "R": 16.1,
+     "massa": 97.0,
+     "area_cm2": 123.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 107,0",
+     "tipo": "I",
+     "d": 311.0,
+     "bf": 306.0,
+     "tw": 10.9,
+     "tf": 17.0,
+     "R": 16.0,
+     "massa": 107.0,
+     "area_cm2": 136.4,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 310 x 117,0",
+     "tipo": "I",
+     "d": 314.0,
+     "bf": 307.0,
+     "tw": 11.9,
+     "tf": 18.7,
+     "R": 15.8,
+     "massa": 117.0,
+     "area_cm2": 149.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 32,9",
+     "tipo": "I",
+     "d": 349.0,
+     "bf": 127.0,
+     "tw": 5.8,
+     "tf": 8.5,
+     "R": 12.0,
+     "massa": 32.9,
+     "area_cm2": 42.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 39,0",
+     "tipo": "I",
+     "d": 353.0,
+     "bf": 128.0,
+     "tw": 6.5,
+     "tf": 10.7,
+     "R": 11.8,
+     "massa": 39.0,
+     "area_cm2": 50.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 44,6",
+     "tipo": "I",
+     "d": 352.0,
+     "bf": 171.0,
+     "tw": 6.9,
+     "tf": 9.8,
+     "R": 12.2,
+     "massa": 44.6,
+     "area_cm2": 57.7,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 51,0",
+     "tipo": "I",
+     "d": 355.0,
+     "bf": 171.0,
+     "tw": 7.2,
+     "tf": 11.6,
+     "R": 11.9,
+     "massa": 51.0,
+     "area_cm2": 64.8,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 58,0",
+     "tipo": "I",
+     "d": 358.0,
+     "bf": 172.0,
+     "tw": 7.9,
+     "tf": 13.1,
+     "R": 11.9,
+     "massa": 58.0,
+     "area_cm2": 72.5,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 64,0",
+     "tipo": "I",
+     "d": 347.0,
+     "bf": 203.0,
+     "tw": 7.7,
+     "tf": 13.5,
+     "R": 16.0,
+     "massa": 64.0,
+     "area_cm2": 81.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 72,0",
+     "tipo": "I",
+     "d": 350.0,
+     "bf": 204.0,
+     "tw": 8.6,
+     "tf": 15.1,
+     "R": 15.9,
+     "massa": 72.0,
+     "area_cm2": 91.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 79,0",
+     "tipo": "I",
+     "d": 354.0,
+     "bf": 205.0,
+     "tw": 9.4,
+     "tf": 16.8,
+     "R": 16.2,
+     "massa": 79.0,
+     "area_cm2": 101.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 91,0",
+     "tipo": "I",
+     "d": 353.0,
+     "bf": 254.0,
+     "tw": 9.5,
+     "tf": 16.4,
+     "R": 16.1,
+     "massa": 91.0,
+     "area_cm2": 115.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 101,0",
+     "tipo": "I",
+     "d": 357.0,
+     "bf": 255.0,
+     "tw": 10.5,
+     "tf": 18.3,
+     "R": 17.2,
+     "massa": 101.0,
+     "area_cm2": 129.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 110,0",
+     "tipo": "I",
+     "d": 360.0,
+     "bf": 256.0,
+     "tw": 11.4,
+     "tf": 19.9,
+     "R": 16.1,
+     "massa": 110.0,
+     "area_cm2": 140.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 360 x 122,0",
+     "tipo": "I",
+     "d": 363.0,
+     "bf": 257.0,
+     "tw": 13.0,
+     "tf": 21.7,
+     "R": 15.8,
+     "massa": 122.0,
+     "area_cm2": 155.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 38,8",
+     "tipo": "I",
+     "d": 399.0,
+     "bf": 140.0,
+     "tw": 6.4,
+     "tf": 8.8,
+     "R": 12.2,
+     "massa": 38.8,
+     "area_cm2": 50.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 46,1",
+     "tipo": "I",
+     "d": 403.0,
+     "bf": 140.0,
+     "tw": 7.0,
+     "tf": 11.2,
+     "R": 11.8,
+     "massa": 46.1,
+     "area_cm2": 59.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 53,0",
+     "tipo": "I",
+     "d": 403.0,
+     "bf": 177.0,
+     "tw": 7.5,
+     "tf": 10.9,
+     "R": 12.1,
+     "massa": 53.0,
+     "area_cm2": 68.4,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 60,0",
+     "tipo": "I",
+     "d": 407.0,
+     "bf": 178.0,
+     "tw": 7.7,
+     "tf": 12.8,
+     "R": 12.2,
+     "massa": 60.0,
+     "area_cm2": 76.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 67,0",
+     "tipo": "I",
+     "d": 410.0,
+     "bf": 179.0,
+     "tw": 8.8,
+     "tf": 14.4,
+     "R": 12.1,
+     "massa": 67.0,
+     "area_cm2": 86.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 75,0",
+     "tipo": "I",
+     "d": 413.0,
+     "bf": 180.0,
+     "tw": 9.7,
+     "tf": 16.0,
+     "R": 12.0,
+     "massa": 75.0,
+     "area_cm2": 95.8,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 410 x 85,0",
+     "tipo": "I",
+     "d": 417.0,
+     "bf": 181.0,
+     "tw": 10.9,
+     "tf": 18.2,
+     "R": 11.8,
+     "massa": 85.0,
+     "area_cm2": 108.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 52,0",
+     "tipo": "I",
+     "d": 450.0,
+     "bf": 152.0,
+     "tw": 7.6,
+     "tf": 10.8,
+     "R": 12.2,
+     "massa": 52.0,
+     "area_cm2": 66.6,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 60,0",
+     "tipo": "I",
+     "d": 455.0,
+     "bf": 153.0,
+     "tw": 8.0,
+     "tf": 13.3,
+     "R": 12.2,
+     "massa": 60.0,
+     "area_cm2": 76.2,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 68,0",
+     "tipo": "I",
+     "d": 459.0,
+     "bf": 154.0,
+     "tw": 9.1,
+     "tf": 15.4,
+     "R": 12.1,
+     "massa": 68.0,
+     "area_cm2": 87.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 74,0",
+     "tipo": "I",
+     "d": 457.0,
+     "bf": 190.0,
+     "tw": 9.0,
+     "tf": 14.5,
+     "R": 12.0,
+     "massa": 74.0,
+     "area_cm2": 94.9,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 82,0",
+     "tipo": "I",
+     "d": 460.0,
+     "bf": 191.0,
+     "tw": 9.9,
+     "tf": 16.0,
+     "R": 12.0,
+     "massa": 82.0,
+     "area_cm2": 104.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 89,0",
+     "tipo": "I",
+     "d": 463.0,
+     "bf": 192.0,
+     "tw": 10.5,
+     "tf": 17.7,
+     "R": 11.8,
+     "massa": 89.0,
+     "area_cm2": 114.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 97,0",
+     "tipo": "I",
+     "d": 466.0,
+     "bf": 193.0,
+     "tw": 11.4,
+     "tf": 19.0,
+     "R": 12.0,
+     "massa": 97.0,
+     "area_cm2": 123.4,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 460 x 106,0",
+     "tipo": "I",
+     "d": 469.0,
+     "bf": 194.0,
+     "tw": 12.6,
+     "tf": 20.6,
+     "R": 11.9,
+     "massa": 106.0,
+     "area_cm2": 135.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 66,0",
+     "tipo": "I",
+     "d": 525.0,
+     "bf": 165.0,
+     "tw": 8.9,
+     "tf": 11.4,
+     "R": 12.1,
+     "massa": 66.0,
+     "area_cm2": 83.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 72,0",
+     "tipo": "I",
+     "d": 524.0,
+     "bf": 207.0,
+     "tw": 9.0,
+     "tf": 10.9,
+     "R": 12.1,
+     "massa": 72.0,
+     "area_cm2": 91.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 74,0",
+     "tipo": "I",
+     "d": 529.0,
+     "bf": 166.0,
+     "tw": 9.7,
+     "tf": 13.6,
+     "R": 11.9,
+     "massa": 74.0,
+     "area_cm2": 95.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 82,0",
+     "tipo": "I",
+     "d": 528.0,
+     "bf": 209.0,
+     "tw": 9.5,
+     "tf": 13.3,
+     "R": 12.2,
+     "massa": 82.0,
+     "area_cm2": 104.5,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 85,0",
+     "tipo": "I",
+     "d": 535.0,
+     "bf": 166.0,
+     "tw": 10.3,
+     "tf": 16.5,
+     "R": 12.0,
+     "massa": 85.0,
+     "area_cm2": 107.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 92,0",
+     "tipo": "I",
+     "d": 533.0,
+     "bf": 209.0,
+     "tw": 10.2,
+     "tf": 15.6,
+     "R": 11.9,
+     "massa": 92.0,
+     "area_cm2": 117.6,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 101,0",
+     "tipo": "I",
+     "d": 537.0,
+     "bf": 210.0,
+     "tw": 10.9,
+     "tf": 17.4,
+     "R": 16.1,
+     "massa": 101.0,
+     "area_cm2": 130.0,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 530 x 109,0",
+     "tipo": "I",
+     "d": 539.0,
+     "bf": 211.0,
+     "tw": 11.6,
+     "tf": 18.8,
+     "R": 16.2,
+     "massa": 109.0,
+     "area_cm2": 139.7,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 101,0",
+     "tipo": "I",
+     "d": 603.0,
+     "bf": 228.0,
+     "tw": 10.5,
+     "tf": 14.9,
+     "R": 16.1,
+     "massa": 101.0,
+     "area_cm2": 130.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 113,0",
+     "tipo": "I",
+     "d": 608.0,
+     "bf": 228.0,
+     "tw": 11.2,
+     "tf": 17.3,
+     "R": 16.2,
+     "massa": 113.0,
+     "area_cm2": 145.3,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 125,0",
+     "tipo": "I",
+     "d": 612.0,
+     "bf": 229.0,
+     "tw": 11.9,
+     "tf": 19.6,
+     "R": 15.9,
+     "massa": 125.0,
+     "area_cm2": 160.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 140,0",
+     "tipo": "I",
+     "d": 617.0,
+     "bf": 230.0,
+     "tw": 13.1,
+     "tf": 22.2,
+     "R": 15.8,
+     "massa": 140.0,
+     "area_cm2": 179.3,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 155,0",
+     "tipo": "I",
+     "d": 611.0,
+     "bf": 324.0,
+     "tw": 12.7,
+     "tf": 19.0,
+     "R": 16.0,
+     "massa": 155.0,
+     "area_cm2": 198.1,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "W 610 x 174,0",
+     "tipo": "I",
+     "d": 616.0,
+     "bf": 325.0,
+     "tw": 14.0,
+     "tf": 21.6,
+     "R": 15.9,
+     "massa": 174.0,
+     "area_cm2": 222.8,
+     "status": "confirmado",
+     "derivado": [
+      "R"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "HP",
+   "nome": "Perfil HP (laminado, estaca/pilar)",
+   "norma": "ABNT NBR 15980 / ASTM A6 (catálogo Gerdau)",
+   "fonte": {
+    "chave": "F_GERDAU_PE",
+    "nome": "Gerdau - 'Perfis Estruturais Gerdau - Informacoes Tecnicas', secao 'Tabela de Bitolas' (sem data; pag. 10/12) - copia hospedada no AECweb",
+    "url": "https://api.aecweb.com.br/cls/catalogos/28792/22314/catalogo-gerdau-perfis-estruturais.pdf"
+   },
+   "itens": [
+    {
+     "nome": "HP 200 x 53,0",
+     "tipo": "I",
+     "d": 204.0,
+     "bf": 207.0,
+     "tw": 11.3,
+     "tf": 11.3,
+     "R": 10.2,
+     "massa": 53.0,
+     "area_cm2": 68.1,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 250 x 62,0",
+     "tipo": "I",
+     "d": 246.0,
+     "bf": 256.0,
+     "tw": 10.5,
+     "tf": 10.7,
+     "R": 11.8,
+     "massa": 62.0,
+     "area_cm2": 79.6,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 250 x 85,0",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 260.0,
+     "tw": 14.4,
+     "tf": 14.4,
+     "R": 12.1,
+     "massa": 85.0,
+     "area_cm2": 108.5,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 310 x 79,0",
+     "tipo": "I",
+     "d": 299.0,
+     "bf": 306.0,
+     "tw": 11.0,
+     "tf": 11.0,
+     "R": 16.0,
+     "massa": 79.0,
+     "area_cm2": 100.0,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 310 x 93,0",
+     "tipo": "I",
+     "d": 303.0,
+     "bf": 308.0,
+     "tw": 13.1,
+     "tf": 13.1,
+     "R": 15.9,
+     "massa": 93.0,
+     "area_cm2": 119.2,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 310 x 110,0",
+     "tipo": "I",
+     "d": 308.0,
+     "bf": 310.0,
+     "tw": 15.4,
+     "tf": 15.5,
+     "R": 16.0,
+     "massa": 110.0,
+     "area_cm2": 141.0,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    },
+    {
+     "nome": "HP 310 x 125,0",
+     "tipo": "I",
+     "d": 312.0,
+     "bf": 312.0,
+     "tw": 17.4,
+     "tf": 17.4,
+     "R": 16.1,
+     "massa": 125.0,
+     "area_cm2": 159.0,
+     "status": "a checar",
+     "derivado": [
+      "R"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "U",
+   "nome": "Perfil U laminado (padrão americano)",
+   "norma": "ABNT NBR 15980 / ASTM A6",
+   "fonte": {
+    "chave": "F_AM_2019",
+    "nome": "ArcelorMittal - 'Perfis e Barras - Linha Estrutural e Serralheria, Acos Longos', edicao abril/2019 (ABNT NBR 15980/11)",
+    "url": "https://brasil.arcelormittal.com/files/produtos-catalogos/8933d1bc-6cec-4fee-9eb7-608946846726"
+   },
+   "itens": [
+    {
+     "nome": "U 3\" x 6,1 kg/m (4,10 lb/ft)",
+     "tipo": "U",
+     "d": 76.2,
+     "bf": 35.81,
+     "tw": 4.32,
+     "tf": 7.11,
+     "massa": 6.1,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 3\" x 7,44 kg/m (5,00 lb/ft)",
+     "tipo": "U",
+     "d": 76.2,
+     "bf": 38.05,
+     "tw": 6.55,
+     "tf": 7.12,
+     "massa": 7.44,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 3\" x 8,9 kg/m",
+     "tipo": "U",
+     "d": 76.2,
+     "bf": 40.5,
+     "tw": 9.0,
+     "tf": 7.11,
+     "massa": 8.9,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 4\" x 7,4 kg/m",
+     "tipo": "U",
+     "d": 101.6,
+     "bf": 40.1,
+     "tw": 4.5,
+     "tf": 6.8,
+     "massa": 7.39,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 4\" x 8,04 kg/m (5,40 lb/ft)",
+     "tipo": "U",
+     "d": 101.6,
+     "bf": 40.23,
+     "tw": 4.57,
+     "tf": 7.85,
+     "massa": 8.04,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 4\" x 9,3 kg/m (6,25 lb/ft)",
+     "tipo": "U",
+     "d": 101.6,
+     "bf": 41.83,
+     "tw": 6.27,
+     "tf": 7.7,
+     "massa": 9.3,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 4\" x 10,8 kg/m",
+     "tipo": "U",
+     "d": 101.6,
+     "bf": 43.7,
+     "tw": 8.1,
+     "tf": 7.76,
+     "massa": 10.8,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 6\" x 12,2 kg/m (8,00 lb/ft)",
+     "tipo": "U",
+     "d": 152.4,
+     "bf": 48.77,
+     "tw": 5.08,
+     "tf": 8.93,
+     "massa": 12.2,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 6\" x 15,62 kg/m (10,50 lb/ft)",
+     "tipo": "U",
+     "d": 152.4,
+     "bf": 51.66,
+     "tw": 7.98,
+     "tf": 8.86,
+     "massa": 15.62,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "U 6\" x 19,4 kg/m",
+     "tipo": "U",
+     "d": 152.4,
+     "bf": 54.8,
+     "tw": 11.1,
+     "tf": 8.92,
+     "massa": 19.4,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 6\" x 23,1 kg/m",
+     "tipo": "U",
+     "d": 152.4,
+     "bf": 57.9,
+     "tw": 14.2,
+     "tf": 8.91,
+     "massa": 23.1,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 8\" x 17,1 kg/m",
+     "tipo": "U",
+     "d": 203.2,
+     "bf": 57.4,
+     "tw": 5.5,
+     "tf": 10.22,
+     "massa": 17.1,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 8\" x 20,5 kg/m",
+     "tipo": "U",
+     "d": 203.2,
+     "bf": 59.5,
+     "tw": 7.7,
+     "tf": 10.1,
+     "massa": 20.5,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 8\" x 24,2 kg/m",
+     "tipo": "U",
+     "d": 203.2,
+     "bf": 61.8,
+     "tw": 10.0,
+     "tf": 10.14,
+     "massa": 24.2,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 8\" x 27,9 kg/m",
+     "tipo": "U",
+     "d": 203.2,
+     "bf": 64.2,
+     "tw": 12.3,
+     "tf": 10.16,
+     "massa": 27.9,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 8\" x 31,6 kg/m",
+     "tipo": "U",
+     "d": 203.2,
+     "bf": 66.5,
+     "tw": 14.7,
+     "tf": 10.02,
+     "massa": 31.6,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 10\" x 22,7 kg/m",
+     "tipo": "U",
+     "d": 254.0,
+     "bf": 66.0,
+     "tw": 6.1,
+     "tf": 11.2,
+     "massa": 22.7,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 10\" x 29,8 kg/m",
+     "tipo": "U",
+     "d": 254.0,
+     "bf": 69.6,
+     "tw": 9.6,
+     "tf": 11.31,
+     "massa": 29.8,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 10\" x 37,2 kg/m",
+     "tipo": "U",
+     "d": 254.0,
+     "bf": 73.3,
+     "tw": 13.4,
+     "tf": 11.15,
+     "massa": 37.2,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 10\" x 44,7 kg/m",
+     "tipo": "U",
+     "d": 254.0,
+     "bf": 77.0,
+     "tw": 17.1,
+     "tf": 11.28,
+     "massa": 44.7,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 10\" x 52,1 kg/m",
+     "tipo": "U",
+     "d": 254.0,
+     "bf": 80.8,
+     "tw": 20.8,
+     "tf": 11.28,
+     "massa": 52.1,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 12\" x 30,7 kg/m",
+     "tipo": "U",
+     "d": 304.8,
+     "bf": 74.7,
+     "tw": 7.1,
+     "tf": 12.92,
+     "massa": 30.7,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 12\" x 37,2 kg/m",
+     "tipo": "U",
+     "d": 304.8,
+     "bf": 77.4,
+     "tw": 9.8,
+     "tf": 12.96,
+     "massa": 37.2,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 12\" x 44,7 kg/m",
+     "tipo": "U",
+     "d": 304.8,
+     "bf": 80.5,
+     "tw": 13.0,
+     "tf": 12.83,
+     "massa": 44.7,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 12\" x 52,1 kg/m",
+     "tipo": "U",
+     "d": 304.8,
+     "bf": 83.6,
+     "tw": 16.1,
+     "tf": 12.81,
+     "massa": 52.1,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 12\" x 59,6 kg/m",
+     "tipo": "U",
+     "d": 304.8,
+     "bf": 86.7,
+     "tw": 19.2,
+     "tf": 12.89,
+     "massa": 59.6,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 50,4 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 86.4,
+     "tw": 10.2,
+     "tf": 16.63,
+     "massa": 50.4,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 52,1 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 86.9,
+     "tw": 10.7,
+     "tf": 16.8,
+     "massa": 52.1,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 59,6 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 89.4,
+     "tw": 13.2,
+     "tf": 16.82,
+     "massa": 59.6,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 67,0 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 91.9,
+     "tw": 15.7,
+     "tf": 16.75,
+     "massa": 67.0,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 74,4 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 94.4,
+     "tw": 18.2,
+     "tf": 16.69,
+     "massa": 74.4,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    },
+    {
+     "nome": "U 15\" x 81,9 kg/m",
+     "tipo": "U",
+     "d": 381.0,
+     "bf": 96.9,
+     "tw": 20.7,
+     "tf": 16.71,
+     "massa": 81.9,
+     "status": "a checar",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_FAPRO_U"
+    }
+   ]
+  },
+  {
+   "id": "I",
+   "nome": "Perfil I laminado (padrão americano)",
+   "norma": "ABNT NBR 15980 / ASTM A6",
+   "fonte": {
+    "chave": "F_AM_2019",
+    "nome": "ArcelorMittal - 'Perfis e Barras - Linha Estrutural e Serralheria, Acos Longos', edicao abril/2019 (ABNT NBR 15980/11)",
+    "url": "https://brasil.arcelormittal.com/files/produtos-catalogos/8933d1bc-6cec-4fee-9eb7-608946846726"
+   },
+   "itens": [
+    {
+     "nome": "I 3\" x 8,5 kg/m",
+     "tipo": "I",
+     "d": 76.2,
+     "bf": 59.2,
+     "tw": 4.32,
+     "tf": 6.6,
+     "massa": 8.5,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 3\" x 9,7 kg/m",
+     "tipo": "I",
+     "d": 76.2,
+     "bf": 61.2,
+     "tw": 6.38,
+     "tf": 6.6,
+     "massa": 9.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 3\" x 11,2 kg/m",
+     "tipo": "I",
+     "d": 76.2,
+     "bf": 63.7,
+     "tw": 8.86,
+     "tf": 6.6,
+     "massa": 11.2,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 4\" x 11,4 kg/m",
+     "tipo": "I",
+     "d": 101.6,
+     "bf": 67.6,
+     "tw": 4.83,
+     "tf": 7.4,
+     "massa": 11.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 4\" x 11,46 kg/m (7,7 lb/ft)",
+     "tipo": "I",
+     "d": 101.6,
+     "bf": 67.6,
+     "tw": 4.9,
+     "tf": 7.67,
+     "massa": 11.46,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "I 4\" x 12,65 kg/m (8,5 lb/ft)",
+     "tipo": "I",
+     "d": 101.6,
+     "bf": 69.2,
+     "tw": 6.43,
+     "tf": 7.63,
+     "massa": 12.65,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "I 4\" x 14,1 kg/m",
+     "tipo": "I",
+     "d": 101.6,
+     "bf": 71.0,
+     "tw": 8.28,
+     "tf": 7.4,
+     "massa": 14.1,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 4\" x 15,6 kg/m",
+     "tipo": "I",
+     "d": 101.6,
+     "bf": 72.9,
+     "tw": 10.16,
+     "tf": 7.4,
+     "massa": 15.6,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 5\" x 14,8 kg/m",
+     "tipo": "I",
+     "d": 127.0,
+     "bf": 76.2,
+     "tw": 5.33,
+     "tf": 8.3,
+     "massa": 14.8,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 5\" x 18,2 kg/m",
+     "tipo": "I",
+     "d": 127.0,
+     "bf": 79.7,
+     "tw": 8.81,
+     "tf": 8.3,
+     "massa": 18.2,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 5\" x 22,0 kg/m",
+     "tipo": "I",
+     "d": 127.0,
+     "bf": 83.4,
+     "tw": 12.55,
+     "tf": 8.3,
+     "massa": 22.0,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 6\" x 18,5 kg/m",
+     "tipo": "I",
+     "d": 152.4,
+     "bf": 84.6,
+     "tw": 5.84,
+     "tf": 9.1,
+     "massa": 18.5,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 6\" x 18,6 kg/m (12,5 lb/ft)",
+     "tipo": "I",
+     "d": 152.4,
+     "bf": 84.63,
+     "tw": 5.89,
+     "tf": 9.35,
+     "massa": 18.6,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "I 6\" x 22 kg/m (14,8 lb/ft)",
+     "tipo": "I",
+     "d": 152.4,
+     "bf": 87.5,
+     "tw": 8.71,
+     "tf": 9.36,
+     "massa": 22.0,
+     "status": "confirmado",
+     "derivado": [
+      "tf"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "I 6\" x 25,7 kg/m",
+     "tipo": "I",
+     "d": 152.4,
+     "bf": 90.6,
+     "tw": 11.81,
+     "tf": 9.1,
+     "massa": 25.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 8\" x 27,3 kg/m",
+     "tipo": "I",
+     "d": 203.2,
+     "bf": 101.6,
+     "tw": 6.86,
+     "tf": 10.8,
+     "massa": 27.3,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 8\" x 30,5 kg/m",
+     "tipo": "I",
+     "d": 203.2,
+     "bf": 103.6,
+     "tw": 8.86,
+     "tf": 10.8,
+     "massa": 30.5,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 8\" x 34,3 kg/m",
+     "tipo": "I",
+     "d": 203.2,
+     "bf": 105.9,
+     "tw": 11.2,
+     "tf": 10.8,
+     "massa": 34.3,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 8\" x 38,0 kg/m",
+     "tipo": "I",
+     "d": 203.2,
+     "bf": 108.3,
+     "tw": 13.51,
+     "tf": 10.8,
+     "massa": 38.0,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 10\" x 37,7 kg/m",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 118.4,
+     "tw": 7.9,
+     "tf": 12.5,
+     "massa": 37.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 10\" x 44,7 kg/m",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 121.8,
+     "tw": 11.4,
+     "tf": 12.5,
+     "massa": 44.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 10\" x 52,1 kg/m",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 125.6,
+     "tw": 15.1,
+     "tf": 12.5,
+     "massa": 52.1,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 10\" x 59,6 kg/m",
+     "tipo": "I",
+     "d": 254.0,
+     "bf": 129.3,
+     "tw": 18.8,
+     "tf": 12.5,
+     "massa": 59.6,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 12\" x 60,6 kg/m",
+     "tipo": "I",
+     "d": 304.8,
+     "bf": 133.4,
+     "tw": 11.7,
+     "tf": 16.7,
+     "massa": 60.6,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 12\" x 67,0 kg/m",
+     "tipo": "I",
+     "d": 304.8,
+     "bf": 136.0,
+     "tw": 14.4,
+     "tf": 16.7,
+     "massa": 67.0,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 12\" x 74,4 kg/m",
+     "tipo": "I",
+     "d": 304.8,
+     "bf": 139.1,
+     "tw": 17.4,
+     "tf": 16.7,
+     "massa": 74.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    },
+    {
+     "nome": "I 12\" x 81,9 kg/m",
+     "tipo": "I",
+     "d": 304.8,
+     "bf": 142.2,
+     "tw": 20.6,
+     "tf": 16.7,
+     "massa": 81.9,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_I"
+    }
+   ]
+  },
+  {
+   "id": "L",
+   "nome": "Cantoneira de abas iguais",
+   "norma": "ABNT NBR 15980 / ASTM A6",
+   "fonte": {
+    "chave": "F_AM_2019",
+    "nome": "ArcelorMittal - 'Perfis e Barras - Linha Estrutural e Serralheria, Acos Longos', edicao abril/2019 (ABNT NBR 15980/11)",
+    "url": "https://brasil.arcelormittal.com/files/produtos-catalogos/8933d1bc-6cec-4fee-9eb7-608946846726"
+   },
+   "itens": [
+    {
+     "nome": "L 40 x 3",
+     "tipo": "L",
+     "aba": 40,
+     "esp": 3.0,
+     "massa": 1.84,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 40 x 4",
+     "tipo": "L",
+     "aba": 40,
+     "esp": 4.0,
+     "massa": 2.42,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 40 x 5",
+     "tipo": "L",
+     "aba": 40,
+     "esp": 5.0,
+     "massa": 2.97,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 45 x 3",
+     "tipo": "L",
+     "aba": 45,
+     "esp": 3.0,
+     "massa": 2.09,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 45 x 4",
+     "tipo": "L",
+     "aba": 45,
+     "esp": 4.0,
+     "massa": 2.74,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 45 x 5",
+     "tipo": "L",
+     "aba": 45,
+     "esp": 5.0,
+     "massa": 3.38,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 45 x 6",
+     "tipo": "L",
+     "aba": 45,
+     "esp": 6.0,
+     "massa": 4.07,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 50 x 3",
+     "tipo": "L",
+     "aba": 50,
+     "esp": 3.0,
+     "massa": 2.33,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 50 x 4",
+     "tipo": "L",
+     "aba": 50,
+     "esp": 4.0,
+     "massa": 3.06,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 50 x 5",
+     "tipo": "L",
+     "aba": 50,
+     "esp": 5.0,
+     "massa": 3.77,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 50 x 6",
+     "tipo": "L",
+     "aba": 50,
+     "esp": 6.0,
+     "massa": 4.47,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 60 x 4",
+     "tipo": "L",
+     "aba": 60,
+     "esp": 4.0,
+     "massa": 3.7,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 60 x 5",
+     "tipo": "L",
+     "aba": 60,
+     "esp": 5.0,
+     "massa": 4.57,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 60 x 6",
+     "tipo": "L",
+     "aba": 60,
+     "esp": 6.0,
+     "massa": 5.42,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 65 x 4",
+     "tipo": "L",
+     "aba": 65,
+     "esp": 4.0,
+     "massa": 4.03,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 65 x 5",
+     "tipo": "L",
+     "aba": 65,
+     "esp": 5.0,
+     "massa": 4.98,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 65 x 6",
+     "tipo": "L",
+     "aba": 65,
+     "esp": 6.0,
+     "massa": 5.91,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 5",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 5.0,
+     "massa": 5.71,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 6",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 6.0,
+     "massa": 6.87,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 7",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 7.0,
+     "massa": 7.92,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 8",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 8.0,
+     "massa": 8.95,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 9",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 9.0,
+     "massa": 10.03,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 75 x 10",
+     "tipo": "L",
+     "aba": 75,
+     "esp": 10.0,
+     "massa": 11.0,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 90 x 6",
+     "tipo": "L",
+     "aba": 90,
+     "esp": 6.0,
+     "massa": 8.3,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 90 x 7",
+     "tipo": "L",
+     "aba": 90,
+     "esp": 7.0,
+     "massa": 9.6,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 90 x 8",
+     "tipo": "L",
+     "aba": 90,
+     "esp": 8.0,
+     "massa": 10.9,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 90 x 9",
+     "tipo": "L",
+     "aba": 90,
+     "esp": 9.0,
+     "massa": 12.2,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 90 x 10",
+     "tipo": "L",
+     "aba": 90,
+     "esp": 10.0,
+     "massa": 13.4,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 6",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 6.0,
+     "massa": 9.3,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 7",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 7.0,
+     "massa": 10.7,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 8",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 8.0,
+     "massa": 12.2,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 9",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 9.0,
+     "massa": 13.49,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 10",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 10.0,
+     "massa": 15.0,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 100 x 12",
+     "tipo": "L",
+     "aba": 100,
+     "esp": 12.0,
+     "massa": 17.8,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1/2\" x 1/8\"",
+     "tipo": "L",
+     "aba": 12.7,
+     "esp": 3.17,
+     "massa": 0.55,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 5/8\" x 1/8\"",
+     "tipo": "L",
+     "aba": 15.87,
+     "esp": 3.17,
+     "massa": 0.71,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3/4\" x 1/8\"",
+     "tipo": "L",
+     "aba": 19.05,
+     "esp": 3.17,
+     "massa": 0.87,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 7/8\" x 1/8\"",
+     "tipo": "L",
+     "aba": 22.22,
+     "esp": 3.17,
+     "massa": 1.04,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1\" x 1/8\"",
+     "tipo": "L",
+     "aba": 25.4,
+     "esp": 3.17,
+     "massa": 1.19,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/4\" x 1/8\"",
+     "tipo": "L",
+     "aba": 31.75,
+     "esp": 3.17,
+     "massa": 1.53,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/2\" x 1/8\"",
+     "tipo": "L",
+     "aba": 38.1,
+     "esp": 3.17,
+     "massa": 1.84,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.3/4\" x 1/8\"",
+     "tipo": "L",
+     "aba": 44.45,
+     "esp": 3.17,
+     "massa": 2.16,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2\" x 1/8\"",
+     "tipo": "L",
+     "aba": 50.8,
+     "esp": 3.17,
+     "massa": 2.46,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1\" x 3/16\"",
+     "tipo": "L",
+     "aba": 25.4,
+     "esp": 4.76,
+     "massa": 1.73,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/4\" x 3/16\"",
+     "tipo": "L",
+     "aba": 31.75,
+     "esp": 4.76,
+     "massa": 2.22,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/2\" x 3/16\"",
+     "tipo": "L",
+     "aba": 38.1,
+     "esp": 4.76,
+     "massa": 2.69,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.3/4\" x 3/16\"",
+     "tipo": "L",
+     "aba": 44.45,
+     "esp": 4.76,
+     "massa": 3.17,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2\" x 3/16\"",
+     "tipo": "L",
+     "aba": 50.8,
+     "esp": 4.76,
+     "massa": 3.63,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2.1/2\" x 3/16\"",
+     "tipo": "L",
+     "aba": 63.5,
+     "esp": 4.76,
+     "massa": 4.57,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3\" x 3/16\"",
+     "tipo": "L",
+     "aba": 76.2,
+     "esp": 4.76,
+     "massa": 5.52,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/4\" x 1/4\"",
+     "tipo": "L",
+     "aba": 31.75,
+     "esp": 6.35,
+     "massa": 2.85,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.1/2\" x 1/4\"",
+     "tipo": "L",
+     "aba": 38.1,
+     "esp": 6.35,
+     "massa": 3.48,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 1.3/4\" x 1/4\"",
+     "tipo": "L",
+     "aba": 44.45,
+     "esp": 6.35,
+     "massa": 4.11,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2\" x 1/4\"",
+     "tipo": "L",
+     "aba": 50.8,
+     "esp": 6.35,
+     "massa": 4.75,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2.1/2\" x 1/4\"",
+     "tipo": "L",
+     "aba": 63.5,
+     "esp": 6.35,
+     "massa": 6.01,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3\" x 1/4\"",
+     "tipo": "L",
+     "aba": 76.2,
+     "esp": 6.35,
+     "massa": 7.28,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3.1/2\" x 1/4\"",
+     "tipo": "L",
+     "aba": 88.9,
+     "esp": 6.35,
+     "massa": 8.55,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 4\" x 1/4\"",
+     "tipo": "L",
+     "aba": 101.6,
+     "esp": 6.35,
+     "massa": 9.81,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 5\" x 1/4\"",
+     "tipo": "L",
+     "aba": 127.0,
+     "esp": 6.35,
+     "massa": 12.34,
+     "status": "a checar",
+     "derivado": [
+      "massa"
+     ],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2\" x 5/16\"",
+     "tipo": "L",
+     "aba": 50.8,
+     "esp": 7.94,
+     "massa": 5.83,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2.1/2\" x 5/16\"",
+     "tipo": "L",
+     "aba": 63.5,
+     "esp": 7.94,
+     "massa": 7.45,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3\" x 5/16\"",
+     "tipo": "L",
+     "aba": 76.2,
+     "esp": 7.94,
+     "massa": 9.07,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3.1/2\" x 5/16\"",
+     "tipo": "L",
+     "aba": 88.9,
+     "esp": 7.94,
+     "massa": 10.71,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 4\" x 5/16\"",
+     "tipo": "L",
+     "aba": 101.6,
+     "esp": 7.94,
+     "massa": 12.23,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 5\" x 5/16\"",
+     "tipo": "L",
+     "aba": 127.0,
+     "esp": 7.94,
+     "massa": 15.33,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2\" x 3/8\"",
+     "tipo": "L",
+     "aba": 50.8,
+     "esp": 9.53,
+     "massa": 6.99,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 2.1/2\" x 3/8\"",
+     "tipo": "L",
+     "aba": 63.5,
+     "esp": 9.53,
+     "massa": 8.78,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3\" x 3/8\"",
+     "tipo": "L",
+     "aba": 76.2,
+     "esp": 9.53,
+     "massa": 10.71,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3.1/2\" x 3/8\"",
+     "tipo": "L",
+     "aba": 88.9,
+     "esp": 9.53,
+     "massa": 12.65,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 4\" x 3/8\"",
+     "tipo": "L",
+     "aba": 101.6,
+     "esp": 9.53,
+     "massa": 14.58,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 5\" x 3/8\"",
+     "tipo": "L",
+     "aba": 127.0,
+     "esp": 9.53,
+     "massa": 18.31,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 3\" x 1/2\"",
+     "tipo": "L",
+     "aba": 76.2,
+     "esp": 12.7,
+     "massa": 14.0,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 4\" x 1/2\"",
+     "tipo": "L",
+     "aba": 101.6,
+     "esp": 12.7,
+     "massa": 19.05,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 5\" x 1/2\"",
+     "tipo": "L",
+     "aba": 127.0,
+     "esp": 12.7,
+     "massa": 24.11,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    },
+    {
+     "nome": "L 4\" x 5/8\"",
+     "tipo": "L",
+     "aba": 101.6,
+     "esp": 15.87,
+     "massa": 23.36,
+     "status": "confirmado",
+     "derivado": [],
+     "fonte": "F_AM_2019"
+    }
+   ]
+  },
+  {
+   "id": "TUBO",
+   "nome": "Tubo de condução (Sch 40 / Sch 80)",
+   "norma": "ASME B36.10M (NBR 5590 / ASTM A106 / A53)",
+   "fonte": {
+    "chave": "F_FLUIDS",
+    "nome": "Biblioteca 'fluids' (Caleb Bell), modulo fluids.piping - transcricao das tabelas da ASME B36.10M-2004",
+    "url": "https://fluids.readthedocs.io/_modules/fluids/piping.html"
+   },
+   "itens": [
+    {
+     "nome": "Tubo 1/2\" Sch 40",
+     "tipo": "TUBO",
+     "D": 21.3,
+     "esp": 2.77,
+     "massa": 1.27,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1/2\" Sch 80",
+     "tipo": "TUBO",
+     "D": 21.3,
+     "esp": 3.73,
+     "massa": 1.62,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3/4\" Sch 40",
+     "tipo": "TUBO",
+     "D": 26.7,
+     "esp": 2.87,
+     "massa": 1.68,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3/4\" Sch 80",
+     "tipo": "TUBO",
+     "D": 26.7,
+     "esp": 3.91,
+     "massa": 2.19,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1\" Sch 40",
+     "tipo": "TUBO",
+     "D": 33.4,
+     "esp": 3.38,
+     "massa": 2.5,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1\" Sch 80",
+     "tipo": "TUBO",
+     "D": 33.4,
+     "esp": 4.55,
+     "massa": 3.23,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1 1/4\" Sch 40",
+     "tipo": "TUBO",
+     "D": 42.2,
+     "esp": 3.56,
+     "massa": 3.38,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1 1/4\" Sch 80",
+     "tipo": "TUBO",
+     "D": 42.2,
+     "esp": 4.85,
+     "massa": 4.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1 1/2\" Sch 40",
+     "tipo": "TUBO",
+     "D": 48.3,
+     "esp": 3.68,
+     "massa": 4.05,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 1 1/2\" Sch 80",
+     "tipo": "TUBO",
+     "D": 48.3,
+     "esp": 5.08,
+     "massa": 5.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 2\" Sch 40",
+     "tipo": "TUBO",
+     "D": 60.3,
+     "esp": 3.91,
+     "massa": 5.43,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 2\" Sch 80",
+     "tipo": "TUBO",
+     "D": 60.3,
+     "esp": 5.54,
+     "massa": 7.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 2 1/2\" Sch 40",
+     "tipo": "TUBO",
+     "D": 73.0,
+     "esp": 5.16,
+     "massa": 8.62,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 2 1/2\" Sch 80",
+     "tipo": "TUBO",
+     "D": 73.0,
+     "esp": 7.01,
+     "massa": 11.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3\" Sch 40",
+     "tipo": "TUBO",
+     "D": 88.9,
+     "esp": 5.49,
+     "massa": 11.28,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3\" Sch 80",
+     "tipo": "TUBO",
+     "D": 88.9,
+     "esp": 7.62,
+     "massa": 15.25,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3 1/2\" Sch 40",
+     "tipo": "TUBO",
+     "D": 101.6,
+     "esp": 5.74,
+     "massa": 13.57,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 3 1/2\" Sch 80",
+     "tipo": "TUBO",
+     "D": 101.6,
+     "esp": 8.08,
+     "massa": 18.64,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 4\" Sch 40",
+     "tipo": "TUBO",
+     "D": 114.3,
+     "esp": 6.02,
+     "massa": 16.06,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 4\" Sch 80",
+     "tipo": "TUBO",
+     "D": 114.3,
+     "esp": 8.56,
+     "massa": 22.29,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 5\" Sch 40",
+     "tipo": "TUBO",
+     "D": 141.3,
+     "esp": 6.55,
+     "massa": 21.76,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 5\" Sch 80",
+     "tipo": "TUBO",
+     "D": 141.3,
+     "esp": 9.53,
+     "massa": 30.92,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 6\" Sch 40",
+     "tipo": "TUBO",
+     "D": 168.3,
+     "esp": 7.11,
+     "massa": 28.23,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 6\" Sch 80",
+     "tipo": "TUBO",
+     "D": 168.3,
+     "esp": 10.97,
+     "massa": 42.51,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 8\" Sch 40",
+     "tipo": "TUBO",
+     "D": 219.1,
+     "esp": 8.18,
+     "massa": 42.49,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 8\" Sch 80",
+     "tipo": "TUBO",
+     "D": 219.1,
+     "esp": 12.7,
+     "massa": 64.56,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 10\" Sch 40",
+     "tipo": "TUBO",
+     "D": 273.0,
+     "esp": 9.27,
+     "massa": 60.23,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 10\" Sch 80",
+     "tipo": "TUBO",
+     "D": 273.0,
+     "esp": 15.09,
+     "massa": 95.84,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 12\" Sch 40",
+     "tipo": "TUBO",
+     "D": 323.8,
+     "esp": 10.31,
+     "massa": 79.71,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    },
+    {
+     "nome": "Tubo 12\" Sch 80",
+     "tipo": "TUBO",
+     "D": 323.8,
+     "esp": 17.48,
+     "massa": 132.05,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FLUIDS"
+    }
+   ]
+  },
+  {
+   "id": "TQ",
+   "nome": "Tubo quadrado (metalon)",
+   "norma": "a checar (NBR 6591)",
+   "fonte": {
+    "chave": "F_FAPRO_TQ",
+    "nome": "Fabrica do Projeto - 'Tabela de Tubo Industrial Quadrado' (massa teorica, sem norma citada)",
+    "url": "https://www.fabricadoprojeto.com.br/tabelas-de-laminados-trefilados-e-itens-comerciais/tabelas-fapro-tubo-industrial-quadrado/"
+   },
+   "itens": [
+    {
+     "nome": "Tubo □ 15 x 15 x 0,90",
+     "tipo": "TQ",
+     "lado": 15.0,
+     "esp": 0.9,
+     "massa": 0.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 15 x 15 x 1,06",
+     "tipo": "TQ",
+     "lado": 15.0,
+     "esp": 1.06,
+     "massa": 0.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 15 x 15 x 1,20",
+     "tipo": "TQ",
+     "lado": 15.0,
+     "esp": 1.2,
+     "massa": 0.53,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 15 x 15 x 1,50",
+     "tipo": "TQ",
+     "lado": 15.0,
+     "esp": 1.5,
+     "massa": 0.65,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 16 x 16 x 0,90",
+     "tipo": "TQ",
+     "lado": 16.0,
+     "esp": 0.9,
+     "massa": 0.43,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 16 x 16 x 1,06",
+     "tipo": "TQ",
+     "lado": 16.0,
+     "esp": 1.06,
+     "massa": 0.5,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 16 x 16 x 1,20",
+     "tipo": "TQ",
+     "lado": 16.0,
+     "esp": 1.2,
+     "massa": 0.57,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 16 x 16 x 1,50",
+     "tipo": "TQ",
+     "lado": 16.0,
+     "esp": 1.5,
+     "massa": 0.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 0,90",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 0.9,
+     "massa": 0.54,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 1,06",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 1.06,
+     "massa": 0.64,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 1,20",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 1.2,
+     "massa": 0.72,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 1,50",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 1.5,
+     "massa": 0.88,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 1,90",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 1.9,
+     "massa": 1.08,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 20 x 20 x 2,00",
+     "tipo": "TQ",
+     "lado": 20.0,
+     "esp": 2.0,
+     "massa": 1.13,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 0,90",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 0.9,
+     "massa": 0.68,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 1,06",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 1.06,
+     "massa": 0.8,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 1,20",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 1.2,
+     "massa": 0.9,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 1,50",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 1.5,
+     "massa": 1.12,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 1,90",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 1.9,
+     "massa": 1.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 2,00",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 2.0,
+     "massa": 1.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 2,25",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 2.25,
+     "massa": 1.64,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 2,65",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 2.65,
+     "massa": 1.9,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 25 x 25 x 3,00",
+     "tipo": "TQ",
+     "lado": 25.0,
+     "esp": 3.0,
+     "massa": 2.13,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 0,90",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 0.9,
+     "massa": 0.83,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 1,06",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 1.06,
+     "massa": 0.97,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 1,20",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 1.2,
+     "massa": 1.09,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 1,50",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 1.5,
+     "massa": 1.35,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 1,90",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 1.9,
+     "massa": 1.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 2,00",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 2.0,
+     "massa": 1.78,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 2,25",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 2.25,
+     "massa": 1.99,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 2,65",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 2.65,
+     "massa": 2.32,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 3,00",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 3.0,
+     "massa": 2.6,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 3,35",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 3.35,
+     "massa": 2.87,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 30 x 30 x 3,75",
+     "tipo": "TQ",
+     "lado": 30.0,
+     "esp": 3.75,
+     "massa": 3.18,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 0,90",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 0.9,
+     "massa": 1.11,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 1,06",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 1.06,
+     "massa": 1.3,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 1,20",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 1.2,
+     "massa": 1.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 1,50",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 1.5,
+     "massa": 1.82,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 1,90",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 1.9,
+     "massa": 2.29,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 2,00",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 2.0,
+     "massa": 2.41,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 2,25",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 2.25,
+     "massa": 2.69,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 2,65",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 2.65,
+     "massa": 3.15,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 3,00",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 3.0,
+     "massa": 3.54,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 3,35",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 3.35,
+     "massa": 3.92,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 3,75",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 3.75,
+     "massa": 4.35,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 4,25",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 4.25,
+     "massa": 4.88,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 4,50",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 4.5,
+     "massa": 5.14,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 40 x 40 x 4,75",
+     "tipo": "TQ",
+     "lado": 40.0,
+     "esp": 4.75,
+     "massa": 5.39,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 1,06",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 1.06,
+     "massa": 1.63,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 1,20",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 1.2,
+     "massa": 1.84,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 1,50",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 1.5,
+     "massa": 2.29,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 1,90",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 1.9,
+     "massa": 2.89,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 2,00",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 2.0,
+     "massa": 3.03,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 2,25",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 2.25,
+     "massa": 3.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 2,65",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 2.65,
+     "massa": 3.98,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 3,00",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 3.0,
+     "massa": 4.48,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 3,35",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 3.35,
+     "massa": 4.97,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 3,75",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 3.75,
+     "massa": 5.53,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 4,25",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 4.25,
+     "massa": 6.21,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 4,50",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 4.5,
+     "massa": 6.55,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 4,75",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 4.75,
+     "massa": 6.88,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 5,00",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 5.0,
+     "massa": 7.05,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 50 x 50 x 6,30",
+     "tipo": "TQ",
+     "lado": 50.0,
+     "esp": 6.3,
+     "massa": 8.62,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 1,06",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 1.06,
+     "massa": 1.96,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 1,20",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 1.2,
+     "massa": 2.22,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 1,50",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 1.5,
+     "massa": 2.76,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 1,90",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 1.9,
+     "massa": 3.48,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 2,00",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 2.0,
+     "massa": 3.66,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 2,25",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 2.25,
+     "massa": 4.1,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 2,65",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 2.65,
+     "massa": 4.81,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 3,00",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 3.0,
+     "massa": 5.42,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 3,35",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 3.35,
+     "massa": 6.02,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 3,75",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 3.75,
+     "massa": 6.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 4,25",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 4.25,
+     "massa": 7.54,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 4,75",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 4.75,
+     "massa": 8.37,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 5,00",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 5.0,
+     "massa": 8.78,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 60 x 60 x 6,30",
+     "tipo": "TQ",
+     "lado": 60.0,
+     "esp": 6.3,
+     "massa": 10.86,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 1,20",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 1.2,
+     "massa": 2.6,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 1,50",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 1.5,
+     "massa": 3.23,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 1,90",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 1.9,
+     "massa": 4.08,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 2,00",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 2.0,
+     "massa": 4.29,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 2,25",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 2.25,
+     "massa": 4.81,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 2,65",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 2.65,
+     "massa": 5.64,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 3,00",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 3.0,
+     "massa": 6.36,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 3,75",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 3.75,
+     "massa": 7.87,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 4,75",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 4.75,
+     "massa": 9.86,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 70 x 70 x 6,30",
+     "tipo": "TQ",
+     "lado": 70.0,
+     "esp": 6.3,
+     "massa": 12.83,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 1,50",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 1.5,
+     "massa": 3.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 1,90",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 1.9,
+     "massa": 4.67,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 2,00",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 2.0,
+     "massa": 4.91,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 2,25",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 2.25,
+     "massa": 5.51,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 2,65",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 2.65,
+     "massa": 6.47,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 3,00",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 3.0,
+     "massa": 7.29,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 3,75",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 3.75,
+     "massa": 9.05,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 4,75",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 4.75,
+     "massa": 11.35,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 80 x 80 x 6,30",
+     "tipo": "TQ",
+     "lado": 80.0,
+     "esp": 6.3,
+     "massa": 14.81,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 1,50",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 1.5,
+     "massa": 4.17,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 2,00",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 2.0,
+     "massa": 5.54,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 2,65",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 2.65,
+     "massa": 7.3,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 3,00",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 3.0,
+     "massa": 8.23,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 3,75",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 3.75,
+     "massa": 10.22,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 4,75",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 4.75,
+     "massa": 12.83,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 6,30",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 6.3,
+     "massa": 16.78,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 8,00",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 8.0,
+     "massa": 20.97,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 90 x 90 x 9,50",
+     "tipo": "TQ",
+     "lado": 90.0,
+     "esp": 9.5,
+     "massa": 24.55,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 2,00",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 2.0,
+     "massa": 6.17,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 2,65",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 2.65,
+     "massa": 8.13,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 3,00",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 3.0,
+     "massa": 9.17,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 3,75",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 3.75,
+     "massa": 11.4,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 4,75",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 4.75,
+     "massa": 14.32,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 6,30",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 6.3,
+     "massa": 18.75,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 8,00",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 8.0,
+     "massa": 23.48,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 100 x 100 x 9,50",
+     "tipo": "TQ",
+     "lado": 100.0,
+     "esp": 9.5,
+     "massa": 27.53,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 2,00",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 2.0,
+     "massa": 7.42,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 2,65",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 2.65,
+     "massa": 9.79,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 3,00",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 3.0,
+     "massa": 11.05,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 3,75",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 3.75,
+     "massa": 13.75,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 4,75",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 4.75,
+     "massa": 17.3,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 6,30",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 6.3,
+     "massa": 22.7,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 8,00",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 8.0,
+     "massa": 28.49,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 120 x 120 x 9,50",
+     "tipo": "TQ",
+     "lado": 120.0,
+     "esp": 9.5,
+     "massa": 33.48,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 2,65",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 2.65,
+     "massa": 12.28,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 3,00",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 3.0,
+     "massa": 13.87,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 3,75",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 3.75,
+     "massa": 17.27,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 4,75",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 4.75,
+     "massa": 21.76,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 6,30",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 6.3,
+     "massa": 28.62,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 8,00",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 8.0,
+     "massa": 36.01,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    },
+    {
+     "nome": "Tubo □ 150 x 150 x 9,50",
+     "tipo": "TQ",
+     "lado": 150.0,
+     "esp": 9.5,
+     "massa": 42.41,
+     "status": "a checar",
+     "derivado": [],
+     "fonte": "F_FAPRO_TQ"
+    }
+   ]
+  }
+ ]
+}

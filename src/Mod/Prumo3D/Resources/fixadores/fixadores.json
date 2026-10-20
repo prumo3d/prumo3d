@@ -1,0 +1,876 @@
+{
+ "descricao": "Fixadores métricos do Prumo 3D. Gerado por gerar_fixadores.py.",
+ "unidades": "mm",
+ "fontes": {
+  "F1": {
+   "nome": "fasten.it - DIN EN ISO 4017:2014 (Grades A e B)",
+   "url": "https://fasten.it/norms/norm/din_en_iso_4017"
+  },
+  "F2": {
+   "nome": "fasten.it - DIN EN ISO 4014",
+   "url": "https://fasten.it/norms/norm/din_en_iso_4014"
+  },
+  "F3": {
+   "nome": "GlobalFastener - DIN EN ISO 4014:2011 Hexagon head bolts grades A and B",
+   "url": "https://www.globalfastener.com/standards/detailn_4905.html"
+  },
+  "F4": {
+   "nome": "Engineers Edge - ISO Hex Head Screw ISO 4014/DIN 931",
+   "url": "https://engineersedge.com/iso_hex_head_screw.htm"
+  },
+  "F5": {
+   "nome": "philipmcgaw.com - ISO 4017 machine screws and fixings (tabela M2-M10)",
+   "url": "https://philipmcgaw.com/iso-4017-machine-screws-and-fixings/"
+  },
+  "F6": {
+   "nome": "Fábrica do Projeto - Tabela de dimensões básicas parafuso DIN 933 e ISO 4017",
+   "url": "https://fabricadoprojeto.com.br/en/tabela-de-dimensoes-basicas-parafuso-din933-e-iso4017"
+  },
+  "F7": {
+   "nome": "fasten.it - DIN EN ISO 4762",
+   "url": "https://fasten.it/norms/norm/din_en_iso_4762"
+  },
+  "F8": {
+   "nome": "GlobalFastener - ISO 4762:2004 Hexagon socket head cap screws",
+   "url": "https://www.globalfastener.com/standards/detail_1737.html"
+  },
+  "F9": {
+   "nome": "Engineers Edge - ISO Socket Head Screw ISO 4762",
+   "url": "https://engineersedge.com/iso_socket_head_screw.htm"
+  },
+  "F10": {
+   "nome": "Würth (eshop.wurth.ae) - Hexagon Socket Head Cap Screw ISO 4762/DIN 912 A4-80 M6x60",
+   "url": "https://eshop.wurth.ae/Hexagon-Socket-Head-Cap-Screw-ISO-4762-DIN-912-A4-80-stainless-steel-plain-SCR-CYL-ISO4762-A4-80-HS5-M6X60/009706%2060.sku/en/US/AED"
+  },
+  "F11": {
+   "nome": "fasten.it - DIN EN ISO 4032:2013",
+   "url": "https://fasten.it/norms/norm/din_en_iso_4032"
+  },
+  "F12": {
+   "nome": "Torqbolt - ISO 4032 hexagon nuts dimensions",
+   "url": "https://torqbolt.com/iso-4032-hexagon-nuts-dimensions-standards-specifications"
+  },
+  "F13": {
+   "nome": "Böllhoff - catálogo ISO 4032 aço classe 10 (PDF)",
+   "url": "https://eshop-ro.boellhoff.com/out/media/pdf/ISO_4032_Stahl_10___en.pdf"
+  },
+  "F14": {
+   "nome": "Fábrica do Projeto - Tabela de dimensões básicas porcas DIN 934",
+   "url": "https://fabricadoprojeto.com.br/en/tabela-de-dimensoes-basicas-porcas-din934"
+  },
+  "F15": {
+   "nome": "fasten.it - DIN EN ISO 7089 (Grade A)",
+   "url": "https://fasten.it/norms/norm/din_en_iso_7089"
+  },
+  "F16": {
+   "nome": "Torqbolt - ISO 7089 flat washers 200HV dimensions",
+   "url": "https://torqbolt.com/iso-7089-flat-washers-200hv-dimensions-standards-specifications"
+  }
+ },
+ "passo": {
+  "M3": {
+   "valor": 0.5,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M4": {
+   "valor": 0.7,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M5": {
+   "valor": 0.8,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M6": {
+   "valor": 1.0,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M8": {
+   "valor": 1.25,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M10": {
+   "valor": 1.5,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M12": {
+   "valor": 1.75,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M16": {
+   "valor": 2.0,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M20": {
+   "valor": 2.5,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  },
+  "M24": {
+   "valor": 3.0,
+   "fontes": [
+    "F1",
+    "F3",
+    "F13",
+    "F7"
+   ],
+   "status": "confirmado"
+  }
+ },
+ "iso4017": {
+  "M3": {
+   "s": 5.5,
+   "k": 2,
+   "e": 6.01,
+   "e_grauA": 6.01,
+   "e_grauB": 5.88,
+   "b": 12,
+   "b_125_200": 18,
+   "b_maior_200": 31,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M4": {
+   "s": 7,
+   "k": 2.8,
+   "e": 7.66,
+   "e_grauA": 7.66,
+   "e_grauB": 7.5,
+   "b": 14,
+   "b_125_200": 20,
+   "b_maior_200": 33,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M5": {
+   "s": 8,
+   "k": 3.5,
+   "e": 8.79,
+   "e_grauA": 8.79,
+   "e_grauB": 8.63,
+   "b": 16,
+   "b_125_200": 22,
+   "b_maior_200": 35,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M6": {
+   "s": 10,
+   "k": 4,
+   "e": 11.05,
+   "e_grauA": 11.05,
+   "e_grauB": 10.89,
+   "b": 18,
+   "b_125_200": 24,
+   "b_maior_200": 37,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M8": {
+   "s": 13,
+   "k": 5.3,
+   "e": 14.38,
+   "e_grauA": 14.38,
+   "e_grauB": 14.2,
+   "b": 22,
+   "b_125_200": 28,
+   "b_maior_200": 41,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M10": {
+   "s": 16,
+   "k": 6.4,
+   "e": 17.77,
+   "e_grauA": 17.77,
+   "e_grauB": 17.59,
+   "b": 26,
+   "b_125_200": 32,
+   "b_maior_200": 45,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6",
+    "F5"
+   ],
+   "status": "confirmado"
+  },
+  "M12": {
+   "s": 18,
+   "k": 7.5,
+   "e": 20.03,
+   "e_grauA": 20.03,
+   "e_grauB": 19.85,
+   "b": 30,
+   "b_125_200": 36,
+   "b_maior_200": 49,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6"
+   ],
+   "status": "confirmado"
+  },
+  "M16": {
+   "s": 24,
+   "k": 10,
+   "e": 26.75,
+   "e_grauA": 26.75,
+   "e_grauB": 26.17,
+   "b": 38,
+   "b_125_200": 44,
+   "b_maior_200": 57,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6"
+   ],
+   "status": "confirmado"
+  },
+  "M20": {
+   "s": 30,
+   "k": 12.5,
+   "e": 33.53,
+   "e_grauA": 33.53,
+   "e_grauB": 32.95,
+   "b": 46,
+   "b_125_200": 52,
+   "b_maior_200": 65,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6"
+   ],
+   "status": "confirmado"
+  },
+  "M24": {
+   "s": 36,
+   "k": 15,
+   "e": 39.98,
+   "e_grauA": 39.98,
+   "e_grauB": 39.55,
+   "b": 54,
+   "b_125_200": 60,
+   "b_maior_200": 73,
+   "b_nota": "b aplica-se à ISO 4014 (rosca parcial); ISO 4017 é rosca total",
+   "fontes": [
+    "F1",
+    "F3",
+    "F4",
+    "F6"
+   ],
+   "status": "confirmado"
+  }
+ },
+ "iso4762": {
+  "M3": {
+   "dk": 5.5,
+   "k": 3,
+   "s": 2.5,
+   "b": 18,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M4": {
+   "dk": 7,
+   "k": 4,
+   "s": 3,
+   "b": 20,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M5": {
+   "dk": 8.5,
+   "k": 5,
+   "s": 4,
+   "b": 22,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M6": {
+   "dk": 10,
+   "k": 6,
+   "s": 5,
+   "b": 24,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9",
+    "F10"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M8": {
+   "dk": 13,
+   "k": 8,
+   "s": 6,
+   "b": 28,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M10": {
+   "dk": 16,
+   "k": 10,
+   "s": 8,
+   "b": 32,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M12": {
+   "dk": 18,
+   "k": 12,
+   "s": 10,
+   "b": 36,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M16": {
+   "dk": 24,
+   "k": 16,
+   "s": 14,
+   "b": 44,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M20": {
+   "dk": 30,
+   "k": 20,
+   "s": 17,
+   "b": 52,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  },
+  "M24": {
+   "dk": 36,
+   "k": 24,
+   "s": 19,
+   "b": 60,
+   "fontes": [
+    "F7",
+    "F8",
+    "F9"
+   ],
+   "status": "confirmado",
+   "status_b": "a checar (só F7; coerente com b = 2d+12)"
+  }
+ },
+ "iso4032": {
+  "M3": {
+   "s": 5.5,
+   "m": 2.4,
+   "e": 6.01,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M4": {
+   "s": 7,
+   "m": 3.2,
+   "e": 7.66,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M5": {
+   "s": 8,
+   "m": 4.7,
+   "e": 8.79,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M6": {
+   "s": 10,
+   "m": 5.2,
+   "e": 11.05,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M8": {
+   "s": 13,
+   "m": 6.8,
+   "e": 14.38,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M10": {
+   "s": 16,
+   "m": 8.4,
+   "e": 17.77,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M12": {
+   "s": 18,
+   "m": 10.8,
+   "e": 20.03,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M16": {
+   "s": 24,
+   "m": 14.8,
+   "e": 26.75,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M20": {
+   "s": 30,
+   "m": 18.0,
+   "e": 32.95,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  },
+  "M24": {
+   "s": 36,
+   "m": 21.5,
+   "e": 39.55,
+   "fontes": [
+    "F12",
+    "F13",
+    "F11"
+   ],
+   "status": "confirmado"
+  }
+ },
+ "iso7089": {
+  "M3": {
+   "d1": 3.2,
+   "d2": 7,
+   "h": 0.5,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M4": {
+   "d1": 4.3,
+   "d2": 9,
+   "h": 0.8,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M5": {
+   "d1": 5.3,
+   "d2": 10,
+   "h": 1,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M6": {
+   "d1": 6.4,
+   "d2": 12,
+   "h": 1.6,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M8": {
+   "d1": 8.4,
+   "d2": 16,
+   "h": 1.6,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M10": {
+   "d1": 10.5,
+   "d2": 20,
+   "h": 2,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M12": {
+   "d1": 13,
+   "d2": 24,
+   "h": 2.5,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M16": {
+   "d1": 17,
+   "d2": 30,
+   "h": 3,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M20": {
+   "d1": 21,
+   "d2": 37,
+   "h": 3,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  },
+  "M24": {
+   "d1": 25,
+   "d2": 44,
+   "h": 4,
+   "fontes": [
+    "F15",
+    "F16"
+   ],
+   "status": "confirmado"
+  }
+ },
+ "comprimentos": {
+  "M3": [
+   6,
+   8,
+   10,
+   12,
+   16,
+   20,
+   25,
+   30
+  ],
+  "M4": [
+   8,
+   10,
+   12,
+   16,
+   20,
+   25,
+   30,
+   35,
+   40
+  ],
+  "M5": [
+   10,
+   12,
+   16,
+   20,
+   25,
+   30,
+   35,
+   40,
+   45,
+   50
+  ],
+  "M6": [
+   12,
+   16,
+   20,
+   25,
+   30,
+   35,
+   40,
+   45,
+   50,
+   55,
+   60
+  ],
+  "M8": [
+   16,
+   20,
+   25,
+   30,
+   35,
+   40,
+   45,
+   50,
+   55,
+   60,
+   65,
+   70,
+   80
+  ],
+  "M10": [
+   20,
+   25,
+   30,
+   35,
+   40,
+   45,
+   50,
+   55,
+   60,
+   65,
+   70,
+   80,
+   90,
+   100
+  ],
+  "M12": [
+   25,
+   30,
+   35,
+   40,
+   45,
+   50,
+   55,
+   60,
+   65,
+   70,
+   80,
+   90,
+   100,
+   110,
+   120
+  ],
+  "M16": [
+   35,
+   40,
+   45,
+   50,
+   55,
+   60,
+   65,
+   70,
+   80,
+   90,
+   100,
+   110,
+   120,
+   130,
+   140,
+   150,
+   160
+  ],
+  "M20": [
+   40,
+   45,
+   50,
+   55,
+   60,
+   65,
+   70,
+   80,
+   90,
+   100,
+   110,
+   120,
+   130,
+   140,
+   150,
+   160,
+   180,
+   200
+  ],
+  "M24": [
+   50,
+   55,
+   60,
+   65,
+   70,
+   80,
+   90,
+   100,
+   110,
+   120,
+   130,
+   140,
+   150,
+   160,
+   180,
+   200,
+   220,
+   240
+  ]
+ },
+ "observacoes": [
+  "DIN 933/931 vs ISO 4017/4014: s difere em M10 (17 vs 16), M12 (19 vs 18), M14 (22 vs 21) e M22 (32 vs 34). k e e acompanham (DIN M10 e=18.9, M12 e=21.1). Fonte F6 (DIN 933) e F14 (DIN 934).",
+  "DIN 934 vs ISO 4032: além de s (M10/M12/M14/M22), a altura m da ISO 4032 é maior (ex.: M6 5.2 vs 5; M8 6.8 vs 6.5; M10 8.4 vs 8; M12 10.8 vs 10; M16 14.8 vs 13; M20 18 vs 16; M24 21.5 vs 19).",
+  "ISO 4032:2012/2013 alterou m de M16 (13 -> 14.8) em relação à edição 2001 (F11).",
+  "A extração automática de F11 retornou m M6=5 e M24=19 (valores DIN 934); F12 e F13 (Böllhoff) concordam em 5.2 e 21.5 - adotado 5.2/21.5.",
+  "e mínimo de ISO 4014/4017: grau A até M24 (l <= 10d ou 150 mm), grau B acima. Campo 'e' = grau A. Extração de F2 deu e_A M5=8.87 e de F1 deu e_B M20=32.85; F1/F3/F5 dão 8.79 e F2/F3 dão 32.95 - adotados 8.79 e 32.95.",
+  "b de ISO 4014: 2d+6 (l<=125), 2d+12 (125<l<=200), 2d+25 (l>200). Confirmado por F2 e F3.",
+  "b de ISO 4762 = 2d+12 (referência); só F7 trouxe a coluna (F8 tem cabeçalho vazio) -> a checar.",
+  "ISO 4762 vs DIN 912: dk, k, s iguais nos tamanhos levantados; diferenças de b entre DIN 912 e ISO 4762 não verificadas.",
+  "DIN 125-A vs ISO 7089: valores de d1/d2/h coincidem para M3-M24 segundo uso corrente, mas nenhuma tabela DIN 125 foi consultada -> a checar.",
+  "Comprimentos ISO 4017 M12-M24 não levantados; M3-M10 só de F5 (fonte única).",
+  "Nenhum catálogo de fabricante brasileiro (Ciser, Belenus etc.) com tabela acessível foi encontrado nesta rodada; fasten.it/globalfastener reproduzem a norma.",
+  "fasten.it bloqueou acesso via curl (403); dados obtidos por WebFetch, sujeitos a erro de extração - por isso cada valor tem >= 2 fontes."
+ ]
+}

@@ -734,6 +734,7 @@ void ViewProviderSketch::deactivateHandler()
     }
     if (snapManager) {
         snapManager->clearKeyPointMarkers();  // Prumo 3D
+        snapManager->clearAlignmentLines();
     }
     setSketchMode(STATUS_NONE);
 }
@@ -3227,6 +3228,13 @@ void ViewProviderSketch::drawSnapMarkers(const std::vector<Base::Vector2d>& mark
 {
     if (editCoinManager) {
         editCoinManager->drawSnapMarkers(markers, active);
+    }
+}
+
+void ViewProviderSketch::drawSnapAlignment(const std::vector<Base::Vector2d>& segments)
+{
+    if (editCoinManager) {
+        editCoinManager->drawSnapAlignment(segments);
     }
 }
 
