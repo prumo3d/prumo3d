@@ -123,6 +123,8 @@ jobs:
           pixi-version: v0.59.0
           cache: false
           run-install: false
+          # pixi próprio do fluxo, numa pasta temporária: não mexe no pixi já instalado no computador
+          pixi-bin-path: ${{ runner.temp }}/pixi/bin/pixi${{ runner.os == 'Windows' && '.exe' || '' }}
 
       - name: Definir o rótulo da versão
         shell: bash
