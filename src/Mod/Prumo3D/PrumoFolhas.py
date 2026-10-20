@@ -10,6 +10,7 @@ material, massa, tolerâncias gerais, desenhista, verificado, aprovado, data, re
 CREA/CFT, ART, escala, unidade, 1º diedro, formato, folha, número do desenho e revisão.
 """
 
+import math
 import os
 import time
 
@@ -150,19 +151,35 @@ ESCALAS_NORMAIS = [50, 20, 10, 5, 2, 1, 1 / 2.0, 1 / 5.0, 1 / 10.0, 1 / 20.0, 1 
                    1 / 100.0, 1 / 200.0, 1 / 500.0, 1 / 1000.0]
 
 
-def escala_que_cabe(objs, larg_util, alt_util):
-    """Maior escala normalizada em que três vistas (frontal, superior, lateral) cabem."""
-    import Part
+ESPACO_VISTAS = 15.0     # mm entre as vistas na folha (como o espaçamento automático do TechDraw)
+FATOR_ISO = 0.6          # a isométrica sai menor que as vistas ortogonais
+
+
+def _caixa(objs):
     bb = None
-    for o, sh in PrumoUtil.pecas(objs):
+    for _o, sh in PrumoUtil.pecas(objs):
         bb = sh.BoundBox if bb is None else bb.united(sh.BoundBox)
+    return bb
+
+
+def _medidas_iso(bb):
+    """(largura, altura) aproximadas da isométrica (direção 1,-1,1) em escala 1."""
+    w = (bb.XLength + bb.YLength) * math.cos(math.radians(30))
+    h = bb.ZLength + (bb.XLength + bb.YLength) * 0.5
+    return w, h
+
+
+def escala_que_cabe(objs, larg_util, alt_util):
+    """Maior escala normalizada em que as três vistas e a isométrica cabem lado a lado."""
+    bb = _caixa(objs)
     if bb is None:
         return 1.0
-    # 1º diedro: frontal (X×Z) + lateral (Y×Z) lado a lado; superior (X×Y) embaixo da frontal
-    larg = bb.XLength + bb.YLength
-    alt = bb.ZLength + bb.YLength
+    iw, ih = _medidas_iso(bb)
     for e in ESCALAS_NORMAIS:
-        if larg * e * 1.45 <= larg_util and alt * e * 1.45 <= alt_util:
+        # 1º diedro: frontal (X×Z) + lateral (Y×Z) lado a lado; superior (X×Y) embaixo da frontal
+        larg = (bb.XLength + bb.YLength + iw * FATOR_ISO) * e + 3 * ESPACO_VISTAS
+        alt = max((bb.ZLength + bb.YLength) * e + ESPACO_VISTAS, ih * FATOR_ISO * e)
+        if larg <= larg_util and alt <= alt_util:
             return e
     return ESCALAS_NORMAIS[-1]
 
@@ -187,8 +204,21 @@ def _vistas(doc, page, objs, escala=None):
     grupo.addProjection("Front")
     grupo.addProjection("Top")
     grupo.addProjection("Left")   # no 1º diedro a vista lateral esquerda fica à direita da frontal
-    grupo.X = larg * 0.42
-    grupo.Y = (alt + 60) * 0.55
+    bb = _caixa(fontes)
+    topo = 28.0                               # do alto da folha até o alto das vistas
+    if bb is not None:
+        fx, fy, fz = bb.XLength * e, bb.YLength * e, bb.ZLength * e
+        iw, ih = _medidas_iso(bb)
+        iw = iw * e * FATOR_ISO
+        # conjunto (vistas + isométrica) centrado na largura útil, entre a margem esquerda (20) e
+        # a direita (10) do quadro
+        total = fx + ESPACO_VISTAS + fy + 2 * ESPACO_VISTAS + iw
+        x0 = 20.0 + max(10.0, ((larg - 30.0) - total) / 2.0)
+        grupo.X = x0 + fx / 2.0
+        grupo.Y = alt - topo - fz / 2.0
+        direita_grupo = x0 + fx + ESPACO_VISTAS + fy
+    else:
+        grupo.X, grupo.Y, direita_grupo = larg * 0.42, (alt + 60) * 0.55, larg * 0.6
     grupo.AutoDistribute = True
     iso = doc.addObject("TechDraw::DrawViewPart", "Isometrica")
     iso.Label = "Isométrica"
@@ -197,9 +227,15 @@ def _vistas(doc, page, objs, escala=None):
     iso.Direction = FreeCAD.Vector(1, -1, 1)
     iso.XDirection = FreeCAD.Vector(1, 1, 0)
     iso.ScaleType = "Custom"
-    iso.Scale = e * 0.6
-    iso.X = larg * 0.80
-    iso.Y = alt * 0.70
+    iso.Scale = e * FATOR_ISO
+    if bb is not None:
+        iw, ih = _medidas_iso(bb)
+        iw, ih = iw * iso.Scale, ih * iso.Scale
+        # à direita das vistas, no alto (longe da legenda)
+        iso.X = min(larg - 20.0 - iw / 2.0, direita_grupo + 2 * ESPACO_VISTAS + iw / 2.0)
+        iso.Y = alt - topo - ih / 2.0
+    else:
+        iso.X, iso.Y = larg * 0.80, alt * 0.70
     doc.recompute()
     return grupo
 

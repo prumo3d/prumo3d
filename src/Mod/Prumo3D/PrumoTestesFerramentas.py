@@ -2205,7 +2205,58 @@ class T26Versao(unittest.TestCase):
         self.assertEqual(re.search(r"<version>([^<]+)</version>", txt).group(1), "0.1.0")
 
 
+class T27Exemplos(unittest.TestCase):
+    def test_exemplos_abrem_validos(self):
+        import PrumoInicio
+        for arq, _t, _d in PrumoInicio.EXEMPLOS:
+            self.assertTrue(os.path.isfile(os.path.join(PrumoInicio.EXEMPLOS_DIR, arq)), arq)
+            doc = PrumoInicio.abrir_exemplo(arq)
+            try:
+                self.assertTrue(doc.FileName.startswith(PrumoInicio.pasta_exemplos_usuario()))
+                for o in doc.Objects:
+                    o.touch()
+                doc.recompute()
+                ruins = [o.Label for o in doc.Objects if "Invalid" in o.State or "Error" in o.State]
+                self.assertEqual(ruins, [], arq)
+                self.assertTrue(any(hasattr(o, "Shape") and o.Shape.Solids for o in doc.Objects), arq)
+            finally:
+                FreeCAD.closeDocument(doc.Name)
+
+    def test_exemplo_da_estrutura_tem_grupos_e_soldas(self):
+        import PrumoInicio
+        import PrumoEstrutura
+        import PrumoEstruturaExtras
+        doc = PrumoInicio.abrir_exemplo("Exemplo_Estrutura_soldada.FCStd")
+        try:
+            est = [o for o in doc.Objects if PrumoEstrutura.eh_estrutura(o)][0]
+            self.assertEqual(len(PrumoEstrutura.grupos(est)), 2)
+            self.assertGreaterEqual(len(PrumoEstruturaExtras.lista_de_soldas([est])), 4)
+        finally:
+            FreeCAD.closeDocument(doc.Name)
+
+    def test_reabrir_o_exemplo_nao_duplica(self):
+        import PrumoInicio
+        a = PrumoInicio.abrir_exemplo("Exemplo_Chapa_dobrada.FCStd")
+        b = PrumoInicio.abrir_exemplo("Exemplo_Chapa_dobrada.FCStd")
+        try:
+            iguais = [d for d in FreeCAD.listDocuments().values() if d.FileName == b.FileName]
+            self.assertEqual(len(iguais), 1)
+        finally:
+            FreeCAD.closeDocument(b.Name)
+
+    def test_tela_inicial_mostra_exemplos(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoInicio
+        from PySide import QtWidgets
+        w = PrumoInicio.InicioPrumo()
+        textos = [l.text() for l in w.findChildren(QtWidgets.QLabel)]
+        self.assertIn("Exemplos", textos)
+        self.assertIn("Estrutura soldada", textos)
+        w.close()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
-           T25EstruturaInterface, T26Versao]
+           T25EstruturaInterface, T26Versao, T27Exemplos]

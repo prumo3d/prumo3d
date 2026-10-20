@@ -126,6 +126,39 @@ def _new(kind):
         pass
 
 
+EXEMPLOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resources", "exemplos")
+EXEMPLOS = [
+    ("Exemplo_Suporte_com_folha_ABNT.FCStd", "Peça com folha ABNT",
+     "Suporte com furos, vistas no 1º diedro, legenda e lista de materiais."),
+    ("Exemplo_Estrutura_soldada.FCStd", "Estrutura soldada",
+     "Grupos de perfis, cantos de topo, reforços, placas de base e soldas."),
+    ("Exemplo_Chapa_dobrada.FCStd", "Chapa dobrada",
+     "Perfil U de chapa de 2 mm, pronto para planificar."),
+]
+
+
+def pasta_exemplos_usuario():
+    return os.path.join(FreeCAD.getUserAppDataDir(), "Exemplos")
+
+
+def abrir_exemplo(nome):
+    """Abre uma cópia do exemplo na pasta do usuário (a instalação pode ser só leitura e o
+    original fica intacto para a próxima vez)."""
+    import shutil
+    origem = os.path.join(EXEMPLOS_DIR, nome)
+    if not os.path.isfile(origem):
+        FreeCAD.Console.PrintWarning("Prumo: exemplo não encontrado: {}\n".format(origem))
+        return None
+    destino_dir = pasta_exemplos_usuario()
+    os.makedirs(destino_dir, exist_ok=True)
+    destino = os.path.join(destino_dir, nome)
+    shutil.copyfile(origem, destino)
+    for d in FreeCAD.listDocuments().values():
+        if os.path.normcase(os.path.abspath(d.FileName or "")) == os.path.normcase(os.path.abspath(destino)):
+            FreeCAD.closeDocument(d.Name)
+    return FreeCAD.openDocument(destino)
+
+
 def _run(cmd):
     try:
         FreeCADGui.runCommand(cmd)
@@ -271,6 +304,22 @@ class InicioPrumo(QtWidgets.QWidget):
             "background: transparent; padding: 6px 2px; } QPushButton#SwTutLink:hover { color: #C99A00; }"))
         tut.clicked.connect(_abrir_tutorial)
         self.v.addWidget(tut)
+
+        # exemplos prontos
+        exs = [e for e in EXEMPLOS if os.path.isfile(os.path.join(EXEMPLOS_DIR, e[0]))]
+        if exs:
+            self._section("Exemplos", "Abra, explore a árvore e altere à vontade: é uma cópia.")
+            g3 = QtWidgets.QGridLayout()
+            g3.setHorizontalSpacing(14)
+            g3.setVerticalSpacing(14)
+            fallback = _icon("PartDesign_Body", 30)
+            for i, (arq, titulo, texto) in enumerate(exs):
+                pix = _thumb(os.path.join(EXEMPLOS_DIR, arq), 46)
+                card = Card(pix or fallback, titulo, texto, (lambda a=arq: abrir_exemplo(a)))
+                g3.addWidget(card, i // 3, i % 3)
+            for c in range(3):
+                g3.setColumnStretch(c, 1)
+            self.v.addLayout(g3)
 
         # recentes
         rec = _recent()
