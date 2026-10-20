@@ -107,6 +107,9 @@ jobs:
         with:
           name: prumo3d-${{ matrix.target }}
           if-no-files-found: error
+          # Prumo 3D: o plano gratuito inclui pouco armazenamento para artefatos; a versão publicada
+          # fica na página de versões, então os artefatos da execução expiram logo
+          retention-days: 3
           path: |
             package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.exe
             package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.7z
