@@ -117,6 +117,9 @@ class SobreDialog(QtWidgets.QDialog):
         self.bt_copiar = bb.addButton("Copiar informações do sistema", QtWidgets.QDialogButtonBox.ActionRole)
         self.bt_copiar.setToolTip("Versão, sistema e placa de vídeo — cole junto ao relato de um problema")
         self.bt_copiar.clicked.connect(self.copiar_info)
+        self.bt_licencas = bb.addButton("Licenças e bibliotecas", QtWidgets.QDialogButtonBox.HelpRole)
+        self.bt_licencas.setToolTip("Créditos, licença LGPL e bibliotecas de terceiros (Sobre do FreeCAD)")
+        self.bt_licencas.clicked.connect(self.licencas)
         bb.rejected.connect(self.reject)
         bb.button(QtWidgets.QDialogButtonBox.Close).setText("Fechar")
         bb.button(QtWidgets.QDialogButtonBox.Close).setDefault(True)
@@ -125,6 +128,13 @@ class SobreDialog(QtWidgets.QDialog):
         bw.addWidget(bb)
         v.addLayout(bw)
 
+
+    def licencas(self):
+        try:
+            import FreeCADGui
+            FreeCADGui.runCommand("Std_About", 0)
+        except Exception:
+            pass
 
     def copiar_info(self):
         import PrumoVersao

@@ -69,7 +69,11 @@ def apply_window_branding():
     mw = FreeCADGui.getMainWindow()
     if mw is not None:
         doc = FreeCAD.ActiveDocument
-        base = "{} {}".format(APP_NAME, _version_text())
+        try:
+            import PrumoVersao
+            base = "{} {}".format(APP_NAME, PrumoVersao.texto())
+        except Exception:
+            base = APP_NAME
         mw.setWindowTitle("[*] {} - {}".format(doc.Label, base) if doc else base)
 
 
@@ -95,6 +99,16 @@ def install_splash():
         return
     dest_dir = os.path.join(FreeCAD.getUserAppDataDir(), "Gui", "images")
     dest = os.path.join(dest_dir, "splash_image.png")
+    if "Prumo3D" in (FreeCAD.ConfigGet("SplashScreen") or ""):
+        # programa do Prumo (branding.xml): a splash já vem da instalação. Uma cópia nos dados do
+        # usuário teria prioridade e ficaria velha a cada versão — então tira a cópia nossa.
+        try:
+            if os.path.isfile(dest) and (_params().GetBool("SplashIsOurs", False) or _is_old_prumo_splash(dest)):
+                os.remove(dest)
+                _params().SetBool("SplashIsOurs", False)
+        except OSError as exc:
+            FreeCAD.Console.PrintLog("Prumo: splash antiga não removida: {}\n".format(exc))
+        return
     try:
         if os.path.isfile(dest) and filecmp.cmp(SPLASH_SRC, dest, shallow=False):
             return
@@ -809,6 +823,30 @@ def _start_ferramentas():
         except Exception as exc:
             FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(modulo, exc))
     instalar_ajuste_ao_sair_do_esboco()
+    instalar_menu_sobre()
+
+
+class _ManipuladorMenu:
+    """Ajuda → Sobre abre o Sobre do Prumo (o do FreeCAD, com créditos e licenças, fica no botão
+    "Licenças e bibliotecas" do Sobre do Prumo)."""
+
+    def modifyMenuBar(self):
+        return [{"insert": "Prumo_Sobre", "menuItem": "Std_About"}, {"remove": "Std_About"}]
+
+
+_manip_menu = {"obj": None}
+
+
+def instalar_menu_sobre():
+    if _manip_menu["obj"] is None:
+        _manip_menu["obj"] = _ManipuladorMenu()
+        FreeCADGui.addWorkbenchManipulator(_manip_menu["obj"])
+        try:  # aplica já na bancada ativa
+            wb = FreeCADGui.activeWorkbench()
+            if wb is not None:
+                wb.reloadActive()
+        except Exception:
+            pass
 
 
 class _ObservadorEdicao:

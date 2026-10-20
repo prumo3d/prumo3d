@@ -2152,6 +2152,52 @@ class T26Versao(unittest.TestCase):
         self.assertIn("Copiado", d.bt_copiar.text())
         d.close()
 
+    def test_menu_ajuda_abre_o_sobre_do_prumo(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGui
+        PrumoGui.instalar_menu_sobre()
+        FreeCADGui.activeWorkbench().reloadActive()
+        FreeCADGui.updateGui()
+        nomes = []
+
+        def coletar(menu):
+            for a in menu.actions():
+                nomes.append(a.objectName())
+                if a.menu():
+                    coletar(a.menu())
+        coletar(FreeCADGui.getMainWindow().menuBar())
+        self.assertIn("Prumo_Sobre", nomes)
+        self.assertNotIn("Std_About", nomes)
+
+    def test_titulo_da_janela_com_a_versao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGui
+        PrumoGui.apply_window_branding()
+        self.assertIn("0.1 beta", FreeCADGui.getMainWindow().windowTitle())
+
+    def test_splash_da_instalacao_tem_prioridade(self):
+        import shutil
+        import PrumoGui
+        if "Prumo3D" not in (FreeCAD.ConfigGet("SplashScreen") or ""):
+            self.skipTest("sem branding.xml do Prumo")
+        dest_dir = os.path.join(FreeCAD.getUserAppDataDir(), "Gui", "images")
+        dest = os.path.join(dest_dir, "splash_image.png")
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copyfile(PrumoGui.SPLASH_SRC, dest)
+        with open(dest, "ab") as fh:
+            fh.write(b"velha")                     # cópia antiga, diferente da atual
+        PrumoGui._params().SetBool("SplashIsOurs", True)
+        PrumoGui.install_splash()
+        self.assertFalse(os.path.isfile(dest))
+        self.assertFalse(PrumoGui._params().GetBool("SplashIsOurs", True))
+        # uma splash que não é nossa fica onde está
+        open(dest, "wb").write(b"do usuario")
+        PrumoGui.install_splash()
+        self.assertTrue(os.path.isfile(dest))
+        os.remove(dest)
+
     def test_versao_no_pacote(self):
         import re
         pasta = os.path.dirname(os.path.abspath(__file__))
