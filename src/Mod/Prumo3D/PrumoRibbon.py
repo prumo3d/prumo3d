@@ -54,6 +54,7 @@ TABS = [
             ("Std_New", L, "Novo"), ("Std_Open", L, "Abrir"), ("Std_Save", L, "Salvar"),
             ("Std_SaveAs", S, "Salvar como"), ("Std_Import", S, "Importar"), ("Std_Export", S, "Exportar"),
             ("Std_PrintPdf", S, "Exportar PDF"), ("Std_Print", S, "Imprimir"), ("Std_ProjectInfo", S, "Info. do projeto"),
+            ("Prumo_CopiarProjeto", S, "Copiar projeto"),
         ]),
         ("Editar", [
             ("Std_Undo", S, "Desfazer"), ("Std_Redo", S, "Refazer"), ("Std_Refresh", S, "Recalcular"),
@@ -184,14 +185,21 @@ TABS = [
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
             ("Prumo_Massa", S, "Propriedades de massa"), ("Prumo_Propriedades", S, "Propriedades da peça"),
         ]),
-        ("Juntas", [
-            ("Assembly_ToggleGrounded", L, "Fixar"), ("Assembly_CreateJointFixed", L, "Junta\nfixa"),
-            ("Assembly_CreateJointRevolute", S, "Revoluta"), ("Assembly_CreateJointCylindrical", S, "Cilíndrica"),
-            ("Assembly_CreateJointSlider", S, "Deslizante"), ("Assembly_CreateJointBall", S, "Esférica"),
-            ("Assembly_CreateJointDistance", S, "Distância"), ("Assembly_CreateJointParallel", S, "Paralela"),
+        # nomes como os das restrições (mates) do SolidWorks/Inventor; a dica diz a junta do FreeCAD
+        ("Restrições", [
+            ("Assembly_ToggleGrounded", L, "Fixar\npeça"), ("Assembly_CreateJointFixed", L, "Travar\n(fixa)"),
+            ("Assembly_CreateJointDistance", L, "Coincidente\n/ distância"),
+            ("Assembly_CreateJointCylindrical", S, "Concêntrica"), ("Assembly_CreateJointRevolute", S, "Dobradiça"),
+            ("Assembly_CreateJointSlider", S, "Deslizante"), ("Assembly_CreateJointParallel", S, "Paralela"),
             ("Assembly_CreateJointPerpendicular", S, "Perpendicular"), ("Assembly_CreateJointAngle", S, "Ângulo"),
-            ("Assembly_CreateJointRackPinion", S, "Pinhão e cremalheira"), ("Assembly_CreateJointScrew", S, "Parafuso"),
+            ("Assembly_CreateJointBall", S, "Esférica (rótula)"),
+        ]),
+        ("Mecânicas", [
+            ("Assembly_CreateJointRackPinion", S, "Pinhão e cremalheira"), ("Assembly_CreateJointScrew", S, "Fuso"),
             ("Assembly_CreateJointGearBelt", S, "Engrenagem / correia"),
+        ]),
+        ("Conferir", [
+            ("Prumo_Interferencia", L, "Verificar\ninterferência"),
         ]),
     ]},
     {"id": "desenho", "label": "Desenho", "wb": "TechDrawWorkbench", "panels": [
@@ -247,7 +255,7 @@ TABS = [
         ]),
         ("Conferir", [
             ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
-            ("Prumo_Propriedades", S, "Propriedades da peça"),
+            ("Prumo_Propriedades", S, "Propriedades da peça"), ("Prumo_Interferencia", S, "Interferência"),
             ("Std_Measure", S, "Medir"),
         ]),
         ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),

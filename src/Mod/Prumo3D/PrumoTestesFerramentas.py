@@ -3435,10 +3435,184 @@ class T37Variantes(unittest.TestCase):
         self.assertIn("Prumo_Variantes", FreeCADGui.Command.listAll())
 
 
+class T38CopiarProjeto(unittest.TestCase):
+    """Copiar projeto: montagem e peças para outra pasta, renomeando e mantendo os vínculos."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp()
+        self.orig = os.path.join(self.base, "orig")
+        os.makedirs(self.orig)
+        self.peca = novo_doc("PrumoTestePacPeca")
+        self.bloco = self.peca.addObject("Part::Box", "Bloco")
+        self.peca.recompute()
+        self.peca.saveAs(os.path.join(self.orig, "Peca.FCStd"))
+        self.mont = novo_doc("PrumoTestePacMont")
+        self.mont.saveAs(os.path.join(self.orig, "Montagem.FCStd"))
+        self.link = self.mont.addObject("App::Link", "Link")
+        self.link.LinkedObject = self.bloco
+        self.mont.recompute()
+        self.mont.save()
+        if FreeCAD.GuiUp:
+            for d in (self.peca, self.mont):
+                FreeCADGui.getDocument(d.Name).Modified = False
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        for n in list(FreeCAD.listDocuments()):
+            if FreeCAD.getDocument(n).FileName.startswith(self.base):
+                FreeCAD.closeDocument(n)
+
+    def _doc_por_arquivo(self, caminho):
+        for d in FreeCAD.listDocuments().values():
+            if os.path.normcase(d.FileName) == os.path.normcase(caminho):
+                return d
+        return FreeCAD.openDocument(caminho)
+
+    def test_plano_na_ordem_das_pecas_para_a_montagem(self):
+        import PrumoCopiarProjeto as C
+        passos = C.plano(self.mont, os.path.join(self.base, "novo"), prefixo="NOVO_")
+        self.assertEqual([os.path.basename(n) for _d, _o, n in passos], ["NOVO_Peca.FCStd", "NOVO_Montagem.FCStd"])
+        self.assertEqual(C.nome_novo("/x/Suporte-v1.FCStd", "A_", "_B", ("v1", "v2")), "A_Suporte-v2_B.FCStd")
+        with self.assertRaises(ValueError):
+            C.plano(self.mont, self.orig)        # cairia em cima dos originais
+
+    def test_copia_com_vinculos_acertados(self):
+        import PrumoCopiarProjeto as C
+        destino = os.path.join(self.base, "novo")
+        mapa = C.copiar_projeto(self.mont, destino, prefixo="NOVO_", abrir_copia=True)
+        self.assertEqual(len(mapa), 2)
+        for novo in mapa.values():
+            self.assertTrue(os.path.isfile(novo))
+        copia = self._doc_por_arquivo(os.path.join(destino, "NOVO_Montagem.FCStd"))
+        alvo = copia.getObject("Link").LinkedObject
+        self.assertIsNotNone(alvo)
+        self.assertEqual(os.path.normcase(alvo.Document.FileName),
+                         os.path.normcase(os.path.join(destino, "NOVO_Peca.FCStd")))
+        # o original continua apontando para a peça original
+        for n in list(FreeCAD.listDocuments()):
+            FreeCAD.closeDocument(n)
+        orig = FreeCAD.openDocument(os.path.join(self.orig, "Montagem.FCStd"))
+        self.assertEqual(os.path.normcase(orig.getObject("Link").LinkedObject.Document.FileName),
+                         os.path.normcase(os.path.join(self.orig, "Peca.FCStd")))
+
+    def test_nomes_um_a_um_e_conflitos(self):
+        import PrumoCopiarProjeto as C
+        destino = os.path.join(self.base, "um_a_um")
+        nomes = {self.peca.FileName: "SW-100 Chapa.FCStd", self.mont.FileName: "SW-000 Conjunto.FCStd"}
+        mapa = C.copiar_projeto(self.mont, destino, nomes=nomes)
+        self.assertTrue(os.path.isfile(os.path.join(destino, "SW-100 Chapa.FCStd")))
+        # de novo na mesma pasta: recusa sem sobrescrever
+        mont = self._doc_por_arquivo(os.path.join(self.orig, "Montagem.FCStd"))
+        with self.assertRaises(ValueError):
+            C.copiar_projeto(mont, destino, nomes=nomes)
+        self.assertIn(os.path.join(self.orig, "Peca.FCStd"), mapa)
+
+    def test_documento_nao_salvo(self):
+        import PrumoCopiarProjeto as C
+        d = novo_doc("PrumoTesteSemArquivo")
+        try:
+            with self.assertRaises(ValueError):
+                C.plano(d, self.base)
+        finally:
+            fechar(d)
+
+    def test_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoCopiarProjeto as C
+        p = C.PainelCopiarProjeto(self.mont)
+        self.assertEqual(p.tabela.rowCount(), 2)
+        p.prefixo.setText("X_")
+        self.assertEqual(p.tabela.item(1, 1).text(), "X_Montagem.FCStd")
+        p.pasta.setText(os.path.join(self.base, "painel"))
+        self.assertTrue(p.accept())
+        self.assertTrue(os.path.isfile(os.path.join(self.base, "painel", "X_Peca.FCStd")))
+        self.assertIn("Prumo_CopiarProjeto", FreeCADGui.Command.listAll())
+
+
+class T39Montagem(unittest.TestCase):
+    """Montagem: restrições com nomes familiares e verificação de interferência."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteInterf")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _caixa(self, nome, x, lado=10.0):
+        b = self.doc.addObject("Part::Box", nome)
+        b.Length = b.Width = b.Height = lado
+        b.Placement.Base = FreeCAD.Vector(x, 0, 0)
+        return b
+
+    def test_interferencia_e_contato(self):
+        import PrumoInterferencia as I
+        a = self._caixa("A", 0)
+        b = self._caixa("B", 7)      # invade 3 mm: 3×10×10 = 300 mm³
+        c = self._caixa("C", 17)     # encosta na B (x = 17)
+        d = self._caixa("D", 100)    # longe
+        self.doc.recompute()
+        res = I.verificar([a, b, c, d])
+        self.assertEqual(len(res), 1)
+        self.assertEqual({res[0].a.Name, res[0].b.Name}, {"A", "B"})
+        self.assertAlmostEqual(res[0].volume, 300.0, places=3)
+        com = I.verificar([a, b, c, d], contatos=True)
+        self.assertEqual(len(com), 2)
+        self.assertEqual(com[1].volume, 0.0)
+        g = I.mostrar(self.doc, res)
+        self.assertEqual(len(g.Group), 1)
+        self.assertAlmostEqual(g.Group[0].Shape.Volume, 300.0, places=3)
+        I.mostrar(self.doc, res)       # repetir substitui o grupo
+        self.assertEqual(len([o for o in self.doc.Objects if o.TypeId == "App::DocumentObjectGroup"]), 1)
+
+    def test_interferencia_dentro_de_parte_com_posicao(self):
+        import PrumoInterferencia as I
+        parte = self.doc.addObject("App::Part", "Conjunto")
+        a = self._caixa("A", 0)
+        b = self._caixa("B", 20)
+        parte.addObject(a)
+        parte.addObject(b)
+        self.doc.recompute()
+        self.assertEqual(I.verificar([parte]), [])
+        b.Placement.Base = FreeCAD.Vector(5, 0, 0)
+        self.doc.recompute()
+        self.assertEqual(len(I.verificar([parte])), 1)
+
+    def test_nomes_familiares_na_faixa(self):
+        import PrumoRibbon
+        mont = [t for t in PrumoRibbon.TABS if t["id"] == "montagem"][0]
+        rotulos = {c: r for _p, itens in mont["panels"] for c, _s, r in itens}
+        self.assertIn("Coincidente", rotulos["Assembly_CreateJointDistance"])
+        self.assertEqual(rotulos["Assembly_CreateJointCylindrical"], "Concêntrica")
+        self.assertIn("Prumo_Interferencia", rotulos)
+
+    def test_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoInterferencia as I
+        self._caixa("A", 0)
+        self._caixa("B", 5)
+        self.doc.recompute()
+        p = I.PainelInterferencia()
+        res = p.verificar()          # sem seleção: documento inteiro
+        self.assertEqual(len(res), 1)
+        self.assertEqual(p.lista.count(), 1)
+        self.assertEqual(p.form.mensagem.tipo, "erro")
+        p.lista.setCurrentRow(0)
+        self.assertEqual(len(FreeCADGui.Selection.getSelection()), 2)
+        self.assertTrue(p.accept())
+        self.assertIn("Prumo_Interferencia", FreeCADGui.Command.listAll())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
            T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura,
            T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
-           T36ChapaFatorKeDXF, T37Variantes]
+           T36ChapaFatorKeDXF, T37Variantes, T38CopiarProjeto,
+           T39Montagem]
