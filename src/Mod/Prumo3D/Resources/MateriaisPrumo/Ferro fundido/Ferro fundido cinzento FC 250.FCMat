@@ -1,0 +1,20 @@
+---
+# Biblioteca de materiais do Prumo 3D
+General:
+  UUID: "a8487e3d-55a5-59c5-be4c-91155850c0de"
+  Author: "Prumo 3D"
+  License: "CC-BY-4.0"
+  Name: "Ferro fundido cinzento FC 250"
+  Description: "Densidade típica do Ferro fundido cinzento FC 250. O módulo de elasticidade varia com a classe e fica a conferir; a resistência vem do certificado. Serve para massa e lista de materiais."
+Models:
+  Father:
+    UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'
+    Father: "Metal"
+  MaterialStandard:
+    UUID: '1e2c0088-904a-4537-925f-64064c07d700'
+    KindOfMaterial: "Ferro fundido cinzento"
+    MaterialNumber: "FC 250"
+    StandardCode: "ABNT NBR 6589"
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "7200 kg/m^3"

@@ -83,7 +83,7 @@ PASSOS = [
      "Na aba Peça, clique em Novo corpo. O corpo guarda todas as operações da peça, em ordem.",
      "peca", ["PartDesign_Body"], lambda: bool(_objs("PartDesign::Body"))),
     ("Criar um esboço no plano XY",
-     "Clique em Esboço e escolha XY_Plane (plano de cima). Esboços nos planos da origem não se perdem "
+     "Clique em Esboço e escolha o Plano XY (plano de cima). Esboços nos planos da origem não se perdem "
      "quando o modelo muda.",
      "peca", ["PartDesign_CompSketches", "PartDesign_NewSketch"], lambda: bool(_esbocos_no_corpo())),
     ("Desenhar um retângulo",

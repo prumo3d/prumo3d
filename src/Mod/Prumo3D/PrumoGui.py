@@ -875,6 +875,10 @@ def _start_ferramentas():
             FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(modulo, exc))
     instalar_ajuste_ao_sair_do_esboco()
     instalar_menu_sobre()
+    try:
+        aplicar_bancadas_padrao()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: bancadas padrão: {}\n".format(exc))
 
 
 class _ManipuladorMenu:
@@ -882,7 +886,42 @@ class _ManipuladorMenu:
     "Licenças e bibliotecas" do Sobre do Prumo)."""
 
     def modifyMenuBar(self):
-        return [{"insert": "Prumo_Sobre", "menuItem": "Std_About"}, {"remove": "Std_About"}]
+        # Vista: editor de materiais (a bancada Materiais fica desligada) e o botão da árvore
+        return [{"insert": "Prumo_Sobre", "menuItem": "Std_About"}, {"remove": "Std_About"},
+                {"append": "Material_Edit", "menuItem": "Std_DockViewMenu"},
+                {"append": "Prumo_Arvore", "menuItem": "Std_DockViewMenu"}]
+
+
+# Bancadas que não vêm ligadas no Prumo (o usuário religa em Preferências → Geral → Bancadas).
+# O padrão do FreeCAD já desliga Test, Inspection, Robot e OpenSCAD.
+BANCADAS_DESLIGADAS = ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench")
+DESLIGADAS_FREECAD = "NoneWorkbench,TestWorkbench,InspectionWorkbench,RobotWorkbench,OpenSCADWorkbench"
+VERSAO_BANCADAS = 1
+
+
+def bancadas_desligadas():
+    txt = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Workbenches").GetString("Disabled",
+                                                                                          DESLIGADAS_FREECAD)
+    return [n for n in txt.split(",") if n]
+
+
+def aplicar_bancadas_padrao():
+    """Uma vez por perfil: desliga Materiais, Nuvem de pontos e Robótica. Se o usuário religar
+    depois, fica religada (a marca de versão impede repetir)."""
+    p = FreeCAD.ParamGet(PARAM_PATH)
+    if p.GetInt("BancadasPadrao", 0) >= VERSAO_BANCADAS:
+        return False
+    grp = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Workbenches")
+    atuais = bancadas_desligadas()
+    for n in BANCADAS_DESLIGADAS:
+        if n not in atuais:
+            atuais.append(n)
+    grp.SetString("Disabled", ",".join(atuais))
+    ordem = [n for n in grp.GetString("Ordered", "").split(",") if n and n not in BANCADAS_DESLIGADAS]
+    if ordem:
+        grp.SetString("Ordered", ",".join(ordem))
+    p.SetInt("BancadasPadrao", VERSAO_BANCADAS)
+    return True
 
 
 _manip_menu = {"obj": None}
@@ -955,16 +994,64 @@ def _start_inicio():
 MATERIAIS_DIR = os.path.join(ADDON_DIR, "Resources", "MateriaisPrumo")
 
 
-def install_materials():
-    """Registra a biblioteca de materiais Prumo (aços do mercado brasileiro) no FreeCAD."""
-    if not os.path.isdir(MATERIAIS_DIR):
-        return
-    g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Material/Resources/Modules/Prumo")
-    if g.GetString("ModuleDir", "") != MATERIAIS_DIR:
-        g.SetString("ModuleDir", MATERIAIS_DIR)
-    if g.GetString("ModuleIcon", "") != ICON_PATH:
-        g.SetString("ModuleIcon", ICON_PATH)
+MATERIAIS_PADRAO_DIR = os.path.join(RES_DIR, "MateriaisPadrao")
+MAT_RES = "User parameter:BaseApp/Preferences/Mod/Material/Resources"
+VERSAO_BIBLIOTECA = 1
+
+
+def _registrar_biblioteca(nome, pasta, icone=ICON_PATH):
+    if not os.path.isdir(pasta):
+        return False
+    g = FreeCAD.ParamGet(MAT_RES + "/Modules/" + nome)
+    if g.GetString("ModuleDir", "") != pasta:
+        g.SetString("ModuleDir", pasta)
+    if g.GetString("ModuleIcon", "") != icone:
+        g.SetString("ModuleIcon", icone)
     g.SetBool("ModuleReadOnly", True)
+    return True
+
+
+def pasta_materiais_sistema(sub=""):
+    base = os.path.join(FreeCAD.getResourceDir(), "Mod", "Material", "Resources", "Materials")
+    return os.path.join(base, sub) if sub else base
+
+
+def install_materials():
+    """Bibliotecas de materiais do Prumo.
+
+    - "Prumo": materiais usados no Brasil (aços estruturais, de vaso de pressão, inox, construção
+      mecânica, ferro fundido, alumínio, latão), com norma e fonte em cada cartão;
+    - "Padrão": o material genérico que o FreeCAD usa em peças sem material;
+    - "Aparências" e "Fluidos": cores/acabamentos e fluidos da biblioteca do FreeCAD.
+    A biblioteca do sistema do FreeCAD (aços europeus, plásticos, madeira, concreto...) fica
+    desligada uma vez por perfil; quem quiser religa em Preferências → Material.
+    """
+    _registrar_biblioteca("Prumo", MATERIAIS_DIR)
+    _registrar_biblioteca("Padrão", MATERIAIS_PADRAO_DIR)
+    # As definições dos modelos (elástico linear, densidade, aparência...) vêm da pasta do sistema;
+    # sem elas os cartões carregam vazios quando a biblioteca do sistema está desligada.
+    modelos = os.path.join(FreeCAD.getResourceDir(), "Mod", "Material", "Resources", "Models")
+    g = FreeCAD.ParamGet(MAT_RES + "/Modules/Prumo")
+    if os.path.isdir(modelos) and g.GetString("ModuleModelDir", "") != modelos:
+        g.SetString("ModuleModelDir", modelos)
+    p = _params()
+    if p.GetInt("BibliotecaMateriais", 0) < VERSAO_BIBLIOTECA:
+        r = FreeCAD.ParamGet(MAT_RES)
+        r.SetBool("UseBuiltInMaterials", False)
+        r.SetBool("UseMaterialsFromWorkbenches", True)
+        p.SetInt("BibliotecaMateriais", VERSAO_BIBLIOTECA)
+    if not FreeCAD.ParamGet(MAT_RES).GetBool("UseBuiltInMaterials", True):
+        _registrar_biblioteca("Aparências", pasta_materiais_sistema("Appearance"))
+        _registrar_biblioteca("Fluidos", pasta_materiais_sistema("Fluid"))
+    else:   # com a do sistema ligada, não duplica
+        for nome in ("Aparências", "Fluidos"):
+            FreeCAD.ParamGet(MAT_RES + "/Modules").RemGroup(nome)
+
+
+def instalar_nomes():
+    """Rótulos dos objetos novos em português na árvore (Pad → Extrusão)."""
+    import PrumoNomes
+    PrumoNomes.install()
 
 
 def startup():
@@ -978,8 +1065,8 @@ def startup():
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: tela inicial: {}\n".format(exc))
     register_commands()
-    for fn in (install_materials, apply_document_prefs, apply_template_prefs, install_folha_observer,
-               garantir_overlay_qss):
+    for fn in (aplicar_bancadas_padrao, instalar_nomes, install_materials, apply_document_prefs, apply_template_prefs,
+               install_folha_observer, garantir_overlay_qss):
         try:
             fn()
         except Exception as exc:

@@ -36,6 +36,10 @@ def densidade_padrao():
     return FreeCAD.ParamGet(PARAM_PATH).GetFloat("DensidadePadrao", DENSIDADE_ACO)
 
 
+UUID_SEM_MATERIAL = "7f9fd73b-50c9-41d8-b7b2-575a030c1eeb"   # "Default" do FreeCAD
+NOMES_SEM_MATERIAL = ("", "Default", "Sem material (padrão)")
+
+
 def material(obj):
     """(nome, densidade em kg/m³, definido) do material da peça.
 
@@ -49,7 +53,8 @@ def material(obj):
         pass
     m = getattr(alvo, "ShapeMaterial", None) if "ShapeMaterial" in getattr(alvo, "PropertiesList", []) \
         else None
-    if m is not None and getattr(m, "Name", "") not in ("", "Default"):
+    if m is not None and getattr(m, "Name", "") not in NOMES_SEM_MATERIAL \
+            and getattr(m, "UUID", "") != UUID_SEM_MATERIAL:
         dens = None
         try:
             q = m.getPhysicalValue("Density")

@@ -24,6 +24,8 @@ NAVY = "#003A70"
 NAVY_HOVER = "#0B4F8F"
 YEL = "#F7BE00"
 YEL_SOFT = "#FFF1BF"
+SEL = "#D6E6F7"           # seleção em listas e na árvore (azul suave; o amarelo cansava a vista)
+SEL_BORDA = "#7FA3C9"
 INK = "#1F2A36"
 INK_2 = "#4A5866"
 MUTED = "#9AA7B4"
@@ -296,7 +298,8 @@ VIEW_COLORS = {
     "InformationColor": "#4A5866",
 }
 SKETCH_GENERAL = {"GridLineColor": "#C9D2DC"}
-TREE_COLORS = {"TreeActiveColor": "#FFE9A6", "TreeEditColor": "#D3E1EF"}
+# corpo/parte ativa: azul bem claro (antes amarelo forte); objeto em edição: verde-sálvia claro
+TREE_COLORS = {"TreeActiveColor": "#E3EEF9", "TreeEditColor": "#DDEEE4"}
 TECHDRAW_COLORS = {"Background": "#E4E8ED"}
 NAVICUBE = {
     "colors": {"BaseColor": ("#D3E1EF", 0xE6), "EmphaseColor": ("#003A70", 0xFF), "HiliteColor": ("#F7BE00", 0xFF)},
@@ -305,7 +308,7 @@ NAVICUBE = {
     "int": {"InactiveOpacity": 75, "FontWeight": 63},
     "float": {"BorderWidth": 1.4, "FontZoom": 0.3},
 }
-VIEW_COLORS_VERSION = 3
+VIEW_COLORS_VERSION = 4
 
 # Tema escuro: o que muda em relação às cores acima (linhas azul-marinho somem no fundo escuro)
 VIEW_COLORS_ESC = {
@@ -328,7 +331,7 @@ EDITOR_COLORS_ESC = {
     "Python output": "#B8C4A0", "Python error": "#F08C73", "Current line highlight": "#263040",
 }
 SKETCH_GENERAL_ESC = {"GridLineColor": "#343C47"}
-TREE_COLORS_ESC = {"TreeActiveColor": "#5A4A12", "TreeEditColor": "#2D4560"}
+TREE_COLORS_ESC = {"TreeActiveColor": "#24364A", "TreeEditColor": "#24402F"}
 TECHDRAW_COLORS_ESC = {"Background": "#2A3038"}
 NAVICUBE_ESC = {"BaseColor": ("#2D3A49", 0xE6), "EmphaseColor": ("#8CBCEB", 0xFF), "HiliteColor": ("#F7BE00", 0xFF)}
 
@@ -490,10 +493,10 @@ QTabBar::tab:hover:!selected {{ color: {NAVY}; background: {HOVER}; border-top-l
 QTreeView, QListView, QTableView, QTreeWidget, QListWidget, QTableWidget {{
     background: {SURFACE}; alternate-background-color: #F7F9FC; color: {INK};
     border: 1px solid {BORDER}; border-radius: {R_CARD}px; padding: 2px;
-    selection-background-color: {YEL_SOFT}; selection-color: {INK}; outline: 0; }}
+    selection-background-color: {SEL}; selection-color: {INK}; outline: 0; }}
 QTreeView::item, QListView::item {{ padding: 2px 2px; }}
 QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {{ background: #EEF3F9; color: {INK}; }}
-QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{ background: {YEL_SOFT}; color: {INK}; }}
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {{ background: {SEL}; color: {INK}; }}
 QHeaderView {{ background: transparent; border: none; }}
 QHeaderView::section {{ background: #F5F8FC; color: {NAVY}; font-weight: 600; padding: 5px 8px; border: none;
                         border-bottom: 1px solid {BORDER}; border-right: 1px solid #EDF1F5; }}
@@ -502,8 +505,10 @@ Gui--PropertyEditor--PropertyEditor {{ qproperty-groupBackground: #EAF1F8; qprop
 
 /* árvore do modelo */
 Gui--TreeWidget {{ padding: 4px 2px; }}
-Gui--TreeWidget::item {{ padding: 3px 2px; border-radius: 4px; }}
-QTreeView::branch:selected {{ background: {YEL_SOFT}; }}
+Gui--TreeWidget::item {{ padding: 4px 2px; border-radius: 5px; }}
+Gui--TreeWidget::item:selected {{ background: {SEL}; color: {INK}; border-left: 3px solid {SEL_BORDA}; }}
+Gui--TreeWidget::item:hover:!selected {{ background: #EEF3F9; }}
+QTreeView::branch:selected {{ background: {SEL}; }}
 QTreeView::branch:has-children:!has-siblings:closed, QTreeView::branch:closed:has-children:has-siblings {{
     border-image: none; image: url({right}); }}
 QTreeView::branch:open:has-children:!has-siblings, QTreeView::branch:open:has-children:has-siblings {{
@@ -628,7 +633,7 @@ Gui--TaskView--TaskView QPushButton {{ padding: 5px 16px; }}
 QSint--ActionGroup QGroupBox {{ background: #FAFBFD; }}
 """.format(
         APP_BG=APP_BG, SURFACE=SURFACE, BORDER=BORDER, BORDER_INPUT=BORDER_INPUT, NAVY=NAVY, NAVY_HOVER=NAVY_HOVER,
-        YEL=YEL, YEL_SOFT=YEL_SOFT, INK=INK, INK_2=INK_2, MUTED=MUTED, HOVER=HOVER, PRESSED=PRESSED,
+        YEL=YEL, YEL_SOFT=YEL_SOFT, SEL=SEL, SEL_BORDA=SEL_BORDA, INK=INK, INK_2=INK_2, MUTED=MUTED, HOVER=HOVER, PRESSED=PRESSED,
         R_CARD=R_CARD, R_CTRL=R_CTRL,
         cb_off=u("cb_off.svg"), cb_off_h=u("cb_off_h.svg"), cb_off_d=u("cb_off_d.svg"), cb_on=u("cb_on.svg"),
         cb_on_d=u("cb_on_d.svg"), cb_mid=u("cb_mid.svg"), rb_off=u("rb_off.svg"), rb_on=u("rb_on.svg"),

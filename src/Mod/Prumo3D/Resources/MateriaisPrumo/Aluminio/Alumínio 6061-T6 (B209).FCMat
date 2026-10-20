@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "Alumínio 6061-T6 (B209)"
-  Description: "Limites mínimos da especificação ASTM B209 6061-T6. Fonte da conferência: matmatch.com. Módulo de elasticidade conforme ASME B31.1 a 21 °C; densidade e Poisson típicos. Confirme com o certificado do material."
+  Description: "Limites mínimos da especificação ASTM B209 6061-T6. Fonte da conferência: matmatch.com. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'

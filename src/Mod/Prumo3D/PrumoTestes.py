@@ -81,7 +81,7 @@ def _estudo_viga(doc, L=200.0, b=10.0, h=20.0, tipo="static"):
     est.solver.AnalysisType = tipo
     m = ObjectsFem.makeMaterialSolid(doc, "Material")
     est.analise.addObject(m)
-    d = next(x for x in F.materiais() if x["nome"] in ("S235JR", "Steel-S235JR"))
+    d = next(x for x in F.materiais() if x["nome"] in ("ASTM A36", "S235JR", "Steel-S235JR"))
     mat = Materials.MaterialManager().getMaterial(d["uuid"])
     m.Material = mat.Properties
     fx = ObjectsFem.makeConstraintFixed(doc, "Fixacao")
@@ -97,7 +97,7 @@ class T01Modulos(unittest.TestCase):
         for nome in ("PrumoGui", "PrumoEstilo", "PrumoRibbon", "PrumoI18n", "PrumoInicio", "PrumoGuia",
                      "PrumoSobre", "PrumoFEM", "PrumoFEMRelatorio", "PrumoUtil", "PrumoCotas", "PrumoMassa",
                      "PrumoBOM", "PrumoContexto", "PrumoFolhas", "PrumoPerfis", "PrumoEstrutura", "PrumoVaso",
-                     "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao"):
+                     "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao", "PrumoNomes"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):
@@ -267,17 +267,62 @@ class T04Glossario(unittest.TestCase):
 
 
 class T05Materiais(unittest.TestCase):
+    """Só materiais usados no Brasil: a biblioteca do sistema do FreeCAD fica desligada."""
+
     def test_biblioteca(self):
         import PrumoFEM as F
         lst = F.materiais()
-        self.assertGreater(len(lst), 50)
-        d = next((x for x in lst if x["nome"] in ("S235JR", "Steel-S235JR")), None)
-        self.assertIsNotNone(d, "S235JR não encontrado na biblioteca")
+        self.assertGreaterEqual(len(lst), 25)
+        d = next((x for x in lst if x["nome"] == "ASTM A36"), None)
+        self.assertIsNotNone(d, "ASTM A36 não encontrado na biblioteca")
         p = F.props_mat(d["props"])
-        self.assertAlmostEqual(p["E"], 210000.0, delta=1.0)
-        self.assertAlmostEqual(p["Sy"], 235.0, delta=0.5)
-        self.assertAlmostEqual(p["rho"], 7800.0, delta=1.0)
+        self.assertAlmostEqual(p["E"], 203000.0, delta=1.0)
+        self.assertAlmostEqual(p["Sy"], 250.0, delta=0.5)
+        self.assertAlmostEqual(p["rho"], 7850.0, delta=1.0)
         self.assertAlmostEqual(p["nu"], 0.3, delta=1e-6)
+
+    def test_sem_materiais_estrangeiros(self):
+        r = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Material/Resources")
+        if r.GetBool("UseBuiltInMaterials", True):
+            self.skipTest("biblioteca do sistema religada pelo usuário")
+        import PrumoFEM as F
+        nomes = {d["nome"] for d in F.materiais()}
+        for estrangeiro in ("S235JR", "Steel-S235JR", "PLA-Generic", "Wood-Generic", "Concrete-Generic"):
+            self.assertNotIn(estrangeiro, nomes)
+        self.assertTrue(all(d["biblioteca"] == "Prumo" for d in F.materiais()))
+
+    def test_configuracao_das_bibliotecas(self):
+        import PrumoGui
+        r = FreeCAD.ParamGet(PrumoGui.MAT_RES)
+        mods = FreeCAD.ParamGet(PrumoGui.MAT_RES + "/Modules")
+        antes = r.GetBool("UseBuiltInMaterials", True)
+        try:
+            r.SetBool("UseBuiltInMaterials", True)
+            PrumoGui.install_materials()
+            self.assertNotIn("Aparências", mods.GetGroups(), "com a do sistema ligada não duplica")
+            r.SetBool("UseBuiltInMaterials", False)
+            PrumoGui.install_materials()
+            self.assertIn("Aparências", mods.GetGroups())
+            self.assertIn("Fluidos", mods.GetGroups())
+            self.assertTrue(FreeCAD.ParamGet(PrumoGui.MAT_RES + "/Modules/Prumo").GetString("ModuleModelDir"))
+            # a escolha do usuário vale: a marca de versão não deixa desligar de novo
+            r.SetBool("UseBuiltInMaterials", True)
+            PrumoGui.install_materials()
+            self.assertTrue(r.GetBool("UseBuiltInMaterials", False))
+        finally:
+            r.SetBool("UseBuiltInMaterials", antes)
+            PrumoGui.install_materials()
+
+    def test_material_padrao_e_aparencias_continuam(self):
+        import Materials
+        mm = Materials.MaterialManager()
+        padrao = mm.getMaterial("7f9fd73b-50c9-41d8-b7b2-575a030c1eeb")
+        self.assertIsNotNone(padrao)
+        libs = {m.LibraryName for m in mm.Materials.values()}
+        if not FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Material/Resources").GetBool(
+                "UseBuiltInMaterials", True):
+            self.assertIn("Aparências", libs)
+            self.assertIn("Padrão", libs)
 
 
 class T05bMateriaisPrumo(unittest.TestCase):
@@ -291,7 +336,9 @@ class T05bMateriaisPrumo(unittest.TestCase):
         "ASTM A53 Gr B (SA-53 B)": (240, 415, 203000), "ASTM A105 (SA-105)": (250, 485, 203000),
         "ASTM A500 Gr B (tubo redondo)": (290, 400, 203000), "AISI 304 (A240)": (205, 515, 195000),
         "AISI 304L (A240)": (170, 485, 195000), "AISI 316 (A240)": (205, 515, 195000),
-        "Alumínio 6061-T6 (B209)": (240, 290, 69000),
+        "Alumínio 6061-T6 (B209)": (240, 290, 69000), "NBR 7007 AR350 COR": (350, 485, 203000),
+        "NBR 6648 CG250": (250, 400, 203000), "NBR 6650 CFQ250": (250, 400, 203000),
+        "AISI 316L (A240)": (170, 485, 193000),
     }
 
     def test_biblioteca_registrada_e_valores(self):
@@ -313,8 +360,31 @@ class T05bMateriaisPrumo(unittest.TestCase):
         sew = {d["nome"]: d for d in F.materiais() if d["biblioteca"] == "Prumo"}
         if not sew:
             self.skipTest("biblioteca Prumo ainda não carregada")
-        for nome in ("SAE 1020", "SAE 1045"):
+        for nome in ("SAE 1020", "SAE 1045", "SAE 4140", "SAE 4340", "SAE 8620", "AISI 430 (A240)",
+                     "Alumínio 1100-H14", "Alumínio 5052-H32", "Latão C36000 (usinagem)",
+                     "Ferro fundido nodular FE 50007", "Chapa SAE 1020 (fina a quente)"):
+            self.assertIn(nome, sew, nome)
             self.assertIsNone(F.props_mat(sew[nome]["props"])["Sy"], nome)
+
+    def test_cartoes_tem_norma_e_fonte(self):
+        import glob
+        import PrumoGui
+        arqs = glob.glob(os.path.join(PrumoGui.MATERIAIS_DIR, "*", "*.FCMat"))
+        self.assertGreaterEqual(len(arqs), 34)
+        for a in arqs:
+            txt = open(a, encoding="utf-8").read()
+            self.assertIn("StandardCode:", txt, a)
+            self.assertIn("Density:", txt, a)
+            if "YieldStrength" in txt:
+                self.assertIn("Fonte da conferência", txt, a)
+
+    def test_ferro_cinzento_so_para_massa(self):
+        import Materials
+        mm = Materials.MaterialManager()
+        fc = [m for m in mm.Materials.values() if m.Name == "Ferro fundido cinzento FC 250"]
+        self.assertTrue(fc)
+        dens = FreeCAD.Units.Quantity(fc[0].Properties["Density"]).getValueAs("kg/m^3")
+        self.assertAlmostEqual(float(dens), 7200.0, delta=1.0)
 
     def test_prumo_aparece_primeiro(self):
         import PrumoFEM as F

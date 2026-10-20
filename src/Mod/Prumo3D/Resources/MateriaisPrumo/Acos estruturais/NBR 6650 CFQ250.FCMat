@@ -1,0 +1,24 @@
+---
+# Biblioteca de materiais do Prumo 3D
+General:
+  UUID: "8e45c7dc-b2ab-5fb5-ad54-60c509184102"
+  Author: "Prumo 3D"
+  License: "CC-BY-4.0"
+  Name: "NBR 6650 CFQ250"
+  Description: "Limites mínimos da especificação ABNT NBR 6650 CFQ250. Fonte da conferência: ArcelorMittal Chapas 2019. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
+Models:
+  Father:
+    UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'
+    Father: "Metal"
+  MaterialStandard:
+    UUID: '1e2c0088-904a-4537-925f-64064c07d700'
+    KindOfMaterial: "Chapa fina a quente estrutural"
+    MaterialNumber: "CFQ250"
+    StandardCode: "ABNT NBR 6650"
+  LinearElastic:
+    UUID: '7b561d1d-fb9b-44f6-9da9-56a4f74d7536'
+    Density: "7850 kg/m^3"
+    PoissonRatio: "0.3"
+    YoungsModulus: "203000 MPa"
+    YieldStrength: "250 MPa"
+    UltimateTensileStrength: "400 MPa"

@@ -7,10 +7,16 @@ Entram no conjunto do comando "Testes automáticos" (PrumoTestes).
 import math
 import os
 import tempfile
+import time
 import unittest
 
 import FreeCAD
 import FreeCADGui
+
+try:
+    from PySide import QtCore, QtWidgets
+except ImportError:  # pragma: no cover
+    QtCore = QtWidgets = None
 
 
 # ======================================================================= modelos de teste
@@ -2447,7 +2453,316 @@ class T29GuiaEstrutura(unittest.TestCase):
             fechar(doc)
 
 
+class T30Faixa(unittest.TestCase):
+    """Faixa: nomes inteiros, altura arrastável, grupos com divisor arrastável."""
+
+    def setUp(self):
+        import PrumoRibbon
+        self.R = PrumoRibbon
+        self.rb = PrumoRibbon._state.get("ribbon")
+        if self.rb is None:
+            self.skipTest("faixa Prumo não instalada nesta sessão")
+        self.p = FreeCAD.ParamGet(PrumoRibbon.PARAM_PATH)
+        self.altura0 = self.rb.content.height()
+        self.doc = novo_doc("PrumoTesteFaixa")
+
+    def tearDown(self):
+        self.rb.definir_altura(self.altura0)
+        for t in self.R.TABS:
+            self.p.RemString("RibbonPaineis_" + t["id"])
+        fechar(self.doc)
+
+    def _abrir(self, tab_id):
+        self.rb.select_tab(tab_id, user=True)
+        for _ in range(5):
+            FreeCADGui.updateGui()
+
+    def test_medidas_dentro_dos_limites(self):
+        R = self.R
+        for h in (50, R.ALTURA_MIN, R.ALTURA_PADRAO, 170, R.ALTURA_MAX, 500):
+            m = R.medidas(h)
+            self.assertTrue(R.ALTURA_MIN <= m["altura"] <= R.ALTURA_MAX)
+            self.assertGreaterEqual(m["S"] * 3 + 6, 0)
+            self.assertLessEqual(m["S"] * 3, m["L"] + 6)
+            self.assertTrue(24 <= m["iconL"] <= 48 and 16 <= m["iconS"] <= 24)
+        self.assertGreater(R.medidas(190)["L"], R.medidas(120)["L"])
+        self.assertGreaterEqual(R.ALTURA_PADRAO, 136, "a faixa ficou um pouco mais alta")
+
+    def test_nenhum_nome_cortado_em_nenhuma_aba(self):
+        cortados = []
+        for t in self.R.TABS:
+            self._abrir(t["id"])
+            for b in self.rb.findChildren(self.R.RibbonButton):
+                if b.isVisible() and b.toolButtonStyle() != QtCore.Qt.ToolButtonIconOnly \
+                        and b.width() < b.largura_do_texto() - 1:
+                    cortados.append("%s: %s" % (t["id"], b.text()))
+        self.assertEqual(cortados, [])
+
+    def test_altura_arrastavel_muda_botoes_e_fica_salva(self):
+        self._abrir("peca")
+        h = self.rb.definir_altura(180)
+        FreeCADGui.updateGui()
+        self.assertEqual(self.rb.content.height(), 180)
+        self.assertEqual(self.p.GetInt("RibbonHeight"), 180)
+        grandes = [b for b in self.rb.findChildren(self.R.RibbonButton) if b.property("sw_size") == "L"
+                   and b.isVisible()]
+        self.assertTrue(grandes)
+        self.assertEqual(grandes[0].height(), self.R.medidas(h)["L"])
+        self.assertGreater(grandes[0].iconSize().width(), 32)
+        # o arraste pela alça usa a mesma função ao soltar
+        self.rb.grip._y0, self.rb.grip._h0 = 0, 180
+        self.rb.content.setFixedHeight(150)
+        self.rb.grip.mouseReleaseEvent(None)
+        self.assertEqual(self.p.GetInt("RibbonHeight"), 150)
+        self.rb.grip.mouseDoubleClickEvent(None)
+        self.assertEqual(self.rb.content.height(), self.R.ALTURA_PADRAO)
+
+    def test_grupos_com_divisor_arrastavel_e_largura_salva(self):
+        self._abrir("inicio")
+        sp = self.rb.split
+        self.assertIsInstance(sp, QtWidgets.QSplitter)
+        self.assertEqual(sp.count(), len(self.rb.paineis) + 1)
+        tam = sp.sizes()
+        tam[0] += 60
+        sp.setSizes(tam)
+        sp.splitterMoved.emit(tam[0], 1)
+        salvo = self.p.GetString("RibbonPaineis_inicio")
+        self.assertTrue(salvo)
+        largura = sp.sizes()[0]
+        self._abrir("peca")
+        self._abrir("inicio")
+        self.assertAlmostEqual(self.rb.split.sizes()[0], largura, delta=6)
+        self.rb.restaurar_larguras()
+        self.assertEqual(self.p.GetString("RibbonPaineis_inicio"), "")
+
+    def test_grupo_estreitado_mostra_so_icones_pequenos(self):
+        self._abrir("inicio")
+        pn = [p for p in self.rb.paineis if p.pequenos()][0]
+        self.assertGreater(pn._natural, pn._compacta)
+        pn.resize(pn._compacta, pn.height())   # bem abaixo da largura natural
+        FreeCADGui.updateGui()
+        self.assertTrue(pn.compacto())
+        pn.resize(pn._natural + 10, pn.height())
+        FreeCADGui.updateGui()
+        self.assertFalse(pn.compacto())
+
+    def test_recolher_esconde_a_alca(self):
+        self.rb._toggle_collapse()
+        try:
+            self.assertFalse(self.rb.grip.isVisible())
+        finally:
+            self.rb._toggle_collapse()
+        self.assertTrue(self.rb.content.isVisible())
+
+    def test_tutorial_ainda_acha_os_botoes(self):
+        import PrumoTutorial as T
+        self.rb.definir_altura(170)
+        for _t, _x, aba, cmds, _k in [T.PASSOS[0], T.PASSOS[1], T.PASSOS[-1]] + T.PASSOS_ESTRUTURA[2:8]:
+            self.assertTrue(T.destacar(aba, cmds), cmds)
+
+    def test_janela_estreita_rola_sem_compactar(self):
+        self._abrir("inicio")
+        mw = FreeCADGui.getMainWindow()
+        tam0 = mw.size()
+        try:
+            mw.resize(900, tam0.height())
+            for _ in range(10):
+                FreeCADGui.updateGui()
+            self.assertFalse(any(p.compacto() for p in self.rb.paineis))
+        finally:
+            mw.resize(tam0)
+
+
+class T31Bancadas(unittest.TestCase):
+    """Bancadas que não vêm ligadas (Materiais, Nuvem de pontos, Robótica) e editor de materiais no
+    menu Vista."""
+
+    def setUp(self):
+        import PrumoGui
+        self.G = PrumoGui
+        self.wb = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Workbenches")
+        self.pp = FreeCAD.ParamGet(PrumoGui.PARAM_PATH)
+        self.dis0 = self.wb.GetString("Disabled", "")
+        self.ord0 = self.wb.GetString("Ordered", "")
+        self.flag0 = self.pp.GetInt("BancadasPadrao", 0)
+
+    def tearDown(self):
+        for k, v in (("Disabled", self.dis0), ("Ordered", self.ord0)):
+            if v:
+                self.wb.SetString(k, v)
+            else:
+                self.wb.RemString(k)
+        self.pp.SetInt("BancadasPadrao", self.flag0)
+
+    def test_perfil_novo_desliga_as_tres(self):
+        self.wb.RemString("Disabled")
+        self.wb.SetString("Ordered", "PartDesignWorkbench,MaterialWorkbench,SketcherWorkbench")
+        self.pp.RemInt("BancadasPadrao")
+        self.assertTrue(self.G.aplicar_bancadas_padrao())
+        dis = self.G.bancadas_desligadas()
+        for n in ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "TestWorkbench"):
+            self.assertIn(n, dis)
+        self.assertNotIn("MaterialWorkbench", self.wb.GetString("Ordered"))
+        self.assertNotIn("PartDesignWorkbench", dis)
+
+    def test_religada_pelo_usuario_continua_ligada(self):
+        self.pp.RemInt("BancadasPadrao")
+        self.G.aplicar_bancadas_padrao()
+        self.wb.SetString("Disabled", ",".join(n for n in self.G.bancadas_desligadas() if n != "PointsWorkbench"))
+        self.assertFalse(self.G.aplicar_bancadas_padrao())
+        self.assertNotIn("PointsWorkbench", self.G.bancadas_desligadas())
+
+    def test_seletor_da_faixa_esconde_as_desligadas(self):
+        import PrumoRibbon
+        rb = PrumoRibbon._state.get("ribbon")
+        if rb is None:
+            self.skipTest("faixa Prumo não instalada nesta sessão")
+        self.pp.RemInt("BancadasPadrao")
+        self.G.aplicar_bancadas_padrao()
+        m = QtWidgets.QMenu()
+        rb._fill_wb_menu(m)
+        nomes = [a.text() for a in m.actions()]
+        for rot in ("Materiais", "Nuvem de pontos", "Robótica"):
+            self.assertNotIn(rot, nomes)
+        self.assertIn("Peça", nomes)
+        self.assertIn("Chapa metálica", nomes)
+
+    def test_menu_vista_tem_editor_de_materiais_e_arvore(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.G.instalar_menu_sobre()
+        FreeCADGui.activeWorkbench().reloadActive()
+        FreeCADGui.updateGui()
+        mb = FreeCADGui.getMainWindow().menuBar()
+        cmds = set()
+        for a in mb.actions():
+            if a.menu() is not None and a.text().replace("&", "") == "Vista":
+                cmds = {x.objectName() for x in a.menu().actions()}
+        self.assertIn("Prumo_Arvore", cmds)
+        if "Material_Edit" in FreeCADGui.listCommands():
+            self.assertIn("Material_Edit", cmds)
+
+    def test_comandos_de_material_continuam_disponiveis(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.assertIn("Std_SetMaterial", FreeCADGui.listCommands())
+
+
+class T32Arvore(unittest.TestCase):
+    """Árvore do modelo: nomes em português, cores sem amarelo forte, olho novo."""
+
+    def _esperar(self):
+        for _ in range(5):
+            FreeCADGui.updateGui() if FreeCAD.GuiUp else None
+            QtCore.QCoreApplication.processEvents()
+
+    def setUp(self):
+        import PrumoNomes
+        self.N = PrumoNomes
+        self.obs = PrumoNomes.install()
+
+    def test_traducao_dos_rotulos(self):
+        t = self.N.traduzir
+        self.assertEqual(t("Pad"), "Extrusão")
+        self.assertEqual(t("Pocket001"), "Cavidade001")
+        self.assertEqual(t("XY_Plane"), "Plano XY")
+        self.assertIsNone(t("Suporte"))
+        self.assertIsNone(t("Pad1234"))
+
+    def test_objetos_novos_ganham_nome_em_portugues(self):
+        doc = novo_doc("PrumoTesteNomes")
+        try:
+            body = doc.addObject("PartDesign::Body", "Body")
+            sk = esboco_retangulo(body)
+            pad = body.newObject("PartDesign::Pad", "Pad")
+            pad.Profile = sk
+            pad.Length = 5
+            pad2 = body.newObject("PartDesign::Pad", "Pad")
+            doc.recompute()
+            self._esperar()
+            self.assertEqual(body.Label, "Corpo")
+            self.assertEqual(sk.Label, "Esboço")
+            self.assertEqual(pad.Label, "Extrusão")
+            self.assertEqual(pad2.Label, "Extrusão001")
+            self.assertEqual(pad.Name, "Pad", "o nome interno não muda")
+            papeis = {f.Role: f.Label for f in body.Origin.OriginFeatures}
+            # o FreeCAD 1.1 já traduz a origem ("Plano-XY"); o Prumo só cobre se vier em inglês
+            self.assertNotIn(papeis.get("XY_Plane"), ("XY_Plane", None))
+            self.assertNotIn(papeis.get("Z_Axis"), ("Z_Axis", None))
+        finally:
+            fechar(doc)
+
+    def test_rotulo_escolhido_pelo_usuario_fica(self):
+        doc = novo_doc("PrumoTesteNomes2")
+        try:
+            b = doc.addObject("Part::Box", "Box")
+            b.Label = "Bloco de apoio"
+            self._esperar()
+            self.assertEqual(b.Label, "Bloco de apoio")
+        finally:
+            fechar(doc)
+
+    def test_arquivo_aberto_nao_e_renomeado(self):
+        caminho = os.path.join(tempfile.mkdtemp(), "nomes_ingles.FCStd")
+        p = FreeCAD.ParamGet(self.N.PARAM_PATH)
+        p.SetBool("NomesEmPortugues", False)
+        try:
+            doc = novo_doc("PrumoTesteNomes3")
+            doc.addObject("Part::Box", "Box")
+            self._esperar()
+            doc.saveAs(caminho)
+            fechar(doc)
+        finally:
+            p.RemBool("NomesEmPortugues")
+        doc = FreeCAD.openDocument(caminho)
+        try:
+            self._esperar()
+            self.assertEqual(doc.getObject("Box").Label, "Box")
+        finally:
+            fechar(doc)
+
+    def test_desligavel_nas_preferencias(self):
+        p = FreeCAD.ParamGet(self.N.PARAM_PATH)
+        p.SetBool("NomesEmPortugues", False)
+        doc = novo_doc("PrumoTesteNomes4")
+        try:
+            b = doc.addObject("Part::Box", "Box")
+            self._esperar()
+            self.assertEqual(b.Label, "Box")
+        finally:
+            p.RemBool("NomesEmPortugues")
+            fechar(doc)
+
+    def test_cores_da_arvore_sem_amarelo(self):
+        import PrumoEstilo as E
+        r, g, b = (int(E.TREE_COLORS["TreeActiveColor"][i:i + 2], 16) for i in (1, 3, 5))
+        self.assertGreater(b, r, "corpo ativo em tom azulado, não amarelo")
+        qss = E._qss_claro()
+        if qss:
+            self.assertIn("Gui--TreeWidget::item:selected", qss)
+            self.assertIn(E.SEL, qss)
+        self.assertGreaterEqual(E.VIEW_COLORS_VERSION, 4)
+
+    def test_olho_novo_no_tema_de_icones(self):
+        import zipfile
+        import PrumoGui
+        with zipfile.ZipFile(PrumoGui.ICON_ZIP) as z:
+            for n in ("TreeItemVisible.svg", "TreeItemInvisible.svg", "actions/TreeItemVisible.svg"):
+                svg = z.read(n).decode("utf-8")
+                self.assertNotIn("#F7BE00", svg, n)
+                self.assertIn("<svg", svg)
+        if FreeCAD.GuiUp:
+            try:
+                from PySide6 import QtSvg
+            except ImportError:  # pragma: no cover
+                from PySide2 import QtSvg
+            with zipfile.ZipFile(PrumoGui.ICON_ZIP) as z:
+                r = QtSvg.QSvgRenderer(QtCore.QByteArray(z.read("TreeItemVisible.svg")))
+                self.assertTrue(r.isValid())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
-           T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura]
+           T25EstruturaInterface, T26Versao, T27Exemplos, T28TraducaoEArvore, T29GuiaEstrutura,
+           T30Faixa, T31Bancadas, T32Arvore]

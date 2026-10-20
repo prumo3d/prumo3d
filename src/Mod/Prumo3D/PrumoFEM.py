@@ -265,7 +265,10 @@ PASTAS_PRUMO = [("Acos para vasos de pressao", "Prumo · Aços para vasos de pre
                  ("Tubos e forjados", "Prumo · Tubos e forjados"),
                  ("Acos inoxidaveis", "Prumo · Aços inoxidáveis"),
                  ("Acos para construcao mecanica", "Prumo · Construção mecânica"),
-                 ("Aluminio", "Prumo · Alumínio")]
+                 ("Chapas de uso geral", "Prumo · Chapas de uso geral"),
+                 ("Ferro fundido", "Prumo · Ferro fundido"),
+                 ("Aluminio", "Prumo · Alumínio"),
+                 ("Cobre e latao", "Prumo · Cobre e latão")]
 GRUPOS_MAT = [("Steel", "Aços e ferros fundidos"), ("Aluminum", "Alumínio"), ("Iron", "Ferro"),
               ("Copper", "Cobre e latão"), ("Titanium", "Titânio"), ("Alloys", "Ligas"),
               ("Metal", "Outros metais"), ("", "Outros")]

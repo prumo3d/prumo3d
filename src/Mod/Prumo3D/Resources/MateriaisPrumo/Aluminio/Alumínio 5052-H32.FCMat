@@ -1,0 +1,22 @@
+---
+# Biblioteca de materiais do Prumo 3D
+General:
+  UUID: "9d0b1dec-db0b-5634-a709-3513058fce5c"
+  Author: "Prumo 3D"
+  License: "CC-BY-4.0"
+  Name: "Alumínio 5052-H32"
+  Description: "A resistência do Alumínio 5052-H32 depende do estado de fornecimento (laminado, trefilado, beneficiado) e a norma não fixa mínimo: use o valor do certificado. Densidade, módulo de elasticidade e Poisson típicos."
+Models:
+  Father:
+    UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'
+    Father: "Metal"
+  MaterialStandard:
+    UUID: '1e2c0088-904a-4537-925f-64064c07d700'
+    KindOfMaterial: "Liga Al-Mg (chapa dobrada, naval)"
+    MaterialNumber: "5052-H32"
+    StandardCode: "ASTM B209"
+  LinearElastic:
+    UUID: '7b561d1d-fb9b-44f6-9da9-56a4f74d7536'
+    Density: "2700 kg/m^3"
+    PoissonRatio: "0.33"
+    YoungsModulus: "68000 MPa"

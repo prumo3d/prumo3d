@@ -339,6 +339,11 @@ RIBBON_QSS = """
 #PrumoPage #PrumoPanelTitle { color: #66727F; font-size: 8pt; padding: 1px 0 3px 0; background: transparent; }
 #PrumoPage #PrumoSep { background: #DCE4EC; margin: 6px 0 6px 0; }
 #PrumoPanel { background: transparent; border: none; }
+#PrumoSplit, #PrumoResto { background: #FFFFFF; }
+#PrumoSplit::handle:horizontal { background: #FFFFFF; border-left: 1px solid #DCE4EC; margin: 8px 4px 8px 4px; }
+#PrumoSplit::handle:horizontal:hover { border-left: 3px solid #7FA3C9; margin: 8px 3px 8px 3px; }
+#PrumoGrip { background: #F5F8FC; border-bottom: 1px solid #DCE4EC; }
+#PrumoGrip:hover { background: #DCE8F4; }
 
 
 #PrumoRibbon QToolButton {
@@ -576,8 +581,29 @@ def _rich_tip(icon, title, desc, shortcut):
 
 
 # --------------------------------------------------------------------------
-L_ALTURA = 90   # botão grande: ícone + rótulo em até duas linhas (+ seta de menu)
-S_ALTURA = 28   # botão pequeno (três por coluna)
+L_ALTURA = 98   # botão grande: ícone + rótulo em até duas linhas (+ seta de menu)
+S_ALTURA = 30   # botão pequeno (três por coluna)
+
+# Altura da área dos botões (arrastável pela borda de baixo da faixa; duplo clique volta ao padrão)
+ALTURA_PADRAO, ALTURA_MIN, ALTURA_MAX = 136, 112, 200
+
+
+def medidas(altura):
+    """Tamanhos dos botões e ícones para uma altura da área de botões."""
+    altura = max(ALTURA_MIN, min(ALTURA_MAX, int(altura)))
+    l_alt = altura - 38
+    s_alt = max(26, (l_alt - 6) // 3)
+    icon_l = max(24, min(48, int(round(32.0 * l_alt / 98))))
+    icon_s = max(16, min(24, int(round(18.0 * s_alt / 30))))
+    return {"altura": altura, "L": l_alt, "S": s_alt, "iconL": icon_l, "iconS": icon_s}
+
+
+_MED = medidas(ALTURA_PADRAO)
+
+
+def altura_salva():
+    h = _params().GetInt("RibbonHeight", 0)
+    return ALTURA_PADRAO if h <= 0 else max(ALTURA_MIN, min(ALTURA_MAX, h))
 
 
 def _quebra(texto):
@@ -601,17 +627,19 @@ class RibbonButton(QtWidgets.QToolButton):
         self.setProperty("sw_size", size)
         self.setAutoRaise(True)
         self.setFocusPolicy(QtCore.Qt.NoFocus)
+        # Política "Minimum" na horizontal: o botão nunca fica mais estreito que o texto (sem "Enq…tudo");
+        # se a janela for estreita, a faixa ganha rolagem em vez de cortar os nomes.
         if size == L:
             self.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            self.setIconSize(QtCore.QSize(ICON_L, ICON_L))
+            self.setIconSize(QtCore.QSize(_MED["iconL"], _MED["iconL"]))
             self.setMinimumWidth(54)
-            self.setFixedHeight(L_ALTURA)
-            self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+            self.setFixedHeight(_MED["L"])
+            self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         else:
             self.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-            self.setIconSize(QtCore.QSize(ICON_S, ICON_S))
-            self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
-            self.setFixedHeight(S_ALTURA)
+            self.setIconSize(QtCore.QSize(_MED["iconS"], _MED["iconS"]))
+            self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+            self.setFixedHeight(_MED["S"])
         if len(actions) > 1:
             menu = QtWidgets.QMenu(self)
             for a in actions:
@@ -623,6 +651,27 @@ class RibbonButton(QtWidgets.QToolButton):
         for a in actions:
             a.changed.connect(self._sync)
         self._sync()
+
+    def largura_do_texto(self):
+        """Largura que o rótulo precisa (o sizeHint do Qt subestima com folha de estilo e Poppins)."""
+        self.ensurePolished()
+        fm = QtGui.QFontMetrics(self.font())
+        linhas = self.text().split("\n") or [""]
+        txt = max(fm.horizontalAdvance(l) for l in linhas) if hasattr(fm, "horizontalAdvance") else \
+            max(fm.width(l) for l in linhas)
+        if self._size == L:
+            return max(54, txt + 16, _MED["iconL"] + 16)
+        if self.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly:
+            return _MED["iconS"] + 14 + (14 if self.menu() is not None else 0)
+        return _MED["iconS"] + txt + 22 + (14 if self.menu() is not None else 0)
+
+    def _ajustar_largura(self):
+        self.setMinimumWidth(self.largura_do_texto())
+
+    def setToolButtonStyle(self, estilo):
+        super().setToolButtonStyle(estilo)
+        if getattr(self, "_size", None) is not None and self.text():
+            self._ajustar_largura()
 
     def _on_menu(self, action):
         self._current = action
@@ -648,9 +697,10 @@ class RibbonButton(QtWidgets.QToolButton):
                 if not x.icon().isNull():
                     icon = x.icon()
                     break
-        self.setIcon(_with_disabled(icon, ICON_L if self._size == L else ICON_S))
+        self.setIcon(_with_disabled(icon, _MED["iconL"] if self._size == L else _MED["iconS"]))
         txt = self._label if self._label else _clean(a.text())
         self.setText(_quebra(txt) if self._size == L else txt)
+        self._ajustar_largura()
         action_title = _clean(a.text())
         title = self._label.replace("\n", " ") if (self._label and len(self._actions) == 1) else action_title
         desc = _tip_desc(a.toolTip() or a.statusTip(), (title, action_title))
@@ -668,6 +718,14 @@ class RibbonButton(QtWidgets.QToolButton):
             self.setChecked(a.isChecked())
 
 
+def _largura_estilo(b, estilo):
+    atual = b.toolButtonStyle()
+    QtWidgets.QToolButton.setToolButtonStyle(b, estilo)
+    w = b.largura_do_texto()
+    QtWidgets.QToolButton.setToolButtonStyle(b, atual)
+    return w
+
+
 class RibbonPanel(QtWidgets.QFrame):
     def __init__(self, title, parent=None):
         super().__init__(parent)
@@ -681,12 +739,58 @@ class RibbonPanel(QtWidgets.QFrame):
         self.row.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         outer.addLayout(self.row, 1)
         cap = QtWidgets.QLabel(title)
+        self._cap = cap
         cap.setObjectName("PrumoPanelTitle")
         cap.setAlignment(QtCore.Qt.AlignCenter)
         cap.setFixedHeight(20)
         outer.addWidget(cap)
         self._col = None
         self.count = 0
+
+    def pequenos(self):
+        return [b for b in self.findChildren(QtWidgets.QToolButton) if b.property("sw_size") == S]
+
+    def larguras(self):
+        """(natural, compacta): largura com os nomes dos botões pequenos e só com os ícones."""
+        nat = comp = 0
+        n = 0
+        for i in range(self.row.count()):
+            w = self.row.itemAt(i).widget()
+            if w is None:
+                continue
+            n += 1
+            if isinstance(w, RibbonButton):
+                lw = w.largura_do_texto()
+                nat += lw
+                comp += lw
+                continue
+            bs = [b for b in w.findChildren(RibbonButton)]
+            if not bs:
+                continue
+            nat += max(_largura_estilo(b, QtCore.Qt.ToolButtonTextBesideIcon) for b in bs)
+            comp += max(_largura_estilo(b, QtCore.Qt.ToolButtonIconOnly) for b in bs)
+        extra = self.row.spacing() * max(n - 1, 0) + 8
+        cap = self._cap.fontMetrics().boundingRect(self._cap.text()).width() + 16
+        return max(nat + extra, cap), max(comp + extra, cap)
+
+    def preparar(self):
+        self._natural, self._compacta = self.larguras()
+        self.setMinimumWidth(self._compacta)
+
+    def compacto(self):
+        ps = self.pequenos()
+        return bool(ps) and all(b.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly for b in ps)
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        nat = getattr(self, "_natural", None)
+        if nat is None:
+            return
+        # folga de alguns pixels: o divisor arredonda as larguras
+        estilo = QtCore.Qt.ToolButtonIconOnly if ev.size().width() < nat - 10 else QtCore.Qt.ToolButtonTextBesideIcon
+        for b in self.pequenos():
+            if b.toolButtonStyle() != estilo:
+                b.setToolButtonStyle(estilo)
 
     def add(self, btn, size):
         self.count += 1
@@ -704,6 +808,42 @@ class RibbonPanel(QtWidgets.QFrame):
             self._col.setAlignment(QtCore.Qt.AlignTop)
             self.row.addWidget(w)
         self._col.addWidget(btn)
+
+
+class AlcaAltura(QtWidgets.QWidget):
+    """Borda de baixo da faixa: arrastar muda a altura (botões e ícones acompanham); duplo clique
+    volta ao padrão."""
+
+    def __init__(self, ribbon):
+        super().__init__(ribbon)
+        self.ribbon = ribbon
+        self.setObjectName("PrumoGrip")
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        self.setFixedHeight(6)
+        self.setCursor(QtCore.Qt.SizeVerCursor)
+        self.setToolTip("Arraste para aumentar ou diminuir a faixa · duplo clique: altura padrão")
+        self._y0 = None
+
+    def mousePressEvent(self, ev):
+        if ev.button() == QtCore.Qt.LeftButton:
+            self._y0 = ev.globalPosition().y() if hasattr(ev, "globalPosition") else ev.globalY()
+            self._h0 = self.ribbon.content.height()
+
+    def mouseMoveEvent(self, ev):
+        if self._y0 is None:
+            return
+        y = ev.globalPosition().y() if hasattr(ev, "globalPosition") else ev.globalY()
+        h = max(ALTURA_MIN, min(ALTURA_MAX, int(self._h0 + y - self._y0)))
+        self.ribbon.content.setFixedHeight(h)
+
+    def mouseReleaseEvent(self, ev):
+        if self._y0 is None:
+            return
+        self._y0 = None
+        self.ribbon.definir_altura(self.ribbon.content.height())
+
+    def mouseDoubleClickEvent(self, ev):
+        self.ribbon.definir_altura(ALTURA_PADRAO)
 
 
 class PrumoRibbon(QtWidgets.QWidget):
@@ -775,8 +915,24 @@ class PrumoRibbon(QtWidgets.QWidget):
         pal = self.content.viewport().palette()
         pal.setColor(QtGui.QPalette.Window, QtGui.QColor(_t("background: #FFFFFF").split(": ")[1]))
         self.content.viewport().setPalette(pal)
-        self.content.setFixedHeight(max(_params().GetInt("RibbonHeight", 126), 126))
+        global _MED
+        _MED = medidas(altura_salva())
+        self.content.setFixedHeight(_MED["altura"])
         lay.addWidget(self.content)
+        self.grip = AlcaAltura(self)
+        lay.addWidget(self.grip)
+        self.content.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.content.customContextMenuRequested.connect(self._menu_faixa)
+
+    def _menu_faixa(self, pos):
+        m = QtWidgets.QMenu(self)
+        a1 = m.addAction("Restaurar a largura dos grupos desta aba")
+        a2 = m.addAction("Altura padrão da faixa")
+        esc = m.exec(self.content.mapToGlobal(pos)) if hasattr(m, "exec") else m.exec_(self.content.mapToGlobal(pos))
+        if esc is a1:
+            self.restaurar_larguras()
+        elif esc is a2:
+            self.definir_altura(ALTURA_PADRAO)
 
     # ---- seletor de bancadas (logo após a marca)
     def _build_wb_button(self):
@@ -862,8 +1018,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         menu.clear()
         wbs = FreeCADGui.listWorkbenches()
         items = []
+        try:
+            import PrumoGui
+            desligadas = set(PrumoGui.bancadas_desligadas())
+        except Exception:
+            desligadas = set()
         for key, wb in wbs.items():
-            if key in ("NoneWorkbench",):
+            if key in ("NoneWorkbench",) or key in desligadas:
                 continue
             label = WB_NAMES.get(key) or getattr(wb, "MenuText", key)
             items.append((label, key, wb))
@@ -884,6 +1045,7 @@ class PrumoRibbon(QtWidgets.QWidget):
     def _toggle_collapse(self, *args):
         vis = not self.content.isVisible()
         self.content.setVisible(vis)
+        self.grip.setVisible(vis)
         self._collapse_btn.setArrowType(QtCore.Qt.UpArrow if vis else QtCore.Qt.DownArrow)
 
     # ---- abas
@@ -982,7 +1144,11 @@ class PrumoRibbon(QtWidgets.QWidget):
         hl = QtWidgets.QHBoxLayout(page)
         hl.setContentsMargins(6, 2, 6, 0)
         hl.setSpacing(0)
-        first = True
+        split = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        split.setObjectName("PrumoSplit")
+        split.setChildrenCollapsible(False)
+        split.setHandleWidth(9)
+        paineis = []
         for title, entries in tab["panels"]:
             panel = RibbonPanel(title)
             for cmd, size, label in entries:
@@ -995,19 +1161,78 @@ class PrumoRibbon(QtWidgets.QWidget):
             if panel.count == 0:
                 panel.deleteLater()
                 continue
-            if not first:
-                sep = QtWidgets.QFrame()
-                sep.setObjectName("PrumoSep")
-                sep.setFixedWidth(1)
-                sep.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-                hl.addWidget(sep)
-            hl.addWidget(panel)
-            first = False
-        hl.addStretch(1)
+            split.addWidget(panel)
+            paineis.append(panel)
+        resto = QtWidgets.QWidget()
+        resto.setObjectName("PrumoResto")
+        split.addWidget(resto)
+        # mede com o estilo (fonte e espaçamentos da folha de estilo) já aplicado
+        page.setStyleSheet(page.styleSheet())
+        for w in [page] + page.findChildren(QtWidgets.QWidget):
+            w.ensurePolished()
+        for i, pn in enumerate(paineis):
+            pn.preparar()
+            split.setStretchFactor(i, 0)
+        split.setStretchFactor(len(paineis), 1)
+        for i in range(1, split.count()):
+            split.handle(i).setToolTip("Arraste para alargar ou estreitar o grupo (duplo clique na aba "
+                                       "recolhe a faixa)")
+        desejado = self._larguras_salvas(tab, paineis)
+        self._fixar_minimo(page, split, desejado[:-1])
+        split.setSizes(desejado)
+        split.splitterMoved.connect(lambda *_a, t=tab, sp=split, pg=page: (self._guardar_larguras(t, sp),
+                                                                            self._fixar_minimo(pg, sp)))
+        hl.addWidget(split, 1)
+        self.split = split
+        self.paineis = paineis
         old = self.content.takeWidget()
         self.content.setWidget(page)
         if old is not None:
             old.deleteLater()
+
+    def _fixar_minimo(self, page, split, tam=None):
+        """Janela estreita: a faixa rola em vez de espremer os grupos (que só ficam compactos
+        quando o próprio usuário arrasta o divisor)."""
+        if tam is None:
+            tam = split.sizes()[:-1]
+        alvo = sum(tam) + split.handleWidth() * len(tam) + 6 * len(tam) + 40
+        page.setMinimumWidth(alvo)
+
+    def _chave_larguras(self, tab):
+        return "RibbonPaineis_" + str(tab.get("id", "x"))
+
+    def _larguras_salvas(self, tab, paineis):
+        nat = [pn._natural for pn in paineis]
+        txt = _params().GetString(self._chave_larguras(tab), "")
+        try:
+            salvas = [int(x) for x in txt.split(",") if x.strip()]
+        except ValueError:
+            salvas = []
+        if len(salvas) == len(paineis):
+            nat = [max(pn._compacta, w) for pn, w in zip(paineis, salvas)]
+        return nat + [2000]
+
+    def _guardar_larguras(self, tab, split):
+        tam = split.sizes()[:-1]
+        _params().SetString(self._chave_larguras(tab), ",".join(str(int(x)) for x in tam))
+
+    def restaurar_larguras(self):
+        """Volta os grupos da aba atual para a largura natural."""
+        tab = self._tabs[self.tabbar.currentIndex()]
+        _params().RemString(self._chave_larguras(tab))
+        self.build(tab)
+
+    # ---- altura da faixa
+    def definir_altura(self, altura, guardar=True):
+        global _MED
+        _MED = medidas(altura)
+        self.content.setFixedHeight(_MED["altura"])
+        if guardar:
+            _params().SetInt("RibbonHeight", _MED["altura"])
+        idx = self.tabbar.currentIndex()
+        if 0 <= idx < len(self._tabs):
+            self.build(self._tabs[idx])
+        return _MED["altura"]
 
     # ---- edição de esboço: mostra a aba Esboço sem trocar de bancada
     def check_edit(self):
