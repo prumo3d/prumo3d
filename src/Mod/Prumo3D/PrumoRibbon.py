@@ -227,11 +227,17 @@ TABS = [
     ]},
     {"id": "estruturas", "label": "Estruturas", "wb": None, "panels": [
         ("Estrutura soldada", [
-            ("Prumo_Estrutura", L, "Estrutura\nsoldada"), ("Prumo_ListaDeCorte", L, "Lista de\ncorte"),
+            ("Prumo_Estrutura", L, "Estrutura\nsoldada"), ("Prumo_EditarEstrutura", L, "Editar\nestrutura"),
+            ("Prumo_Cantos", L, "Cantos"),
             ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
         ]),
-        ("Vaso de pressão", [
-            ("Prumo_Vaso", L, "Vaso de\npressão"), ("Prumo_MemoriaVaso", S, "Memória de cálculo"),
+        ("Reforços e ligações", [
+            ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
+            ("Prumo_PlacaBase", L, "Placa de\nbase"),
+        ]),
+        ("Solda", [
+            ("Prumo_Solda", L, "Cordão de\nsolda"), ("Prumo_ListaSoldas", S, "Lista de soldas"),
+            ("Prumo_ListaDeCorte", S, "Lista de corte"),
         ]),
         ("Peças padronizadas", [
             ("Prumo_Fixador", L, "Parafuso,\nporca, arruela"),

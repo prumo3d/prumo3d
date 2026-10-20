@@ -754,9 +754,11 @@ def register_commands():
                                  FreeCADGui.addCommand("Prumo_Estrutura", m.CmdEstrutura()),
                                  FreeCADGui.addCommand("Prumo_TrocarPerfil", m.CmdTrocarPerfil()),
                                  FreeCADGui.addCommand("Prumo_ListaDeCorte", m.CmdListaDeCorte()),
-                                 FreeCADGui.addCommand("Prumo_AtualizarEstrutura", m.CmdAtualizarEstrutura()))),
-                             ("PrumoVaso", lambda m: (FreeCADGui.addCommand("Prumo_Vaso", m.CmdVaso()),
-                                                      FreeCADGui.addCommand("Prumo_MemoriaVaso", m.CmdMemoriaVaso()))),
+                                 FreeCADGui.addCommand("Prumo_AtualizarEstrutura", m.CmdAtualizarEstrutura()),
+                                 FreeCADGui.addCommand("Prumo_EditarEstrutura", m.CmdEditarEstrutura()),
+                                 FreeCADGui.addCommand("Prumo_Cantos", m.CmdCantos()))),
+                             ("PrumoEstruturaExtras", lambda m: m.registrar_comandos()),
+                             # PrumoVaso (vaso de pressão): desligado por enquanto; volta numa etapa própria
                              ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
                              ("PrumoContexto", lambda m: m.registrar_comandos())):
         try:
@@ -805,6 +807,42 @@ def _start_ferramentas():
             __import__(modulo).install()
         except Exception as exc:
             FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(modulo, exc))
+    instalar_ajuste_ao_sair_do_esboco()
+
+
+class _ObservadorEdicao:
+    """Ao concluir um esboço, enquadra o modelo inteiro na vista (o Esboço volta a câmera de antes
+    da edição, que pode não mostrar um desenho grande)."""
+
+    def slotResetEdit(self, vp):
+        try:
+            obj = vp.Object
+        except Exception:
+            return
+        if obj is None or obj.TypeId != "Sketcher::SketchObject":
+            return
+        if not FreeCAD.ParamGet(PARAM_PATH).GetBool("EnquadrarAoSairDoEsboco", True):
+            return
+        # depois que o Esboço restaura a câmera
+        QtCore.QTimer.singleShot(150, _enquadrar_vista)
+
+
+def _enquadrar_vista():
+    try:
+        gd = FreeCADGui.ActiveDocument
+        if gd is not None and gd.getInEdit() is None:
+            gd.ActiveView.fitAll()
+    except Exception as exc:
+        FreeCAD.Console.PrintLog("Prumo: enquadrar vista: {}\n".format(exc))
+
+
+_observador_edicao = {"obj": None}
+
+
+def instalar_ajuste_ao_sair_do_esboco():
+    if _observador_edicao["obj"] is None:
+        _observador_edicao["obj"] = _ObservadorEdicao()
+        FreeCADGui.addDocumentObserver(_observador_edicao["obj"])
 
 
 def _start_guia():

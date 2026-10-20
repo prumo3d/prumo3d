@@ -86,11 +86,16 @@ def coletar(objs, densidade_padrao=None):
     ordem = []
     for obj, sh in PrumoUtil.pecas(objs):
         base = _alvo(obj)
+        if "Perna" in base.PropertiesList and "Pecas" in base.PropertiesList:
+            continue  # cordão de solda: vai para a lista de soldas
         perfil = _prop(base, "Perfil")
         if perfil:
             comp = _prop(base, "ComprimentoCorte", "Comprimento")
             c = round(comp.Value if hasattr(comp, "Value") else float(comp or 0), 1)
             chave = ("perfil", str(perfil), c, str(_prop(base, "Material") or ""))
+        elif _prop(base, "Denominacao") and "Espessura" in base.PropertiesList:
+            # chapa da estrutura (reforço, tampa, placa de base): iguais pela descrição e material
+            chave = ("chapa", str(base.Denominacao), str(_prop(base, "Material") or ""))
         elif _prop(base, "Denominacao") and "Norma" in base.PropertiesList:
             # peça padronizada (fixador): iguais pela descrição e material
             chave = ("padrao", str(base.Denominacao), str(_prop(base, "Material") or ""))
@@ -103,6 +108,12 @@ def coletar(objs, densidade_padrao=None):
             massa = sum(s.Volume for s in sh.Solids) * dens * 1e-9
             den = _prop(base, "Denominacao") or base.Label
             obs = _prop(base, "Observacao") or ("" if definido else "material a definir")
+            if chave[0] == "chapa":
+                # material em texto (como nas barras); massa pela densidade padrão (aço)
+                mat_txt = _prop(base, "Material")
+                nome_mat, definido = (mat_txt, True) if mat_txt else ("—", True)
+                massa = sum(s.Volume for s in sh.Solids) * densidade_padrao * 1e-9
+                obs = "" if mat_txt else "material a definir"
             if chave[0] == "padrao":
                 mat_txt = _prop(base, "Material")
                 nome_mat, definido = (mat_txt or "—", True)

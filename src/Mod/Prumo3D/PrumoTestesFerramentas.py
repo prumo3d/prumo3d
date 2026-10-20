@@ -1504,5 +1504,632 @@ def PrumoPerfis_primeiro(fid):
     return PrumoPerfis.nomes(fid)[0]
 
 
+# ======================================================================= estruturas: grupos e cantos
+TUBO2 = 'Tubo 2" Sch 40'
+TQ50 = "Tubo □ 50 x 50 x 3,00"
+
+
+def _sem_sobreposicao(caso, bs):
+    for x in range(len(bs)):
+        for y in range(x + 1, len(bs)):
+            caso.assertLess(bs[x].Shape.common(bs[y].Shape).Volume, 1e-3, (bs[x].Label, bs[y].Label))
+
+
+class T22EstruturaGrupos(unittest.TestCase):
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteGrupos")
+
+    def tearDown(self):
+        fechar(self.doc)
+
+    def _quadro(self, **kw):
+        import PrumoEstrutura
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)), ((1000, 600), (0, 600)),
+                                      ((0, 600), (0, 0))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, kw.pop("perfil", "W 150 x 13,0"), **kw)
+        return sk, est, PrumoEstrutura.barras_de(est)
+
+    def test_grupos_com_perfis_diferentes(self):
+        sk, est, bs = self._quadro(grupos_extras=[{"nome": "Montantes", "perfil": TQ50, "arestas": [1, 3]}])
+        self.assertEqual([b.Perfil for b in bs], ["W 150 x 13,0", TQ50, "W 150 x 13,0", TQ50])
+        for b in bs:
+            self.assertTrue(b.Shape.isValid())
+            self.assertEqual(len(b.Shape.Solids), 1)
+        _sem_sobreposicao(self, bs)
+        import PrumoEstrutura
+        self.assertEqual(PrumoEstrutura.parametros(est, 1)["nome"], "Montantes")
+        self.assertEqual(PrumoEstrutura.grupo_da_barra(est, 0), 0)
+
+    def test_editar_grupos_recalcula(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro()
+        PrumoEstrutura.definir_grupos(est, [{"nome": "Topo", "perfil": "W 150 x 18,0", "arestas": [2]}])
+        self.doc.recompute()
+        self.assertEqual(bs[2].Perfil, "W 150 x 18,0")
+        self.assertEqual(bs[0].Perfil, "W 150 x 13,0")
+        with self.assertRaises(ValueError):
+            PrumoEstrutura.definir_grupos(est, [{"perfil": "Perfil inexistente", "arestas": [0]}])
+
+    def test_troca_individual_vence_o_grupo(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro(grupos_extras=[{"perfil": TQ50, "arestas": [1, 3]}])
+        PrumoEstrutura.trocar_perfil([bs[1]], "W 150 x 18,0")
+        self.assertEqual(bs[1].Perfil, "W 150 x 18,0")
+        self.assertEqual(bs[3].Perfil, TQ50)
+
+    def _linha(self, perfil, fixacao, espelhar=False):
+        import PrumoEstrutura
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0))], "XY", "Linha" + fixacao.replace(" ", "").replace(".", ""))
+        est = PrumoEstrutura.criar(self.doc, sk, perfil, alinhamento=fixacao, espelhar=espelhar)
+        return PrumoEstrutura.barras_de(est)[0]
+
+    def test_pontos_de_fixacao(self):
+        import PrumoPerfis
+        it = PrumoPerfis.perfil("W 150 x 13,0")
+        d, bf = it["d"], it["bf"]
+        # plataforma (plano XY): altura do perfil em Z, largura em Y
+        casos = {"Centro": (-bf / 2, bf / 2, -d / 2, d / 2), "Sup. centro": (-bf / 2, bf / 2, -d, 0),
+                 "Inf. centro": (-bf / 2, bf / 2, 0, d)}
+        for fx, (y0, y1, z0, z1) in casos.items():
+            bb = self._linha("W 150 x 13,0", fx).Shape.BoundBox
+            self.assertAlmostEqual(bb.ZMin, z0, places=6, msg=fx)
+            self.assertAlmostEqual(bb.ZMax, z1, places=6, msg=fx)
+            self.assertAlmostEqual(bb.YLength, bf, places=6, msg=fx)
+        # cantos: a linha fica num canto da caixa da seção
+        for fx in ("Sup. esquerdo", "Sup. direito", "Inf. esquerdo", "Inf. direito", "Meio esquerdo",
+                   "Meio direito"):
+            bb = self._linha("W 150 x 13,0", fx).Shape.BoundBox
+            self.assertTrue(abs(bb.YMin) < 1e-6 or abs(bb.YMax) < 1e-6, fx)
+            if fx.startswith("Meio"):
+                self.assertAlmostEqual(bb.ZMin, -d / 2, places=6)
+            else:
+                self.assertTrue(abs(bb.ZMin) < 1e-6 or abs(bb.ZMax) < 1e-6, fx)
+        a = self._linha("W 150 x 13,0", "Sup. esquerdo").Shape.BoundBox
+        b = self._linha("W 150 x 13,0", "Sup. direito").Shape.BoundBox
+        self.assertAlmostEqual(a.YMin + b.YMax, 0.0, places=6)   # lados opostos
+        self.assertGreater(abs(a.YMin - b.YMin), bf - 1e-6)
+
+    def test_centroide_da_cantoneira_sobre_a_linha(self):
+        b = self._linha("L 50 x 5", "Centroide")
+        cm = b.Shape.Solids[0].CenterOfMass
+        self.assertLess(math.hypot(cm.y, cm.z), 1e-3)
+        c = self._linha("L 50 x 5", "Centro").Shape.Solids[0].CenterOfMass
+        self.assertGreater(math.hypot(c.y, c.z), 1.0)
+
+    def test_espelhar_inverte_a_cantoneira(self):
+        a = self._linha("L 50 x 5", "Centro").Shape.Solids[0].CenterOfMass
+        b = self._linha("L 50 x 5", "Centro", espelhar=True).Shape.Solids[0].CenterOfMass
+        self.assertAlmostEqual(a.y, -b.y, places=6)
+        self.assertAlmostEqual(a.z, b.z, places=6)
+        self.assertGreater(abs(a.y), 1.0)
+
+    def test_alinhamento_antigo_migra(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro()
+        est.removeProperty("Fixacao")
+        est.Alinhamento = "Topo"
+        est.Proxy.onDocumentRestored(est)
+        self.assertEqual(est.Fixacao, "Sup. centro")
+
+    def test_selecao_de_linhas_do_esqueleto(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEstrutura
+        sk, est, bs = self._quadro()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(sk, ["Edge2", "Edge4"])
+        sel = PrumoEstrutura.barras_da_selecao()
+        self.assertEqual(sorted(b.Indice for b in sel), [1, 3])
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(est)
+        self.assertEqual(len(PrumoEstrutura.barras_da_selecao()), 4)
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(bs[2])
+        self.assertEqual(PrumoEstrutura.barras_da_selecao(), [bs[2]])
+        FreeCADGui.Selection.clearSelection()
+
+
+class T23EstruturaCantos(unittest.TestCase):
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteCantos")
+
+    def tearDown(self):
+        fechar(self.doc)
+
+    def _quadro(self, perfil="W 150 x 13,0", uniao="Topo"):
+        import PrumoEstrutura
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)), ((1000, 600), (0, 600)),
+                                      ((0, 600), (0, 0))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, perfil, uniao=uniao)
+        return sk, est, PrumoEstrutura.barras_de(est)
+
+    def test_lista_e_grupos_de_cantos(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro()
+        cs = PrumoEstrutura.cantos(est)
+        self.assertEqual(len(cs), 4)
+        self.assertTrue(all(c.tipo == "esquadria" for c in cs))
+        self.assertTrue(all(abs(c.angulo - 90) < 1e-6 for c in cs))
+        self.assertEqual(len(PrumoEstrutura.agrupar_cantos(cs)), 1)
+
+    def test_passa_a_vertical(self):
+        import PrumoEstrutura
+        import PrumoPerfis
+        sk, est, bs = self._quadro()
+        PrumoEstrutura.aplicar_opcao(est, PrumoEstrutura.cantos(est), PrumoEstrutura.OPCOES_ESQUADRIA[3])
+        self.doc.recompute()
+        d = PrumoPerfis.perfil("W 150 x 13,0")["d"]
+        comps = {b.Indice: b.ComprimentoCorte.Value for b in bs}
+        self.assertAlmostEqual(comps[1], 600 + d, places=3)
+        self.assertAlmostEqual(comps[3], 600 + d, places=3)
+        self.assertAlmostEqual(comps[0], 1000 - d, places=3)
+        self.assertAlmostEqual(comps[2], 1000 - d, places=3)
+        _sem_sobreposicao(self, bs)
+        area = PrumoPerfis.area_secao(PrumoPerfis.perfil("W 150 x 13,0"))
+        self.assertAlmostEqual(sum(b.Shape.Volume for b in bs) / (area * 3200), 1.0, places=6)
+        # e o contrário
+        PrumoEstrutura.aplicar_opcao(est, PrumoEstrutura.cantos(est), PrumoEstrutura.OPCOES_ESQUADRIA[4])
+        self.doc.recompute()
+        self.assertAlmostEqual(bs[0].ComprimentoCorte.Value, 1000 + d, places=3)
+        self.assertAlmostEqual(bs[1].ComprimentoCorte.Value, 600 - d, places=3)
+
+    def test_cantos_misturados(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro(uniao="Meia-esquadria")
+        c0 = [c for c in PrumoEstrutura.cantos(est) if {c.i, c.j} == {0, 1}]
+        PrumoEstrutura.aplicar_opcao(est, c0, PrumoEstrutura.OPCOES_ESQUADRIA[2])  # passa a 1
+        self.doc.recompute()
+        for b in bs:
+            self.assertTrue(b.Shape.isValid())
+        _sem_sobreposicao(self, bs)
+        self.assertAlmostEqual(bs[0].CorteFim.Value, 0.0, places=6)
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 45.0, places=6)
+        self.assertEqual(PrumoEstrutura.tratamento(est, 1, 0, "esquadria"), "passa:1")
+        # gravar duas vezes não duplica
+        PrumoEstrutura.aplicar_opcao(est, c0, PrumoEstrutura.OPCOES_ESQUADRIA[2])
+        self.assertEqual(len([l for l in est.Cantos if l.startswith("0-1=")]), 1)
+
+    def test_recorte_pelo_contorno_tubo_em_tubo(self):
+        import PrumoEstrutura
+        import PrumoPerfis
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((500, 0), (500, 400))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, TUBO2)
+        bs = PrumoEstrutura.barras_de(est)
+        D = PrumoPerfis.perfil(TUBO2)["D"]
+        self.assertAlmostEqual(bs[1].Shape.BoundBox.ZMin, D / 2, places=6)   # corte reto
+        cs = [c for c in PrumoEstrutura.cantos(est) if c.tipo == "topo_T"]
+        self.assertEqual(len(cs), 1)
+        PrumoEstrutura.aplicar_opcao(est, cs, PrumoEstrutura.OPCOES_T[1])
+        self.doc.recompute()
+        self.assertTrue(bs[1].Shape.isValid())
+        self.assertLess(bs[1].Shape.BoundBox.ZMin, D / 2 - 1.0)              # boca de lobo desce dos lados
+        self.assertLess(bs[1].Shape.common(bs[0].Shape).Volume, 1e-2)
+        self.assertLess(bs[1].Shape.distToShape(bs[0].Shape)[0], 1e-4)
+        self.assertEqual(PrumoEstrutura.cantos(est)[0].descricao_tratamento(), "Recorte pelo contorno")
+
+    def test_no_com_viga_partida(self):
+        import PrumoEstrutura
+        import PrumoPerfis
+        sk = esboco_linhas(self.doc, [((0, 0), (500, 0)), ((500, 0), (1000, 0)), ((500, 0), (500, 400))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, "W 150 x 13,0")
+        bs = PrumoEstrutura.barras_de(est)
+        d = PrumoPerfis.perfil("W 150 x 13,0")["d"]
+        self.assertAlmostEqual(bs[0].ComprimentoCorte.Value, 500, places=3)
+        self.assertAlmostEqual(bs[1].ComprimentoCorte.Value, 500, places=3)
+        self.assertAlmostEqual(bs[2].ComprimentoCorte.Value, 400 - d / 2, places=3)
+        _sem_sobreposicao(self, bs)
+
+    def test_canto_de_tres_barras_no_espaco(self):
+        import Part
+        import PrumoEstrutura
+        arame = self.doc.addObject("Part::Feature", "Arame3D")
+        o = FreeCAD.Vector(0, 0, 0)
+        arame.Shape = Part.Compound([Part.LineSegment(o, FreeCAD.Vector(800, 0, 0)).toShape(),
+                                     Part.LineSegment(o, FreeCAD.Vector(0, 600, 0)).toShape(),
+                                     Part.LineSegment(o, FreeCAD.Vector(0, 0, 500)).toShape()])
+        self.doc.recompute()
+        est = PrumoEstrutura.criar(self.doc, arame, TQ50)
+        bs = PrumoEstrutura.barras_de(est)
+        self.assertEqual(len(bs), 3)
+        for b in bs:
+            self.assertTrue(b.Shape.isValid())
+            self.assertEqual(len(b.Shape.Solids), 1)
+        _sem_sobreposicao(self, bs)
+
+    def test_opcao_invalida(self):
+        import PrumoEstrutura
+        sk, est, bs = self._quadro()
+        with self.assertRaises(ValueError):
+            PrumoEstrutura.aplicar_opcao(est, PrumoEstrutura.cantos(est), "Qualquer coisa")
+
+
+class T24EstruturaExtras(unittest.TestCase):
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteExtras")
+
+    def tearDown(self):
+        fechar(self.doc)
+
+    def _quadro(self, perfil="W 150 x 13,0", uniao="Meia-esquadria"):
+        import PrumoEstrutura
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)), ((1000, 600), (0, 600)),
+                                      ((0, 600), (0, 0))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, perfil, uniao=uniao)
+        return est, PrumoEstrutura.barras_de(est)
+
+    def _linha(self, perfil, pts=((0, 0), (1000, 0)), plano="XZ"):
+        import PrumoEstrutura
+        sk = esboco_linhas(self.doc, [pts], plano, "L%d" % len(self.doc.Objects))
+        est = PrumoEstrutura.criar(self.doc, sk, perfil)
+        return PrumoEstrutura.barras_de(est)[0]
+
+    @staticmethod
+    def _area(pts):
+        return 0.5 * abs(sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1]
+                             for i in range(len(pts))))
+
+    def test_reforco_triangular_no_canto(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro()
+        r = X.criar_reforco(bs[0], bs[1], Perna1=150, Perna2=150, Espessura=8, Chanfro=15)
+        self.assertEqual(list(r.Avisos), [])
+        self.assertTrue(r.Shape.isValid())
+        area = 150 * 150 / 2.0 - 15 * 15 / 2.0
+        self.assertAlmostEqual(r.Shape.Volume, area * 8, places=3)
+        for b in (bs[0], bs[1]):
+            self.assertLess(r.Shape.common(b.Shape).Volume, 1e-3)
+            self.assertLess(r.Shape.distToShape(b.Shape)[0], 1e-6)
+        self.assertIn("150 × 150 × 8", r.Denominacao)
+        self.assertAlmostEqual(r.Massa, area * 8 * 7850e-9, places=9)
+        self.assertIn(r, est.Group)
+
+    def test_reforco_poligonal_e_posicao(self):
+        import PrumoEstruturaExtras as X
+        import PrumoPerfis
+        est, bs = self._quadro()
+        r = X.criar_reforco(bs[1], bs[2], Tipo="Poligonal", Perna1=200, Perna2=120, Ponta=30, Espessura=6,
+                            Chanfro=0, Posicao="Frente")
+        pts = [(0, 0), (200, 0), (200, 30), (30, 120), (0, 120)]
+        self.assertAlmostEqual(r.Shape.Volume, self._area(pts) * 6, places=3)
+        bf = PrumoPerfis.perfil("W 150 x 13,0")["bf"]
+        bb = r.Shape.BoundBox
+        self.assertAlmostEqual(max(abs(bb.YMin), abs(bb.YMax)), bf / 2.0, places=6)
+        self.assertAlmostEqual(bb.YLength, 6.0, places=6)
+        for b in bs:
+            self.assertLess(r.Shape.common(b.Shape).Volume, 1e-3)
+
+    def test_reforco_em_T_dos_dois_lados(self):
+        import PrumoEstrutura
+        import PrumoEstruturaExtras as X
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((500, 0), (500, 400))], "XZ")
+        est = PrumoEstrutura.criar(self.doc, sk, "W 150 x 13,0")
+        bs = PrumoEstrutura.barras_de(est)
+        r1 = X.criar_reforco(bs[1], bs[0], Perna1=100, Perna2=100)
+        r2 = X.criar_reforco(bs[1], bs[0], Perna1=100, Perna2=100, InverterLado=True)
+        for r in (r1, r2):
+            self.assertEqual(list(r.Avisos), [])
+            for b in bs:
+                self.assertLess(r.Shape.common(b.Shape).Volume, 1e-3)
+        self.assertLess(r1.Shape.common(r2.Shape).Volume, 1e-6)
+        c1, c2 = r1.Shape.CenterOfMass, r2.Shape.CenterOfMass
+        self.assertLess(c1.x - 500, 0) if c2.x > 500 else self.assertGreater(c1.x - 500, 0)
+
+    def test_reforco_barras_que_nao_se_tocam(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro()
+        r = X.criar_reforco(bs[0], bs[2])
+        self.assertTrue(r.Avisos)
+        self.assertTrue(r.Shape.isNull())
+
+    def test_tampas_externa_e_interna(self):
+        import PrumoEstruturaExtras as X
+        b = self._linha(TQ50)
+        ext = X.criar_tampa(b, "Fim", Tipo="Externa", Espessura=3, Folga=1)
+        bb = ext.Shape.BoundBox
+        self.assertAlmostEqual(bb.XMin, 1000.0, places=6)
+        self.assertAlmostEqual(bb.XMax, 1003.0, places=6)
+        self.assertAlmostEqual(ext.Shape.Volume, 48 * 48 * 3, places=3)
+        inte = X.criar_tampa(b, "Início", Tipo="Interna", Espessura=3, Folga=0.5)
+        bb = inte.Shape.BoundBox
+        self.assertAlmostEqual(bb.XMin, 0.0, places=6)
+        self.assertAlmostEqual(bb.XMax, 3.0, places=6)
+        self.assertLess(inte.Shape.common(b.Shape).Volume, 1e-3)
+        self.assertAlmostEqual(inte.Shape.Volume, 43 * 43 * 3, places=3)
+        t = self._linha(TUBO2)
+        import PrumoPerfis
+        D = PrumoPerfis.perfil(TUBO2)["D"]
+        tr = X.criar_tampa(t, "Fim", Tipo="Externa", Espessura=4, Folga=0)
+        self.assertAlmostEqual(tr.Shape.Volume, math.pi * D * D / 4 * 4, delta=1e-3 * tr.Shape.Volume)
+
+    def test_tampa_recusa_perfil_aberto_e_corte_inclinado(self):
+        import PrumoEstruturaExtras as X
+        w = self._linha("W 150 x 13,0")
+        t = X.criar_tampa(w, "Fim")
+        self.assertTrue(any("tubo" in a for a in t.Avisos))
+        est, bs = self._quadro(perfil=TQ50)
+        t2 = X.criar_tampa(bs[0], "Fim")
+        self.assertTrue(any("inclinado" in a for a in t2.Avisos))
+
+    def test_placa_de_base(self):
+        import PrumoEstruturaExtras as X
+        b = self._linha("W 150 x 13,0", ((0, 0), (0, 1000)))
+        pl = X.criar_placa_base(b, "Início", Largura=250, Comprimento=300, Espessura=16, Furos="4",
+                                DiametroFuro=22, DistanciaBorda=40)
+        self.assertEqual(list(pl.Avisos), [])
+        bb = pl.Shape.BoundBox
+        self.assertAlmostEqual(bb.ZMax, 0.0, places=6)
+        self.assertAlmostEqual(bb.ZMin, -16.0, places=6)
+        self.assertAlmostEqual(pl.Shape.Volume, (250 * 300 - 4 * math.pi * 11 ** 2) * 16, delta=0.5)
+        self.assertEqual(len([f for f in pl.Shape.Faces if f.Surface.__class__.__name__ == "Cylinder"]), 4)
+        self.assertIn("4 furos", pl.Denominacao)
+        pl.Furos = "2"
+        self.doc.recompute()
+        self.assertEqual(len([f for f in pl.Shape.Faces if f.Surface.__class__.__name__ == "Cylinder"]), 2)
+        # placa menor que o perfil / furo em cima do perfil
+        pl.Largura = 50
+        self.doc.recompute()
+        self.assertTrue(pl.Avisos)
+        pl.Largura, pl.Comprimento, pl.DistanciaBorda = 110, 160, 15
+        self.doc.recompute()
+        self.assertTrue(any("furo" in a for a in pl.Avisos))
+
+    def test_solda_no_canto_de_topo(self):
+        import Part
+        import PrumoEstruturaExtras as X
+        import PrumoPerfis
+        est, bs = self._quadro(uniao="Topo")
+        s = X.criar_solda([bs[0], bs[1]], perna=6, processo=X.PROCESSOS[1], eletrodo="ER70S-6")
+        it = PrumoPerfis.perfil("W 150 x 13,0")
+        perim = PrumoPerfis.face(it, FreeCAD.Vector(), FreeCAD.Vector(1, 0, 0), FreeCAD.Vector(0, 1, 0)).OuterWire.Length
+        self.assertAlmostEqual(s.ComprimentoTotal.Value, perim, places=3)
+        self.assertAlmostEqual(s.VolumeDepositado, perim * 36 / 2 / 1000.0, places=6)
+        self.assertAlmostEqual(s.MassaDepositada, perim * 36 / 2 * 7850e-9, places=9)
+        self.assertFalse(s.Shape.isNull())
+        self.assertIn(bs[0].Label, s.Juntas)
+        self.assertEqual(list(s.Avisos), [])
+
+    def test_solda_meia_esquadria_e_sem_contato(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro()
+        s = X.criar_solda([bs[0], bs[1]])
+        self.assertGreater(s.ComprimentoTotal.Value, 400)
+        s2 = X.criar_solda([bs[0], bs[2]])
+        self.assertIn("não se tocam", s2.Avisos[0])
+        self.assertEqual(s2.ComprimentoTotal.Value, 0.0)
+        with self.assertRaises(ValueError):
+            X.criar_solda([bs[0]])
+
+    def test_solda_do_reforco(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro()
+        r = X.criar_reforco(bs[0], bs[1], Perna1=150, Perna2=150, Espessura=8, Chanfro=15)
+        s = X.criar_solda([r, bs[0], bs[1]], perna=5)
+        self.assertGreater(s.ComprimentoTotal.Value, 2 * 2 * (150 - 15) - 1)
+        self.assertEqual(len(s.Juntas.split(";")), 3)  # reforço+A, reforço+B, A+B
+
+    def test_lista_de_soldas_e_lista_de_materiais(self):
+        import PrumoBOM
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro(uniao="Topo")
+        X.criar_reforco(bs[0], bs[1], Material="ASTM A36")
+        X.criar_reforco(bs[2], bs[3], Material="ASTM A36")
+        s1 = X.criar_solda([bs[0], bs[1]], perna=6)
+        s2 = X.criar_solda([bs[1], bs[2]], perna=6)
+        soldas = X.lista_de_soldas([est])
+        self.assertEqual(soldas, [s1, s2])
+        sh = X.gravar_lista_de_soldas(self.doc, soldas)
+        self.assertEqual(sh.get("A1"), "Item")
+        self.assertEqual(sh.get("B4"), "Total")
+        linhas = PrumoBOM.coletar([est], 7850)
+        reforcos = [l for l in linhas if l.denominacao.startswith("Reforço")]
+        self.assertEqual(len(reforcos), 1)
+        self.assertEqual(reforcos[0].qtd, 2)
+        self.assertEqual(reforcos[0].material, "ASTM A36")
+        self.assertFalse(any("solda" in l.denominacao.lower() for l in linhas))
+        self.assertEqual(sum(l.qtd for l in linhas), 6)
+
+    def test_salvar_e_reabrir_com_extras(self):
+        import PrumoEstruturaExtras as X
+        est, bs = self._quadro(perfil=TQ50, uniao="Topo")
+        X.criar_reforco(bs[0], bs[1])
+        X.criar_solda([bs[0], bs[1]])
+        caminho = os.path.join(tempfile.gettempdir(), "prumo_teste_extras.FCStd")
+        self.doc.saveAs(caminho)
+        nome = self.doc.Name
+        FreeCAD.closeDocument(nome)
+        self.doc = FreeCAD.openDocument(caminho)
+        for o in self.doc.Objects:
+            o.touch()
+        self.doc.recompute()
+        r = [o for o in self.doc.Objects if o.Name.startswith("Reforco")][0]
+        s = [o for o in self.doc.Objects if o.Name.startswith("Solda")][0]
+        self.assertTrue(r.Shape.isValid())
+        self.assertGreater(s.ComprimentoTotal.Value, 0)
+
+
+class T25EstruturaInterface(unittest.TestCase):
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.doc = novo_doc("PrumoTesteEstruturaUI")
+        self.sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600)),
+                                           ((1000, 600), (0, 600)), ((0, 600), (0, 0))], "XZ")
+
+    def tearDown(self):
+        FreeCADGui.Selection.clearSelection()
+        fechar(self.doc)
+
+    def _escolher_perfil(self, d, nome):
+        import PrumoPerfis
+        it = PrumoPerfis.perfil(nome)
+        d.sel.familia.setCurrentIndex(d.sel.familia.findData(it["familia"]))
+        d.sel.perfil.setCurrentIndex(d.sel.perfil.findData(nome))
+
+    def test_criar_com_grupos_pelo_dialogo(self):
+        import PrumoEstrutura
+        d = PrumoEstrutura.DialogoEstrutura(self.sk)
+        self._escolher_perfil(d, "W 150 x 13,0")
+        k = d.novo_grupo()
+        self.assertEqual(k, 1)
+        d.nome.setText("Montantes")
+        d.nome.textEdited.emit("Montantes")
+        self._escolher_perfil(d, TQ50)
+        d.fixacao.setCurrentText("Sup. centro")
+        d.atribuir([1, 3])
+        est = d.aplicar()
+        d.close()
+        bs = PrumoEstrutura.barras_de(est)
+        self.assertEqual([b.Perfil for b in bs], ["W 150 x 13,0", TQ50, "W 150 x 13,0", TQ50])
+        self.assertEqual(PrumoEstrutura.grupos(est)[0]["nome"], "Montantes")
+        self.assertEqual(PrumoEstrutura.grupos(est)[0]["fixacao"], "Sup. centro")
+        self.assertEqual(list(est.GrupoDaAresta), [0, 1, 0, 1])
+
+    def test_editar_e_trocas_viram_grupo(self):
+        import PrumoEstrutura
+        est = PrumoEstrutura.criar(self.doc, self.sk, "W 150 x 13,0",
+                                   grupos_extras=[{"nome": "Laterais", "perfil": TQ50, "arestas": [1, 3]}])
+        bs = PrumoEstrutura.barras_de(est)
+        PrumoEstrutura.trocar_perfil([bs[0]], "W 150 x 18,0")
+        d = PrumoEstrutura.DialogoEstrutura(self.sk, est)
+        self.assertEqual(d.lista.count(), 3)          # padrão, Laterais, Troca
+        self.assertEqual(d.da_aresta, [2, 1, 0, 1])
+        est2 = d.aplicar()
+        d.close()
+        self.assertIs(est2, est)
+        self.assertEqual(list(est.PerfisIndividuais), [])
+        self.assertEqual([b.Perfil for b in bs], ["W 150 x 18,0", TQ50, "W 150 x 13,0", TQ50])
+        # remover o grupo das laterais: voltam ao padrão
+        d = PrumoEstrutura.DialogoEstrutura(self.sk, est)
+        d.lista.setCurrentRow(1)
+        d.remover_grupo()
+        d.aplicar()
+        d.close()
+        self.assertEqual([b.Perfil for b in bs], ["W 150 x 18,0", "W 150 x 13,0", "W 150 x 13,0", "W 150 x 13,0"])
+
+    def test_pegar_linhas_selecionadas(self):
+        import PrumoEstrutura
+        d = PrumoEstrutura.DialogoEstrutura(self.sk)
+        d.novo_grupo()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(self.sk, ["Edge1", "Edge3"])
+        d.pegar_selecao()
+        self.assertEqual(d.da_aresta, [1, 0, 1, 0])
+        d.combos[1].setCurrentIndex(1)                # escolher na tabela
+        self.assertEqual(d.da_aresta, [1, 1, 1, 0])
+        d.combos[1].setCurrentIndex(0)
+        FreeCADGui.Selection.clearSelection()
+        d.pegar_selecao()
+        self.assertIn("Nenhuma", d.aviso.text())
+        d.mostrar_grupo()
+        self.assertEqual(sorted(FreeCADGui.Selection.getSelectionEx()[0].SubElementNames), ["Edge1", "Edge3"])
+        d.close()
+
+    def test_grupo_vazio_nao_entra(self):
+        import PrumoEstrutura
+        d = PrumoEstrutura.DialogoEstrutura(self.sk)
+        d.novo_grupo()
+        est = d.aplicar()
+        d.close()
+        self.assertEqual(list(est.Grupos), [])
+
+    def test_dialogo_de_cantos(self):
+        import PrumoEstrutura
+        import PrumoPerfis
+        est = PrumoEstrutura.criar(self.doc, self.sk, "W 150 x 13,0", uniao="Topo")
+        d = PrumoEstrutura.DialogoCantos(est)
+        self.assertEqual(len(d.linhas), 1)
+        d.escolher(0, PrumoEstrutura.OPCOES_ESQUADRIA[3])
+        d.aplicar()
+        d.close()
+        dd = PrumoPerfis.perfil("W 150 x 13,0")["d"]
+        bs = PrumoEstrutura.barras_de(est)
+        self.assertAlmostEqual(bs[1].ComprimentoCorte.Value, 600 + dd, places=3)
+        d2 = PrumoEstrutura.DialogoCantos(est, [bs[0]])
+        self.assertEqual(len(d2.linhas), 2)
+        self.assertEqual(d2.tabela.item(0, 1).text()[:4], "Topo")
+        d2.aplicar()      # tudo "(manter)": nada muda
+        d2.close()
+        self.assertAlmostEqual(bs[1].ComprimentoCorte.Value, 600 + dd, places=3)
+
+    def test_comandos_e_ajudantes_dos_extras(self):
+        import PrumoEstrutura
+        import PrumoEstruturaExtras as X
+        est = PrumoEstrutura.criar(self.doc, self.sk, TQ50, uniao="Topo")
+        pares = X.juntas_da_estrutura(est)
+        self.assertEqual(len(pares), 4)
+        soldas = X.soldar_estrutura(est, 4.0, X.PROCESSOS[1], "ER70S-6")
+        self.assertEqual(len(soldas), 4)
+        self.assertTrue(all(s.ComprimentoTotal.Value > 0 for s in soldas))
+        sk2 = esboco_linhas(self.doc, [((2000, 0), (2000, 800))], "XZ", "Coluna")
+        col = PrumoEstrutura.barras_de(PrumoEstrutura.criar(self.doc, sk2, TQ50))[0]
+        self.assertEqual(X._pontas_livres(col), [0, 1])
+        self.assertEqual(X._ponta_de_baixo(col), 0)
+        for D in (X.DialogoReforco, X.DialogoTampa, X.DialogoPlaca):
+            dl = D()
+            self.assertIn("Material", dl.props())
+            dl.close()
+        dt = X.DialogoTampa()
+        dt.pontas.setCurrentText("Pontas livres")
+        self.assertEqual(dt.pontas_da(col), [0, 1])
+        dt.close()
+        for nome in ("Prumo_Estrutura", "Prumo_EditarEstrutura", "Prumo_Cantos", "Prumo_Reforco", "Prumo_Tampa",
+                     "Prumo_PlacaBase", "Prumo_Solda", "Prumo_ListaSoldas"):
+            self.assertIn(nome, FreeCADGui.Command.listAll())
+
+
+# ======================================================================= esboço: enquadrar ao sair
+class T21EnquadrarEsboco(unittest.TestCase):
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteEnquadrar")
+
+    def tearDown(self):
+        fechar(self.doc)
+        FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D").RemBool("EnquadrarAoSairDoEsboco")
+
+    def _esperar(self, ms):
+        import time
+        t = time.time()
+        while time.time() - t < ms / 1000.0:
+            FreeCADGui.updateGui()
+
+    def test_esboco_grande_fica_inteiro_na_vista(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGui
+        PrumoGui.instalar_ajuste_ao_sair_do_esboco()
+        if os.environ.get("PRUMO_SEM_ENQUADRAR"):
+            FreeCAD.ParamGet(PrumoGui.PARAM_PATH).SetBool("EnquadrarAoSairDoEsboco", False)
+        sk = esboco_linhas(self.doc, [((0, 0), (5000, 0)), ((5000, 0), (5000, 5000)),
+                                      ((5000, 5000), (0, 5000)), ((0, 5000), (0, 0))], "XY", "Grande")
+        gd = FreeCADGui.getDocument(self.doc.Name)
+        FreeCADGui.setActiveDocument(self.doc.Name)
+        vista = gd.ActiveView
+        vista.viewTop()
+        # câmera bem de perto antes da edição (como num desenho pequeno)
+        cam = vista.getCameraNode()
+        try:
+            cam.height.setValue(50.0)
+        except Exception:
+            pass
+        cam.position.setValue(10, 10, 1000)
+        self._esperar(100)
+        gd.setEdit(sk.Name)
+        self._esperar(300)
+        gd.resetEdit()
+        self._esperar(600)
+        vp = vista.graphicsView().viewport()
+        larg, alt = vp.width(), vp.height()
+        for x, y in ((0, 0), (5000, 0), (5000, 5000), (0, 5000)):
+            px, py = vista.getPointOnViewport(FreeCAD.Vector(x, y, 0))
+            self.assertTrue(-1 <= px <= larg + 1 and -1 <= py <= alt + 1, (x, y, px, py, larg, alt))
+
+    def test_parametro_desliga(self):
+        import PrumoGui
+        g = FreeCAD.ParamGet(PrumoGui.PARAM_PATH)
+        self.assertTrue(g.GetBool("EnquadrarAoSairDoEsboco", True))
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
-           T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores]
+           T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
+           T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
+           T25EstruturaInterface]

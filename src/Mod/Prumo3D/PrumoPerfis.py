@@ -147,14 +147,16 @@ def area_secao(it):
     return a(ext) - sum(a(f) for f in furos)
 
 
-def face(it, origem, eixo_u, eixo_v, desloc_v=0.0):
-    """Face da seção no plano (origem, eixo_u, eixo_v). desloc_v desloca ao longo da altura."""
+def face(it, origem, eixo_u, eixo_v, desloc_v=0.0, desloc_u=0.0, espelhar=False):
+    """Face da seção no plano (origem, eixo_u, eixo_v). desloc_v / desloc_u deslocam ao longo da
+    altura / largura; espelhar inverte a seção na largura (ex.: abas de um U ou de uma cantoneira)."""
     import Part
     eu = FreeCAD.Vector(eixo_u).normalize()
     ev = FreeCAD.Vector(eixo_v).normalize()
+    su = -1.0 if espelhar else 1.0
 
     def p3(u, v):
-        return origem + eu * u + ev * (v + desloc_v)
+        return origem + eu * (su * u + desloc_u) + ev * (v + desloc_v)
 
     ext, furos = contorno(it)
     if isinstance(ext, tuple):

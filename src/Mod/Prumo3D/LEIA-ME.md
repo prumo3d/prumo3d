@@ -9,6 +9,7 @@ outros módulos (`Mod/Prumo3D`), sem instalação separada.
 |---|---|
 | Faixa de ferramentas (ribbon) | Abas Início, Esboço, Peça, Sólidos, Montagem, Desenho, Planilha e Prumo. Comandos principais com ícone grande, demais empilhados, grupos com legenda. Rótulos em português escritos para o Prumo 3D. As barras clássicas ficam ocultas. |
 | Aba Esboço automática | Ao editar um esboço, a faixa mostra a aba Esboço e volta à anterior ao concluir. |
+| Enquadrar ao concluir o esboço | Ao sair do esboço, a vista enquadra o modelo inteiro (parâmetro `EnquadrarAoSairDoEsboco`). |
 | Tradução pt-BR completa | `translations/prumo_ptbr.qm` (tradução mais recente do repositório do FreeCAD, mais completa que a da versão 1.1.4) + dicionário `PrumoI18n.EXTRA` para o que nem o repositório traduz. Instalada com prioridade sobre a oficial. |
 | Tema "Prumo Claro" | Acento azul #003A70, pré-seleção amarela #F7BE00, vista 3D em degradê branco → #CBD5E0, menus e painéis claros. Força o esquema claro mesmo com o Windows em modo escuro. |
 | Tema de ícones "Prumo Sóbrio" | 1.582 ícones do FreeCAD recoloridos para a paleta do Prumo 3D (azul-aço, âmbar, tijolo, sálvia, cinza frio), contornos em ardósia e degradê vertical em todo preenchimento chapado (efeito 3D). Vale para faixa, menus e árvore do modelo. Fica em `Resources/tema-icones-prumo.zip`; o módulo descompacta em `<dados do usuário>/PrumoIcones` e registra em `Bitmaps/CustomPathPrumo`. Liga/desliga na aba Prumo (vale ao reabrir). |
@@ -26,8 +27,9 @@ outros módulos (`Mod/Prumo3D`), sem instalação separada.
 | Lista de materiais (planilha e tabela na folha) | `PrumoBOM.py` | abas Peça, Montagem, Desenho, Estruturas |
 | Folhas ABNT A0–A4 (NBR 16752 e NBR 10068) | `PrumoFolhas.py`, `Resources/folhas/` | abas Desenho e Peça |
 | Biblioteca de perfis (W, HP, U, I, L, tubos, metalon) | `PrumoPerfis.py`, `Resources/perfis/perfis.json` | usada pela estrutura e pelo vaso |
-| Estrutura soldada, trocar perfil, lista de corte | `PrumoEstrutura.py` | aba Estruturas |
-| Vaso de pressão (ASME VIII-1, UG-27/UG-32) | `PrumoVaso.py` | aba Estruturas |
+| Estrutura soldada (grupos, ponto de fixação, cantos), trocar perfil, lista de corte | `PrumoEstrutura.py` | aba Estruturas |
+| Reforço, tampa de tubo, placa de base, cordão e lista de soldas | `PrumoEstruturaExtras.py` | aba Estruturas |
+| Vaso de pressão (ASME VIII-1, UG-27/UG-32) | `PrumoVaso.py` | desligado por enquanto (sem botão) |
 | Parafusos, porcas e arruelas (ISO 4017, 4762, 4032, 7089) | `PrumoFixadores.py`, `Resources/fixadores/` | aba Estruturas |
 | Chapa metálica | bancada SheetMetal embutida (`src/Mod/SheetMetal`) | aba Chapa |
 

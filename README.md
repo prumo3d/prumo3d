@@ -61,15 +61,15 @@ Visão geral
   (responsável técnico, CREA/CFT, ART, 1º diedro) preenchida a partir do documento e vistas no 1º diedro.
 
 * **Estruturas soldadas** Barras de perfis brasileiros (W, HP, U, I, cantoneiras, tubos e metalon, de
-  catálogos de fabricantes) sobre um esqueleto de linhas, com meia-esquadria, recorte nas ligações em T e
-  lista de corte com ângulos e massa.
+  catálogos de fabricantes) sobre um esqueleto de linhas, em grupos (perfil, giro, ponto de fixação e
+  espelhamento por grupo). Cantos em meia-esquadria ou de topo (escolhendo qual barra passa), corte reto ou
+  recorte pelo contorno nas ligações em T, nós com três ou mais barras, e cantos parecidos tratados de uma
+  vez. Reforços (mão-francesa), tampas de tubo, placas de base com furação, cordões de solda com perna,
+  processo e eletrodo, lista de corte e lista de soldas.
 
 * **Chapa metálica** Parede base, abas, dobras, recortes, alívios e planificação (bancada SheetMetal embutida).
 
 * **Peças padronizadas** Parafusos, porcas e arruelas métricas para inserir no modelo.
-
-* **Vaso de pressão** Costado, tampos (elíptico 2:1, torisférico e hemisférico) e bocais, com espessuras
-  pelo ASME VIII-1 (UG-27 e UG-32), PMTA e memória de cálculo de pré-dimensionamento.
 
 * **Visual próprio** Tema claro, ícones redesenhados e tela de abertura do Prumo 3D.
 
