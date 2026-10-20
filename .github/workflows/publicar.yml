@@ -144,7 +144,9 @@ jobs:
           # Python do próprio pixi: o computador próprio não precisa ter Python instalado
           pixi exec --spec "python=3.11" python package/scripts/write_version_info.py ../prumo3d_version.txt
           cd package/rattler-build
-          rm -rf "${{ matrix.pasta }}"   # pacotes de execuções anteriores (computador próprio)
+          # restos de execuções anteriores (computador próprio): só os arquivos gerados — a pasta
+          # também guarda os roteiros de empacotamento, que são do repositório
+          git clean -ffdxq -- "${{ matrix.pasta }}"
           pixi install
 
       - name: Empacotar
