@@ -22,6 +22,8 @@
 
 #include <memory>
 
+#include <algorithm>
+
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/details/SoDetail.h>
@@ -34,6 +36,7 @@
 #include <Inventor/nodes/SoLineSet.h>
 #include <Inventor/nodes/SoMarkerSet.h>
 #include <Inventor/nodes/SoMaterial.h>
+#include <Inventor/nodes/SoMaterialBinding.h>
 #include <Inventor/nodes/SoPickStyle.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoText2.h>
@@ -557,6 +560,52 @@ void EditModeCoinManager::drawEditMarkers(
     editModeScenegraphNodes.EditMarkerSet->markerIndex.finishEditing();
 }
 
+void EditModeCoinManager::drawSnapMarkers(const std::vector<Base::Vector2d>& markers, int active)
+{
+    // Prumo 3D: losangos amarelos nos pontos-ímã; o ponto capturado fica maior e azul
+    auto sizeFor = [](int wanted) {
+        auto sizes = Gui::Inventor::MarkerBitmaps::getSupportedSizes("DIAMOND_FILLED");
+        int chosen = sizes.empty() ? wanted : sizes.front();
+        for (int s : sizes) {
+            if (s <= wanted && s > chosen) {
+                chosen = s;
+            }
+        }
+        return chosen;
+    };
+    const int baseSize = sizeFor(std::max(7, drawingParameters.markerSize - 2));
+    const int activeSize = sizeFor(drawingParameters.markerSize + 4);
+    const int baseIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex("DIAMOND_FILLED", baseSize);
+    const int activeIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex("DIAMOND_FILLED", activeSize);
+
+    static const SbColor magnetColor(0.969f, 0.745f, 0.0f);  // #F7BE00
+    static const SbColor activeColor(0.0f, 0.227f, 0.439f);  // #003A70
+
+    const int n = static_cast<int>(markers.size());
+    auto& nodes = editModeScenegraphNodes;
+    nodes.SnapMarkersCoordinate->point.setNum(n);
+    nodes.SnapMarkersMaterials->diffuseColor.setNum(n);
+    nodes.SnapMarkerSet->markerIndex.setNum(n);
+
+    SbVec3f* verts = nodes.SnapMarkersCoordinate->point.startEditing();
+    SbColor* color = nodes.SnapMarkersMaterials->diffuseColor.startEditing();
+    int32_t* index = nodes.SnapMarkerSet->markerIndex.startEditing();
+
+    // um pouco acima das curvas em edição, para os ímãs ficarem visíveis por cima delas
+    const float z = ViewProviderSketchCoinAttorney::getViewOrientationFactor(viewProvider)
+        * drawingParameters.zEdit;
+    for (int i = 0; i < n; ++i) {
+        verts[i].setValue(markers[i].x, markers[i].y, z);
+        color[i] = (i == active) ? activeColor : magnetColor;
+        index[i] = (i == active) ? activeIndex : baseIndex;
+    }
+
+    nodes.SnapMarkersCoordinate->point.finishEditing();
+    nodes.SnapMarkersMaterials->diffuseColor.finishEditing();
+    nodes.SnapMarkerSet->markerIndex.finishEditing();
+    nodes.SnapMarkerSet->numPoints = n;
+}
+
 void EditModeCoinManager::drawEdit(const std::vector<Base::Vector2d>& EditCurve, GeometryCreationMode mode)
 {
     editModeScenegraphNodes.EditCurveSet->numVertices.setNum(1);
@@ -991,6 +1040,26 @@ void EditModeCoinManager::createEditModeInventorNodes()
     editModeScenegraphNodes.EditMarkerSet->markerIndex
         = Gui::Inventor::MarkerBitmaps::getMarkerIndex("CIRCLE_LINE", drawingParameters.markerSize);
     editMarkersRoot->addChild(editModeScenegraphNodes.EditMarkerSet);
+
+    // Prumo 3D: snap key points ("magnets") ++++++++++++++++++++++++++++++
+    SoSeparator* snapMarkersRoot = new SoSeparator;
+    snapMarkersRoot->setName("SnapMarkersRoot");
+    editModeScenegraphNodes.EditRoot->addChild(snapMarkersRoot);
+    SoPickStyle* snapPickStyle = new SoPickStyle();
+    snapPickStyle->style.setValue(SoPickStyle::UNPICKABLE);
+    snapMarkersRoot->addChild(snapPickStyle);
+    editModeScenegraphNodes.SnapMarkersMaterials = new SoMaterial;
+    editModeScenegraphNodes.SnapMarkersMaterials->setName("SnapMarkersMaterials");
+    snapMarkersRoot->addChild(editModeScenegraphNodes.SnapMarkersMaterials);
+    SoMaterialBinding* snapBinding = new SoMaterialBinding;
+    snapBinding->value = SoMaterialBinding::PER_VERTEX;
+    snapMarkersRoot->addChild(snapBinding);
+    editModeScenegraphNodes.SnapMarkersCoordinate = new SoCoordinate3;
+    editModeScenegraphNodes.SnapMarkersCoordinate->setName("SnapMarkersCoordinate");
+    snapMarkersRoot->addChild(editModeScenegraphNodes.SnapMarkersCoordinate);
+    editModeScenegraphNodes.SnapMarkerSet = new SoMarkerSet;
+    editModeScenegraphNodes.SnapMarkerSet->setName("SnapMarkerSet");
+    snapMarkersRoot->addChild(editModeScenegraphNodes.SnapMarkerSet);
 
     // stuff for the edit coordinates ++++++++++++++++++++++++++++++++++++++
     SoSeparator* Coordsep = new SoSeparator();

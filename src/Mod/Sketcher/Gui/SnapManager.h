@@ -26,11 +26,14 @@
 
 #include <App/Application.h>
 
+#include <vector>
+
 #include <Base/Tools2D.h>
 #include <Base/Vector3D.h>
 
 namespace Part
 {
+class GeomCurve;
 class GeomLineSegment;
 class GeomArcOfCircle;
 }  // namespace Part
@@ -47,6 +50,13 @@ private:
     static inline int getPreselectPoint(const ViewProviderSketch& vp);
     static inline int getPreselectCross(const ViewProviderSketch& vp);
     static inline int getPreselectCurve(const ViewProviderSketch& vp);
+    // Prumo 3D: pontos-ímã (quadrantes, pontos médios e interseções)
+    static inline bool isHandlerActive(const ViewProviderSketch& vp);
+    static inline void drawSnapMarkers(
+        ViewProviderSketch& vp,
+        const std::vector<Base::Vector2d>& markers,
+        int active
+    );
 
     friend class SnapManager;
 };
@@ -60,6 +70,26 @@ enum class SnapType
     Grid = 0x8,
 
     All = Angle | Point | Edge | Grid
+};
+
+/// Prumo 3D: tipo de ponto-ímã encontrado perto do cursor
+enum class KeyPointKind
+{
+    None,
+    Quadrant,      ///< 0°, 90°, 180° e 270° de círculos e arcos
+    Midpoint,      ///< ponto médio de linha
+    AxisVertex,    ///< extremidades dos eixos de elipses
+    Intersection,  ///< cruzamento entre duas curvas
+};
+
+/// Prumo 3D: último ponto-ímã usado pelo snap (lido pelas restrições automáticas)
+struct KeyPointSnap
+{
+    bool valid = false;
+    Base::Vector2d pos;
+    KeyPointKind kind = KeyPointKind::None;
+    int geoId1 = -2000;  // GeoEnum::GeoUndef
+    int geoId2 = -2000;
 };
 
 /* This class is used to manage the overriding of mouse pointer coordinates in Sketcher
@@ -98,6 +128,7 @@ class SnapManager
         void updateSnapToObjectParameter(const std::string& parametername);
         void updateSnapToGridParameter(const std::string& parametername);
         void updateSnapAngleParameter(const std::string& parametername);
+        void updateSnapToKeyPointsParameter(const std::string& parametername);
 
         static ParameterGrp::handle getParameterGrpHandle();
 
@@ -120,6 +151,14 @@ public:
 
     void setAngleSnapping(bool enable, Base::Vector2d referencepoint);
 
+    /// Prumo 3D: ponto-ímã usado no último snap (valid = false se o último snap não foi num ímã)
+    const KeyPointSnap& getLastKeyPointSnap() const
+    {
+        return lastKeyPointSnap;
+    }
+    /// Prumo 3D: apaga os marcadores de pontos-ímã da tela
+    void clearKeyPointMarkers();
+
     struct SnapHandle
     {
         SnapManager* mgr = nullptr;
@@ -141,6 +180,14 @@ private:
     bool snapRequested;
     bool snapToObjectsRequested;
     bool snapToGridRequested;
+    bool snapToKeyPointsRequested;
+
+    /// Prumo 3D: procura pontos-ímã perto do cursor, desenha os marcadores e devolve o mais
+    /// próximo dentro da tolerância de captura
+    bool findKeyPoint(Base::Vector2d inputPos, bool showMarkers, KeyPointSnap& found);
+
+    KeyPointSnap lastKeyPointSnap;
+    bool keyPointMarkersShown = false;
 
     Base::Vector2d referencePoint;
     double lastMouseAngle;

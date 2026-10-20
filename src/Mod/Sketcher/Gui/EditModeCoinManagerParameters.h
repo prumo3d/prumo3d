@@ -453,6 +453,13 @@ struct EditModeScenegraphNodes
     SoDrawStyle* EditMarkersDrawStyle;
     //@}
 
+    /** @name Prumo 3D: snap key point markers ("magnets") */
+    //@{
+    SoMaterial* SnapMarkersMaterials;
+    SoCoordinate3* SnapMarkersCoordinate;
+    SoMarkerSet* SnapMarkerSet;
+    //@}
+
     /** @name Temporal edit text nodes*/
     //@{
     SoText2* textX;

@@ -22,7 +22,15 @@
 
 #include <QApplication>
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+#include <Precision.hxx>
+#include <Standard_Failure.hxx>
+
 #include <Base/Tools.h>
+#include <Mod/Part/App/Geometry.h>
 #include <Mod/Sketcher/App/SketchObject.h>
 
 #include "SnapManager.h"
@@ -49,6 +57,20 @@ inline int ViewProviderSketchSnapAttorney::getPreselectCurve(const ViewProviderS
     return vp.getPreselectCurve();
 }
 
+inline bool ViewProviderSketchSnapAttorney::isHandlerActive(const ViewProviderSketch& vp)
+{
+    return vp.getSketchMode() == ViewProviderSketch::STATUS_SKETCH_UseHandler;
+}
+
+inline void ViewProviderSketchSnapAttorney::drawSnapMarkers(
+    ViewProviderSketch& vp,
+    const std::vector<Base::Vector2d>& markers,
+    int active
+)
+{
+    vp.drawSnapMarkers(markers, active);
+}
+
 /**************************** ParameterObserver nested class *****************************/
 SnapManager::ParameterObserver::ParameterObserver(SnapManager& client)
     : client(client)
@@ -73,6 +95,8 @@ void SnapManager::ParameterObserver::initParameters()
         {"SnapToObjects", [this](const std::string& param) { updateSnapToObjectParameter(param); }},
         {"SnapToGrid", [this](const std::string& param) { updateSnapToGridParameter(param); }},
         {"SnapAngle", [this](const std::string& param) { updateSnapAngleParameter(param); }},
+        {"SnapToKeyPoints",
+         [this](const std::string& param) { updateSnapToKeyPointsParameter(param); }},
     };
 
     for (auto& val : str2updatefunction) {
@@ -110,6 +134,16 @@ void SnapManager::ParameterObserver::updateSnapAngleParameter(const std::string&
 
     client.snapAngle
         = fmod(Base::toRadians(hGrp->GetFloat(parametername.c_str(), 5.)), 2 * std::numbers::pi);
+}
+
+void SnapManager::ParameterObserver::updateSnapToKeyPointsParameter(const std::string& parametername)
+{
+    ParameterGrp::handle hGrp = getParameterGrpHandle();
+
+    client.snapToKeyPointsRequested = hGrp->GetBool(parametername.c_str(), true);
+    if (!client.snapToKeyPointsRequested) {
+        client.clearKeyPointMarkers();
+    }
 }
 
 void SnapManager::ParameterObserver::subscribeToParameters()
@@ -162,6 +196,10 @@ ParameterGrp::handle SnapManager::ParameterObserver::getParameterGrpHandle()
 SnapManager::SnapManager(ViewProviderSketch& vp)
     : viewProvider(vp)
     , angleSnapRequested(false)
+    , snapRequested(true)
+    , snapToObjectsRequested(true)
+    , snapToGridRequested(false)
+    , snapToKeyPointsRequested(true)
     , referencePoint(Base::Vector2d(0., 0.))
     , lastMouseAngle(0.0)
 {
@@ -174,6 +212,22 @@ SnapManager::~SnapManager()
 
 Base::Vector2d SnapManager::snap(Base::Vector2d inputPos, SnapType mask)
 {
+    lastKeyPointSnap = KeyPointSnap();
+
+    // Prumo 3D: pontos-ímã. Os marcadores aparecem enquanto uma ferramenta de desenho está ativa;
+    // o ponto mais próximo captura o cursor, exceto quando um vértice já está pré-selecionado
+    // (o vértice existente tem prioridade e gera a restrição de coincidência).
+    const bool wantsPoints = (static_cast<int>(mask) & static_cast<int>(SnapType::Point)) != 0;
+    const bool handlerActive = ViewProviderSketchSnapAttorney::isHandlerActive(viewProvider);
+    KeyPointSnap keyPoint;
+    bool keyPointFound = false;
+    if (snapRequested && snapToObjectsRequested && snapToKeyPointsRequested && wantsPoints) {
+        keyPointFound = findKeyPoint(inputPos, handlerActive, keyPoint);
+    }
+    else {
+        clearKeyPointMarkers();
+    }
+
     if (!snapRequested) {
         return inputPos;
     }
@@ -190,6 +244,16 @@ Base::Vector2d SnapManager::snap(Base::Vector2d inputPos, SnapType mask)
     }
     else {
         lastMouseAngle = 0.0;
+    }
+
+    // 2a - Prumo 3D: ponto-ímã (quadrante, ponto médio, interseção)
+    if (keyPointFound) {
+        const int VtId = ViewProviderSketchSnapAttorney::getPreselectPoint(viewProvider);
+        const int CrsId = ViewProviderSketchSnapAttorney::getPreselectCross(viewProvider);
+        if (VtId < 0 && CrsId != 0) {
+            lastKeyPointSnap = keyPoint;
+            return keyPoint.pos;
+        }
     }
 
     // 2 - Snap to objects (may partially snap to axis, leaving other coordinate for grid)
@@ -404,4 +468,265 @@ Base::Vector2d SketcherGui::SnapManager::SnapHandle::compute(SnapType mask)
         return cursorPos;
     }
     return mgr->snap(cursorPos, mask);
+}
+
+/********************** Prumo 3D: pontos-ímã (quadrantes, médios, interseções) ******************/
+
+namespace
+{
+
+struct NearCurve
+{
+    int geoId;
+    const Part::GeomCurve* curve;
+    double distance;
+};
+
+struct KeyCandidate
+{
+    Base::Vector2d pos;
+    KeyPointKind kind;
+    int geoId1;
+    int geoId2;
+};
+
+double distanceToCurve(const Part::GeomCurve* curve, const Base::Vector2d& pos)
+{
+    try {
+        Base::Vector3d p(pos.x, pos.y, 0.);
+        double u = 0.;
+        if (!curve->closestParameter(p, u)) {
+            return std::numeric_limits<double>::max();
+        }
+        Base::Vector3d q = curve->pointAtParameter(u);
+        return Base::Vector2d(q.x - pos.x, q.y - pos.y).Length();
+    }
+    catch (const Base::Exception&) {
+        return std::numeric_limits<double>::max();
+    }
+    catch (const Standard_Failure&) {
+        return std::numeric_limits<double>::max();
+    }
+}
+
+/// true se o ângulo a (rad) está dentro do intervalo [u, v] de um arco (sentido anti-horário)
+bool angleInArc(double a, double u, double v)
+{
+    const double twoPi = 2 * std::numbers::pi;
+    double span = v - u;
+    while (span < 0) {
+        span += twoPi;
+    }
+    double d = a - u;
+    while (d < 0) {
+        d += twoPi;
+    }
+    while (d >= twoPi) {
+        d -= twoPi;
+    }
+    return d <= span + 1e-9;
+}
+
+void addCurveKeyPoints(int geoId, const Part::GeomCurve* curve, std::vector<KeyCandidate>& out)
+{
+    using std::numbers::pi;
+    auto add = [&](const Base::Vector3d& p, KeyPointKind kind) {
+        out.push_back({Base::Vector2d(p.x, p.y), kind, geoId, Sketcher::GeoEnum::GeoUndef});
+    };
+
+    if (curve->is<Part::GeomCircle>()) {
+        auto* circle = static_cast<const Part::GeomCircle*>(curve);
+        const Base::Vector3d c = circle->getCenter();
+        const double r = circle->getRadius();
+        for (int k = 0; k < 4; ++k) {
+            const double a = k * pi / 2;
+            add(c + Base::Vector3d(r * std::cos(a), r * std::sin(a), 0.), KeyPointKind::Quadrant);
+        }
+    }
+    else if (curve->is<Part::GeomArcOfCircle>()) {
+        auto* arc = static_cast<const Part::GeomArcOfCircle*>(curve);
+        const Base::Vector3d c = arc->getCenter();
+        const double r = arc->getRadius();
+        double u = 0., v = 0.;
+        arc->getRange(u, v, /*emulateCCWXY=*/true);
+        for (int k = 0; k < 4; ++k) {
+            const double a = k * pi / 2;
+            if (angleInArc(a, u, v)) {
+                add(c + Base::Vector3d(r * std::cos(a), r * std::sin(a), 0.), KeyPointKind::Quadrant);
+            }
+        }
+        // ponto médio do arco
+        double m = u + (v < u ? v + 2 * pi - u : v - u) / 2;
+        add(c + Base::Vector3d(r * std::cos(m), r * std::sin(m), 0.), KeyPointKind::Midpoint);
+    }
+    else if (curve->is<Part::GeomEllipse>()) {
+        auto* ellipse = static_cast<const Part::GeomEllipse*>(curve);
+        const Base::Vector3d c = ellipse->getCenter();
+        Base::Vector3d major = ellipse->getMajorAxisDir();
+        major.Normalize();
+        const Base::Vector3d minor(-major.y, major.x, 0.);
+        const double a = ellipse->getMajorRadius();
+        const double b = ellipse->getMinorRadius();
+        add(c + major * a, KeyPointKind::AxisVertex);
+        add(c - major * a, KeyPointKind::AxisVertex);
+        add(c + minor * b, KeyPointKind::AxisVertex);
+        add(c - minor * b, KeyPointKind::AxisVertex);
+    }
+    else if (curve->is<Part::GeomLineSegment>()) {
+        auto* line = static_cast<const Part::GeomLineSegment*>(curve);
+        add((line->getStartPoint() + line->getEndPoint()) / 2, KeyPointKind::Midpoint);
+    }
+}
+
+/// extremidades de uma curva limitada (para não repetir como interseção um vértice que já existe)
+bool isCurveEndpoint(const Part::GeomCurve* curve, const Base::Vector3d& p, double tol)
+{
+    auto* bounded = dynamic_cast<const Part::GeomBoundedCurve*>(curve);
+    if (!bounded) {
+        return false;
+    }
+    return (bounded->getStartPoint() - p).Length() < tol || (bounded->getEndPoint() - p).Length() < tol;
+}
+
+}  // namespace
+
+bool SnapManager::findKeyPoint(Base::Vector2d inputPos, bool showMarkers, KeyPointSnap& found)
+{
+    found = KeyPointSnap();
+
+    Sketcher::SketchObject* obj = viewProvider.getSketchObject();
+    if (!obj) {
+        clearKeyPointMarkers();
+        return false;
+    }
+
+    // Tolerâncias proporcionais ao zoom (getScaleFactor ~ 3 % da altura da vista)
+    const double scale = viewProvider.getScaleFactor();
+    const double captureTol = 0.5 * scale;  // captura do cursor
+    const double showTol = 2.5 * scale;     // marcadores visíveis ao redor do cursor
+    const double confusion = 1e-7;
+
+    // 1) curvas perto do cursor (geometria do esboço e geometria externa; eixos ficam de fora)
+    std::vector<NearCurve> nearCurves;
+    auto consider = [&](int geoId) {
+        const Part::Geometry* geo = obj->getGeometry(geoId);
+        auto* curve = dynamic_cast<const Part::GeomCurve*>(geo);
+        if (!curve) {
+            return;
+        }
+        const double d = distanceToCurve(curve, inputPos);
+        if (d < showTol) {
+            nearCurves.push_back({geoId, curve, d});
+        }
+    };
+    for (int i = 0; i <= obj->getHighestCurveIndex(); ++i) {
+        consider(i);
+    }
+    for (int k = 2; k < obj->getExternalGeometryCount(); ++k) {
+        consider(Sketcher::GeoEnum::RefExt - (k - 2));
+    }
+
+    constexpr std::size_t maxCurves = 12;
+    std::sort(nearCurves.begin(), nearCurves.end(), [](const NearCurve& a, const NearCurve& b) {
+        return a.distance < b.distance;
+    });
+    if (nearCurves.size() > maxCurves) {
+        nearCurves.resize(maxCurves);
+    }
+
+    // 2) pontos notáveis de cada curva e interseções entre elas
+    std::vector<KeyCandidate> candidates;
+    for (const auto& nc : nearCurves) {
+        addCurveKeyPoints(nc.geoId, nc.curve, candidates);
+    }
+    for (std::size_t i = 0; i < nearCurves.size(); ++i) {
+        for (std::size_t j = i + 1; j < nearCurves.size(); ++j) {
+            std::vector<std::pair<Base::Vector3d, Base::Vector3d>> points;
+            try {
+                nearCurves[i].curve->intersect(nearCurves[j].curve, points, Precision::Confusion());
+            }
+            catch (const Base::Exception&) {
+                continue;
+            }
+            catch (const Standard_Failure&) {
+                continue;
+            }
+            for (const auto& pr : points) {
+                const Base::Vector3d& p = pr.first;
+                if (isCurveEndpoint(nearCurves[i].curve, p, captureTol * 0.1)
+                    || isCurveEndpoint(nearCurves[j].curve, p, captureTol * 0.1)) {
+                    continue;  // já é um vértice: o snap a vértices cuida dele
+                }
+                candidates.push_back(
+                    {Base::Vector2d(p.x, p.y),
+                     KeyPointKind::Intersection,
+                     nearCurves[i].geoId,
+                     nearCurves[j].geoId}
+                );
+            }
+        }
+    }
+
+    // 3) filtra os visíveis, remove repetidos e escolhe o mais próximo dentro da captura
+    std::vector<Base::Vector2d> markers;
+    std::vector<KeyCandidate> visible;
+    for (const auto& c : candidates) {
+        if ((c.pos - inputPos).Length() > showTol) {
+            continue;
+        }
+        bool duplicate = false;
+        for (auto& v : visible) {
+            if ((v.pos - c.pos).Length() < confusion + captureTol * 0.02) {
+                // interseção tem prioridade sobre quadrante/médio no mesmo lugar
+                if (c.kind == KeyPointKind::Intersection && v.kind != KeyPointKind::Intersection) {
+                    v = c;
+                }
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            visible.push_back(c);
+        }
+    }
+
+    int active = -1;
+    double best = captureTol;
+    for (std::size_t i = 0; i < visible.size(); ++i) {
+        markers.push_back(visible[i].pos);
+        const double d = (visible[i].pos - inputPos).Length();
+        if (d < best) {
+            best = d;
+            active = static_cast<int>(i);
+        }
+    }
+
+    if (showMarkers && !markers.empty()) {
+        ViewProviderSketchSnapAttorney::drawSnapMarkers(viewProvider, markers, active);
+        keyPointMarkersShown = true;
+    }
+    else {
+        clearKeyPointMarkers();
+    }
+
+    if (active < 0) {
+        return false;
+    }
+
+    const auto& c = visible[active];
+    found.valid = true;
+    found.pos = c.pos;
+    found.kind = c.kind;
+    found.geoId1 = c.geoId1;
+    found.geoId2 = c.geoId2;
+    return true;
+}
+
+void SnapManager::clearKeyPointMarkers()
+{
+    if (!keyPointMarkersShown) {
+        return;
+    }
+    keyPointMarkersShown = false;
+    ViewProviderSketchSnapAttorney::drawSnapMarkers(viewProvider, {}, -1);
 }

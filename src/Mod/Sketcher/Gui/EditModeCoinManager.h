@@ -210,6 +210,8 @@ public:
     /** @name Temporary edit curves and markers */
     //@{
     void drawEditMarkers(const std::vector<Base::Vector2d>& EditMarkers, unsigned int augmentationlevel);
+    /// Prumo 3D: pontos-ímã do snap; active = índice do ponto capturado ou -1
+    void drawSnapMarkers(const std::vector<Base::Vector2d>& markers, int active);
     void drawEdit(const std::vector<Base::Vector2d>& EditCurve, GeometryCreationMode mode);
     void drawEdit(const std::list<std::vector<Base::Vector2d>>& list, GeometryCreationMode mode);
     void setPositionText(const Base::Vector2d& Pos, const SbString& txt);

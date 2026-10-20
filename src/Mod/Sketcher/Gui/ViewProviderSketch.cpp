@@ -732,6 +732,9 @@ void ViewProviderSketch::deactivateHandler()
         sketchHandler->deactivate();
         sketchHandler = nullptr;
     }
+    if (snapManager) {
+        snapManager->clearKeyPointMarkers();  // Prumo 3D
+    }
     setSketchMode(STATUS_NONE);
 }
 
@@ -3218,6 +3221,13 @@ void ViewProviderSketch::drawEditMarkers(const std::vector<Base::Vector2d>& Edit
                                          unsigned int augmentationlevel)
 {
     editCoinManager->drawEditMarkers(EditMarkers, augmentationlevel);
+}
+
+void ViewProviderSketch::drawSnapMarkers(const std::vector<Base::Vector2d>& markers, int active)
+{
+    if (editCoinManager) {
+        editCoinManager->drawSnapMarkers(markers, active);
+    }
 }
 
 void ViewProviderSketch::updateData(const App::Property* prop) {

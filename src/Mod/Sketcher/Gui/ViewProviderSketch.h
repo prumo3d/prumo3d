@@ -939,6 +939,8 @@ private:
         const std::vector<Base::Vector2d>& EditMarkers,
         unsigned int augmentationlevel = 0
     );
+    /// Prumo 3D: draw the snap key points ("magnets"); active = index of the captured one or -1
+    void drawSnapMarkers(const std::vector<Base::Vector2d>& markers, int active);
     /// set the pick style of the sketch coordinate axes
     void setAxisPickStyle(bool on);
 

@@ -26,6 +26,7 @@
 #include <QPainter>
 
 #include <Inventor/events/SoKeyboardEvent.h>
+#include <Precision.hxx>
 
 #include <Base/Console.h>
 #include <Base/Exception.h>
@@ -140,6 +141,13 @@ inline int ViewProviderSketchDrawSketchHandlerAttorney::getPreselectCurve(const 
 inline int ViewProviderSketchDrawSketchHandlerAttorney::getPreselectCross(const ViewProviderSketch& vp)
 {
     return vp.getPreselectCross();
+}
+
+inline KeyPointSnap ViewProviderSketchDrawSketchHandlerAttorney::getLastKeyPointSnap(
+    const ViewProviderSketch& vp
+)
+{
+    return vp.snapManager ? vp.snapManager->getLastKeyPointSnap() : KeyPointSnap();
 }
 
 inline void ViewProviderSketchDrawSketchHandlerAttorney::setAngleSnapping(
@@ -543,6 +551,54 @@ void DrawSketchHandler::seekPreselectionAutoConstraint(
     }
 }
 
+bool DrawSketchHandler::seekKeyPointAutoConstraint(
+    std::vector<AutoConstraint>& suggestedConstraints,
+    const Base::Vector2d& Pos,
+    AutoConstraint::TargetType type
+)
+{
+    if (type != AutoConstraint::VERTEX && type != AutoConstraint::VERTEX_NO_TANGENCY) {
+        return false;
+    }
+
+    const KeyPointSnap keyPoint = ViewProviderSketchDrawSketchHandlerAttorney::getLastKeyPointSnap(
+        *sketchgui
+    );
+    if (!keyPoint.valid || (keyPoint.pos - Pos).Length() > Precision::Confusion()) {
+        return false;
+    }
+
+    auto add = [&](Sketcher::ConstraintType ctype, int geoId) {
+        if (geoId == GeoEnum::GeoUndef) {
+            return;
+        }
+        AutoConstraint constr;
+        constr.Type = ctype;
+        constr.GeoId = geoId;
+        constr.PosId = PointPos::none;
+        suggestedConstraints.push_back(constr);
+    };
+
+    switch (keyPoint.kind) {
+        case KeyPointKind::Midpoint: {
+            const Part::Geometry* geo = sketchgui->getSketchObject()->getGeometry(keyPoint.geoId1);
+            const bool isLine = geo && geo->is<Part::GeomLineSegment>();
+            add(isLine ? Sketcher::Symmetric : Sketcher::PointOnObject, keyPoint.geoId1);
+        } break;
+        case KeyPointKind::Quadrant:
+        case KeyPointKind::AxisVertex:
+            add(Sketcher::PointOnObject, keyPoint.geoId1);
+            break;
+        case KeyPointKind::Intersection:
+            add(Sketcher::PointOnObject, keyPoint.geoId1);
+            add(Sketcher::PointOnObject, keyPoint.geoId2);
+            break;
+        case KeyPointKind::None:
+            return false;
+    }
+    return true;
+}
+
 void DrawSketchHandler::seekAlignmentAutoConstraint(
     std::vector<AutoConstraint>& suggestedConstraints,
     const Base::Vector2d& Dir
@@ -751,7 +807,11 @@ int DrawSketchHandler::seekAutoConstraint(
         return 0;  // If Autoconstraints property is not set quit
     }
 
-    seekPreselectionAutoConstraint(suggestedConstraints, Pos, Dir, type);
+    // Prumo 3D: ponto capturado por um ímã (quadrante, ponto médio, interseção) gera as restrições
+    // que mantêm o ponto ali; a pré-seleção do cursor pode estar em outra curva e é ignorada
+    if (!seekKeyPointAutoConstraint(suggestedConstraints, Pos, type)) {
+        seekPreselectionAutoConstraint(suggestedConstraints, Pos, Dir, type);
+    }
 
     if (Dir.Length() > 1e-8 && type != AutoConstraint::CURVE) {
         seekAlignmentAutoConstraint(suggestedConstraints, Dir);

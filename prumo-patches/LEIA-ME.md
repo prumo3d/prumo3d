@@ -15,6 +15,26 @@ Arquivos: `Mod/Part/App/Attacher.cpp`, `Mod/Part/Gui/AttacherTexts.cpp`,
 `Mod/Part/App/LinearPatternExtension.cpp`, `Mod/Part/App/PolarPatternExtension.cpp`,
 `Mod/TechDraw/Gui/Command.cpp`.
 
+## Esboço: pontos-ímã (quadrantes, pontos médios e interseções)
+
+Já no ramo `main`. Enquanto uma ferramenta de desenho do Esboço está ativa (linha, círculo, arco, etc.),
+aparecem losangos amarelos nos pontos notáveis das curvas perto do cursor:
+
+- quadrantes (0°, 90°, 180° e 270°) de círculos e arcos;
+- ponto médio de linhas e arcos;
+- extremidades dos eixos de elipses;
+- interseções entre duas curvas.
+
+Perto de um deles, o cursor é atraído (o losango fica azul e maior) e o ponto criado já recebe as
+restrições que o mantêm ali: ponto sobre a curva no quadrante, simetria no ponto médio da linha e
+ponto sobre as duas curvas na interseção. Um vértice existente continua tendo prioridade (coincidência).
+
+Liga/desliga: parâmetro `SnapToKeyPoints` em `BaseApp/Preferences/Mod/Sketcher/Snap` (padrão ligado);
+depende também de "Snap" e "Snap to objects" ligados.
+
+Arquivos: `Mod/Sketcher/Gui/SnapManager.cpp/.h`, `DrawSketchHandler.cpp/.h`,
+`EditModeCoinManager.cpp/.h`, `EditModeCoinManagerParameters.h`, `ViewProviderSketch.cpp/.h`.
+
 ## Aplicar (PowerShell, na pasta do clone)
 
 ```powershell

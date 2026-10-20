@@ -126,6 +126,8 @@ private:
     static inline int getPreselectPoint(const ViewProviderSketch& vp);
     static inline int getPreselectCurve(const ViewProviderSketch& vp);
     static inline int getPreselectCross(const ViewProviderSketch& vp);
+    /// Prumo 3D: ponto-ímã usado no último snap
+    static inline KeyPointSnap getLastKeyPointSnap(const ViewProviderSketch& vp);
 
     static inline void moveConstraint(
         ViewProviderSketch& vp,
@@ -325,6 +327,12 @@ protected:
 
     bool isLineCenterAutoConstraint(int GeoId, const Base::Vector2d& Pos) const;
 
+    /// Prumo 3D: restrições para um ponto capturado por ímã; false se o último snap não foi num ímã
+    bool seekKeyPointAutoConstraint(
+        std::vector<AutoConstraint>& suggestedConstraints,
+        const Base::Vector2d& Pos,
+        AutoConstraint::TargetType type
+    );
     void seekAlignmentAutoConstraint(std::vector<AutoConstraint>& constraints, const Base::Vector2d& Dir);
 
     void seekTangentAutoConstraint(
