@@ -78,6 +78,14 @@ def _thumb(path, size):
 
 
 # ---------------------------------------------------------------- ações
+def _abrir_guia_migracao():
+    try:
+        import PrumoGuiaMigracao
+        PrumoGuiaMigracao.mostrar()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: guia de migração indisponível: {}\n".format(exc))
+
+
 def _abrir_tutorial(chave="peca"):
     try:
         import PrumoTutorial
@@ -311,6 +319,13 @@ class InicioPrumo(QtWidgets.QWidget):
         tut2.setStyleSheet(tut.styleSheet())
         tut2.clicked.connect(lambda *_: _abrir_tutorial("estrutura"))
         self.v.addWidget(tut2)
+        tut3 = QtWidgets.QPushButton("Vem do SolidWorks ou do ZW3D?  Veja onde fica cada comando  ›")
+        tut3.setObjectName("SwTutLink")
+        tut3.setCursor(QtCore.Qt.PointingHandCursor)
+        tut3.setFlat(True)
+        tut3.setStyleSheet(tut.styleSheet())
+        tut3.clicked.connect(lambda *_: _abrir_guia_migracao())
+        self.v.addWidget(tut3)
 
         # exemplos prontos
         exs = [e for e in EXEMPLOS if os.path.isfile(os.path.join(EXEMPLOS_DIR, e[0]))]

@@ -149,7 +149,7 @@ TABS = [
         ]),
         ("Prumo", [
             ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
-            ("Prumo_Variantes", L, "Variantes\nda peça"),
+            ("Prumo_Variantes", L, "Variantes\nda peça"), ("Prumo_Modelo", L, "Modelo com\nregras"),
             ("Prumo_Massa", S, "Propriedades de massa"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
         ]),
@@ -322,7 +322,8 @@ TABS = [
             ("Prumo_RemoverSplash", S, "Splash original"), ("Prumo_ModoDistribuicao", S, "Modo distribuição"),
         ]),
         ("Aprender", [("Prumo_Tutorial", L, "Tutorial\nprimeira peça"),
-                      ("Prumo_TutorialEstrutura", L, "Tutorial\nestrutura")]),
+                      ("Prumo_TutorialEstrutura", L, "Tutorial\nestrutura"),
+                      ("Prumo_GuiaMigracao", L, "Vindo do\nSolidWorks")]),
         ("Qualidade", [("Prumo_Testes", L, "Testes\nautomáticos")]),
     ]},
 ]

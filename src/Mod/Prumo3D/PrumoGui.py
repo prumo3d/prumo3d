@@ -812,6 +812,7 @@ def register_commands():
         FreeCAD.Console.PrintWarning("Prumo: tela inicial indisponível: {}\n".format(exc))
     for modulo, registro in (("PrumoCotas", lambda m: FreeCADGui.addCommand("Prumo_Cotas", m.CmdCotas())),
                              ("PrumoMassa", lambda m: FreeCADGui.addCommand("Prumo_Massa", m.CmdMassa())),
+                             ("PrumoModelos", lambda m: FreeCADGui.addCommand("Prumo_Modelo", m.CmdModelo())),
                              ("PrumoInterferencia", lambda m: FreeCADGui.addCommand("Prumo_Interferencia",
                                                                                     m.CmdInterferencia())),
                              ("PrumoCopiarProjeto", lambda m: FreeCADGui.addCommand("Prumo_CopiarProjeto",
@@ -849,6 +850,8 @@ def register_commands():
         import PrumoTutorial
         FreeCADGui.addCommand("Prumo_Tutorial", PrumoTutorial.CmdTutorial())
         FreeCADGui.addCommand("Prumo_TutorialEstrutura", PrumoTutorial.CmdTutorialEstrutura())
+        import PrumoGuiaMigracao
+        FreeCADGui.addCommand("Prumo_GuiaMigracao", PrumoGuiaMigracao.CmdGuiaMigracao())
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: assistente de simulação indisponível: {}\n".format(exc))
 

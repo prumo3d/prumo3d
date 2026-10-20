@@ -3608,6 +3608,160 @@ class T39Montagem(unittest.TestCase):
         self.assertIn("Prumo_Interferencia", FreeCADGui.Command.listAll())
 
 
+class T40ModelosComRegras(unittest.TestCase):
+    """Modelos com regras: formulário gera a peça; regras de projeto avisam."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteModelos")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def test_placa_volume_e_regras(self):
+        import PrumoModelos as M
+        o = M.criar(self.doc, "placa", Comprimento=300, Largura=200, Espessura=10, RaioCanto=0, FurosX=2,
+                    FurosY=2, DiametroFuro=20, Borda=40)
+        self.assertTrue(o.Shape.isValid())
+        esperado = 300 * 200 * 10 - 4 * math.pi * 10 ** 2 * 10
+        self.assertAlmostEqual(o.Shape.Volume, esperado, delta=1.0)
+        self.assertEqual(list(o.Avisos), [])
+        o.Borda = 20                     # < 1,5 × 20
+        self.doc.recompute()
+        self.assertTrue(any("borda" in a for a in o.Avisos))
+        o.RaioCanto = 15
+        self.doc.recompute()
+        self.assertLess(o.Shape.Volume, esperado)
+
+    def test_flange(self):
+        import PrumoModelos as M
+        o = M.criar(self.doc, "flange")
+        self.assertTrue(o.Shape.isValid())
+        p = o.Proxy.parametros(o)
+        anel = math.pi / 4 * (p["DiametroExterno"] ** 2 - p["DiametroInterno"] ** 2) * p["Espessura"]
+        furos = p["Furos"] * math.pi / 4 * p["DiametroFuro"] ** 2 * p["Espessura"]
+        self.assertAlmostEqual(o.Shape.Volume, anel - furos, delta=1.0)
+        o.DiametroFuracao = 190          # furos encostam na borda externa
+        self.doc.recompute()
+        self.assertTrue(o.Avisos)
+
+    def test_suporte_em_l(self):
+        import PrumoModelos as M
+        o = M.criar(self.doc, "suporte", Aba1=80, Aba2=60, Largura=50, Espessura=3, RaioDobra=3, DiametroFuro=0)
+        self.assertTrue(o.Shape.isValid())
+        self.assertEqual(len(o.Shape.Solids), 1)
+        bb = o.Shape.BoundBox
+        self.assertAlmostEqual(bb.XLength, 80, places=6)
+        self.assertAlmostEqual(bb.ZLength, 60, places=6)
+        # volume = abas retas + quarto de anel
+        t, r = 3.0, 3.0
+        esperado = 50 * t * ((80 - r - t) + (60 - r - t)) + 50 * math.pi / 4 * ((r + t) ** 2 - r ** 2)
+        self.assertAlmostEqual(o.Shape.Volume, esperado, delta=0.5)
+        o.RaioDobra = 1
+        self.doc.recompute()
+        self.assertTrue(any("Raio" in a for a in o.Avisos))
+
+    def test_eixo_escalonado(self):
+        import PrumoModelos as M
+        self.assertEqual(M.trechos("30x40; 40×120;30x40"), [(30, 40), (40, 120), (30, 40)])
+        for ruim in ("", "30", "0x10", "abc"):
+            with self.assertRaises(ValueError):
+                M.trechos(ruim)
+        o = M.criar(self.doc, "eixo", Trechos="30x40; 40x120; 30x40", Chanfro=0)
+        self.assertAlmostEqual(o.Shape.BoundBox.ZLength, 200, places=6)
+        esperado = math.pi / 4 * (30 ** 2 * 80 + 40 ** 2 * 120)
+        self.assertAlmostEqual(o.Shape.Volume, esperado, delta=1.0)
+        o.Trechos = "20x40; 60x10"
+        self.doc.recompute()
+        self.assertTrue(any("Degrau" in a for a in o.Avisos))
+
+    def test_salvar_reabrir_e_editar(self):
+        import PrumoModelos as M
+        o = M.criar(self.doc, "placa")
+        caminho = os.path.join(tempfile.mkdtemp(), "modelo.FCStd")
+        self.doc.saveAs(caminho)
+        fechar(self.doc)
+        self.doc = FreeCAD.openDocument(caminho)
+        o = self.doc.getObject("Modelo")
+        o.Comprimento = 500
+        self.doc.recompute()
+        self.assertAlmostEqual(o.Shape.BoundBox.XLength, 500, places=6)
+
+    def test_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoModelos as M
+        p = M.PainelModelo()
+        p.tipo.setCurrentIndex(p.tipo.findData("flange"))
+        self.assertIn("DiametroFuracao", p.campos)
+        p.campos["Furos"].setValue(4)
+        self.assertTrue(p.accept())
+        o = p.obj
+        self.assertEqual(o.TipoModelo, "flange")
+        self.assertEqual(o.Furos, 4)
+        # editar o existente
+        p2 = M.PainelModelo(o)
+        self.assertFalse(p2.tipo.isEnabled())
+        p2.campos["Espessura"].setValue(25)
+        self.assertTrue(p2.accept())
+        self.assertAlmostEqual(o.Shape.BoundBox.ZLength, 25, places=6)
+        p3 = M.PainelModelo()
+        p3.tipo.setCurrentIndex(p3.tipo.findData("eixo"))
+        p3.campos["Trechos"].setText("errado")
+        self.assertTrue(p3.pendencia())
+        p3.close()
+        self.assertIn("Prumo_Modelo", FreeCADGui.Command.listAll())
+
+
+class T41GuiaMigracao(unittest.TestCase):
+    """Guia "vindo do SolidWorks / ZW3D"."""
+
+    def test_comandos_do_guia_existem(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGuiaMigracao as G
+        import PrumoRibbon
+        todos = set(FreeCADGui.Command.listAll())
+        abas = {t["id"] for t in PrumoRibbon.TABS}
+        faltando = []
+        for area, sw, outros, prumo, aba, cmds, obs in G.EQUIVALENCIAS:
+            self.assertIn(aba, abas, prumo)
+            self.assertTrue(sw and outros and prumo, prumo)
+            if not any(c in todos for c in cmds):
+                faltando.append((prumo, cmds))
+        # comandos de bancadas ainda não carregadas (ex.: SheetMetal, Assembly) entram ao abrir a bancada
+        prumo_faltando = [f for f in faltando if any(c.startswith("Prumo_") for c in f[1])]
+        self.assertEqual(prumo_faltando, [])
+
+    def test_busca(self):
+        import PrumoGuiaMigracao as G
+        self.assertEqual([e[3] for e in G.filtrar("filete")], ["Arredondar"])
+        self.assertTrue(any(e[3] == "Reforço" for e in G.filtrar("gusset")))
+        self.assertTrue(any(e[3] == "Copiar projeto" for e in G.filtrar("pack and go")))
+        self.assertEqual(len(G.filtrar("")), len(G.EQUIVALENCIAS))
+        self.assertEqual(G.filtrar("xyzxyz"), [])
+
+    def test_janela_e_mostrar_onde(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGuiaMigracao as G
+        import PrumoRibbon
+        w = G.GuiaMigracao()
+        self.assertEqual(w.tabela.rowCount(), len(G.EQUIVALENCIAS))
+        w.busca.setText("cantoneira")
+        self.assertEqual(w.tabela.rowCount(), 1)
+        self.assertEqual(w.tabela.item(0, 3).text(), "Reforço")
+        if PrumoRibbon._state.get("ribbon") is not None:
+            self.assertTrue(w.mostrar_onde())
+        w.deleteLater()
+        d = G.mostrar()
+        self.assertTrue(d.isVisible())
+        d.close()
+        self.assertIn("Prumo_GuiaMigracao", FreeCADGui.Command.listAll())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -3615,4 +3769,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
            T36ChapaFatorKeDXF, T37Variantes, T38CopiarProjeto,
-           T39Montagem]
+           T39Montagem, T40ModelosComRegras, T41GuiaMigracao]
