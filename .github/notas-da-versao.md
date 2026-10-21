@@ -46,7 +46,9 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Prévia ao vivo** também no reforço, tampa, placa de base, solda e fixadores: o resultado aparece
   no desenho enquanto se mexe no painel, com "Início" e "Fim" marcados nas barras. Os avisos aparecem
   no painel antes de aplicar. Duplo clique na árvore (estrutura, barra, reforço, tampa, placa, solda,
-  fixador) abre o mesmo painel, editando o objeto.
+  fixador) abre o mesmo painel, editando o objeto. Cantos, Trocar perfil, Modelos com regras e
+  Propriedades da peça também mostram o resultado na hora; o diálogo Cantos marca na tela os cantos
+  da linha escolhida.
 - **Chapa metálica** (bancada SheetMetal embutida): paredes, dobras e planificação, com **fator K por
   material** (aço, inox, alumínio, DIN 6935) e **planificação em DXF num clique** (contorno e dobras).
 - **Montagem:** restrições com os nomes do SolidWorks (coincidente, concêntrica...), **verificar

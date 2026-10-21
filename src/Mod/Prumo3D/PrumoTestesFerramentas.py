@@ -3386,6 +3386,110 @@ class T33PaineisVisuais(unittest.TestCase):
             self._fechar()
         self.assertIn("M10", o.Label)
 
+    # ---- cantos, trocar perfil, modelos e propriedades ao vivo
+    def test_cantos_ao_vivo(self):
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        est, bs = self._estrutura("W 150 x 13,0")      # uniao Topo: cortes retos
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 0.0, places=4)
+        d = E.DialogoCantos(est, ao_vivo=True)
+        self.assertEqual(len(d.etiquetas), 4, "os cantos não foram marcados na tela")
+        d.escolher(0, E.OPCOES_ESQUADRIA[0])           # meia-esquadria
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 45.0, places=3, msg="a prévia não apareceu")
+        d.reject()
+        self.doc.recompute()
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 0.0, places=4, msg="Cancelar não voltou")
+        self.assertIsNone(d.etiquetas)
+        d = E.DialogoCantos(est, ao_vivo=True)
+        d.escolher(0, E.OPCOES_ESQUADRIA[0])
+        d._ok()
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 45.0, places=3)
+        self.doc.undo()
+        self.doc.recompute()
+        self.assertAlmostEqual(bs[0].CorteInicio.Value, 0.0, places=4)
+
+    def test_trocar_perfil_ao_vivo(self):
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura("W 150 x 13,0")
+        visto = {}
+        teste = self
+
+        class Cmd(E.CmdTrocarPerfil):
+            def __init__(self, ok):
+                self.ok = ok
+
+            def _executar_dialogo(self, d):
+                teste._escolher_perfil(self, TQ50)
+                visto["perfil"] = bs[0].Perfil
+                return self.ok
+
+        Cmd.sel = property(lambda self: self.__dict__["sel"], lambda self, v: self.__dict__.__setitem__("sel", v))
+        Cmd(False).trocar([bs[0]])
+        self.assertEqual(visto["perfil"], TQ50, "a troca não apareceu na hora")
+        self.assertEqual(bs[0].Perfil, "W 150 x 13,0", "Cancelar não voltou o perfil")
+        Cmd(True).trocar([bs[0]])
+        self.assertEqual(bs[0].Perfil, TQ50)
+
+    def _escolher_perfil(self, cmd, nome):
+        import PrumoPerfis
+        it = PrumoPerfis.perfil(nome)
+        cmd.sel.familia.setCurrentIndex(cmd.sel.familia.findData(it["familia"]))
+        cmd.sel.perfil.setCurrentIndex(cmd.sel.perfil.findData(nome))
+
+    def test_modelo_ao_vivo(self):
+        import PrumoModelos as M
+        self.doc.UndoMode = 1
+        modelos = lambda: [o for o in self.doc.Objects if "TipoModelo" in o.PropertiesList]
+        p = M.PainelModelo().mostrar()
+        try:
+            p.atualizar_previa()
+            self.assertEqual(len(modelos()), 1, "a peça não apareceu na hora")
+            p.tipo.setCurrentIndex(p.tipo.findData("flange"))
+            p.atualizar_previa()
+            self.assertEqual([o.TipoModelo for o in modelos()], ["flange"], "a prévia antiga ficou")
+            self.assertTrue(p.reject())
+        finally:
+            self._fechar()
+        self.assertEqual(modelos(), [])
+        o = M.criar(self.doc, "placa", Comprimento=300)
+        p = M.PainelModelo(o).mostrar()
+        try:
+            p.campos["Comprimento"].setValue(450)
+            p.atualizar_previa()
+            self.assertAlmostEqual(o.Shape.BoundBox.XLength, 450, places=4)
+            self.assertTrue(p.reject())
+        finally:
+            self._fechar()
+        self.doc.recompute()
+        self.assertAlmostEqual(o.Shape.BoundBox.XLength, 300, places=4, msg="Cancelar não voltou a medida")
+
+    def test_propriedades_ao_vivo(self):
+        import PrumoPropriedades as PP
+        self.doc.UndoMode = 1
+        b = self.doc.addObject("Part::Box", "Bloco")
+        self.doc.recompute()
+        p = PP.PainelPropriedades().mostrar()
+        try:
+            p.peca.aceitar(b)
+            p.campos["Codigo"].setText("SW-900")
+            p.atualizar_previa()
+            self.assertEqual(b.Codigo, "SW-900")
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertEqual(b.Codigo, "SW-900")
+        p = PP.PainelPropriedades().mostrar()
+        try:
+            p.peca.aceitar(b)
+            p.campos["Codigo"].setText("OUTRO")
+            p.atualizar_previa()
+            self.assertEqual(b.Codigo, "OUTRO")
+            self.assertTrue(p.reject())
+        finally:
+            self._fechar()
+        self.assertEqual(b.Codigo, "SW-900", "Cancelar não voltou o código")
+
     def test_folha_pelo_painel(self):
         import PrumoFolhas
         b = self.doc.addObject("Part::Box", "Bloco")

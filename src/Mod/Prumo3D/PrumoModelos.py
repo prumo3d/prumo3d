@@ -330,9 +330,11 @@ def PainelModelo(obj=None):
     class _Painel(P.PainelTarefa):
         titulo = "Modelo com regras"
         ajuda = "Escolha o modelo e os parâmetros. As regras de projeto avisam o que não fecha."
+        previa = True      # a peça aparece (ou muda) na hora; OK grava, Cancelar desfaz
 
         def __init__(self):
             self.obj = obj
+            self._novo = obj is None
             super().__init__()
 
         def montar(self):
@@ -368,7 +370,7 @@ def PainelModelo(obj=None):
             m = MODELOS[tipo]
             self.dica.setText(m["dica"])
             for nome, rotulo, kind, padrao, mn, mx, ic, dica in m["parametros"]:
-                atual = getattr(self.obj, nome) if self.obj is not None else padrao
+                atual = getattr(self.obj, nome) if (self.obj is not None and not self._novo) else padrao
                 atual = float(atual.Value) if hasattr(atual, "Value") else atual
                 if kind == "mm":
                     w = P.numero(atual, mn, mx)
@@ -407,11 +409,12 @@ def PainelModelo(obj=None):
                 return str(ex)
 
         def pronto_texto(self):
-            return "Pronto: OK %s a peça." % ("atualiza" if self.obj is not None else "gera")
+            return "Pronto: OK %s a peça." % ("atualiza" if not self._novo else "gera")
 
         def executar(self):
             vals = self.valores()
-            if self.obj is None:
+            if self._novo:
+                # criação: cada prévia gera a peça de novo (a anterior sai da tela)
                 self.obj = criar(FreeCAD.ActiveDocument, self.tipo.currentData(), **vals)
             else:
                 for k, v in vals.items():

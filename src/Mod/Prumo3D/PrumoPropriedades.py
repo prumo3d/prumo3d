@@ -251,6 +251,7 @@ def _painel():
     class PainelPropriedades(P.PainelTarefa):
         titulo = "Propriedades da peça"
         ajuda = "Escolha a peça. Os dados vão para a lista de materiais e para a legenda da folha."
+        previa = True      # material, massa e legenda da folha mudam na hora; Cancelar volta
 
         def montar(self):
             f = self.form
@@ -294,6 +295,9 @@ def _painel():
             o.Document.recompute()
             for p in folhas_da_peca(o):
                 atualizar_legenda(p)
+            mat = material(o)
+            self.lb_massa.setText("Material: %s · massa: %s kg" % (mat or "não definido (aço)",
+                                                                    PrumoUtil.fmt(massa(o), 3)))
             return o
 
     return PainelPropriedades

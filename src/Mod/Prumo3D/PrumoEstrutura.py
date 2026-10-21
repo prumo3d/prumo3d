@@ -2259,23 +2259,48 @@ class CmdTrocarPerfil:
         f = QtWidgets.QFormLayout()
         f.addRow("Giro adicional", giro)
         lay.addLayout(f)
+        aviso = QtWidgets.QLabel("A troca aparece na tela na hora. Trocar grava; Cancelar volta ao que era.")
+        aviso.setWordWrap(True)
+        lay.addWidget(aviso)
         bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         bb.button(QtWidgets.QDialogButtonBox.Ok).setText("Trocar")
         bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
         bb.accepted.connect(d.accept)
         bb.rejected.connect(d.reject)
         lay.addWidget(bb)
-        if not d.exec():
-            return
+        self.dialogo, self.sel, self.giro = d, sel, giro
         doc = bs[0].Document
+        ests = {b.Estrutura for b in bs}
+        antes = {e.Name: (list(e.PerfisIndividuais), list(e.RotacoesIndividuais)) for e in ests}
         doc.openTransaction("Trocar perfil")
-        try:
-            trocar_perfil(bs, sel.nome(), giro.value())
-        except Exception as ex:
-            doc.abortTransaction()
-            QtWidgets.QMessageBox.warning(FreeCADGui.getMainWindow(), "Trocar perfil", str(ex))
+
+        def previa(*_a):
+            try:
+                trocar_perfil(bs, sel.nome(), giro.value())
+                aviso.setText("A troca aparece na tela na hora. Trocar grava; Cancelar volta ao que era.")
+            except Exception as ex:
+                aviso.setText("<span style='color:#B5523F'>%s</span>" % ex)
+
+        sel.mudou.connect(previa)
+        giro.valueChanged.connect(previa)
+        previa()
+        if self._executar_dialogo(d):
+            doc.commitTransaction()
             return
-        doc.commitTransaction()
+        try:
+            doc.abortTransaction()
+        except Exception:
+            pass
+        for e in ests:     # sem Desfazer ligado no documento
+            pf, rt = antes[e.Name]
+            if list(e.PerfisIndividuais) != pf or list(e.RotacoesIndividuais) != rt:
+                e.PerfisIndividuais, e.RotacoesIndividuais = pf, rt
+                for b in barras_de(e):
+                    b.touch()
+        doc.recompute()
+
+    def _executar_dialogo(self, d):
+        return bool(d.exec())
 
 
 class DialogoCantos(QtWidgets.QDialog):
@@ -2284,9 +2309,13 @@ class DialogoCantos(QtWidgets.QDialog):
 
     MANTER = "(manter)"
 
-    def __init__(self, est, barras=None, parent=None):
+    def __init__(self, est, barras=None, parent=None, ao_vivo=False):
         super().__init__(parent)
         self.est = est
+        self.ao_vivo = bool(ao_vivo)
+        self._transacao = False
+        self._cantos_antes = list(getattr(est, "Cantos", []) or [])
+        self.etiquetas = None
         self.setWindowTitle("Cantos da estrutura")
         self.setMinimumSize(1060, 380)
         import PrumoPainel as P
@@ -2357,8 +2386,10 @@ class DialogoCantos(QtWidgets.QDialog):
         meio.addLayout(guia)
         lay.addLayout(meio, 1)
         self.tabela.currentCellChanged.connect(lambda *_: self.atualizar_desenho())
+        self.tabela.currentCellChanged.connect(lambda *_: self.marcar_cantos())
         for cb in self.combos:
             cb.currentTextChanged.connect(lambda *_: self.atualizar_desenho())
+            cb.currentTextChanged.connect(lambda *_: self.previa())
         if self.linhas:
             self.tabela.setCurrentCell(0, 2)
         self.atualizar_desenho()
@@ -2368,6 +2399,82 @@ class DialogoCantos(QtWidgets.QDialog):
         bb.accepted.connect(self._ok)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
+        if self.ao_vivo:
+            self.est.Document.openTransaction("Cantos")
+            self._transacao = True
+        self.marcar_cantos()
+
+    # ---- prévia ao vivo e cantos marcados na tela
+    def _no_do_canto(self, c, eds):
+        """Ponto do canto: a ponta comum (canto) ou a ponta de i no meio de j (ligação em T)."""
+        e, o = eds[c.i], eds[c.j]
+        pontas_o = (o.valueAt(o.FirstParameter), o.valueAt(o.LastParameter))
+        for p in (e.valueAt(e.FirstParameter), e.valueAt(e.LastParameter)):
+            if c.tipo == "topo_T":
+                if _ponto_interior(p, o):
+                    return p
+            elif any((p - q).Length < 1e-4 for q in pontas_o):
+                return p
+        return e.valueAt(e.FirstParameter)
+
+    def marcar_cantos(self):
+        """Marca na tela os cantos da linha escolhida na tabela (os outros em azul)."""
+        if not FreeCAD.GuiUp:
+            return
+        if self.etiquetas is not None:
+            self.etiquetas.remover()
+            self.etiquetas = None
+        try:
+            eds = arestas(self.est.Esqueleto)
+            pontos, textos, dest = [], [], []
+            r = self.tabela.currentRow()
+            for k, grupo in enumerate(self.linhas):
+                for c in grupo:
+                    pontos.append(self._no_do_canto(c, eds))
+                    textos.append("canto %d" % (k + 1))
+                    if k == r:
+                        dest.append(len(pontos) - 1)
+            if pontos:
+                self.etiquetas = EtiquetasNaTela(self.est.Document, pontos, textos)
+                self.etiquetas.destacar(dest)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: marcas dos cantos: %s\n" % exc)
+
+    def _escolhas(self):
+        for grupo, cb in zip(self.linhas, self.combos):
+            if cb.currentText() != self.MANTER:
+                aplicar_opcao(self.est, grupo, cb.currentText())
+
+    def previa(self):
+        """Ao vivo: aplica as escolhas na estrutura na hora (Cancelar volta ao que era)."""
+        if not self._transacao:
+            return
+        self.est.Cantos = list(self._cantos_antes)
+        self._escolhas()
+        for b in barras_de(self.est):
+            b.touch()
+        self.est.Document.recompute()
+
+    def done(self, r):
+        if self._transacao:
+            doc = self.est.Document
+            self._transacao = False
+            if r == QtWidgets.QDialog.Accepted:
+                doc.commitTransaction()
+            else:
+                try:
+                    doc.abortTransaction()
+                except Exception:
+                    pass
+                if list(self.est.Cantos) != self._cantos_antes:   # sem Desfazer ligado
+                    self.est.Cantos = list(self._cantos_antes)
+                    for b in barras_de(self.est):
+                        b.touch()
+                doc.recompute()
+        if self.etiquetas is not None:
+            self.etiquetas.remover()
+            self.etiquetas = None
+        super().done(r)
 
     def escolher(self, linha, opcao):
         self.combos[linha].setCurrentText(opcao)
@@ -2406,6 +2513,9 @@ class DialogoCantos(QtWidgets.QDialog):
         self.nota.setText("<b>%s</b><br>%s" % (escolha[1], nota))
 
     def aplicar(self):
+        if self._transacao:      # ao vivo: a prévia já está aplicada; OK grava
+            self.previa()
+            return
         doc = self.est.Document
         doc.openTransaction("Cantos")
         try:
@@ -2455,12 +2565,18 @@ def abrir_cantos(itens):
         return None
     barras = [o for o in itens if eh_barra(o) and o.Estrutura == est]
     d = DialogoCantos(est, barras if barras and not any(eh_estrutura(o) for o in itens) else None,
-                      FreeCADGui.getMainWindow())
+                      FreeCADGui.getMainWindow(), ao_vivo=True)
     if not d.linhas:
+        d.reject()
         QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Cantos",
                                           "Não há cantos de duas barras nem ligações em T aqui.")
         return d
-    d.exec()
+    # não modal: dá para girar e aproximar a vista enquanto escolhe (a prévia aparece na hora)
+    d.setWindowModality(QtCore.Qt.NonModal)
+    d.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+    _dialogos.append(d)
+    d.finished.connect(lambda _r, d=d: _dialogos.remove(d) if d in _dialogos else None)
+    d.show()
     return d
 
 
