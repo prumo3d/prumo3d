@@ -5147,6 +5147,114 @@ class T42SimulacaoEstrutura(unittest.TestCase):
         self.assertTrue(any("2ª ordem" in a for a in calc.avisos))
         self.assertTrue(any(x.startswith("Aviso:") for x in an.Resumo))
 
+
+class T43DetalheLigacao(unittest.TestCase):
+    """Detalhe de ligação por elementos finitos (submodelo) e vídeo do comportamento."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteDetalhe")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _analise(self):
+        import json
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (5000, 3000)), ((5000, 3000), (5000, 0))],
+                           "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        self.doc.recompute()
+        an = A.criar(self.doc, est)
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        casos = an.Proxy.casos(an)
+        casos.append({"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                      "cargas": [{"alvo": "barra", "linha": 1, "tipo": "distribuida", "valor": 10.0,
+                                  "direcao": "Para baixo (−Z)"}]})
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        self.doc.recompute()
+        return an
+
+    def test_nos_cortes_e_equilibrio(self):
+        import PrumoDetalheFEM as D
+        an = self._analise()
+        js = D.juntas(an)
+        self.assertEqual(len(js), 4)
+        self.assertEqual(sum(1 for j in js if j["apoio"]), 2)
+        det = D.montar(an, FreeCAD.Vector(10, 0, 2990))        # perto do canto: pega o nó do canto
+        self.assertLess((det.ponto - FreeCAD.Vector(0, 0, 3000)).Length, 1e-6)
+        self.assertEqual(len(det.forma.Solids), 1)
+        self.assertEqual(len(det.cortes), 2)
+        self.assertEqual(sum(1 for c in det.cortes if c["fixo"]), 1)
+        self.assertTrue(all(c["faces"] for c in det.cortes))
+        # sem carga horizontal: as forças horizontais dos dois cortes se anulam
+        self.assertAlmostEqual(sum(c["F"].x for c in det.cortes), 0.0, delta=1.0)
+        # a diferença vertical é a carga majorada no pedaço de viga dentro do detalhe (~1,5 × 10 kN/m)
+        dz = sum(c["F"].z for c in det.cortes)
+        viga = [c for c in det.cortes if c["linha"] == 1][0]
+        self.assertGreater(dz, 1.4 * 10.0 * viga["dist"])
+        self.assertLess(dz, 1.6 * 10.0 * viga["dist"] + 2000.0)
+        # nó apoiado: todos os cortes carregados, a base engastada
+        det2 = D.montar(an, FreeCAD.Vector(0, 0, 0))
+        self.assertEqual(det2.apoio, "Engaste")
+        self.assertFalse(any(c["fixo"] for c in det2.cortes))
+        self.assertTrue(det2.faces_fixas)
+
+    def test_detalhe_calculado_confere_com_barras_e_video(self):
+        import json
+        import os
+        import tempfile
+        import PrumoDetalheFEM as D
+        import PrumoFEM as F
+        an = self._analise()
+        est, det, erro = D.detalhar(an, FreeCAD.Vector(0, 0, 0), tamanho=14.0)
+        self.assertEqual(erro, "", erro)
+        e = F.estatisticas(est)
+        self.assertGreater(e["svm_max"], 20.0)
+        self.assertIn("fy/γa1", F.resumo_resultado(est))
+        conf = json.loads(est.get("PrumoConferencia"))
+        self.assertEqual(len(conf), 1)
+        c = conf[0]
+        self.assertLess(abs(c["fem"] - c["barra_mpa"]) / c["barra_mpa"], 0.25, c)
+        rb = [o for o in est.cargas if F._eh(o, "Fem::ConstraintRigidBody")]
+        self.assertEqual(len(rb), 1)
+        self.assertIn("kN", F._descr_restricao(rb[0]))
+        if FreeCAD.GuiUp:
+            import PrumoVideo as V
+            pasta = tempfile.mkdtemp()
+            saida = V.gravar_fem(est, os.path.join(pasta, "detalhe.gif"), 320, 180, 4, segundos=1.0)
+            self.assertTrue(saida.endswith(".gif") and os.path.getsize(saida) > 1000)
+            saida = V.gravar_estrutura(an, os.path.join(pasta, "estrutura.gif"), 320, 180, 4, segundos=2.0)
+            self.assertTrue(os.path.getsize(saida) > 1000)
+            self.assertEqual(an.Mostrar, "Taxa de uso", "o vídeo tem que devolver a vista como estava")
+            import PrumoFEMRelatorio as R
+            html = "".join(R._detalhe(est, e))
+            self.assertIn("Conferência", html)
+
+    def test_painel_escolhe_no_e_marca_cortes(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoAnaliseVista as V
+        an = self._analise()
+        p = V.abrir_painel(an.Estrutura, an)
+        try:
+            p.modo.definir("detalhe")
+            p.clique(an.Estrutura, "", (5000.0, 0.0, 2990.0))
+            self.assertIsNotNone(p._junta)
+            self.assertTrue(p.bt_detalhe.isEnabled())
+            textos = [t for _p, t, _d in p.marcas()]
+            self.assertIn("nó do detalhe", textos)
+            self.assertEqual(sum(1 for t in textos if t.startswith("corte")), 2)
+            self.assertGreater(p.det_comb.count(), 0)
+        finally:
+            p.reject()
+            FreeCADGui.Control.closeDialog()
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -5154,4 +5262,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
-           T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura]
+           T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
+           T43DetalheLigacao]

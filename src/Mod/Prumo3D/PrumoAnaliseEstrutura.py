@@ -533,6 +533,11 @@ class Analise:
         if "Mostrar" not in obj.PropertiesList:
             obj.addProperty("App::PropertyEnumeration", "Mostrar", "Vista", "O que desenhar na tela")
             obj.Mostrar = MOSTRAR
+        elif list(obj.getEnumerationsOfProperty("Mostrar") or []) != MOSTRAR:
+            atual = obj.Mostrar
+            obj.Mostrar = MOSTRAR
+            if atual in MOSTRAR:
+                obj.Mostrar = atual
         add("App::PropertyString", "Combinacao", "Vista", "Combinação mostrada (vazio = a pior ELU)", "")
         add("App::PropertyFloat", "Escala", "Vista", "Escala dos diagramas e da deformada (1 = automática)", 1.0)
         add("App::PropertyBool", "SegundaOrdem", "Análise", "Análise de 2ª ordem (P-Δ) nas combinações últimas",
@@ -639,8 +644,9 @@ class Analise:
         self.calc = None
 
 
+DEFORMADA_TAXA = "Deformada com a taxa de uso"
 MOSTRAR = ["Taxa de uso", "Momento fletor (M)", "Esforço cortante (V)", "Esforço normal (N)", "Deformada",
-           "Cargas e apoios"]
+           DEFORMADA_TAXA, "Cargas e apoios"]
 
 
 def criar(doc, est):

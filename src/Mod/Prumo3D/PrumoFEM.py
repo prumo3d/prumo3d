@@ -175,7 +175,8 @@ class Estudo:
 
     @property
     def cargas(self):
-        return self._tipo("Fem::ConstraintForce", "Fem::ConstraintPressure", "Fem::ConstraintSelfWeight")
+        return self._tipo("Fem::ConstraintForce", "Fem::ConstraintPressure", "Fem::ConstraintSelfWeight",
+                          "Fem::ConstraintRigidBody")
 
     @property
     def malha(self):
@@ -557,6 +558,16 @@ def _mesma_geo(o, peca):
         return False
 
 
+def _texto_corpo_rigido(c):
+    """'F 12,3 kN · M 4,56 kN·m' de uma restrição de corpo rígido (esforços da análise por barras)."""
+    try:
+        f = FreeCAD.Vector(*[float(Q(getattr(c, "Force" + e)).getValueAs("N")) for e in "XYZ"])
+        m = FreeCAD.Vector(*[float(Q(getattr(c, "Moment" + e)).getValueAs("N*mm")) for e in "XYZ"])
+        return "F {} kN · M {} kN·m".format(fmt(f.Length / 1e3, 2), fmt(m.Length / 1e6, 2))
+    except Exception:
+        return "corpo rígido"
+
+
 def _valor_carga(c):
     try:
         if _eh(c, "Fem::ConstraintForce"):
@@ -591,6 +602,15 @@ def estatisticas(est):
     except Exception:
         out["svm_max"] = max(r.vonMises) if r.vonMises else None
         out["u_max"] = max(r.DisplacementLengths) if r.DisplacementLengths else None
+    if est.get("PrumoZonaRaio", 0.0):
+        try:
+            import PrumoDetalheFEM
+            zona, total = PrumoDetalheFEM.tensao_na_zona(est)
+            if zona:
+                out["svm_total"] = out.get("svm_max")
+                out["svm_max"] = zona
+        except Exception:
+            pass
     m = est.material
     sy = props_mat(m.Material)["Sy"] if m is not None else None
     out["Sy"] = sy
@@ -606,7 +626,11 @@ def resumo_resultado(est):
         fs = [f for _m, f in e["modos"]]
         return "1º modo: {}".format(fmt(fs[0], 2, "Hz")) if fs else "sem modos"
     txt = "σ máx. {} · δ máx. {}".format(fmt(e.get("svm_max"), 1, "MPa"), fmt(e.get("u_max"), 3, "mm"))
-    if e.get("fs"):
+    gama = est.get("PrumoGamaA1", 0.0)
+    if gama and e.get("Sy") and e.get("svm_max"):
+        # detalhe com cargas majoradas (ELU): compara com fy/γa1
+        txt += " · σ/(fy/γa1) {}".format(fmt(e["svm_max"] / (e["Sy"] / gama), 2))
+    elif e.get("fs"):
         txt += " · FS {}".format(fmt(e["fs"], 2))
     return txt
 
@@ -647,8 +671,10 @@ def mostrar_campo(est, campo):
 
 
 # =========================================================================== operações (sem interface)
-def gerar_malha(est, tamanho, ordem="2nd", nivel=None):
-    """Cria/atualiza a malha Gmsh da peça e gera. Retorna (ok, mensagem)."""
+def gerar_malha(est, tamanho, ordem="2nd", nivel=None, lados_retos=None):
+    """Cria/atualiza a malha Gmsh da peça e gera. Retorna (ok, mensagem).
+    lados_retos: elementos de 2ª ordem com os nós do meio na reta (sem curvar), evita jacobiano
+    negativo em sólidos fundidos com faces planas. None: o que o estudo pediu (PrumoLadosRetos)."""
     import ObjectsFem
     m = est.malha
     if m is None:
@@ -659,7 +685,11 @@ def gerar_malha(est, tamanho, ordem="2nd", nivel=None):
     m.CharacteristicLengthMax = "{} mm".format(round(tamanho, 4))
     m.CharacteristicLengthMin = "0 mm"
     m.ElementOrder = ordem
-    m.SecondOrderLinear = False
+    if lados_retos is None:
+        lados_retos = bool(est.get("PrumoLadosRetos", False))
+    m.SecondOrderLinear = bool(lados_retos)
+    if est.get("PrumoOtimizarNetgen", False) and "OptimizeNetgen" in m.PropertiesList:
+        m.OptimizeNetgen = True
     est.doc.recompute()
     from femmesh.gmshtools import GmshTools
     tool = GmshTools(m)
@@ -1634,6 +1664,10 @@ class Assistente(QtWidgets.QWidget):
         b3.clicked.connect(lambda: mostrar_campo(self.est(), "modelo"))
         self.bts_res = _linha(b1, b2, b3, "stretch")
         lay.addWidget(self.bts_res)
+        self.bt_video = QtWidgets.QPushButton("Gravar vídeo…")
+        self.bt_video.setToolTip("Vídeo da peça deformando com as cores de tensão (MP4 ou GIF)")
+        self.bt_video.clicked.connect(self._video)
+        lay.addWidget(_linha(self.bt_video, "stretch"))
         self.bt_conv = QtWidgets.QPushButton("Verificar convergência da malha")
         self.bt_conv.setToolTip("Recalcula com malhas 30% e 50% menores e compara os resultados")
         self.bt_conv.clicked.connect(self._convergencia)
@@ -1720,10 +1754,16 @@ class Assistente(QtWidgets.QWidget):
                 self.tab_modos.setItem(i, 1, QtWidgets.QTableWidgetItem(fmt(f, 3)))
             self.lb_interp.setVisible(False)
             return
+        self.c_tensao.rotulo.setText("Tensão máxima de von Mises")
+        self.c_fs.rotulo.setText("Fator de segurança (escoamento ÷ tensão máxima)")
         self.c_tensao.valor.setText(fmt(e.get("svm_max"), 1, "MPa"))
         self.c_desl.valor.setText(fmt(e.get("u_max"), 4, "mm"))
         fs = e.get("fs")
         self.c_fs.valor.setText(fmt(fs, 2) if fs else "—")
+        gama = est.get("PrumoGamaA1", 0.0)
+        if est.get("PrumoDetalhe", False) and gama and e.get("Sy"):
+            self._mostrar_detalhe(est, e, gama)
+            return
         if fs is None:
             txt, nivel = "Sem limite de escoamento no material: fator de segurança não calculado.", "aviso"
         elif fs < 1.0:
@@ -1737,6 +1777,42 @@ class Assistente(QtWidgets.QWidget):
         self.lb_interp.style().unpolish(self.lb_interp)
         self.lb_interp.style().polish(self.lb_interp)
         self.lb_interp.setVisible(True)
+
+    def _mostrar_detalhe(self, est, e, gama):
+        """Detalhe de ligação: cargas majoradas, compara com fy/γa1 na zona do nó."""
+        import json
+        lim = e["Sy"] / gama
+        taxa = e["svm_max"] / lim
+        self.c_fs.valor.setText(fmt(taxa, 2))
+        self.c_fs.rotulo.setText("σ ÷ (fy/γa1) na zona do nó (cargas majoradas)")
+        self.c_tensao.rotulo.setText("Tensão máxima de von Mises na zona do nó")
+        try:
+            conf = json.loads(est.get("PrumoConferencia", "") or "[]")
+        except ValueError:
+            conf = []
+        txt = ("Zona do nó (raio {}): σ máx. {} contra fy/γa1 = {} ({}). ".format(
+            fmt(est.get("PrumoZonaRaio", 0.0), 0, "mm"), fmt(e["svm_max"], 1, "MPa"), fmt(lim, 0, "MPa"),
+            "dentro" if taxa <= 1.0 else "passa: escoamento local"))
+        if conf:
+            txt += "Conferência com as barras: " + "; ".join(
+                "barra {} {} × {}".format(c["barra"], fmt(c["fem"], 0, "MPa"), fmt(c["barra_mpa"], 0, "MPa"))
+                for c in conf) + ". "
+        if taxa > 1.0:
+            txt += ("Pico em canto vivo cresce com a malha (singularidade): veja a convergência e considere "
+                    "enrijecedor ou reforço no nó.")
+        self.lb_interp.setText(txt)
+        self.lb_interp.setProperty("nivel", "ok" if taxa <= 1.0 else "aviso")
+        self.lb_interp.style().unpolish(self.lb_interp)
+        self.lb_interp.style().polish(self.lb_interp)
+        self.lb_interp.setVisible(True)
+
+    def _video(self):
+        import PrumoVideo
+        est = self.est()
+        if not est.resultados or est.tipo != "static":
+            self._erro("Calcule um estudo estático antes de gravar o vídeo.")
+            return
+        PrumoVideo.escolher_e_gravar(PrumoVideo.gravar_fem, est, "comportamento.mp4")
 
     # ------------------------------------------------------------ 8 relatório
     def _montar_relatorio(self, lay):
@@ -1853,6 +1929,8 @@ def _descr_restricao(o):
         return "{} · {}".format(fmt(v, 1, "N"), faces)
     if _eh(o, "Fem::ConstraintPressure"):
         return "{} · {}".format(fmt(v, 3, "MPa"), faces)
+    if _eh(o, "Fem::ConstraintRigidBody"):
+        return "{} · {}".format(_texto_corpo_rigido(o), faces)
     return faces
 
 

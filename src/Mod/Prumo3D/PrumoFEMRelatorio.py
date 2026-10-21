@@ -177,6 +177,9 @@ def _corpo(est, doc, imgs, largura):
         elif F._eh(o, "Fem::ConstraintPressure"):
             linhas.append([o.Label, "Pressão" + (" (invertida)" if o.Reversed else ""),
                            F.fmt(F._valor_carga(o), 3, "MPa"), _faces(o)])
+        elif F._eh(o, "Fem::ConstraintRigidBody"):
+            linhas.append([o.Label, "Esforços da análise por barras no corte (corpo rígido no eixo da barra)",
+                           F._texto_corpo_rigido(o), _faces(o)])
     h.append(_tab(linhas or [["—", "Sem cargas", "—", "—"]], cab=["Nome", "Tipo", "Valor", "Faces"],
                   larguras=["24%", "40%", "16%", "20%"]))
 
@@ -209,6 +212,8 @@ def _corpo(est, doc, imgs, largura):
                        _par("Fator de segurança ao escoamento (Sy ÷ σmáx)",
                             "<span class='destaque'>%s</span>" % (F.fmt(fs, 2) if fs else "—"))],
                       larguras=["55%", "45%"]))
+        if est.get("PrumoDetalhe", False):
+            h += _detalhe(est, e)
         h.append(_img(doc, "tensao", imgs.get("tensao"),
                       "Figura 3 — Tensão equivalente de von Mises: escala de 0 (azul) a %s (vermelho)"
                       % F.fmt(e.get("svm_max"), 1, "MPa"), largura))
@@ -243,6 +248,7 @@ def _corpo(est, doc, imgs, largura):
             "Os resultados valem apenas para as cargas e condições descritas neste relatório."]
     if tipo == "frequency":
         prem[1] = "Análise modal linear, sem amortecimento e sem pré-tensão."
+    prem += list(est.get("PrumoAvisos", []) or [])
     h.append("<ul>" + "".join("<li style='margin-bottom:4px'>%s</li>" % p for p in prem) + "</ul>")
 
     h.append("<h1>9. Conclusão</h1>")
@@ -414,3 +420,33 @@ def gerar(est, caminho):
         p.restore()
     p.end()
     return caminho
+
+
+def _detalhe(est, e):
+    """Bloco do detalhe de ligação: zona de interesse, comparação com fy/γa1 e conferência das seções."""
+    import json
+    h = ["<h2>Detalhe de ligação (submodelo da análise por barras)</h2>"]
+    gama = est.get("PrumoGamaA1", 1.10)
+    sy = e.get("Sy")
+    lin = [_par("Combinação (cargas majoradas, ELU)", est.get("PrumoCombinacao", "—")),
+           _par("Raio da zona de interesse em torno do nó", F.fmt(est.get("PrumoZonaRaio", 0.0), 0, "mm")),
+           _par("σ von Mises máx. na zona de interesse", F.fmt(e.get("svm_max"), 1, "MPa")),
+           _par("σ von Mises máx. no modelo todo (inclui os cortes)", F.fmt(e.get("svm_total"), 1, "MPa"))]
+    if sy:
+        lin.append(_par("fy / γa1", F.fmt(sy / gama, 1, "MPa")))
+        lin.append(_par("σ / (fy/γa1)", "<span class='destaque'>%s</span>" % F.fmt(e["svm_max"] / (sy / gama), 2)))
+    h.append(_tab(lin, larguras=["55%", "45%"]))
+    try:
+        conf = json.loads(est.get("PrumoConferencia", "") or "[]")
+    except ValueError:
+        conf = []
+    if conf:
+        h.append("<p>Conferência: tensão normal máxima numa seção entre o nó e o corte, pelo modelo sólido e "
+                 "pela teoria de barras (N/A + M/W).</p>")
+        h.append(_tab([["%d" % c["barra"], F.fmt(c["pos"], 0, "mm"), F.fmt(c["fem"], 1, "MPa"),
+                        F.fmt(c["barra_mpa"], 1, "MPa")] for c in conf],
+                      cab=["Barra", "Distância ao nó", "Sólido", "Barras"], larguras=["15%", "25%", "30%", "30%"]))
+    h.append("<p class='nota'>Picos em cantos vivos (encontro de mesas sem enrijecedor, raiz do recorte) são "
+             "singularidades: crescem com o refino da malha e indicam plastificação local. Avalie com a "
+             "convergência e, se preciso, enrijeça o nó.</p>")
+    return h

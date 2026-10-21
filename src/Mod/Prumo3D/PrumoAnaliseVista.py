@@ -21,6 +21,9 @@ except ImportError:  # pragma: no cover
     from PySide2 import QtCore, QtWidgets
 
 
+OPCOES = {"sem_titulo": False}     # vídeo: o título vai na faixa do quadro, não na cena
+
+
 def _cor_taxa(t):
     """Verde (folga) → amarelo → vermelho (acima de 1,0)."""
     if t > 1.0:
@@ -128,12 +131,15 @@ class VPAnalise:
                 return
             if mostrar == "Deformada":
                 self._deformada(m, r, tam, obj.Escala)
+            elif mostrar == A.DEFORMADA_TAXA:
+                self._deformada(m, r, tam, obj.Escala, calc)
             else:
                 chave = {"Momento fletor (M)": "My", "Esforço cortante (V)": "Vz",
                          "Esforço normal (N)": "N"}[mostrar]
                 self._diagrama(m, r, chave, tam, obj.Escala)
-            self._texto(_meio_modelo(m) + _vec(0, 0, 0), "%s · %s" % (mostrar, nome), (0.0, 0.23, 0.44),
-                        tam * 0.0 + 14)
+            if not OPCOES["sem_titulo"]:
+                self._texto(_meio_modelo(m) + _vec(0, 0, 0), "%s · %s" % (mostrar, nome), (0.0, 0.23, 0.44),
+                            tam * 0.0 + 14)
 
     def _calcular_e_desenhar(self):
         self._calculando = False
@@ -295,7 +301,7 @@ class VPAnalise:
         self._linhas(segs_pos, (0.20, 0.45, 0.80), 1)
         self._linhas(segs_neg, (0.85, 0.30, 0.20), 1)
 
-    def _deformada(self, m, r, tam, escala):
+    def _deformada(self, m, r, tam, escala, calc=None):
         import numpy as np
         maxd = max((float(np.linalg.norm(r.u[6 * n:6 * n + 3])) for n in range(len(m.nos))), default=0.0)
         for nb in range(len(m.barras)):
@@ -303,12 +309,19 @@ class VPAnalise:
         if maxd <= 0:
             return
         k = 0.06 * tam / maxd * (escala or 1.0)
-        segs = []
+        grupos = {}
         for nb, b in enumerate(m.barras):
             R, L = m.eixos(b)
             pts = _curva_deformada(r, nb, b, R, L, m, k)
-            segs.append(pts)
-        self._linhas(segs, (0.85, 0.30, 0.20), 3)
+            cor = (0.85, 0.30, 0.20)
+            if calc is not None and b.origem is not None:
+                i = b.origem[0]
+                v = calc.verificacao.get(i)
+                if v is not None:
+                    cor = _cor_taxa(max(v["taxa"], calc.flechas.get(i, (0, 0, 0))[2]))
+            grupos.setdefault(cor, []).append(pts)
+        for cor, segs in grupos.items():
+            self._linhas(segs, cor, 5 if calc is not None else 3)
         n_max = max(range(len(m.nos)), key=lambda n: float(np.linalg.norm(r.u[6 * n:6 * n + 3])))
         d = r.u[6 * n_max:6 * n_max + 3]
         self._texto(_vec(*m.nos[n_max]) + _vec(*d) * k, "%s mm" % _f(float(np.linalg.norm(d)), 1),
@@ -381,7 +394,9 @@ import PrumoPainel as P
 
 MODOS_CLIQUE = [("apoio", "Pôr apoio", "selecao", "Clique num nó (ponta de barra) para pôr ou tirar o apoio"),
                 ("barra", "Carga na barra", "empurra", "Clique nas barras para aplicar a carga do caso"),
-                ("no", "Carga no nó", "posicao", "Clique num nó para aplicar a força do caso")]
+                ("no", "Carga no nó", "posicao", "Clique num nó para aplicar a força do caso"),
+                ("detalhe", "Detalhar nó", "info", "Clique num nó (ligação ou apoio) para calcular o detalhe "
+                 "por elementos finitos sólidos")]
 TIPOS_CARGA = ["Distribuída (kN/m)", "Concentrada na barra (kN)"]
 
 
@@ -470,6 +485,22 @@ class PainelAnalise(P.PainelTarefa):
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setMinimumHeight(160)
         self.bt_memoria = s4.widget(QtWidgets.QPushButton("Memória de cálculo (PDF)…"))
+        self.bt_video = s4.widget(QtWidgets.QPushButton("Gravar vídeo do comportamento…"))
+        self.bt_video.setToolTip("Vídeo com cargas e apoios, a deformada com as cores da taxa de uso, o momento "
+                                 "fletor e as barras críticas (MP4 ou GIF)")
+        # ---- detalhe por elementos finitos
+        s5 = f.secao("Detalhe da ligação (elementos finitos)", "info", aberta=False)
+        self.sec_detalhe = s5
+        self.det_no = s5.texto("Escolha <b>Detalhar nó</b> no clique e clique numa ligação ou apoio. O Prumo "
+                               "recorta o nó, aplica os esforços desta análise nos cortes e calcula as "
+                               "tensões no sólido (CalculiX).")
+        self.det_comb = s5.linha("tipo", QtWidgets.QComboBox(), "Combinação última usada no detalhe (a que governa "
+                                 "as barras do nó, se não escolher).", "Combinação")
+        self.det_dist = s5.linha("comprimento", P.numero(0.0, 0.0, 5000.0, " mm", 0), "Distância do nó até o corte "
+                                 "de cada barra. 0: automático (2 × a maior altura de perfil).", "Corte a")
+        self.bt_detalhe = s5.widget(QtWidgets.QPushButton("Calcular o detalhe"))
+        self.bt_detalhe.setEnabled(False)
+        self._junta = None
         # sinais
         self.material.currentIndexChanged.connect(self._mudou_dados)
         self.flecha.currentIndexChanged.connect(self._mudou_dados)
@@ -486,6 +517,10 @@ class PainelAnalise(P.PainelTarefa):
         self.escala.valueChanged.connect(self._vista)
         self.tabela.currentCellChanged.connect(lambda *_: self._realcar_barra())
         self.bt_memoria.clicked.connect(self.memoria)
+        self.bt_detalhe.clicked.connect(self.calcular_detalhe)
+        self.bt_video.clicked.connect(self.video)
+        self.det_dist.valueChanged.connect(lambda *_: self.mostrar_marcas())
+        self.modo.mudou.connect(self._modo_mudou)
         self._recarregar_casos()
         self._carregando = False
         self.atualizar_resultados()
@@ -624,6 +659,10 @@ class PainelAnalise(P.PainelTarefa):
             return
         modo = self.modo.valor()
         p = FreeCAD.Vector(*pnt) if pnt else None
+        if modo == "detalhe":
+            if p is not None:
+                self.escolher_junta(p)
+            return
         if modo in ("apoio", "no"):
             if p is None:
                 return
@@ -718,6 +757,80 @@ class PainelAnalise(P.PainelTarefa):
                 finally:
                     self._ignorar_selecao = False
 
+    # ---- detalhe por elementos finitos
+    def _modo_mudou(self, *_a):
+        if self.modo.valor() == "detalhe":
+            self.sec_detalhe._alternar(True)
+        self.mostrar_marcas()
+
+    def escolher_junta(self, p):
+        import PrumoDetalheFEM as D
+        try:
+            j = D.junta_mais_proxima(self.analise, FreeCAD.Vector(p))
+        except ValueError as ex:
+            self.form.mensagem.mostrar(str(ex), "erro")
+            return None
+        if j is None:
+            return None
+        self._junta = j
+        calc = self.analise.Proxy.calc
+        self.det_comb.clear()
+        gov = D.combinacao_que_governa(calc, j["linhas"])
+        self.det_comb.addItem("%s (a que governa)" % gov, gov)
+        for nome, tipo, _f2 in calc.combinacoes:
+            if tipo == "ELU" and nome != gov:
+                self.det_comb.addItem(nome, nome)
+        self.det_no.setText("<b>%s</b>" % j["texto"])
+        self.bt_detalhe.setEnabled(True)
+        self.sec_detalhe._alternar(True)
+        self.mostrar_marcas()
+        return j
+
+    def marcas(self):
+        if self._junta is None or self.modo.valor() != "detalhe":
+            return []
+        res = [(self._junta["ponto"], "nó do detalhe", True)]
+        calc = self.analise.Proxy.calc
+        h = 0.0
+        try:
+            import PrumoDetalheFEM as D
+            sec = D._secoes(self.analise.Estrutura)
+            h = max(max(sec(i).alt, sec(i).larg) for i, _s in self._junta["linhas"])
+        except Exception:
+            pass
+        d = self.det_dist.value() or max(2.0 * h, 150.0)
+        for i, s0 in self._junta["linhas"]:
+            p0, t, L = calc.mapa["linhas"][i]
+            for sinal in (1, -1):
+                sc = s0 + sinal * d
+                if 0.0 < sc < L:
+                    res.append((p0 + t * sc, "corte · barra %d" % (i + 1), False))
+        return res
+
+    def calcular_detalhe(self):
+        """Grava a análise (fecha o painel) e calcula o detalhe do nó escolhido; abre o assistente."""
+        if self._junta is None:
+            return None
+        analise = self.analise
+        ponto = FreeCAD.Vector(self._junta["ponto"])
+        comb = self.det_comb.currentData()
+        dist = self.det_dist.value()
+        self.accept()
+        try:
+            FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        return detalhar_com_progresso(analise, ponto, comb, dist)
+
+    def video(self):
+        import PrumoVideo
+        calc = getattr(self.analise.Proxy, "calc", None)
+        if calc is None or calc.erro:
+            self.form.mensagem.mostrar("Calcule a estrutura (apoios e cargas) antes de gravar o vídeo.", "erro")
+            return None
+        self.remover_marcas()
+        return PrumoVideo.escolher_e_gravar(PrumoVideo.gravar_estrutura, self.analise, "estrutura.mp4")
+
     def memoria(self):
         import PrumoAnaliseRelatorio as R
         caminho, _f2 = QtWidgets.QFileDialog.getSaveFileName(None, "Memória de cálculo", "memoria-estrutura.pdf",
@@ -740,6 +853,7 @@ class PainelAnalise(P.PainelTarefa):
         if self._transacao_painel:
             self.analise.Document.commitTransaction()
             self._transacao_painel = False
+        self.remover_marcas()
         self._parar()
         return True
 
@@ -755,6 +869,7 @@ class PainelAnalise(P.PainelTarefa):
                 doc.removeObject(nome)
             doc.recompute()
             self._transacao_painel = False
+        self.remover_marcas()
         self._parar()
         return True
 
@@ -822,3 +937,52 @@ class CmdAnaliseEstrutura:
         import PrumoSelecao
         PrumoSelecao.pedir("Simular estrutura", "Escolha a estrutura soldada (ou uma barra dela).",
                            [("Estrutura", "estruturas", 1, 1)], lambda ests: abrir_painel(ests[0]))
+
+
+def detalhar_com_progresso(analise, ponto, combinacao=None, distancia=0.0):
+    """Calcula o detalhe com o cursor de espera e abre o resultado no assistente de simulação."""
+    import PrumoDetalheFEM as D
+    import PrumoFEM
+    mw = FreeCADGui.getMainWindow()
+    doc = analise.Document
+    QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+
+    def prog(txt):
+        try:
+            mw.statusBar().showMessage("Detalhe da ligação: " + txt)
+        except Exception:
+            pass
+        QtWidgets.QApplication.processEvents()
+    doc.openTransaction("Detalhe da ligação")
+    try:
+        prog("recortando o nó…")
+        est, det, erro = D.detalhar(analise, ponto, combinacao, distancia, progresso=prog)
+        doc.commitTransaction()
+    except Exception as ex:
+        doc.abortTransaction()
+        QtWidgets.QApplication.restoreOverrideCursor()
+        QtWidgets.QMessageBox.warning(mw, "Detalhe da ligação", "Não foi possível montar o detalhe: %s" % ex)
+        return None
+    finally:
+        try:
+            mw.statusBar().clearMessage()
+        except Exception:
+            pass
+    QtWidgets.QApplication.restoreOverrideCursor()
+    try:
+        analise.Estrutura.ViewObject.Visibility = False
+        analise.ViewObject.Visibility = False
+    except Exception:
+        pass
+    if erro:
+        QtWidgets.QMessageBox.warning(mw, "Detalhe da ligação", erro)
+    else:
+        PrumoFEM.mostrar_campo(est, "tensao")
+    try:
+        v = FreeCADGui.ActiveDocument.ActiveView
+        v.viewIsometric()
+        v.fitAll()
+        PrumoFEM.mostrar()
+    except Exception:
+        pass
+    return est

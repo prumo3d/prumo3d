@@ -52,6 +52,13 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   de 2ª ordem (P-Δ) nas combinações últimas e acusa quando a estrutura perde estabilidade (por
   exemplo, pórtico plano sem travamento fora do plano). Balanços e vigas contínuas desenhadas em
   vários pedaços são reconhecidos na flambagem e na flecha.
+- **Detalhe da ligação por elementos finitos**: no painel da simulação, escolha "Detalhar nó" e clique
+  numa ligação ou apoio. O Prumo recorta o nó, aplica nos cortes os esforços da análise por barras e
+  calcula as tensões no sólido (CalculiX), com a zona de perigo comparada a fy/γa1 e a conferência
+  com a teoria de barras. O resultado abre no Assistente de simulação (malha, convergência, relatório).
+- **Vídeo do comportamento**: grava um MP4 (ou GIF) da estrutura com cargas e apoios, a deformada
+  colorida pela taxa de uso, o momento fletor e as barras críticas; no estudo de elementos finitos,
+  a peça deformando com as cores de tensão (vermelho = atingiu o limite).
 - **Prévia ao vivo** também no reforço, tampa, placa de base, solda e fixadores: o resultado aparece
   no desenho enquanto se mexe no painel, com "Início" e "Fim" marcados nas barras. Os avisos aparecem
   no painel antes de aplicar. Duplo clique na árvore (estrutura, barra, reforço, tampa, placa, solda,
