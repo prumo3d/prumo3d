@@ -282,11 +282,16 @@ class Opcoes(QtWidgets.QWidget):
 
     mudou = QtCore.Signal(str)
 
-    def __init__(self, opcoes, atual=None, parent=None):
+    def __init__(self, opcoes, atual=None, parent=None, colunas=None):
         super().__init__(parent)
-        lay = QtWidgets.QHBoxLayout(self)
+        # em grade: com mais de 3 opções quebra em linhas, para o painel não ficar mais largo que a
+        # coluna de tarefas (senão o resto do painel aparece cortado)
+        colunas = colunas or (len(opcoes) if len(opcoes) <= 3 else 3)
+        lay = QtWidgets.QGridLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
+        for c in range(colunas):
+            lay.setColumnStretch(c, 1)
         self.grupo = QtWidgets.QButtonGroup(self)
         self.grupo.setExclusive(True)
         self.botoes = {}
@@ -299,9 +304,11 @@ class Opcoes(QtWidgets.QWidget):
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
             b.setCheckable(True)
             b.setToolTip(dica)
-            b.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+            b.setMinimumWidth(60)
             self.grupo.addButton(b)
-            lay.addWidget(b)
+            n = len(self.botoes)
+            lay.addWidget(b, n // colunas, n % colunas)
             self.botoes[chave] = b
             b.toggled.connect(lambda on, k=chave: on and self.mudou.emit(k))
         self.definir(atual or opcoes[0][0])

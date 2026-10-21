@@ -72,3 +72,6 @@ files_to_translate.txt
 *.egg-info
 
 prumo-build/compilacao.log
+
+# cópias de segurança automáticas do FreeCAD
+*.FCBak

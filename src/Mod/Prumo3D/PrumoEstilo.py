@@ -35,7 +35,14 @@ BORDER = "#D9E0E8"
 BORDER_INPUT = "#C9D5E2"
 HOVER = "#EAF1F8"
 PRESSED = "#D3E1EF"
-FUNDO_3D = "#EEF0F3"    # vista 3D, cor única
+FUNDO_3D = "#EEF0F3"    # vista 3D, cor única (legado)
+# fundo da vista 3D em degradê suave (topo → base): dá profundidade sem chamar atenção
+DEGRADE_3D = ("#FFFFFF", "#D5DEE8")
+DEGRADE_3D_ESC = ("#2B333D", "#111419")
+# luzes da vista 3D (intensidade em %): principal, contraluz, preenchimento e ambiente
+LUZES_3D = {"HeadlightIntensity": 100, "BacklightIntensity": 60, "FillLightIntensity": 45,
+            "AmbientLightIntensity": 15}
+VISUAL_VERSAO = 3
 PECA = "#9EBDCA"        # cor padrão das peças (azul acinzentado)
 ARESTA = "#1E2A38"      # arestas das peças
 
@@ -236,21 +243,34 @@ def _rgba_uint(hexcolor):
 
 
 def apply_background(force=False):
-    """Fundo da vista 3D em cor única. Aplica uma vez (o usuário pode mudar depois)."""
+    """Fundo da vista 3D em degradê suave e luzes de três pontos. Aplica uma vez por versão do
+    visual (o usuário pode mudar depois nas preferências)."""
     p = _params()
     nome_tema = "escuro" if escuro() else "claro"
-    if p.GetBool("CoresVista2", False) and p.GetString("TemaFundo", "claro") == nome_tema and not force:
+    if p.GetInt("VisualVista", 0) >= VISUAL_VERSAO and p.GetString("TemaFundo", "claro") == nome_tema \
+            and not force:
         return
     fundo = FUNDO_3D_ESC if escuro() else FUNDO_3D
+    topo, base = DEGRADE_3D_ESC if escuro() else DEGRADE_3D
     v = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View")
-    v.SetBool("Simple", True)
-    v.SetBool("Gradient", False)
+    v.SetBool("Simple", False)
+    v.SetBool("Gradient", True)
     v.SetBool("RadialGradient", False)
+    v.SetBool("UseBackgroundColorMid", False)
     v.SetUnsigned("BackgroundColor", _rgba_uint(fundo))
+    v.SetUnsigned("BackgroundColor2", _rgba_uint(topo))
+    v.SetUnsigned("BackgroundColor3", _rgba_uint(base))
     v.SetBool("RandomColor", False)
     v.SetUnsigned("DefaultShapeColor", _rgba_uint(PECA))
     v.SetUnsigned("DefaultShapeLineColor", _rgba_uint(ARESTA))
+    luz = v.GetGroup("LightSources")
+    luz.SetBool("EnableHeadlight", True)
+    luz.SetBool("EnableBacklight", True)
+    luz.SetBool("EnableFillLight", True)
+    for k, val in LUZES_3D.items():
+        luz.SetInt(k, val)
     p.SetBool("CoresVista2", True)
+    p.SetInt("VisualVista", VISUAL_VERSAO)
     p.SetString("TemaFundo", nome_tema)
     # vistas já abertas
     try:
@@ -259,6 +279,7 @@ def apply_background(force=False):
             for view in gd.mdiViewsOfType("Gui::View3DInventor") if gd else []:
                 try:
                     view.setBackgroundColor(QtGui.QColor(fundo)) if hasattr(view, "setBackgroundColor") else None
+                    view.getViewer().setGradientBackground(1) if hasattr(view, "getViewer") else None
                 except Exception:
                     pass
     except Exception:
