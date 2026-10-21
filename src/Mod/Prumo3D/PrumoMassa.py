@@ -142,6 +142,11 @@ def texto(r):
 
 # ============================================================================ painel
 class DialogoMassa(QtWidgets.QDialog):
+    def showEvent(self, ev):
+        import PrumoPainel
+        PrumoPainel.caber_na_tela(self)      # notebook: rolagem em vez de diálogo cortado
+        super().showEvent(ev)
+
     def __init__(self, objs, parent=None):
         super().__init__(parent)
         self.objs = objs

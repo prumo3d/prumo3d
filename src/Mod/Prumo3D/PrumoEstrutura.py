@@ -1371,6 +1371,11 @@ class DialogoEstrutura(QtWidgets.QDialog):
     prévia na hora. Tudo fica numa transação: Aplicar grava, Cancelar desfaz.
     linhas: na criação, as linhas que começam com barra (None = todas)."""
 
+    def showEvent(self, ev):
+        import PrumoPainel
+        PrumoPainel.caber_na_tela(self)      # notebook: rolagem em vez de diálogo cortado
+        super().showEvent(ev)
+
     def __init__(self, esqueleto, est=None, parent=None, ao_vivo=False, linhas=None):
         super().__init__(parent)
         self.esqueleto = esqueleto
@@ -2308,6 +2313,11 @@ class DialogoCantos(QtWidgets.QDialog):
     para as barras selecionadas."""
 
     MANTER = "(manter)"
+
+    def showEvent(self, ev):
+        import PrumoPainel
+        PrumoPainel.caber_na_tela(self)      # notebook: rolagem em vez de diálogo cortado
+        super().showEvent(ev)
 
     def __init__(self, est, barras=None, parent=None, ao_vivo=False):
         super().__init__(parent)

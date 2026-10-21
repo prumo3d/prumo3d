@@ -727,7 +727,12 @@ DEV_DOCKS = ("Python console", "Report view")
 def apply_modo_distribuicao(on=None):
     """Esconde (ou mostra) console Python e Relatório, que o usuário final não usa."""
     if on is None:
-        on = _params().GetBool("ModoDistribuicao", False)
+        if "ModoDistribuicao" in _params().GetBools():
+            on = _params().GetBool("ModoDistribuicao", False)
+        else:
+            # sem escolha do usuário: em tela de notebook o console e o relatório começam escondidos
+            import PrumoRibbon
+            on = PrumoRibbon.tela_pequena()
     mw = FreeCADGui.getMainWindow()
     if mw is None:
         return
@@ -1133,6 +1138,7 @@ def startup():
     QtCore.QTimer.singleShot(900, _start_guia)
     QtCore.QTimer.singleShot(1300, _start_inicio)
     QtCore.QTimer.singleShot(1500, apply_modo_distribuicao)
+    QtCore.QTimer.singleShot(4000, apply_modo_distribuicao)   # depois que o FreeCAD restaura os painéis
     # Executa depois que a janela principal termina de montar.
     QtCore.QTimer.singleShot(0, apply_window_branding)
     if not _params().GetBool("QualityApplied", False):

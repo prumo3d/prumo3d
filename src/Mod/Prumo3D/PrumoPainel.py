@@ -327,6 +327,74 @@ class Opcoes(QtWidgets.QWidget):
             self.botoes[chave].setChecked(True)
 
 
+def estreitar(w, minimo_letras=10):
+    """Deixa o painel encolher em telas pequenas: listas suspensas não exigem a largura do maior
+    item (o texto inteiro aparece ao abrir a lista) e textos longos quebram linha."""
+    for cb in w.findChildren(QtWidgets.QComboBox):
+        cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        cb.setMinimumContentsLength(minimo_letras)
+        cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, cb.sizePolicy().verticalPolicy())
+        try:
+            cb.view().setMinimumWidth(cb.view().sizeHintForColumn(0) + 24)
+        except Exception:
+            pass
+    for lb in w.findChildren(QtWidgets.QLabel):
+        if len(lb.text()) > 40 and not lb.wordWrap() and lb.pixmap() is None:
+            lb.setWordWrap(True)
+
+
+def caber_na_tela(dlg, margem=0.92):
+    """Diálogo maior que a tela (notebook): o conteúdo vai para uma área com rolagem e os botões
+    Aplicar/Cancelar ficam fixos embaixo. Em tela grande não muda nada."""
+    try:
+        tela = dlg.screen() if hasattr(dlg, "screen") else QtWidgets.QApplication.primaryScreen()
+        av = tela.availableGeometry()
+    except Exception:
+        return False
+    maxw, maxh = int(av.width() * margem), int(av.height() * margem)
+    lay = dlg.layout()
+    hint = dlg.sizeHint()
+    precisa = (max(dlg.height(), hint.height(), dlg.minimumHeight()) > maxh or
+               max(dlg.minimumWidth(), hint.width()) > maxw)
+    if not precisa or lay is None or getattr(dlg, "_rolavel", False):
+        return False
+    itens = []
+    for i in range(lay.count()):
+        itens.append((lay.itemAt(i), lay.stretch(i) if isinstance(lay, QtWidgets.QBoxLayout) else 0))
+    for _i in range(lay.count()):
+        lay.takeAt(0)
+    corpo = QtWidgets.QWidget()
+    nova = QtWidgets.QVBoxLayout(corpo)
+    nova.setContentsMargins(0, 0, 6, 0)
+    botoes = []
+    for it, st in itens:
+        w = it.widget()
+        if isinstance(w, QtWidgets.QDialogButtonBox):
+            botoes.append(w)
+        elif w is not None:
+            nova.addWidget(w, st)
+        elif it.layout() is not None:
+            nova.addLayout(it.layout(), st)
+        elif it.spacerItem() is not None:
+            nova.addItem(it.spacerItem())
+    area = QtWidgets.QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QtWidgets.QFrame.NoFrame)
+    area.setWidget(corpo)
+    lay.addWidget(area, 1)
+    for b in botoes:
+        lay.addWidget(b)
+    dlg._rolavel = True
+    dlg._area_rolagem = area
+    dlg.setMinimumSize(min(dlg.minimumWidth(), maxw), min(dlg.minimumHeight(), maxh, 360))
+    dlg.resize(min(max(dlg.width(), hint.width()), maxw), min(max(dlg.height(), hint.height()), maxh))
+    try:
+        dlg.move(av.x() + (av.width() - dlg.width()) // 2, av.y() + (av.height() - dlg.height()) // 2)
+    except Exception:
+        pass
+    return True
+
+
 def resolver(raiz, sub):
     """(objeto dono do elemento, elemento) de um caminho de seleção ("Parte.Corpo.Face3").
 
@@ -845,6 +913,10 @@ class PainelTarefa:
 
     # ---- painel de tarefas do FreeCAD
     def mostrar(self):
+        estreitar(self.form)
+        return self._mostrar()
+
+    def _mostrar(self):
         """Abre no painel de tarefas. Outro painel do Prumo aberto é cancelado; uma tarefa do
         FreeCAD em andamento (edição de esboço, extrusão...) não é fechada à força: avisa e não abre."""
         if FreeCADGui.Control.activeDialog():

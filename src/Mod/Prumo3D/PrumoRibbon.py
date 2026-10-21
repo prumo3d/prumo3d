@@ -619,9 +619,20 @@ def medidas(altura):
 _MED = medidas(ALTURA_PADRAO)
 
 
+def tela_pequena(limite=900):
+    """Tela de notebook (altura útil abaixo de ~900 px): começa com a faixa mais baixa."""
+    try:
+        tela = QtWidgets.QApplication.primaryScreen()
+        return tela.availableGeometry().height() < limite
+    except Exception:
+        return False
+
+
 def altura_salva():
     h = _params().GetInt("RibbonHeight", 0)
-    return ALTURA_PADRAO if h <= 0 else max(ALTURA_MIN, min(ALTURA_MAX, h))
+    if h <= 0:
+        return ALTURA_MIN if tela_pequena() else ALTURA_PADRAO
+    return max(ALTURA_MIN, min(ALTURA_MAX, h))
 
 
 def _quebra(texto):
@@ -996,6 +1007,9 @@ class PrumoRibbon(QtWidgets.QWidget):
         lay.addWidget(self.grip)
         self.content.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.content.customContextMenuRequested.connect(self._menu_faixa)
+        # tela estreita (notebook): a roda do mouse sobre a faixa rola para os lados
+        self._roda = _RodaParaOsLados(self.content)
+        self.content.viewport().installEventFilter(self._roda)
 
     def _menu_faixa(self, pos):
         m = QtWidgets.QMenu(self)
@@ -1327,6 +1341,24 @@ class PrumoRibbon(QtWidgets.QWidget):
 
 # --------------------------------------------------------------------------
 _state = {"bar": None, "ribbon": None, "timer": None}
+
+
+class _RodaParaOsLados(QtCore.QObject):
+    """Converte a roda do mouse em rolagem horizontal da faixa quando ela não cabe na janela."""
+
+    def __init__(self, area):
+        super().__init__(area)
+        self.area = area
+
+    def eventFilter(self, obj, ev):
+        if ev.type() == QtCore.QEvent.Wheel:
+            barra = self.area.horizontalScrollBar()
+            if barra.maximum() > 0:
+                d = ev.angleDelta()
+                passo = d.y() if abs(d.y()) >= abs(d.x()) else d.x()
+                barra.setValue(barra.value() - passo)
+                return True
+        return False
 
 
 def _hide_native_toolbars():
