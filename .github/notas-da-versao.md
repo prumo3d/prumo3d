@@ -43,6 +43,12 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   desfaz. Os números das linhas aparecem sobre o desenho. Cada barra pode ter giro próprio (coluna
   "Giro da barra" ou botão Girar 90°). O lado do perfil ("Sup.", "Inf.") não depende mais do
   sentido em que a linha foi desenhada: num quadro, todas as barras ficam do mesmo lado.
+- **Simulação de estruturas por barras** (aba Estruturas → Simular estrutura): clique nos nós para
+  pôr apoios (engaste, rótula, rolete), monte os casos de carga (peso próprio automático, cargas
+  distribuídas e concentradas nas barras, forças nos nós) e as combinações saem da NBR 8681. Os
+  esforços, as reações e a deformada são calculados na hora, e cada barra é verificada (tração,
+  compressão com flambagem, flexão com FLT/FLM/FLA, cortante, esforços combinados e flecha), com a
+  taxa de uso em cores na tela, os diagramas de N, V e M e a memória de cálculo em PDF.
 - **Prévia ao vivo** também no reforço, tampa, placa de base, solda e fixadores: o resultado aparece
   no desenho enquanto se mexe no painel, com "Início" e "Fim" marcados nas barras. Os avisos aparecem
   no painel antes de aplicar. Duplo clique na árvore (estrutura, barra, reforço, tampa, placa, solda,
@@ -93,7 +99,11 @@ Clique em **Mais informações → Executar assim mesmo**.
   mostram as formas, mas esses objetos não são recalculados lá.
 - Alguns perfis e tubos estão marcados **"a conferir"** (fonte secundária): o Prumo avisa na escolha
   do perfil. Confira no catálogo do fabricante antes de usar em projeto.
-- O vaso de pressão e a análise de estruturas por barras ficaram para versões futuras.
+- O vaso de pressão ficou para uma versão futura.
+- A simulação de estruturas por barras verifica pela NBR 8800:2008 e combina pela NBR 8681:2003, que
+  foram substituídas pela NBR 8800:2024 e pela NBR 8681:2025: o resultado aparece com esse aviso e
+  serve para pré-dimensionamento até a conferência com as edições vigentes. Análise de 1ª ordem (sem
+  P-Δ), barras ligadas rigidamente nos nós; ligações, placas de base e soldas não são verificadas.
 
 ### Como relatar um problema
 

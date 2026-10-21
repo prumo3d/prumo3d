@@ -253,6 +253,9 @@ TABS = [
         ("Peças padronizadas", [
             ("Prumo_Fixador", L, "Parafuso,\nporca, arruela"),
         ]),
+        ("Calcular", [
+            ("Prumo_AnaliseEstrutura", L, "Simular\nestrutura"),
+        ]),
         ("Conferir", [
             ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
             ("Prumo_Propriedades", S, "Propriedades da peça"), ("Prumo_Interferencia", S, "Interferência"),
@@ -298,7 +301,8 @@ TABS = [
     ]},
     {"id": "simulacao", "label": "Simulação", "wb": "FemWorkbench", "panels": [
         # Na ordem em que a análise precisa ser montada
-        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação")]),
+        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação"),
+                        ("Prumo_AnaliseEstrutura", L, "Estrutura\npor barras")]),
         ("1 · Estudo", [("FEM_Analysis", L, "Novo\nestudo"), ("FEM_SolverCalculiXCcxTools", L, "Solver\nCalculiX")]),
         ("2 · Material", [("FEM_MaterialSolid", L, "Material\nsólido"), ("FEM_MaterialEditor", S, "Editor de materiais")]),
         ("3 · Fixações", [("FEM_ConstraintFixed", L, "Fixação"), ("FEM_ConstraintDisplacement", S, "Deslocamento imposto"),

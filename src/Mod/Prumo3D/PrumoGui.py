@@ -835,6 +835,8 @@ def register_commands():
                                  FreeCADGui.addCommand("Prumo_EditarEstrutura", m.CmdEditarEstrutura()),
                                  FreeCADGui.addCommand("Prumo_Cantos", m.CmdCantos()))),
                              ("PrumoEstruturaExtras", lambda m: m.registrar_comandos()),
+                             ("PrumoAnaliseVista", lambda m: FreeCADGui.addCommand("Prumo_AnaliseEstrutura",
+                                                                                  m.CmdAnaliseEstrutura())),
                              # PrumoVaso (vaso de pressão): desligado por enquanto; volta numa etapa própria
                              ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
                              ("PrumoContexto", lambda m: m.registrar_comandos())):

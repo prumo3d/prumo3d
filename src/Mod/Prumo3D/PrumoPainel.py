@@ -718,6 +718,19 @@ class PainelTarefa:
         """Refaz o resultado no desenho (dentro da transação aberta pelo painel)."""
         if not self._transacao_previa or not self._vivo():
             return
+        if getattr(self, "_na_previa", False):
+            # chamada de dentro de um recálculo (eventos processados no meio): refaz depois
+            self._mudou()
+            return
+        if self._timer_previa is not None:
+            self._timer_previa.stop()
+        self._na_previa = True
+        try:
+            self._atualizar_previa()
+        finally:
+            self._na_previa = False
+
+    def _atualizar_previa(self):
         doc = self._doc_previa
         self._remover_previa()
         self._previa_erro = None

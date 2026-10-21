@@ -85,6 +85,8 @@ EQUIVALENCIAS = [
     ("Desenho", "Lista de materiais", "Parts list / BOM", "Lista de materiais", "desenho", ["Prumo_ListaMateriais"], ""),
     ("Simulação", "SimulationXpress / Simulation", "Stress analysis", "Assistente de simulação", "simulacao",
      ["Prumo_AssistenteFEM"], ""),
+    ("Simulação", "Simulation (vigas / estrutura soldada)", "Frame analysis", "Simular estrutura", "estruturas",
+     ["Prumo_AnaliseEstrutura"], "Apoios clicando nos nós, combinações NBR 8681 e verificação NBR 8800."),
 ]
 
 CONCEITOS = [

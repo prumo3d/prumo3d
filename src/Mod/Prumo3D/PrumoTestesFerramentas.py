@@ -4744,6 +4744,309 @@ class T41GuiaMigracao(unittest.TestCase):
         self.assertIn("Prumo_GuiaMigracao", FreeCADGui.Command.listAll())
 
 
+
+class T42SimulacaoEstrutura(unittest.TestCase):
+    """Simulação por barras: seções, pórtico (casos analíticos), NBR 8800, combinações e interface."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteAnalise")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    # ---- seções
+    def test_secao_w_bate_com_o_catalogo(self):
+        """W 150 x 13,0: valores da tabela Gerdau (A 16,6 cm², Ix 635, Wx 85,8, Zx 96,4, Iy 82, Cw 4181)."""
+        import PrumoSecao as S
+        p = S.propriedades("W 150 x 13,0")
+        for k, ref, esc in (("A", 16.6, 1e2), ("Ix", 635.0, 1e4), ("Wx", 85.8, 1e3), ("Zx", 96.4, 1e3),
+                            ("Iy", 82.0, 1e4), ("Cw", 4181.0, 1e6)):
+            self.assertAlmostEqual(p[k] / esc, ref, delta=0.02 * ref, msg=k)
+        self.assertLess(p["J"] / 1e4, 1.72, "J sem os raios fica abaixo do catálogo (a favor da segurança)")
+        self.assertFalse(p["aproximada"])
+
+    def test_secoes_de_todas_as_familias(self):
+        import math
+        import PrumoPerfis
+        import PrumoSecao as S
+        for f in PrumoPerfis.familias():
+            for it in (f["itens"][0], f["itens"][-1]):
+                p = S.propriedades(it["nome"])
+                for k in ("A", "Ix", "Iy", "Wx", "Wy", "Zx", "Zy", "J", "rx", "ry", "rmin"):
+                    self.assertGreater(p[k], 0, (it["nome"], k))
+                self.assertGreaterEqual(p["Zx"], p["Wx"] * 0.999, it["nome"])
+                self.assertLessEqual(p["I2"], min(p["Ix"], p["Iy"]) + 1e-6, it["nome"])
+                # massa do catálogo × área calculada: densidade próxima à do aço (raios faltando: até 12 %)
+                dens = it["massa"] / (p["A"] * 1e-6)
+                self.assertAlmostEqual(dens, 7850, delta=0.12 * 7850, msg=it["nome"])
+        tubo = S.propriedades(PrumoPerfis.familia("TUBO")["itens"][0]["nome"])
+        D, t = tubo["D"], tubo["t"]
+        self.assertAlmostEqual(tubo["Ix"], math.pi * (D ** 4 - (D - 2 * t) ** 4) / 64, places=3)
+
+    # ---- pórtico
+    def _viga(self, L=6000.0, apoio_j=(0, 1, 1, 0, 0, 0)):
+        import PrumoPortico as PT
+        s = PT.Secao(A=4970, Iy=8578e4, Iz=727e4, J=11.9e4, massa_kgm=38.7)
+        m = PT.Modelo()
+        a, b = m.no((0, 0, 0)), m.no((L, 0, 0))
+        m.barras.append(PT.Barra(a, b, s, (0, 0, 1)))
+        m.apoios[a] = [1, 1, 1, 1, 0, 0]
+        m.apoios[b] = list(apoio_j)
+        return PT, m, s, a, b
+
+    def test_viga_biapoiada_e_balanco(self):
+        PT, m, s, a, b = self._viga()
+        c = PT.Caso("q")
+        c.distribuidas.append((0, [0, 0, -10], True))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.esforcos(0, 3000)["My"] / 1e6, 45.0, places=6)       # qL²/8
+        self.assertAlmostEqual(r.flecha_local(0)[1], 5 * 10 * 6000 ** 4 / (384 * 200000 * 8578e4), places=6)
+        self.assertAlmostEqual(r.reacao(a)[0][2], 30.0, places=6)
+        m2 = PT.Modelo()
+        a, b = m2.no((0, 0, 0)), m2.no((0, 3000, 0))
+        m2.barras.append(PT.Barra(a, b, s, (0, 0, 1)))
+        m2.apoios[a] = [1] * 6
+        c = PT.Caso("P")
+        c.nos.append((b, [0, 0, -10], [0, 0, 0]))
+        r = m2.resolver(c)
+        self.assertAlmostEqual(r.esforcos(0, 0)["My"] / 1e6, -30.0, places=6)          # momento negativo
+        self.assertAlmostEqual(r.deslocamento(b)[2], -10e3 * 3000 ** 3 / (3 * 200000 * 8578e4), places=6)
+
+    def test_carga_concentrada_peso_proprio_e_equilibrio(self):
+        PT, m, s, a, b = self._viga(4000.0)
+        c = PT.Caso("P")
+        c.pontuais.append((0, 1000, [0, -5, 0], True))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.esforcos(0, 1000)["Mz"] / 1e6, 5 * 1 * 3 / 4, places=6)   # Pab/L
+        PT, m, s, a, b = self._viga()
+        r = m.resolver(PT.Caso("pp", peso_proprio=True))
+        self.assertAlmostEqual(r.reacao(a)[0][2] + r.reacao(b)[0][2], 38.7 * 6 * 9.80665 / 1000, places=6)
+        # pórtico: soma das reações = cargas aplicadas
+        m = PT.Modelo()
+        n = [m.no(p) for p in ((0, 0, 0), (0, 0, 3000), (5000, 0, 3000), (5000, 0, 0))]
+        for i, j, z in ((0, 1, (0, 1, 0)), (1, 2, (0, 0, 1)), (2, 3, (0, 1, 0))):
+            m.barras.append(PT.Barra(n[i], n[j], s, z))
+        m.apoios[n[0]] = m.apoios[n[3]] = [1] * 6
+        c = PT.Caso("H")
+        c.nos.append((n[1], [10, 0, 0], [0, 0, 0]))
+        c.distribuidas.append((1, [0, 0, -5], True))
+        r = m.resolver(c)
+        soma = r.reacao(n[0])[0] + r.reacao(n[3])[0]
+        for x, y in zip(soma, (-10, 0, 25)):
+            self.assertAlmostEqual(x, y, places=6)
+
+    def test_balanco_em_l_espacial_com_torcao(self):
+        """Balanço em L no plano XY com força vertical na ponta: flexão das duas barras + torção da
+        primeira (δ = Pa³/3EI + Pb³/3EI + Pab²/GJ)."""
+        import PrumoPortico as PT
+        s = PT.Secao(A=4970, Iy=8578e4, Iz=727e4, J=11.9e4)
+        m = PT.Modelo()
+        a_, b_ = 2000.0, 1500.0
+        n0, n1, n2 = m.no((0, 0, 0)), m.no((a_, 0, 0)), m.no((a_, b_, 0))
+        m.barras.append(PT.Barra(n0, n1, s, (0, 0, 1)))
+        m.barras.append(PT.Barra(n1, n2, s, (0, 0, 1)))
+        m.apoios[n0] = [1] * 6
+        c = PT.Caso("P")
+        c.nos.append((n2, [0, 0, -10], [0, 0, 0]))
+        r = m.resolver(c)
+        P, E, G, I, J = 10e3, 200000.0, 77000.0, 8578e4, 11.9e4
+        esperado = P * a_ ** 3 / (3 * E * I) + P * b_ ** 3 / (3 * E * I) + P * a_ * b_ ** 2 / (G * J)
+        self.assertAlmostEqual(-r.deslocamento(n2)[2], esperado, delta=1e-6 * esperado)
+        self.assertAlmostEqual(abs(r.esforcos(0, 0)["T"]) / 1e6, P * b_ / 1e6, places=6)
+
+    def test_sem_apoio_ou_mecanismo(self):
+        import PrumoPortico as PT
+        PT_, m, s, a, b = self._viga()
+        m.apoios = {}
+        with self.assertRaises(ValueError):
+            m.resolver(PT.Caso("x"))
+        m.apoios = {a: [0, 0, 1, 0, 0, 0]}
+        with self.assertRaises(ValueError):
+            m.resolver(PT.Caso("x"))
+
+    # ---- NBR 8800
+    def test_nbr8800_formulas(self):
+        import math
+        import PrumoNBR8800 as N
+        import PrumoSecao as S
+        p = S.propriedades("W 200 x 22,5")
+        fy, fu, E = 250.0, 400.0, 200000.0
+        self.assertAlmostEqual(N.chi(1.5), 0.658 ** 2.25, places=12)
+        self.assertAlmostEqual(N.chi(1.5), 0.877 / 2.25, places=3)        # continuidade em λ0 = 1,5
+        self.assertAlmostEqual(N.tracao(p, fy, fu)[0], p["A"] * fy / 1.10, places=6)
+        Nc, _t = N.compressao(p, fy, 100.0)
+        self.assertAlmostEqual(Nc, p["A"] * fy / 1.10, delta=0.01 * Nc)    # barra curta: χ ≈ 1
+        # FLT: viga travada (Lb pequeno) → Mpl; em λr → Mr; acima, Mcr contínuo
+        M_curta, modo = N.flexao_x(p, fy, 200.0)
+        self.assertAlmostEqual(M_curta, p["Zx"] * fy / 1.10, places=3)
+        sr = 0.3 * fy
+        b1 = (fy - sr) * p["Wx"] / (E * p["J"])
+        lr = 1.38 * math.sqrt(p["Iy"] * p["J"]) / (p["ry"] * p["J"] * b1) * math.sqrt(
+            1 + math.sqrt(1 + 27 * p["Cw"] * b1 ** 2 / p["Iy"]))
+        Lr = lr * p["ry"]
+        M_r = N.flexao_x(p, fy, Lr * 0.999)[0]
+        M_r2 = N.flexao_x(p, fy, Lr * 1.001)[0]
+        self.assertAlmostEqual(M_r, M_r2, delta=0.01 * M_r, msg="FLT descontínua em λr")
+        self.assertAlmostEqual(M_r, (fy - sr) * p["Wx"] / 1.10, delta=0.01 * M_r)
+        self.assertLessEqual(M_curta, 1.5 * p["Wx"] * fy / 1.10 + 1e-6)
+        # cortante: alma compacta → Vpl/γa1
+        self.assertAlmostEqual(N.cortante_z(p, fy)[0], 0.6 * p["d"] * p["tw"] * fy / 1.10, places=6)
+        # Cb: momento linear de M a 0 → 1,67; uniforme → 1,0
+        self.assertAlmostEqual(N.cb(1.0, 0.75, 0.5, 0.25), 12.5 / 7.5, places=6)
+        self.assertAlmostEqual(N.cb(1.0, 1.0, 1.0, 1.0), 1.0, places=6)
+        # interação
+        self.assertAlmostEqual(N.interacao(-50, 100, 30, 100, 0, 100)[0], 0.5 + 8 / 9 * 0.3, places=9)
+        self.assertAlmostEqual(N.interacao(-10, 100, 30, 100, 0, 100)[0], 0.05 + 0.3, places=9)
+        self.assertIn("2024", N.EDICAO)
+
+    def test_combinacoes_nbr8681(self):
+        import PrumoAnaliseEstrutura as A
+        casos = [A.caso_padrao(),
+                 {"nome": "SC", "tipo": "Sobrecarga (sem predominância de equipamentos)", "cargas": []},
+                 {"nome": "V0", "tipo": "Vento", "cargas": []},
+                 {"nome": "V90", "tipo": "Vento", "cargas": []}]
+        cs = A.combinacoes(casos)
+        elu = [c for c in cs if c[1] == "ELU"]
+        els = [c for c in cs if c[1] == "ELS"]
+        for _n, _t, fat in elu:
+            ventos = [k for k, f in fat if k in (2, 3) and f]
+            self.assertLessEqual(len(ventos), 1, "dois ventos na mesma combinação")
+        d = {tuple(sorted(f)): n for n, _t, f in elu}
+        self.assertIn(((0, 1.25), (1, 1.5)), d)                       # só sobrecarga
+        self.assertIn(((0, 1.25), (1, 1.5), (2, 1.4 * 0.6)), d)       # vento secundário: γ·ψ0
+        self.assertIn(((0, 1.0), (1, 0.75), (2, 1.4)), d)            # vento principal, permanente favorável
+        self.assertTrue(all(f == 1.0 for _n, _t, fat in els for k, f in fat if k in (0,)))
+
+    # ---- integração com a estrutura e a interface
+    def _portico(self, perfil="W 200 x 22,5"):
+        import PrumoEstrutura as E
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (5000, 3000)), ((5000, 3000), (5000, 0))],
+                           "XZ")
+        return E.criar(self.doc, sk, perfil, material="ASTM A36")
+
+    def _analise(self, est):
+        import PrumoAnaliseEstrutura as A
+        an = A.criar(self.doc, est)
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        casos = an.Proxy.casos(an)
+        casos.append({"nome": "Sobrecarga", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                      "cargas": [{"alvo": "barra", "linha": 1, "tipo": "distribuida", "valor": 10.0,
+                                  "direcao": "Para baixo (−Z)"}]})
+        an.Casos = [__import__("json").dumps(c, ensure_ascii=False) for c in casos]
+        self.doc.recompute()
+        return an
+
+    def test_analise_da_estrutura(self):
+        import PrumoEstrutura as E
+        est = self._portico()
+        an = self._analise(est)
+        self.assertIn(an.Situacao, ("atende", "não atende"), an.Situacao)
+        self.assertGreater(an.TaxaMaxima, 0.1)
+        self.assertEqual(an.Proxy.material(an)[1], 250.0)
+        calc = an.Proxy.calc
+        self.assertEqual(sorted(calc.verificacao), [0, 1, 2])
+        # equilíbrio da combinação 1,25 G + 1,5 Q: reações verticais = cargas
+        nome = [n for n, t, f in calc.combinacoes if t == "ELU" and len(f) == 2][0]
+        r = calc.resultados[nome]
+        soma = sum(r.reacao(k)[0][2] for k in r.modelo.apoios)
+        import PrumoSecao as S
+        peso = S.propriedades("W 200 x 22,5")["massa_kgm"] * 11.0 * 9.80665 / 1000
+        self.assertAlmostEqual(soma, 1.25 * peso + 1.5 * 10 * 5, places=3)
+        tx = an.TaxaMaxima
+        # perfil maior: taxa menor (a análise acompanha a estrutura)
+        padrao, extras = E.grupos_para_edicao(est)
+        padrao["perfil"] = "W 310 x 38,7"
+        E.editar(est, padrao, extras)
+        self.doc.recompute()
+        self.assertLess(an.TaxaMaxima, tx)
+        # sem apoios: erro claro
+        an.Apoios = []
+        self.doc.recompute()
+        self.assertIn("apoio", an.Situacao)
+
+    def test_ligacao_em_t_vira_no(self):
+        """Barra que chega no meio de outra: o nó entra no meio dela (a carga passa)."""
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (6000, 3000)), ((6000, 3000), (6000, 0)),
+                                      ((3000, 3000), (3000, 0))], "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5")
+        m, _l, mapa = A.montar_modelo(est, [A.caso_padrao()], {})
+        self.assertEqual(len(mapa["barras"][1]), 2, "a viga devia ser dividida no pilar do meio")
+        self.assertEqual(len(m.nos), 6)
+
+    def test_painel_clique_e_cancelar(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoAnaliseEstrutura as A
+        import PrumoAnaliseVista as V
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        est = self._portico()
+        bs = E.barras_de(est)
+        p = V.abrir_painel(est)
+        try:
+            an = p.analise
+            p.clique(bs[0], "", (5.0, 2.0, 10.0))          # perto da base do pilar 1
+            p.tipo_apoio.setCurrentText("Rótula")
+            p.clique(bs[2], "", (4990.0, 0.0, 20.0))
+            self.assertEqual(sorted(an.Proxy.apoios(an).values()), ["Engaste", "Rótula"])
+            p.modo.definir("barra")
+            k = p.novo_caso("Sobrecarga")
+            p.valor.setValue(8.0)
+            p.clique(bs[1], "Face1", (2500.0, 0.0, 3000.0))
+            casos = an.Proxy.casos(an)
+            self.assertEqual(casos[k]["cargas"][0]["linha"], 1)
+            self.assertIn(an.Situacao, ("atende", "não atende"))
+            self.assertGreater(p.tabela.rowCount(), 0)
+            for modo in A.MOSTRAR:
+                an.Mostrar = modo
+                self.doc.recompute()
+            self.assertGreater(an.ViewObject.Proxy.desenho.getNumChildren(), 0, "nada desenhado na tela")
+            self.assertTrue(p.reject())
+        finally:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        self.assertIsNone(A.analise_de(est), "Cancelar devia tirar a análise criada")
+
+    def test_salvar_reabrir_relatorio_e_duplo_clique(self):
+        import os
+        import tempfile
+        import PrumoAnaliseEstrutura as A
+        est = self._portico()
+        an = self._analise(est)
+        tx = an.TaxaMaxima
+        caminho = os.path.join(tempfile.mkdtemp(), "analise.FCStd")
+        self.doc.saveAs(caminho)
+        fechar(self.doc)
+        self.doc = FreeCAD.openDocument(caminho)
+        an = [o for o in self.doc.Objects if "Apoios" in o.PropertiesList][0]
+        self.doc.recompute()
+        an.touch()
+        self.doc.recompute()
+        self.assertAlmostEqual(an.TaxaMaxima, tx, places=3)
+        self.assertEqual(len(an.Proxy.apoios(an)), 2)
+        if FreeCAD.GuiUp:
+            import PrumoAnaliseRelatorio as R
+            pdf = os.path.join(tempfile.mkdtemp(), "memoria.pdf")
+            R.gerar_pdf(an, pdf)
+            with open(pdf, "rb") as f:
+                self.assertEqual(f.read(4), b"%PDF")
+            self.assertGreater(os.path.getsize(pdf), 20000)
+            self.assertTrue(an.ViewObject.Proxy.doubleClicked(an.ViewObject))
+            import PrumoPainel as P
+            self.assertIs(P._ATIVO["painel"].analise, an)
+            P._ATIVO["painel"].reject()
+            FreeCADGui.Control.closeDialog()
+            self.assertIs(A.analise_de(an.Estrutura), an, "Cancelar não pode apagar uma análise que já existia")
+        self.assertIn("Prumo_AnaliseEstrutura", FreeCADGui.Command.listAll() if FreeCAD.GuiUp else
+                      ["Prumo_AnaliseEstrutura"])
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -4751,4 +5054,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T30Faixa, T31Bancadas, T32Arvore, T33PaineisVisuais,
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
-           T39Montagem, T40ModelosComRegras, T41GuiaMigracao]
+           T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura]
