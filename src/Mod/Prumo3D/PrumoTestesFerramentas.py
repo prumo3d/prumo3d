@@ -5255,6 +5255,180 @@ class T43DetalheLigacao(unittest.TestCase):
             p.reject()
             FreeCADGui.Control.closeDialog()
 
+
+class T44RotulasCargasSecoes(unittest.TestCase):
+    """Ideias trazidas do StructureTools: rótulas nas pontas e treliça, carga variável/parcial e
+    seção personalizada a partir de um esboço."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteRotulas")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self._registrados = []
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+        import PrumoSecaoPersonalizada as SP
+        for nome in self._registrados:
+            SP.desregistrar(nome)
+
+    def _secao(self):
+        import PrumoPortico as PT
+        return PT, PT.Secao(A=4970, Iy=8578e4, Iz=727e4, J=11.9e4)
+
+    def test_rotulas_viga_gerber_e_trelica(self):
+        PT, s = self._secao()
+        # viga presa nas duas pontas com rótulas: vira biapoiada
+        m = PT.Modelo()
+        a, b = m.no((0, 0, 0)), m.no((6000, 0, 0))
+        m.barras.append(PT.Barra(a, b, s, (0, 0, 1), liberados=PT.ROTULA_I + PT.ROTULA_J))
+        m.apoios[a] = m.apoios[b] = [1] * 6
+        c = PT.Caso("q")
+        c.distribuidas.append((0, [0, 0, -10], True))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.esforcos(0, 3000)["My"] / 1e6, 45.0, places=6)
+        self.assertAlmostEqual(r.esforcos(0, 0)["My"], 0.0, places=6)
+        self.assertAlmostEqual(r.flecha_local(0)[1], 5 * 10 * 6000 ** 4 / (384 * 200000 * 8578e4), places=6)
+        # Gerber: rótula no meio, a parte de fora vira balanço
+        m = PT.Modelo()
+        a, b, c2 = m.no((0, 0, 0)), m.no((3000, 0, 0)), m.no((6000, 0, 0))
+        m.barras.append(PT.Barra(a, b, s, (0, 0, 1)))
+        m.barras.append(PT.Barra(b, c2, s, (0, 0, 1), liberados=PT.ROTULA_I))
+        m.apoios[a] = [1] * 6
+        m.apoios[c2] = [0, 1, 1, 1, 0, 0]
+        c = PT.Caso("q")
+        c.distribuidas.append((1, [0, 0, -10], True))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.esforcos(1, 0)["My"], 0.0, places=6)
+        self.assertAlmostEqual(r.esforcos(0, 0)["My"] / 1e6, -45.0, places=6)
+        self.assertNotAlmostEqual(r.locais[1][4], r.u[6 * b + 4], places=6)     # giro da ponta rotulada
+        # treliça: só força normal, giros dos nós travados sozinhos
+        m = PT.Modelo()
+        n0, n1, n2 = m.no((0, 0, 0)), m.no((4000, 0, 0)), m.no((2000, 0, 2000))
+        for i, j, z in ((n0, n1, (0, 0, 1)), (n0, n2, (0, 1, 0)), (n1, n2, (0, 1, 0))):
+            m.barras.append(PT.Barra(i, j, s, z, liberados=PT.TRELICA))
+        m.apoios[n0] = [1, 1, 1, 0, 0, 0]
+        m.apoios[n1] = [0, 1, 1, 0, 0, 0]
+        c = PT.Caso("P")
+        c.nos.append((n2, [0, 0, -10], [0, 0, 0]))
+        with self.assertRaises(ValueError) as cm:      # treliça plana sem travamento fora do plano
+            m.resolver(c)
+        self.assertIn("travamento", str(cm.exception))
+        m.apoios[n2] = [0, 1, 0, 0, 0, 0]
+        for so in (False, True):
+            r = m.resolver(c, segunda_ordem=so)
+            self.assertAlmostEqual(r.esforcos(0, 10)["N"] / 1e3, 5.0, places=3)
+            self.assertAlmostEqual(r.esforcos(1, 10)["N"] / 1e3, -5 * math.sqrt(2), places=2)
+            self.assertAlmostEqual(r.esforcos(1, 700)["My"], 0.0, places=3)
+
+    def test_carga_triangular_e_parcial(self):
+        PT, s = self._secao()
+        m = PT.Modelo()
+        a, b = m.no((0, 0, 0)), m.no((6000, 0, 0))
+        m.barras.append(PT.Barra(a, b, s, (0, 0, 1)))
+        m.apoios[a] = [1, 1, 1, 1, 0, 0]
+        m.apoios[b] = [0, 1, 1, 0, 0, 0]
+        c = PT.Caso("tri")
+        c.distribuidas.append((0, [0, 0, 0], True, 0, 6000, [0, 0, -10]))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.reacao(a)[0][2], 10.0, places=6)
+        self.assertAlmostEqual(r.reacao(b)[0][2], 20.0, places=6)
+        x = 6000 / math.sqrt(3)
+        self.assertAlmostEqual(r.esforcos(0, x)["My"] / 1e6, 10 * 6.0 ** 2 / (9 * math.sqrt(3)), places=6)
+        self.assertAlmostEqual(r.flecha_local(0, 61)[1], 0.00652 * 10 * 6000 ** 4 / (200000 * 8578e4), delta=0.01)
+        c = PT.Caso("parcial")
+        c.distribuidas.append((0, [0, 0, -10], True, 2000, 4000))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.esforcos(0, 3000)["My"] / 1e6, 25.0, places=6)
+        self.assertIn(2000.0, [x for x, _e in r.diagrama(0)])
+
+    def test_analise_com_rotula_e_carga_variavel(self):
+        import json
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (5000, 3000)), ((5000, 3000), (5000, 0))],
+                           "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        self.doc.recompute()
+        an = A.criar(self.doc, est)
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        an.Liberacoes = ["1=Rótula nas duas pontas"]
+        casos = [{"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                  "cargas": [{"alvo": "barra", "linha": 1, "tipo": "trapezoidal", "valor": 10.0, "valor2": 10.0,
+                              "inicio": 0.0, "fim": 0.0, "direcao": "Para baixo (−Z)"}]}]
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        an.SegundaOrdem = False
+        self.doc.recompute()
+        calc = an.Proxy.calc
+        self.assertIsNone(calc.erro, calc.erro)
+        r = calc.resultados[[n for n, t, _f in calc.combinacoes if t == "ELS"][0]]
+        # viga rotulada nos pilares: biapoiada, M no meio = qL²/8 = 31,25 kN·m (característico)
+        eb, a = [(eb, a) for eb, a in calc.mapa["barras"][1] if a <= 2500.0][-1]
+        self.assertAlmostEqual(abs(r.esforcos(eb, 2500.0 - a)["My"]) / 1e6, 31.25, delta=0.05)
+        self.assertAlmostEqual(abs(r.esforcos(calc.mapa["barras"][1][0][0], 0.0)["My"]) / 1e6, 0.0, places=4)
+        if FreeCAD.GuiUp:
+            import PrumoAnaliseVista as V
+            p = V.abrir_painel(est, an)
+            try:
+                p.modo.definir("rotula")
+                p.acao_rotula.setCurrentIndex(0)
+                p.liberar(1, "ini")              # tira a do início: fica só no fim
+                self.assertEqual(an.Proxy.liberacoes(an), {1: "Rótula no fim"})
+                p.acao_rotula.setCurrentIndex(1)
+                p.clique(E.barras_de(est)[2], "Face1", (5000.0, 0.0, 1500.0))
+                self.assertEqual(an.Proxy.liberacoes(an)[2], "Barra de treliça")
+                self.assertGreater(p.lista_lib.count(), 1)
+                p.tipo_carga.setCurrentIndex(2)
+                self.assertTrue(p.valor2.isEnabled() and p.fim.isEnabled())
+                self.assertIn("a", V._texto_carga(casos[0]["cargas"][0]))
+            finally:
+                p.reject()
+                FreeCADGui.Control.closeDialog()
+
+    def test_secao_personalizada_tubo_e_calculo(self):
+        import os
+        import tempfile
+        import PrumoPerfis
+        import PrumoSecao
+        import PrumoSecaoPersonalizada as SP
+        import PrumoEstrutura as E
+        import PrumoNBR8800 as N
+        q = [((-50, -50), (50, -50)), ((50, -50), (50, 50)), ((50, 50), (-50, 50)), ((-50, 50), (-50, -50)),
+             ((-45, -45), (45, -45)), ((45, -45), (45, 45)), ((45, 45), (-45, 45)), ((-45, 45), (-45, -45))]
+        sk = esboco_linhas(self.doc, q, "XY", "Contorno")
+        o = SP.criar(self.doc, sk, "Tubo teste")
+        nome = SP.PREFIXO + "Tubo teste"
+        self._registrados.append(nome)
+        self.assertEqual(o.Avisos, [])
+        self.assertAlmostEqual(o.Area, (100 ** 2 - 90 ** 2) / 100.0, places=3)
+        self.assertAlmostEqual(o.Ix, (100 ** 4 - 90 ** 4) / 12.0 / 1e4, places=2)
+        self.assertLess(abs(o.J * 1e4 - 95 ** 3 * 5) / (95 ** 3 * 5), 0.05)      # Bredt
+        it = PrumoPerfis.perfil(nome)
+        self.assertIsNotNone(it)
+        self.assertIn(nome, PrumoPerfis.nomes(SP.FAMILIA))
+        self.assertTrue(PrumoPerfis.confiavel(it))
+        p = PrumoSecao.propriedades(nome)
+        ver = N.verificar(p, 250.0, 400.0, 3000.0, {"N": -50e3, "Mx": 2e6, "My": 0.0, "Vz": 5e3, "Vy": 0.0})
+        self.assertTrue(any("personalizada" in a for a in ver["avisos"]))
+        self.assertGreater(ver["taxa"], 0.0)
+        # estrutura com o perfil e cálculo por barras
+        sk2 = esboco_linhas(self.doc, [((0, 0), (0, 2000)), ((0, 2000), (2000, 2000))], "XZ", "Esq2")
+        est = E.criar(self.doc, sk2, nome)
+        self.doc.recompute()
+        self.assertEqual(len(E.barras_de(est)), 2)
+        self.assertTrue(E.barras_de(est)[0].Shape.isValid())
+        # salva, tira do catálogo e reabre: o documento registra de novo
+        arq = os.path.join(tempfile.mkdtemp(), "secao.FCStd")
+        self.doc.saveAs(arq)
+        FreeCAD.closeDocument(self.doc.Name)
+        SP.desregistrar(nome)
+        self.assertIsNone(PrumoPerfis.perfil(nome))
+        self.doc = FreeCAD.openDocument(arq)
+        self.assertIsNotNone(PrumoPerfis.perfil(nome))
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -5263,4 +5437,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
-           T43DetalheLigacao]
+           T43DetalheLigacao, T44RotulasCargasSecoes]

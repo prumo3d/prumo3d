@@ -21,6 +21,8 @@ APOIOS = {
     "Rótula": [1, 1, 1, 0, 0, 0],
     "Rolete (vertical)": [0, 0, 1, 0, 0, 0],
 }
+LIBERACOES = ["Rótula no início", "Rótula no fim", "Rótula nas duas pontas", "Barra de treliça"]
+
 DIRECOES = {
     "Para baixo (−Z)": (0, 0, -1), "Para cima (+Z)": (0, 0, 1),
     "+X": (1, 0, 0), "−X": (-1, 0, 0), "+Y": (0, 1, 0), "−Y": (0, -1, 0),
@@ -126,7 +128,7 @@ def combinacoes(casos):
 
 
 # ------------------------------------------------------------------ modelo de cálculo
-def montar_modelo(est, casos, apoios):
+def montar_modelo(est, casos, apoios, liberacoes=None):
     """(Modelo, [Caso do PrumoPortico], mapa) a partir da estrutura e dos dados da análise.
 
     mapa: {"barras": {índice da linha: [(índice do elemento, x inicial mm)]}, "nos": {chave: nó}}."""
@@ -138,7 +140,7 @@ def montar_modelo(est, casos, apoios):
     ativas = E.arestas_ativas(est, todas)
     normal = E._normal_esqueleto(todas)
     m = PT.Modelo()
-    mapa = {"barras": {}, "nos": {}, "secoes": {}, "linhas": {}}
+    mapa = {"barras": {}, "nos": {}, "secoes": {}, "linhas": {}, "liberacoes": dict(liberacoes or {})}
     # pontos de nó: pontas de todas as barras
     pontas = []
     for i, e in enumerate(ativas):
@@ -186,10 +188,21 @@ def montar_modelo(est, casos, apoios):
             finos += [a + (b - a) * k / 4.0 for k in range(4)]
         xs = finos + [xs[-1]]
         mapa["barras"][i] = []
+        lib = (liberacoes or {}).get(i, "")
+        ini = lib in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça")
+        fim = lib in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça")
         for a, b in zip(xs[:-1], xs[1:]):
             ni = m.no(tuple(p0 + t * a))
             nj = m.no(tuple(p0 + t * b))
-            m.barras.append(PT.Barra(ni, nj, sec, (v.x, v.y, v.z), nome="%d" % (i + 1), origem=(i, a)))
+            solto = []
+            if ini and a == xs[0]:
+                solto += list(PT.ROTULA_I)
+            if fim and b == xs[-1]:
+                solto += list(PT.ROTULA_J)
+                if lib == "Barra de treliça":
+                    solto.append(9)          # torção solta numa ponta (senão a barra gira em torno do eixo)
+            m.barras.append(PT.Barra(ni, nj, sec, (v.x, v.y, v.z), nome="%d" % (i + 1), origem=(i, a),
+                                     liberados=solto))
             mapa["barras"][i].append((len(m.barras) - 1, a))
     for k, n in enumerate(m.nos):
         mapa["nos"][_chave_no(n)] = k
@@ -212,6 +225,21 @@ def montar_modelo(est, casos, apoios):
                 if carga["tipo"] == "distribuida":
                     for eb, _a in mapa["barras"][i]:
                         pc.distribuidas.append((eb, list(d * val), True))
+                elif carga["tipo"] == "trapezoidal":
+                    # linear de "inicio" a "fim" (mm a partir do início da barra; fim 0 = até o fim)
+                    Lb = mapa["linhas"][i][2]
+                    a0 = max(0.0, float(carga.get("inicio", 0.0)))
+                    b0 = float(carga.get("fim", 0.0)) or Lb
+                    b0 = min(b0, Lb)
+                    v2 = float(carga.get("valor2", val))
+                    trechos = mapa["barras"][i]
+                    for (eb, ea), prox in zip(trechos, trechos[1:] + [(None, Lb)]):
+                        lo, hi = max(a0, ea), min(b0, prox[1])
+                        if hi <= lo or b0 <= a0:
+                            continue
+                        q_lo = val + (v2 - val) * (lo - a0) / (b0 - a0)
+                        q_hi = val + (v2 - val) * (hi - a0) / (b0 - a0)
+                        pc.distribuidas.append((eb, list(d * q_lo), True, lo - ea, hi - ea, list(d * q_hi)))
                 else:
                     pos = float(carga.get("posicao", 0.0))
                     trechos = mapa["barras"][i]
@@ -286,8 +314,14 @@ def membros(m, mapa):
             pai[i] = pai[pai[i]]
             i = pai[i]
         return i
+    rotulados = set()
+    for b in m.barras:
+        if 4 in b.liberados or 5 in b.liberados:
+            rotulados.add(b.i)
+        if 10 in b.liberados or 11 in b.liberados:
+            rotulados.add(b.j)
     for no, ls in ponta.items():
-        if len(ls) == 2 and grau.get(no, 0) == 2 and no not in m.apoios:
+        if len(ls) == 2 and grau.get(no, 0) == 2 and no not in m.apoios and no not in rotulados:
             a, b = ls
             ta, tb = mapa["linhas"][a][1], mapa["linhas"][b][1]
             if abs(abs(ta.dot(tb)) - 1.0) < 1e-6:
@@ -312,11 +346,11 @@ def membros(m, mapa):
 
 
 def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_flecha=250.0, K=1.0,
-             segunda_ordem=True):
+             segunda_ordem=True, liberacoes=None):
     import PrumoNBR8800 as N
     calc = Calculo()
     calc.material = (nome_material, fy, fu)
-    m, lista, mapa = montar_modelo(est, casos, apoios)
+    m, lista, mapa = montar_modelo(est, casos, apoios, liberacoes)
     calc.modelo, calc.mapa = m, mapa
     calc.combinacoes = combinacoes(casos)
     if not m.apoios:
@@ -525,6 +559,8 @@ class Analise:
         add("App::PropertyLinkListHidden", "Barras", "Análise", "Barras da estrutura (para recalcular quando mudam)")
         add("App::PropertyString", "Material", "Análise", "Material do aço (vazio = o da estrutura)", "")
         add("App::PropertyStringList", "Apoios", "Análise", "Apoios: 'x;y;z=Tipo' (mm)", [])
+        add("App::PropertyStringList", "Liberacoes", "Análise", "Rótulas nas pontas das barras: 'linha=Tipo' "
+            "(linha a partir de 0)", [])
         add("App::PropertyStringList", "Casos", "Análise", "Casos de carga (JSON)",
             [json.dumps(caso_padrao(), ensure_ascii=False)])
         if "LimiteFlecha" not in obj.PropertiesList:
@@ -564,6 +600,18 @@ class Analise:
                 continue
         return res or [caso_padrao()]
 
+    def liberacoes(self, obj):
+        """{linha: tipo de liberação} (rótulas nas pontas e barras de treliça)."""
+        res = {}
+        for linha in getattr(obj, "Liberacoes", []) or []:
+            k, _s, tipo = linha.partition("=")
+            if tipo in LIBERACOES:
+                try:
+                    res[int(k)] = tipo
+                except ValueError:
+                    pass
+        return res
+
     def apoios(self, obj):
         res = {}
         for linha in obj.Apoios:
@@ -593,7 +641,7 @@ class Analise:
         try:
             self.calc = calcular(est, self.casos(obj), self.apoios(obj), fy, fu, nome,
                                  LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0,
-                                 bool(getattr(obj, "SegundaOrdem", True)))
+                                 bool(getattr(obj, "SegundaOrdem", True)), self.liberacoes(obj))
         except Exception:
             self.calc = None
         return self.calc
@@ -612,7 +660,7 @@ class Analise:
         try:
             calc = calcular(est, self.casos(obj), self.apoios(obj), fy, fu, nome,
                             LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0,
-                                 bool(getattr(obj, "SegundaOrdem", True)))
+                                 bool(getattr(obj, "SegundaOrdem", True)), self.liberacoes(obj))
         except Exception as ex:
             obj.Situacao = "erro: %s" % ex
             obj.TaxaMaxima = 0.0

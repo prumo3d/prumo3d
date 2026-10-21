@@ -71,10 +71,14 @@ def derivados_relevantes(it):
 
 
 def confiavel(it):
+    if it.get("status") == "usuario":     # seção personalizada: geometria do próprio desenho
+        return True
     return it["status"] == "confirmado" and not derivados_relevantes(it)
 
 
 def descricao_status(it):
+    if it.get("status") == "usuario":
+        return "Seção desenhada no projeto: propriedades calculadas pelo contorno."
     if confiavel(it):
         return "Dados do catálogo do fabricante."
     partes = []
@@ -100,6 +104,10 @@ def dimensoes(it):
         return it["D"], it["D"]
     if t == "TQ":
         return it["lado"], it["lado"]
+    if t == "POL":
+        us = [p[0] for p in it["contorno"]]
+        vs = [p[1] for p in it["contorno"]]
+        return max(us) - min(us), max(vs) - min(vs)
     raise ValueError(t)
 
 
@@ -131,6 +139,8 @@ def contorno(it):
         return [(-h, -h), (h, -h), (h, h), (-h, h)], [[(-i, -i), (i, -i), (i, i), (-i, i)]]
     if t == "TUBO":
         return ("circulo", it["D"], it["D"] - 2 * it["esp"]), []
+    if t == "POL":      # seção personalizada (PrumoSecaoPersonalizada), já centrada na caixa
+        return [tuple(p) for p in it["contorno"]], [[tuple(p) for p in f] for f in it.get("furos", [])]
     raise ValueError(t)
 
 

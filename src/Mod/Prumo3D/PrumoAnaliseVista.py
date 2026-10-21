@@ -120,6 +120,7 @@ class VPAnalise:
         mostrar = obj.Mostrar
         self._nos(m, tam)
         self._apoios(obj, m, tam)
+        self._rotulas(obj, calc, tam)
         if calc.erro or mostrar == "Cargas e apoios":
             self._cargas(obj, calc, tam)
         elif mostrar == "Taxa de uso":
@@ -222,6 +223,23 @@ class VPAnalise:
             self._marcas([p], cor, idx)
             self._texto((p[0], p[1], p[2] - 0.04 * tam), tipo.split(" ")[0], cor, 13)
 
+    def _rotulas(self, obj, calc, tam):
+        """Círculo vazado perto da ponta rotulada; "T" no meio da barra de treliça."""
+        from pivy import coin
+        pts = []
+        for i, tipo in obj.Proxy.liberacoes(obj).items():
+            if i not in calc.mapa["linhas"]:
+                continue
+            p0, t, L = calc.mapa["linhas"][i]
+            d = min(0.04 * tam, 0.2 * L)
+            if tipo in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça"):
+                pts.append(p0 + t * d)
+            if tipo in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça"):
+                pts.append(p0 + t * (L - d))
+            if tipo == "Barra de treliça":
+                self._texto(p0 + t * (L / 2.0), "treliça", (0.35, 0.35, 0.35), 11)
+        self._marcas(pts, (0.0, 0.0, 0.0), coin.SoMarkerSet.CIRCLE_LINE_9_9)
+
     def _cargas(self, obj, calc, tam):
         casos = obj.Proxy.casos(obj)
         seta = 0.06 * tam
@@ -234,7 +252,24 @@ class VPAnalise:
                     if i not in calc.mapa["linhas"]:
                         continue
                     p0, t, L = calc.mapa["linhas"][i]
-                    if carga["tipo"] == "distribuida":
+                    if carga["tipo"] == "trapezoidal":
+                        a0 = float(carga.get("inicio", 0.0))
+                        b0 = float(carga.get("fim", 0.0)) or L
+                        v1, v2 = float(carga["valor"]), float(carga.get("valor2", carga["valor"]))
+                        vm = max(abs(v1), abs(v2), 1e-9)
+                        pts, segs = [], []
+                        for k in range(7):
+                            sk = a0 + (b0 - a0) * k / 6.0
+                            vk = v1 + (v2 - v1) * k / 6.0
+                            p = p0 + t * sk
+                            topo = p - dv * seta * (abs(vk) / vm)
+                            segs.append([topo, p])
+                            pts.append(topo)
+                        segs.append(pts)
+                        self._linhas(segs, (0.75, 0.25, 0.05), 2)
+                        self._texto(pts[3] - dv * seta * 0.3, "%s → %s kN/m (%s)" % (_f(v1), _f(v2), c["nome"]),
+                                    (0.75, 0.25, 0.05), 12)
+                    elif carga["tipo"] == "distribuida":
                         pts = [p0 + t * (L * k / 6.0) for k in range(7)]
                         segs = [[p - dv * seta, p] for p in pts]
                         segs.append([p - dv * seta for p in pts])
@@ -330,28 +365,11 @@ class VPAnalise:
 
 def _curva_deformada(r, nb, b, R, L, m, k, n=9):
     import numpy as np
-    di = R @ r.u[6 * b.i:6 * b.i + 3]
-    dj = R @ r.u[6 * b.j:6 * b.j + 3]
-    ri = R @ r.u[6 * b.i + 3:6 * b.i + 6]
-    rj = R @ r.u[6 * b.j + 3:6 * b.j + 6]
-    s = b.secao
-    dist, pont = r.cargas[nb]
     import PrumoPortico as PT
     pts = []
     for q in range(n):
         x = L * q / (n - 1)
-        xi = x / L
-        h1, h2 = 1 - 3 * xi ** 2 + 2 * xi ** 3, x * (1 - xi) ** 2
-        h3, h4 = 3 * xi ** 2 - 2 * xi ** 3, x * (xi ** 2 - xi)
-        u = di[0] + (dj[0] - di[0]) * xi
-        v = h1 * di[1] + h2 * ri[2] + h3 * dj[1] + h4 * rj[2]
-        w = h1 * di[2] - h2 * ri[1] + h3 * dj[2] - h4 * rj[1]
-        for qx, qy, qz in dist:
-            v += qy * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iz)
-            w += qz * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iy)
-        for a, (Px, Py, Pz) in pont:
-            v += PT._flecha_pontual_biengastada(Py, a, x, L, s.E * s.Iz)
-            w += PT._flecha_pontual_biengastada(Pz, a, x, L, s.E * s.Iy)
+        u, v, w = PT.deslocamento_local(r, nb, x)
         loc = np.array([x + u * k, v * k, w * k])
         g = m.nos[b.i] + R.T @ loc
         pts.append(_vec(*g))
@@ -395,9 +413,12 @@ import PrumoPainel as P
 MODOS_CLIQUE = [("apoio", "Pôr apoio", "selecao", "Clique num nó (ponta de barra) para pôr ou tirar o apoio"),
                 ("barra", "Carga na barra", "empurra", "Clique nas barras para aplicar a carga do caso"),
                 ("no", "Carga no nó", "posicao", "Clique num nó para aplicar a força do caso"),
+                ("rotula", "Rótula", "tipo", "Clique perto da ponta de uma barra para rotular essa ponta, "
+                 "ou na barra para torná-la de treliça (escolha abaixo)"),
                 ("detalhe", "Detalhar nó", "info", "Clique num nó (ligação ou apoio) para calcular o detalhe "
                  "por elementos finitos sólidos")]
-TIPOS_CARGA = ["Distribuída (kN/m)", "Concentrada na barra (kN)"]
+TIPOS_CARGA = ["Distribuída (kN/m)", "Concentrada na barra (kN)", "Distribuída variável / parcial (kN/m)"]
+ACOES_ROTULA = ["Rótula na ponta clicada", "Barra de treliça (rótula nas duas pontas)", "Tirar as rótulas da barra"]
 
 
 class PainelAnalise(P.PainelTarefa):
@@ -444,6 +465,11 @@ class PainelAnalise(P.PainelTarefa):
                                    "só trava a vertical.", "Apoio")
         self.lista_apoios = s1.widget(QtWidgets.QListWidget())
         self.lista_apoios.setMaximumHeight(90)
+        self.acao_rotula = s1.linha("tipo", P.lista(ACOES_ROTULA), "Rótula: a ponta da barra não transmite momento "
+                                    "(ligação flexível). Treliça: a barra só trabalha à força normal nas pontas.",
+                                    "Rótula")
+        self.lista_lib = s1.widget(QtWidgets.QListWidget())
+        self.lista_lib.setMaximumHeight(70)
         # ---- casos e cargas
         s2 = f.secao("Casos de carga", "empurra")
         self.caso = s2.linha("tipo", QtWidgets.QComboBox(), "Caso de carga em edição (as cargas clicadas vão para "
@@ -466,8 +492,14 @@ class PainelAnalise(P.PainelTarefa):
         self.valor = s3.linha("quantidade", P.numero(5.0, -1e6, 1e6, "", 2), "kN/m (distribuída) ou kN "
                               "(concentrada e no nó).", "Valor")
         self.direcao = s3.linha("empurra", P.lista(list(A.DIRECOES)), "Direção da carga (eixos globais).", "Direção")
+        self.valor2 = s3.linha("quantidade", P.numero(5.0, -1e6, 1e6, "", 2), "Variável: valor no fim do trecho "
+                               "(kN/m). O Valor acima é o do começo.", "Valor no fim")
+        self.fim = s3.linha("comprimento", P.numero(0.0, 0.0, 1e7, " mm", 0), "Variável: onde o trecho carregado "
+                            "termina, a partir do Início da barra (0 = até o fim da barra).", "Até")
         self.posicao = s3.linha("comprimento", P.numero(0.0, 0.0, 1e7, " mm", 0), "Concentrada: distância a partir "
-                                "do Início da barra.", "Posição")
+                                "do Início da barra. Variável: onde o trecho carregado começa.", "Posição")
+        self.tipo_carga.currentIndexChanged.connect(lambda *_: self._campos_carga())
+        self._campos_carga()
         self.lista_cargas = s3.widget(QtWidgets.QListWidget())
         self.lista_cargas.setMaximumHeight(110)
         self.bt_tirar_carga = s3.widget(QtWidgets.QPushButton("Tirar a carga marcada"))
@@ -684,7 +716,23 @@ class PainelAnalise(P.PainelTarefa):
                 i = int(_el[4:]) - 1
             if i is None:
                 return
-            if self.tipo_carga.currentIndex() == 0:
+            if modo == "rotula":
+                ponta = None
+                calc2 = self.analise.Proxy.calc
+                if p is not None and calc2 is not None and i in calc2.mapa["linhas"]:
+                    p0, t, L = calc2.mapa["linhas"][i]
+                    ponta = "ini" if (p - p0).dot(t) < L / 2.0 else "fim"
+                self.liberar(i, ponta)
+                try:
+                    FreeCADGui.Selection.clearSelection()
+                except Exception:
+                    pass
+                return
+            if self.tipo_carga.currentIndex() == 2:
+                carga = {"alvo": "barra", "linha": i, "tipo": "trapezoidal", "valor": self.valor.value(),
+                         "valor2": self.valor2.value(), "inicio": self.posicao.value(), "fim": self.fim.value(),
+                         "direcao": self.direcao.currentText()}
+            elif self.tipo_carga.currentIndex() == 0:
                 carga = {"alvo": "barra", "linha": i, "tipo": "distribuida", "valor": self.valor.value(),
                          "direcao": self.direcao.currentText()}
             else:
@@ -697,9 +745,41 @@ class PainelAnalise(P.PainelTarefa):
             pass
 
     # ---- resultados
+    def _campos_carga(self):
+        k = self.tipo_carga.currentIndex()
+        self.posicao.setEnabled(k in (1, 2))
+        self.valor2.setEnabled(k == 2)
+        self.fim.setEnabled(k == 2)
+
+    def liberar(self, i, ponta=None):
+        """Aplica a ação de rótula escolhida na barra i (ponta: "ini" / "fim", a mais perto do clique)."""
+        obj = self.analise
+        libs = obj.Proxy.liberacoes(obj)
+        acao = self.acao_rotula.currentIndex()
+        atual = libs.get(i, "")
+        if acao == 1:
+            libs[i] = "Barra de treliça"
+        elif acao == 2:
+            libs.pop(i, None)
+        else:
+            pontas = {"Rótula no início": {"ini"}, "Rótula no fim": {"fim"}, "Rótula nas duas pontas": {"ini", "fim"},
+                      "Barra de treliça": {"ini", "fim"}}.get(atual, set())
+            pontas ^= {ponta or "ini"}
+            nome = {frozenset(["ini"]): "Rótula no início", frozenset(["fim"]): "Rótula no fim",
+                    frozenset(["ini", "fim"]): "Rótula nas duas pontas"}.get(frozenset(pontas))
+            if nome:
+                libs[i] = nome
+            else:
+                libs.pop(i, None)
+        obj.Liberacoes = ["%d=%s" % (k, v) for k, v in sorted(libs.items())]
+        self._recalcular()
+
     def atualizar_resultados(self):
         obj = self.analise
         calc = getattr(obj.Proxy, "calc", None)
+        self.lista_lib.clear()
+        for i, tipo in sorted(obj.Proxy.liberacoes(obj).items()):
+            self.lista_lib.addItem("Barra %d: %s" % (i + 1, tipo.lower()))
         self.lista_apoios.clear()
         for k, tipo in obj.Proxy.apoios(obj).items():
             x, y, z = A._ponto_da_chave(k)
@@ -892,6 +972,11 @@ def _texto_carga(c):
         return "Nó (%s; %s; %s): %s kN, %s" % (_f(x, 0), _f(y, 0), _f(z, 0), _f(c["valor"]), c["direcao"])
     if c["tipo"] == "distribuida":
         return "Barra %d: %s kN/m, %s" % (int(c["linha"]) + 1, _f(c["valor"]), c["direcao"])
+    if c["tipo"] == "trapezoidal":
+        fim = float(c.get("fim", 0.0))
+        return "Barra %d: %s a %s kN/m de %s a %s mm, %s" % (
+            int(c["linha"]) + 1, _f(c["valor"]), _f(c.get("valor2", c["valor"])), _f(c.get("inicio", 0.0), 0),
+            _f(fim, 0) if fim else "fim", c["direcao"])
     return "Barra %d: %s kN a %s mm, %s" % (int(c["linha"]) + 1, _f(c["valor"]), _f(c.get("posicao", 0), 0),
                                            c["direcao"])
 

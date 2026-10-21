@@ -50,6 +50,8 @@ EQUIVALENCIAS = [
     ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Std_Measure"], ""),
     ("Estruturas", "Membro estrutural", "Frame generator / Structure", "Estrutura soldada", "estruturas",
      ["Prumo_Estrutura"], "Perfis brasileiros (W, U, L, tubos, metalon) sobre as linhas de um esboço."),
+    ("Estruturas", "Perfil personalizado (biblioteca de perfis)", "Custom profile", "Seção personalizada",
+     "estruturas", ["Prumo_SecaoPersonalizada"], "Esboço fechado vira perfil, com área, inércias e torção."),
     ("Estruturas", "Grupos de membros", "Frame members", "Editar estrutura", "estruturas", ["Prumo_EditarEstrutura"], ""),
     ("Estruturas", "Aparar/estender", "Trim / Notch", "Cantos", "estruturas", ["Prumo_Cantos"],
      "Meia-esquadria, topo (qual passa) e recorte pelo contorno."),
@@ -87,6 +89,8 @@ EQUIVALENCIAS = [
      ["Prumo_AssistenteFEM"], ""),
     ("Simulação", "Simulation (vigas / estrutura soldada)", "Frame analysis", "Simular estrutura", "estruturas",
      ["Prumo_AnaliseEstrutura"], "Apoios clicando nos nós, combinações NBR 8681 e verificação NBR 8800."),
+    ("Simulação", "Simulation: articulação / treliça (beam joints)", "Beam end release", "Rótula / treliça",
+     "estruturas", ["Prumo_AnaliseEstrutura"], "No painel da simulação: modo Rótula, clicando perto da ponta."),
 ]
 
 CONCEITOS = [

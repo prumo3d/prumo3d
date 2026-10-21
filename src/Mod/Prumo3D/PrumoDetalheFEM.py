@@ -100,17 +100,12 @@ def forca_no_corte(r, eb, x, lado_baixo):
     estrutura aplica no pedaço guardado do elemento eb, cortado em x.
     lado_baixo=True: o pedaço guardado é o de 0 a x (o nó fica no início do elemento)."""
     import numpy as np
+    import PrumoPortico as PT
     f = r.extremos[eb]
     dist, pont = r.cargas[eb]
-    s = np.array([f[0], f[1], f[2]], dtype=float)
-    m = np.array([f[3], f[4] + x * f[2], f[5] - x * f[1]], dtype=float)
-    for qx, qy, qz in dist:
-        s += np.array([qx, qy, qz]) * x
-        m += np.array([0.0, qz * x * x / 2.0, -qy * x * x / 2.0])
-    for a, (Px, Py, Pz) in pont:
-        if a < x:
-            s += np.array([Px, Py, Pz])
-            m += np.array([0.0, (x - a) * Pz, -(x - a) * Py])
+    sc, mc = PT.resultante_ate(dist, pont, x)
+    s = np.array([f[0], f[1], f[2]], dtype=float) + sc
+    m = np.array([f[3], f[4] + x * f[2], f[5] - x * f[1]], dtype=float) + mc
     # s, m: resultante (e momento no corte) do que age no pedaço de 0 a x, fora o corte
     if lado_baixo:
         F, M = -s, -m
@@ -210,6 +205,11 @@ def montar(analise, ponto, combinacao=None, distancia=0.0):
     pecas = []
     for i, s0 in linhas:
         p0, t, L = calc.mapa["linhas"][i]
+        lib = calc.mapa.get("liberacoes", {}).get(i, "")
+        if (s0 < 1.0 and lib in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça")) or \
+                (s0 > L - 1.0 and lib in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça")):
+            d.avisos.append("A barra %d é rotulada neste nó no modelo por barras, mas no detalhe ela fica soldada "
+                            "(peças fundidas): modele a ligação flexível real para avaliar." % (i + 1))
         esp = _pontos_especiais(calc, i)
         lados = []
         for sinal in (1, -1):

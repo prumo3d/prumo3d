@@ -100,6 +100,12 @@ def _corpo(analise, doc, imgs, largura):
     h += "<h1>3. Apoios</h1>"
     h += R._tab([[t, "(%s; %s; %s)" % tuple(_f(v, 0) for v in A._ponto_da_chave(k))]
                  for k, t in analise.Proxy.apoios(analise).items()], ["Tipo", "Posição (mm)"])
+    libs = analise.Proxy.liberacoes(analise) if hasattr(analise.Proxy, "liberacoes") else {}
+    if libs:
+        h += "<h2>Rótulas nas barras</h2>"
+        h += R._tab([["%d" % (i + 1), t] for i, t in sorted(libs.items())], ["Barra", "Liberação"])
+        h += "<p class='nota'>Rótula: a ponta não transmite momento fletor (ligação flexível). Barra de treliça: " \
+             "rótulas nas duas pontas, só força normal vinda dos nós.</p>"
     # cargas
     h += "<h1>4. Casos de carga e combinações</h1>"
     for c in analise.Proxy.casos(analise):

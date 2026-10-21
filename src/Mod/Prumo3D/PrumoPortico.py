@@ -9,7 +9,8 @@ z = altura do perfil e y = largura: a flexão "em torno de y" usa a maior inérc
 
 Hipóteses (vão para a memória de cálculo):
 - análise elástica linear de 1ª ordem (sem efeito P-Δ), material elástico;
-- barras ligadas rigidamente nos nós (sem rótulas internas);
+- barras ligadas rigidamente nos nós, salvo as liberações (rótulas) dadas nas pontas, tratadas
+  por condensação estática da matriz da barra;
 - as barras ficam sobre as linhas do esqueleto (excentricidades do ponto de fixação desprezadas);
 - deformação por cortante desprezada.
 """
@@ -19,6 +20,83 @@ import math
 import numpy as np
 
 G_GRAV = 9.80665e-3          # N/kg → peso em N por kg (1 kgf = 9,80665 N); massa_kgm·G_GRAV = N/mm
+
+# Gauss-Legendre de 4 pontos: exato até grau 7 (carga linear × funções cúbicas)
+GAUSS4 = [(-0.8611363115940526, 0.3478548451374538), (-0.3399810435848563, 0.6521451548625461),
+          (0.3399810435848563, 0.6521451548625461), (0.8611363115940526, 0.3478548451374538)]
+
+# graus locais de cada ponta: 0-2 deslocamentos, 3 torção, 4-5 flexão (giro em y e z)
+ROTULA_I = (4, 5)
+ROTULA_J = (10, 11)
+TRELICA = (4, 5, 10, 11, 9)       # rótula nas duas pontas e a torção solta numa delas
+
+
+def _q_em(carga, s):
+    """Valor (vetor local, N/mm) da carga distribuída linear `carga` = (a, b, q1, q2) em s."""
+    a, b, q1, q2 = carga
+    t = (s - a) / (b - a) if b > a else 0.0
+    return q1 + (q2 - q1) * t
+
+
+def _gauss(carga, lo, hi):
+    """Carga distribuída em [lo, hi] (dentro de [a, b]) como forças concentradas equivalentes
+    nos pontos de Gauss: [(s, força N)]. Exata para integrar com polinômios até grau 6."""
+    a, b, _q1, _q2 = carga
+    lo, hi = max(lo, a), min(hi, b)
+    if hi <= lo:
+        return []
+    m, h = (lo + hi) / 2.0, (hi - lo) / 2.0
+    return [(m + h * g, w * h * _q_em(carga, m + h * g)) for g, w in GAUSS4]
+
+
+def resultante_ate(dist, pont, x):
+    """Soma das forças (3) e momento (3) em relação ao ponto x de tudo o que age em [0, x] da
+    barra (cargas distribuídas e concentradas), em eixos locais."""
+    s = np.zeros(3)
+    m = np.zeros(3)
+    for carga in dist:
+        for xs, P in _gauss(carga, 0.0, x):
+            s += P
+            m += np.array([0.0, (x - xs) * P[2], -(x - xs) * P[1]])
+    for a, P in pont:
+        if a < x:
+            s += P
+            m += np.array([0.0, (x - a) * P[2], -(x - a) * P[1]])
+    return s, m
+
+
+def flecha_particular(dist, pont, x, L, EIz, EIy):
+    """(v, w) da barra biengastada sob as cargas no vão (parcela que se soma às funções de forma)."""
+    v = w = 0.0
+    for carga in dist:
+        for lo, hi in ((0.0, x), (x, L)):        # divide no ponto: o integrando muda de forma em x
+            for xs, P in _gauss(carga, lo, hi):
+                v += _flecha_pontual_biengastada(P[1], xs, x, L, EIz)
+                w += _flecha_pontual_biengastada(P[2], xs, x, L, EIy)
+    for a, P in pont:
+        v += _flecha_pontual_biengastada(P[1], a, x, L, EIz)
+        w += _flecha_pontual_biengastada(P[2], a, x, L, EIy)
+    return v, w
+
+
+def _condensar(kk, fe, liberados):
+    """Condensação estática dos graus liberados (rótulas): (k', fe', recuperação)."""
+    if not liberados:
+        return kk, fe, None
+    r = sorted(liberados)
+    c = [i for i in range(12) if i not in liberados]
+    krr = kk[np.ix_(r, r)]
+    try:
+        inv = np.linalg.inv(krr)
+    except np.linalg.LinAlgError:
+        inv = np.linalg.pinv(krr)
+    krc = kk[np.ix_(r, c)]
+    kcr = kk[np.ix_(c, r)]
+    k2 = np.zeros((12, 12))
+    k2[np.ix_(c, c)] = kk[np.ix_(c, c)] - kcr @ inv @ krc
+    f2 = np.zeros(12)
+    f2[c] = fe[c] - kcr @ inv @ fe[r]
+    return k2, f2, (r, c, inv, krc, fe[r].copy())
 
 
 class Secao:
@@ -34,7 +112,8 @@ class Secao:
 class Barra:
     """Barra entre os nós i e j. eixo_z: vetor que dá a direção do eixo local z (altura da seção)."""
 
-    def __init__(self, i, j, secao, eixo_z, nome="", origem=None):
+    def __init__(self, i, j, secao, eixo_z, nome="", origem=None, liberados=()):
+        self.liberados = tuple(sorted(set(liberados)))   # graus locais soltos (rótulas): 4, 5, 9, 10, 11
         self.i, self.j = int(i), int(j)
         self.secao = secao
         self.eixo_z = np.array(eixo_z, dtype=float)
@@ -50,7 +129,7 @@ class Caso:
         self.tipo = tipo
         self.peso_proprio = bool(peso_proprio)
         self.nos = []          # (nó, [Fx, Fy, Fz] kN, [Mx, My, Mz] kN·m) — eixos globais
-        self.distribuidas = []  # (barra, [qx, qy, qz] kN/m, global=True)
+        self.distribuidas = []  # (barra, [qx, qy, qz] kN/m, global=True[, a, b, [q2]]): linear de a a b (mm)
         self.pontuais = []      # (barra, a em mm a partir do nó i, [Px, Py, Pz] kN, global=True)
 
 
@@ -133,15 +212,25 @@ class Modelo:
 
     # ------------------------------------------------------------ cargas na barra (locais)
     def _cargas_locais(self, caso, nb, b, R, L):
-        """[(qx, qy, qz) uniforme local N/mm], [(a, Px, Py, Pz) local N] da barra nb no caso."""
+        """[(a, b, q1, q2) distribuída linear local N/mm], [(a, P local N)] da barra nb no caso."""
         dist, pont = [], []
         if caso.peso_proprio and b.secao.massa_kgm:
-            q = np.array([0.0, 0.0, -b.secao.massa_kgm * G_GRAV])      # N/mm (kg/m · g = N/m = N/mm·1e-3)
-            dist.append(R @ q)
-        for (k, q, glob) in caso.distribuidas:
-            if k == nb:
-                q = np.array(q, dtype=float)          # kN/m = N/mm
-                dist.append(R @ q if glob else q)
+            q = R @ np.array([0.0, 0.0, -b.secao.massa_kgm * G_GRAV])      # N/mm (kg/m · g)
+            dist.append((0.0, L, q, q.copy()))
+        for item in caso.distribuidas:
+            k, q, glob = item[0], item[1], item[2]
+            if k != nb:
+                continue
+            q1 = np.array(q, dtype=float)          # kN/m = N/mm
+            a = float(item[3]) if len(item) > 3 and item[3] is not None else 0.0
+            bb = float(item[4]) if len(item) > 4 and item[4] is not None else L
+            q2 = np.array(item[5], dtype=float) if len(item) > 5 and item[5] is not None else q1.copy()
+            a, bb = max(0.0, min(a, L)), max(0.0, min(bb, L))
+            if bb <= a:
+                continue
+            if glob:
+                q1, q2 = R @ q1, R @ q2
+            dist.append((a, bb, q1, q2))
         for (k, a, P, glob) in caso.pontuais:
             if k == nb:
                 P = np.array(P, dtype=float) * 1000.0
@@ -150,21 +239,13 @@ class Modelo:
 
     @staticmethod
     def _engaste_perfeito(dist, pont, L):
-        """Forças de engaste perfeito (12) em eixos locais, para cargas uniformes e concentradas."""
+        """Forças de engaste perfeito (12) em eixos locais: cargas distribuídas lineares (pelos pontos
+        de Gauss, exato) e concentradas."""
         f = np.zeros(12)
-        for q in dist:
-            qx, qy, qz = q
-            f[0] += -qx * L / 2
-            f[6] += -qx * L / 2
-            f[1] += -qy * L / 2
-            f[7] += -qy * L / 2
-            f[5] += -qy * L ** 2 / 12
-            f[11] += qy * L ** 2 / 12
-            f[2] += -qz * L / 2
-            f[8] += -qz * L / 2
-            f[4] += qz * L ** 2 / 12
-            f[10] += -qz * L ** 2 / 12
-        for a, P in pont:
+        tudo = list(pont)
+        for carga in dist:
+            tudo += _gauss(carga, 0.0, L)
+        for a, P in tudo:
             a = min(max(a, 0.0), L)
             b = L - a
             Px, Py, Pz = P
@@ -180,6 +261,57 @@ class Modelo:
             f[10] += -Pz * a * a * b / L ** 2
         return f
 
+    def _texto_mecanismo(self, Kff, livres):
+        """Mensagem do mecanismo apontando o nó e a direção que se movem sem resistência."""
+        txt = "a estrutura é instável (mecanismo): faltam apoios ou travamentos"
+        try:
+            w, v = np.linalg.eigh((Kff + Kff.T) / 2.0)
+            modo = v[:, 0]
+            ids = np.where(livres)[0]
+            trans = [(abs(modo[k]), ids[k]) for k in range(len(ids)) if ids[k] % 6 < 3]
+            if trans and max(trans)[0] > 1e-3:
+                _a, g = max(trans)
+                q = self.nos[g // 6]
+                txt += ": o nó (%.0f; %.0f; %.0f) se move em %s sem nada que o segure" % (q[0], q[1], q[2],
+                                                                                        "XYZ"[g % 6])
+            else:
+                g = ids[int(np.argmax(np.abs(modo)))]
+                q = self.nos[g // 6]
+                txt += ": o nó (%.0f; %.0f; %.0f) gira sem nada que o segure (rótulas demais?)" % (q[0], q[1], q[2])
+        except Exception:
+            pass
+        return txt
+
+    def _molas_de_giro(self, K, livres):
+        """Matriz de molas fracas nos modos só de giro sem rigidez (nós de barras rotuladas)."""
+        if not any(b.liberados for b in self.barras):
+            return None
+        chave = (len(self.nos), tuple(b.liberados for b in self.barras),
+                 tuple(sorted((k, tuple(v)) for k, v in self.apoios.items())))
+        if getattr(self, "_molas_chave", None) == chave:
+            return self._molas_cache
+        # todos os giros livres: a rótula de uma barra pode soltar o giro de outra (ex.: pilar
+        # rotulado na base com as vigas rotuladas nele gira em torno do próprio eixo)
+        sub = [g for g in range(K.shape[0]) if g % 6 >= 3 and livres[g]]
+        molas = None
+        if sub:
+            Ks = K[np.ix_(sub, sub)]
+            w, v = np.linalg.eigh((Ks + Ks.T) / 2.0)
+            escala = max(1.0, float(np.max(np.abs(np.diag(K)))))
+            for k in range(len(w)):
+                if w[k] > 1e-9 * escala:
+                    break
+                vec = np.zeros(K.shape[0])
+                vec[sub] = v[:, k]
+                if np.linalg.norm(K @ vec) > 1e-6 * escala:
+                    continue                      # o modo mexe com outros graus: não é só giro solto
+                if molas is None:
+                    molas = np.zeros_like(K)
+                molas += 1e-6 * escala * np.outer(vec, vec)
+        self._molas_chave = chave
+        self._molas_cache = molas
+        return molas
+
     # ------------------------------------------------------------ solução
     def resolver(self, caso_ou_combinacao, segunda_ordem=False):
         """Resolve um caso ou uma combinação [(caso, fator)]. Retorna Resultado.
@@ -189,64 +321,93 @@ class Modelo:
         partes = caso_ou_combinacao if isinstance(caso_ou_combinacao, (list, tuple)) else [(caso_ou_combinacao, 1.0)]
         n = len(self.nos)
         ndof = 6 * n
-        K = np.zeros((ndof, ndof))
-        F = np.zeros(ndof)
+        F_nos = np.zeros(ndof)
         info = []
         for nb, b in enumerate(self.barras):
             R, L = self.eixos(b)
             T = self._T(R)
             k = self.rigidez_local(b.secao, L)
-            kg = T.T @ k @ T
             idx = list(range(6 * b.i, 6 * b.i + 6)) + list(range(6 * b.j, 6 * b.j + 6))
-            K[np.ix_(idx, idx)] += kg
             dist_t, pont_t, fe_t = [], [], np.zeros(12)
             for caso, fator in partes:
                 dist, pont = self._cargas_locais(caso, nb, b, R, L)
-                dist = [q * fator for q in dist]
+                dist = [(a, bb, q1 * fator, q2 * fator) for a, bb, q1, q2 in dist]
                 pont = [(a, P * fator) for a, P in pont]
                 fe_t += self._engaste_perfeito(dist, pont, L)
                 dist_t += dist
                 pont_t += pont
-            F[idx] -= T.T @ fe_t
-            info.append((R, L, T, k, fe_t, dist_t, pont_t, idx))
+            info.append((R, L, T, k, fe_t, dist_t, pont_t, idx, b.liberados))
         for caso, fator in partes:
             for (no, forca, momento) in caso.nos:
-                F[6 * no:6 * no + 3] += np.array(forca, dtype=float) * 1000.0 * fator
-                F[6 * no + 3:6 * no + 6] += np.array(momento, dtype=float) * 1e6 * fator
+                F_nos[6 * no:6 * no + 3] += np.array(forca, dtype=float) * 1000.0 * fator
+                F_nos[6 * no + 3:6 * no + 6] += np.array(momento, dtype=float) * 1e6 * fator
+
+        def montar(kgs):
+            K = np.zeros((ndof, ndof))
+            F = F_nos.copy()
+            cond = []
+            for nb, (R, L, T, k, fe, _d, _p, idx, lib) in enumerate(info):
+                k2, f2, rec = _condensar(k + kgs[nb], fe, lib)
+                K[np.ix_(idx, idx)] += T.T @ k2 @ T
+                F[idx] -= T.T @ f2
+                cond.append((k2, f2, rec))
+            return K, F, cond
+
+        kgs = [np.zeros((12, 12)) for _ in info]
+        K, F, cond = montar(kgs)
         presos = np.zeros(ndof, dtype=bool)
         for no, travas in self.apoios.items():
             for g in range(6):
                 if travas[g]:
                     presos[6 * no + g] = True
-        livres = ~presos
         if not presos.any():
             raise ValueError("a estrutura não tem apoios: clique nos nós para apoiar")
+        # giro de nó onde só chegam pontas rotuladas (ex.: nó de treliça): não tem rigidez e não
+        # influi em nada; fica travado. Deslocamento sem rigidez é nó solto: erro.
+        diag = np.abs(np.diag(K))
+        tol = 1e-9 * max(1.0, diag.max())
+        self.giros_travados = []
+        for g in range(ndof):
+            if not presos[g] and diag[g] < tol:
+                if g % 6 >= 3:
+                    presos[g] = True
+                    self.giros_travados.append(g)
+                else:
+                    q = self.nos[g // 6]
+                    raise ValueError("o nó (%.0f; %.0f; %.0f) se desloca em %s sem nada que o segure: nó solto, ou "
+                                     "só barras de treliça chegando nele fora do plano delas (falta travamento)"
+                                     % (q[0], q[1], q[2], "XYZ"[g % 6]))
+        livres = ~presos
+        # rótulas podem deixar giros sem rigidez em direções inclinadas (ex.: barra de treliça girando
+        # em torno do próprio eixo): são modos de corpo rígido só de giro, sem carga que os excite.
+        # Uma mola fraquinha nesses modos (achados uma vez por modelo) deixa o sistema resolvível.
+        molas = self._molas_de_giro(K, livres)
+        if molas is not None:
+            K = K + molas
+            self._molas = molas
         Kff = K[np.ix_(livres, livres)]
-        # nós sem barra ou graus sem rigidez (ex.: rotação de nó só de treliça) ficam travados
-        diag = np.abs(np.diag(Kff))
-        if (diag < 1e-9 * max(1.0, diag.max())).any():
-            raise ValueError("há graus de liberdade sem rigidez (nó solto?)")
         try:
             uf = np.linalg.solve(Kff, F[livres])
         except np.linalg.LinAlgError:
-            raise ValueError("a estrutura é instável (mecanismo): faltam apoios ou travamentos")
-        if not np.all(np.isfinite(uf)) or np.linalg.cond(Kff) > 1e15:
-            raise ValueError("a estrutura é instável (mecanismo): faltam apoios ou travamentos")
+            raise ValueError(self._texto_mecanismo(Kff, livres))
+        if not np.all(np.isfinite(uf)) or (Kff.size and np.linalg.cond(Kff) > 1e15):
+            raise ValueError(self._texto_mecanismo(Kff, livres))
         u = np.zeros(ndof)
         u[livres] = uf
         u1 = u.copy()
-        kgs = [np.zeros((12, 12)) for _ in info]
         iteracoes = 0
         if segunda_ordem:
             for iteracoes in range(1, 41):
-                Kt = K.copy()
-                for nb, (R, L, T, k, fe, dist, pont, idx) in enumerate(info):
-                    f = (k + kgs[nb]) @ (T @ u[idx]) + fe
+                for nb, (R, L, T, k, fe, _d, _p, idx, lib) in enumerate(info):
+                    k2, f2, _rec = cond[nb]
+                    f = k2 @ (T @ u[idx]) + f2
                     kgs[nb] = self.rigidez_geometrica(-f[0], L)
-                    Kt[np.ix_(idx, idx)] += T.T @ kgs[nb] @ T
+                Kt, Ft, cond_t = montar(kgs)
+                if molas is not None:
+                    Kt = Kt + molas
                 Ktf = Kt[np.ix_(livres, livres)]
                 try:
-                    novo = np.linalg.solve(Ktf, F[livres])
+                    novo = np.linalg.solve(Ktf, Ft[livres])
                     ok = np.all(np.isfinite(novo))
                 except np.linalg.LinAlgError:
                     ok = False
@@ -258,9 +419,10 @@ class Modelo:
                                      "apoios na base gira de lado) e os perfis")
                 dif = np.max(np.abs(novo - u[livres])) if novo.size else 0.0
                 u[livres] = novo
+                cond = cond_t
+                K, F = Kt, Ft
                 if dif <= 1e-6 * max(1.0, np.max(np.abs(novo))):
                     break
-            K = Kt
         reac = K @ u - F
         res = Resultado(self, u, reac, presos)
         res.segunda_ordem = segunda_ordem
@@ -268,9 +430,16 @@ class Modelo:
         tr1 = max((np.linalg.norm(u1[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
         tr2 = max((np.linalg.norm(u[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
         res.amplificacao = tr2 / tr1 if tr1 > 1e-12 else 1.0
-        for nb, (R, L, T, k, fe, dist, pont, idx) in enumerate(info):
+        for nb, (R, L, T, k, fe, dist, pont, idx, lib) in enumerate(info):
+            k2, f2, rec = cond[nb]
             ul = T @ u[idx]
-            res.extremos.append((k + kgs[nb]) @ ul + fe)
+            res.extremos.append(k2 @ ul + f2)
+            if rec is not None:
+                # giro da ponta rotulada (diferente do giro do nó)
+                r, c, inv, krc, fer = rec
+                ul = ul.copy()
+                ul[r] = -inv @ (krc @ ul[c] + fer)
+            res.locais.append(ul)
             res.cargas.append((dist, pont))
             res.geo.append((R, L))
         return res
@@ -290,6 +459,7 @@ class Resultado:
         self.amplificacao = 1.0
         self.cargas = []
         self.geo = []
+        self.locais = []        # 12 deslocamentos locais de cada barra (giros das pontas rotuladas incluídos)
 
     def deslocamento(self, no):
         return self.u[6 * no:6 * no + 3]
@@ -307,22 +477,10 @@ class Resultado:
         traciona o lado -y. Vy, Vz e T seguem a regra da mão direita na face positiva."""
         f = self.extremos[nb]
         dist, pont = self.cargas[nb]
-        sx, sy, sz = f[0], f[1], f[2]
-        smy = f[4] + x * f[2]
-        smz = f[5] - x * f[1]
-        for qx, qy, qz in dist:
-            sx += qx * x
-            sy += qy * x
-            sz += qz * x
-            smy += qz * x * x / 2.0
-            smz -= qy * x * x / 2.0
-        for a, (Px, Py, Pz) in pont:
-            if a < x:
-                sx += Px
-                sy += Py
-                sz += Pz
-                smy += (x - a) * Pz
-                smz -= (x - a) * Py
+        sc, mc = resultante_ate(dist, pont, x)
+        sx, sy, sz = f[0] + sc[0], f[1] + sc[1], f[2] + sc[2]
+        smy = f[4] + x * f[2] + mc[1]
+        smz = f[5] - x * f[1] + mc[2]
         return {"N": -sx, "Vy": -sy, "Vz": -sz, "T": -f[3], "My": smy, "Mz": -smz}
 
     def diagrama(self, nb, pontos=11):
@@ -331,6 +489,10 @@ class Resultado:
         for a, _P in self.cargas[nb][1]:
             for xa in (a - 1e-6, a + 1e-6):
                 if 0 < xa < L:
+                    xs.append(xa)
+        for a, b, _q1, _q2 in self.cargas[nb][0]:
+            for xa in (a, b):
+                if 1e-6 < xa < L - 1e-6:
                     xs.append(xa)
         xs.sort()
         return [(x, self.esforcos(nb, x)) for x in xs]
@@ -346,62 +508,42 @@ class Resultado:
 
     def flecha_local(self, nb, pontos=21):
         """Maior deslocamento transversal relativo à corda (mm), no plano de cada eixo: (y, z)."""
-        R, L = self.geo[nb]
-        b = self.modelo.barras[nb]
-        di = R @ self.u[6 * b.i:6 * b.i + 3]
-        dj = R @ self.u[6 * b.j:6 * b.j + 3]
-        ri = R @ self.u[6 * b.i + 3:6 * b.i + 6]
-        rj = R @ self.u[6 * b.j + 3:6 * b.j + 6]
-        s = b.secao
-        dist, pont = self.cargas[nb]
+        _R, L = self.geo[nb]
         maxy = maxz = 0.0
         for k in range(1, pontos - 1):
-            x = L * k / (pontos - 1)
-            xi = x / L
-            h1 = 1 - 3 * xi ** 2 + 2 * xi ** 3
-            h2 = x * (1 - xi) ** 2
-            h3 = 3 * xi ** 2 - 2 * xi ** 3
-            h4 = x * (xi ** 2 - xi)
-            v = h1 * di[1] + h2 * ri[2] + h3 * dj[1] + h4 * rj[2]
-            w = h1 * di[2] - h2 * ri[1] + h3 * dj[2] - h4 * rj[1]
-            # parcela das cargas no vão (viga biengastada sob a carga)
-            for qx, qy, qz in dist:
-                v += qy * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iz)
-                w += qz * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iy)
-            for a, (Px, Py, Pz) in pont:
-                v += _flecha_pontual_biengastada(Py, a, x, L, s.E * s.Iz)
-                w += _flecha_pontual_biengastada(Pz, a, x, L, s.E * s.Iy)
-            corda_y = di[1] + (dj[1] - di[1]) * xi
-            corda_z = di[2] + (dj[2] - di[2]) * xi
-            maxy = max(maxy, abs(v - corda_y))
-            maxz = max(maxz, abs(w - corda_z))
+            v, w = _deslocamento_no_vao(self, nb, L * k / (pontos - 1))
+            maxy = max(maxy, abs(v))
+            maxz = max(maxz, abs(w))
         return maxy, maxz
 
 
-def _deslocamento_no_vao(r, nb, x):
-    """(v, w) locais da barra nb na posição x, em relação à reta entre as suas pontas (mm, com sinal)."""
-    m = r.modelo
-    b = m.barras[nb]
-    R, L = r.geo[nb]
-    di = R @ r.u[6 * b.i:6 * b.i + 3]
-    dj = R @ r.u[6 * b.j:6 * b.j + 3]
-    ri = R @ r.u[6 * b.i + 3:6 * b.i + 6]
-    rj = R @ r.u[6 * b.j + 3:6 * b.j + 6]
+def deslocamento_local(r, nb, x):
+    """(u, v, w) locais da barra nb na posição x (mm): funções de forma com os deslocamentos das
+    pontas (giros das pontas rotuladas incluídos) mais a parcela das cargas no vão."""
+    b = r.modelo.barras[nb]
+    _R, L = r.geo[nb]
+    ul = r.locais[nb]
+    di, ri, dj, rj = ul[0:3], ul[3:6], ul[6:9], ul[9:12]
     s = b.secao
     dist, pont = r.cargas[nb]
     xi = x / L
     h1, h2 = 1 - 3 * xi ** 2 + 2 * xi ** 3, x * (1 - xi) ** 2
     h3, h4 = 3 * xi ** 2 - 2 * xi ** 3, x * (xi ** 2 - xi)
+    u = di[0] + (dj[0] - di[0]) * xi
     v = h1 * di[1] + h2 * ri[2] + h3 * dj[1] + h4 * rj[2]
     w = h1 * di[2] - h2 * ri[1] + h3 * dj[2] - h4 * rj[1]
-    for qx, qy, qz in dist:
-        v += qy * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iz)
-        w += qz * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iy)
-    for a, (Px, Py, Pz) in pont:
-        v += _flecha_pontual_biengastada(Py, a, x, L, s.E * s.Iz)
-        w += _flecha_pontual_biengastada(Pz, a, x, L, s.E * s.Iy)
-    v -= di[1] + (dj[1] - di[1]) * xi
-    w -= di[2] + (dj[2] - di[2]) * xi
+    pv, pw = flecha_particular(dist, pont, x, L, s.E * s.Iz, s.E * s.Iy)
+    return u, v + pv, w + pw
+
+
+def _deslocamento_no_vao(r, nb, x):
+    """(v, w) locais da barra nb na posição x, em relação à reta entre as suas pontas (mm, com sinal)."""
+    _R, L = r.geo[nb]
+    ul = r.locais[nb]
+    xi = x / L
+    _u, v, w = deslocamento_local(r, nb, x)
+    v -= ul[1] + (ul[7] - ul[1]) * xi
+    w -= ul[2] + (ul[8] - ul[2]) * xi
     return v, w
 
 

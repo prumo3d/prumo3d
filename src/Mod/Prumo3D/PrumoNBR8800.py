@@ -85,6 +85,8 @@ def fator_Q(p, fy):
         if bt > 1.40 * _raiz(E / fy):                                     # F.3, tubos retangulares
             Qa = _qa_aa(p, fy, p["h"], p["t"], 0.38, [p["h"] * p["t"]] * 4)
             nota.append("parede esbelta (Qa = %.3f)" % Qa)
+    elif t == "POL":
+        nota.append("seção personalizada: flambagem local não verificada (Q = 1, a checar)")
     elif t == "TUBO":
         dt = p["D_t"]
         if dt > 0.11 * E / fy:                                            # F.4
@@ -128,7 +130,7 @@ def forca_ne(p, L, K=1.0, Kz=1.0, uma_aba=True):
         else:
             KL1 = 32 * rx1 + 1.25 * Lx1
         return math.pi ** 2 * E * p["Ix"] / KL1 ** 2, "cantoneira ligada por uma aba (E.1.4.2, Kx1·Lx1 = %.0f mm)" % KL1
-    if t == "L":
+    if t == "L" or (t == "POL" and abs(p.get("Ixy", 0.0)) > 1e-6 * p["Ix"]):
         Nmin = math.pi ** 2 * E * p["I2"] / Lx ** 2
         modos = [(Nmin, "flexão (eixo de menor inércia)")]
     else:
@@ -138,9 +140,11 @@ def forca_ne(p, L, K=1.0, Kz=1.0, uma_aba=True):
     x0, y0 = p.get("x0", 0.0), p.get("y0", 0.0)
     r0q = p["rx"] ** 2 + p["ry"] ** 2 + x0 ** 2 + y0 ** 2
     Nez = (math.pi ** 2 * E * p.get("Cw", 0.0) / Lz ** 2 + G * p["J"]) / r0q
-    if t in ("I", "TQ", "TUBO"):
+    if t in ("I", "TQ", "TUBO", "POL"):
         if t == "I":
             modos.append((Nez, "torção"))
+        elif t == "POL":
+            modos.append((Nez, "torção (centro de cisalhamento no centróide, a checar)"))
     elif t == "U":
         # monossimétrico: eixo de simetria x (horizontal da seção, onde fica o centro de cisalhamento)
         Nex = math.pi ** 2 * E * p["Ix"] / Lx ** 2
@@ -165,7 +169,7 @@ def compressao(p, fy, L, K=1.0, Kz=1.0):
     l0 = _raiz(Q * p["A"] * fy / Ne)
     x = chi(l0)
     N = x * Q * p["A"] * fy / GAMA_A1
-    rmin = p["rmin"] if p["tipo"] == "L" else min(p["rx"], p["ry"])
+    rmin = p["rmin"] if p["tipo"] in ("L", "POL") else min(p["rx"], p["ry"])
     esb = K * L / rmin
     txt = "%s; λ0 = %.2f; χ = %.3f; Q = %.3f" % (modo, l0, x, Q)
     if nota_q:
@@ -276,6 +280,10 @@ def flexao_x(p, fy, Lb, Cb=1.0):
             modos = [((0.021 * E / dt + fy) * W, "flambagem local da parede")]
         else:
             modos = [(0.33 * E / dt * W, "parede esbelta")]
+    elif t == "POL":
+        # seção personalizada: início do escoamento; FLT e flambagem local não verificadas (aviso)
+        W = p["W1"] if abs(p.get("Ixy", 0.0)) > 1e-6 * p["Ix"] else W
+        modos = [(fy * W, "início do escoamento (seção personalizada; FLT e FLM não verificadas)")]
     else:  # cantoneira: início do escoamento no eixo principal de maior inércia (a favor da segurança)
         W = p["W1"]
         modos = [(fy * W, "início do escoamento (cantoneira, eixo principal de maior inércia)")]
@@ -305,6 +313,9 @@ def flexao_y(p, fy):
                 M, modo = fla, "FLA da alma (eixo de menor inércia)"
     elif t in ("TQ", "TUBO"):
         return flexao_x(p, fy, 1.0)
+    elif t == "POL":
+        W = p["W2"] if abs(p.get("Ixy", 0.0)) > 1e-6 * p["Ix"] else W
+        M, modo = fy * W, "início do escoamento (seção personalizada)"
     else:
         W = p["W2"]
         M, modo = fy * W, "início do escoamento (cantoneira, eixo principal de menor inércia)"
@@ -347,6 +358,9 @@ def cortante_z(p, fy, Lv=1e9):
         return _vrd(2 * p["h"] * p["t"], fy, p["bt_parede"], 5.0), "paredes"
     if t == "TUBO":
         return _vrd_tubo(p, fy, Lv), "tubo circular (5.4.3.6)"
+    if t == "POL":
+        # área de cisalhamento estimada em metade da seção, sem flambagem por cisalhamento (a checar)
+        return 0.6 * fy * p["A"] / 2.0 / GAMA_A1, "seção personalizada (Av = A/2, a checar)"
     return _vrd(p["b"] * p["t"], fy, p["bt_aba"], 1.2), "aba"
 
 
@@ -416,6 +430,9 @@ def verificar(p, fy, fu, L, esf, K=1.0, Kz=1.0, balanco=False):
     if p["tipo"] == "TQ":
         avisos.append("tubo retangular de parede fina (metalon) costuma ser formado a frio: a norma é a "
                       "NBR 14762 (verificação pela NBR 8800 a checar)")
+    if p["tipo"] == "POL":
+        avisos.append("seção personalizada: flambagem local, FLT, flexo-torção e área de cisalhamento "
+                      "verificadas de forma simplificada (a checar)")
     if p["tipo"] == "L" and N > 0:
         avisos.append("cantoneira tracionada com Ct = 1,0: se for ligada por uma aba só, Ct < 1 (5.2.5)")
     res["avisos"] = avisos

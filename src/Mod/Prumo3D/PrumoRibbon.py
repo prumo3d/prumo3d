@@ -241,6 +241,7 @@ TABS = [
             ("Prumo_Estrutura", L, "Estrutura\nsoldada"), ("Prumo_EditarEstrutura", L, "Editar\nestrutura"),
             ("Prumo_Cantos", L, "Cantos"),
             ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
+            ("Prumo_SecaoPersonalizada", S, "Seção personalizada"),
         ]),
         ("Reforços e ligações", [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),

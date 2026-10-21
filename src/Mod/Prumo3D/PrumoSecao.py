@@ -146,7 +146,7 @@ def propriedades(perfil):
     if chave in _cache:
         return dict(_cache[chave])
     t = it["tipo"]
-    p = {"nome": it["nome"], "tipo": t, "aproximada": not (t == "I" and it.get("R"))}
+    p = {"nome": it["nome"], "tipo": t, "aproximada": not (t == "I" and it.get("R")) and t != "POL"}
     if t == "TUBO":
         D, e = it["D"], it["esp"]
         di = D - 2 * e
@@ -238,6 +238,13 @@ def _torcao(it, p):
         bm = s - e
         J = 4 * (bm * bm) ** 2 * e / (4 * bm)
         return {"J": J, "Cw": 0.0, "x0": 0.0, "y0": 0.0}
+    if t == "POL":
+        # seção personalizada: J pela função de Prandtl numa malha; Cw = 0 e centro de cisalhamento
+        # no centróide (aproximações a favor da segurança na torção; flexo-torção a checar)
+        import PrumoSecaoPersonalizada as SP
+        ext = [tuple(q) for q in it["contorno"]]
+        furos = [[tuple(q) for q in f] for f in it.get("furos", [])]
+        return {"J": SP.constante_torcao(ext, furos), "Cw": 0.0, "x0": 0.0, "y0": 0.0}
     raise ValueError(t)
 
 
@@ -258,6 +265,8 @@ def _elementos(it):
         s, e = it["lado"], it["esp"]
         b = s - 3 * e           # parte plana (raio externo ~ 1,5 t, a checar com o fabricante)
         return {"bt_parede": b / e, "b": s, "t": e, "h": b}
+    if t == "POL":
+        return {}
     if t == "TUBO":
         return {"D_t": it["D"] / it["esp"]}
     return {}

@@ -56,6 +56,14 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   numa ligação ou apoio. O Prumo recorta o nó, aplica nos cortes os esforços da análise por barras e
   calcula as tensões no sólido (CalculiX), com a zona de perigo comparada a fy/γa1 e a conferência
   com a teoria de barras. O resultado abre no Assistente de simulação (malha, convergência, relatório).
+- **Rótulas e treliças**: no painel da simulação, o modo "Rótula" solta o momento na ponta clicada
+  da barra (ligação flexível, viga Gerber) ou transforma a barra em treliça (só força normal). As
+  rótulas aparecem na tela e na memória de cálculo.
+- **Carga variável ou parcial**: carga distribuída trapezoidal ou triangular, em toda a barra ou num
+  trecho dela.
+- **Seção personalizada** (aba Estruturas): um esboço fechado vira perfil da estrutura soldada
+  (chapas compostas, perfis dobrados, perfis fora do catálogo), com área, inércias e constante de
+  torção calculadas pelo contorno. A verificação pela NBR 8800 dessas seções é simplificada (avisada).
 - **Vídeo do comportamento**: grava um MP4 (ou GIF) da estrutura com cargas e apoios, a deformada
   colorida pela taxa de uso, o momento fletor e as barras críticas; no estudo de elementos finitos,
   a peça deformando com as cores de tensão (vermelho = atingiu o limite).
