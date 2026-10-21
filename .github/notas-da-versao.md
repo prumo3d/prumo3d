@@ -37,7 +37,10 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Estruturas soldadas** com perfis brasileiros (W, HP, U, I, cantoneiras, tubos e metalon):
   grupos de perfis, ponto de fixação, cantos em meia-esquadria ou de topo, recorte pelo contorno,
   reforços (mão-francesa), tampas de tubo, placas de base, cordões de solda, lista de corte e lista
-  de soldas. O diálogo Cantos mostra um desenho de cada tratamento.
+  de soldas. O diálogo Cantos mostra um desenho de cada tratamento. Como no SolidWorks, a estrutura
+  começa sem grupo: crie o grupo, escolha o perfil e clique nas linhas do desenho. Cada linha ganha a
+  barra na hora, e perfil, giro e ponto de fixação também atualizam a prévia. Aplicar grava e Cancelar
+  desfaz. Os números das linhas aparecem sobre o desenho.
 - **Chapa metálica** (bancada SheetMetal embutida): paredes, dobras e planificação, com **fator K por
   material** (aço, inox, alumínio, DIN 6935) e **planificação em DXF num clique** (contorno e dobras).
 - **Montagem:** restrições com os nomes do SolidWorks (coincidente, concêntrica...), **verificar

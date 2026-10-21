@@ -189,14 +189,14 @@ PASSOS_ESTRUTURA = [
      "1500 × 900 mm e uma linha vertical no meio. Cada linha vira uma barra. Depois clique em Concluir esboço.",
      "esboco", ["Sketcher_NewSketch"], lambda: _tem_esqueleto() and _fora_da_edicao()),
     ("Criar a estrutura soldada",
-     "Selecione o esboço na árvore. Na aba Estruturas, clique em Estrutura soldada, escolha a família e o "
-     "perfil (por exemplo, W 150 × 13,0) e clique em Criar estrutura. Todas as linhas viram barras do mesmo "
-     "perfil.",
+     "Selecione o esboço na árvore. Na aba Estruturas, clique em Estrutura soldada e em Novo grupo. Escolha a "
+     "família e o perfil (por exemplo, W 150 × 13,0) e clique nas linhas do desenho (ou em Todas as linhas): "
+     "cada linha clicada ganha a barra na hora. Clique em Criar estrutura.",
      "estruturas", ["Prumo_Estrutura"], lambda: bool(_estruturas())),
     ("Usar dois perfis (grupos)",
      "Com a estrutura selecionada, clique em Editar estrutura e em Novo grupo. Dê o nome Colunas e escolha "
-     "outro perfil. Selecione na vista as duas barras verticais das pontas e clique em \"Pôr as linhas "
-     "selecionadas na tela no grupo atual\". Clique em Aplicar.",
+     "outro perfil. Clique no desenho nas duas barras verticais das pontas: elas mudam de perfil na hora. "
+     "Clique em Aplicar.",
      "estruturas", ["Prumo_EditarEstrutura"], _tem_grupos),
     ("Ajustar um canto",
      "Clique em Cantos, escolha um dos cantos da lista e troque o tratamento (meia-esquadria, de topo ou "

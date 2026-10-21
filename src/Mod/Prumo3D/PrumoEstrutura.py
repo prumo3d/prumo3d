@@ -52,6 +52,22 @@ def arestas(esqueleto):
     return [e for e in forma_global(esqueleto).Edges if e.Length > TOL]
 
 
+SEM_BARRA = -1   # GrupoDaAresta: linha do esqueleto sem barra
+
+
+def sem_barra(est):
+    """Índices das linhas do esqueleto que não têm barra."""
+    return {i for i, k in enumerate(getattr(est, "GrupoDaAresta", []) or []) if k == SEM_BARRA}
+
+
+def arestas_ativas(est, eds=None):
+    """Arestas do esqueleto com None no lugar das linhas sem barra (os índices continuam os mesmos)."""
+    if eds is None:
+        eds = arestas(est.Esqueleto)
+    fora = sem_barra(est)
+    return [None if i in fora else e for i, e in enumerate(eds)]
+
+
 def _link_global(obj, nome, grupo, dica):
     """Vínculo que pode apontar para dentro de um Body/Part sem aviso de escopo
     (migra o PropertyLink de arquivos antigos)."""
@@ -81,6 +97,7 @@ def _dir(e, no_inicio=True):
 def _normal_esqueleto(eds):
     """Normal do plano do esqueleto, se for plano; senão None."""
     import Part
+    eds = [e for e in eds if e is not None]
     try:
         w = Part.Compound(eds)
         pl = w.findPlane()
@@ -206,7 +223,7 @@ def ligacoes(eds, i):
         a = _dir(e, no_inicio)
         encontros = []
         for j, o in enumerate(eds):
-            if j == i:
+            if j == i or o is None:
                 continue
             pa, pb = o.valueAt(o.FirstParameter), o.valueAt(o.LastParameter)
             if (pa - p).Length < 1e-4:
@@ -224,7 +241,7 @@ def ligacoes(eds, i):
         if len(encontros) > 1:
             res.append(Ligacao("multipla", outros=encontros))
             continue
-        passa = [j for j, o in enumerate(eds) if j != i and _ponto_interior(p, o)]
+        passa = [j for j, o in enumerate(eds) if j != i and o is not None and _ponto_interior(p, o)]
         if passa:
             res.append(Ligacao("topo_T", passa[0]))
         else:
@@ -260,7 +277,7 @@ def _fixacao_da_estrutura(est):
 
 
 def grupo_padrao(est):
-    return {"nome": "Padrão", "perfil": est.Perfil,
+    return {"nome": getattr(est, "NomeGrupo", "") or "Padrão", "perfil": est.Perfil,
             "giro": est.Rotacao.Value if hasattr(est.Rotacao, "Value") else float(est.Rotacao),
             "fixacao": _fixacao_da_estrutura(est), "espelhar": bool(getattr(est, "Espelhar", False))}
 
@@ -269,6 +286,8 @@ def grupo_da_barra(est, i):
     """Índice do grupo da aresta i (0 = padrão)."""
     lst = list(getattr(est, "GrupoDaAresta", []) or [])
     k = lst[i] if i < len(lst) else 0
+    if k == SEM_BARRA:
+        return SEM_BARRA
     return k if 0 <= k <= len(grupos(est)) else 0
 
 
@@ -453,8 +472,11 @@ def calcular_barra(est, i, eds=None):
     """(sólido recortado, comprimento de corte, ângulo de corte no início, no fim, perfil)."""
     if eds is None:
         eds = arestas(est.Esqueleto)
+    normal = _normal_esqueleto(eds)       # plano do esqueleto inteiro
+    eds = arestas_ativas(est, eds)        # vizinhas: só as linhas que têm barra
     e = eds[i]
-    normal = _normal_esqueleto(eds)
+    if e is None:
+        raise ValueError("a linha %d do esqueleto está sem barra" % (i + 1))
     sec = Secao(est, eds, i, normal)
     nome = sec.it["nome"]
     ligs = ligacoes(eds, i)
@@ -549,6 +571,7 @@ class Estrutura:
             obj.Fixacao = antigo
         obj.setEditorMode("Alinhamento", 2)
         add("App::PropertyBool", "Espelhar", "Estrutura", "Espelha a seção na largura (grupo padrão)", False)
+        add("App::PropertyString", "NomeGrupo", "Grupos", "Nome do primeiro grupo de barras", "Padrão")
         add("App::PropertyStringList", "Grupos", "Grupos",
             "Grupos de barras com perfil próprio (JSON: nome, perfil, giro, fixacao, espelhar)")
         add("App::PropertyIntegerList", "GrupoDaAresta", "Grupos",
@@ -624,6 +647,8 @@ class Barra:
         if obj.Indice >= len(eds):
             FreeCAD.Console.PrintWarning("Prumo: %s não tem mais linha no esqueleto.\n" % obj.Label)
             return
+        if obj.Indice in sem_barra(est):
+            return   # a sincronização apaga esta barra
         sol, comp, a0, a1, nome = calcular_barra(est, obj.Indice, eds)
         obj.Shape = sol
         obj.Perfil = nome
@@ -678,11 +703,14 @@ class VPBarra:
 
 
 def criar(doc, esqueleto, perfil=PERFIL_PADRAO, rotacao=0.0, alinhamento="Centro",
-          uniao="Meia-esquadria", material="", grupos_extras=None, espelhar=False):
+          uniao="Meia-esquadria", material="", grupos_extras=None, espelhar=False, linhas_sem_barra=(),
+          transacao=True):
     """Cria a estrutura e uma barra por linha do esqueleto. Retorna o grupo.
 
     alinhamento: ponto de fixação (FIXACOES) ou alinhamento antigo (Centro/Topo/Base).
-    grupos_extras: [{"nome", "perfil", "giro", "fixacao", "espelhar", "arestas": [índices]}]."""
+    grupos_extras: [{"nome", "perfil", "giro", "fixacao", "espelhar", "arestas": [índices]}].
+    linhas_sem_barra: índices das linhas que ficam sem barra.
+    transacao=False: quem chama cuida da transação (diálogo ao vivo)."""
     if PrumoPerfis.perfil(perfil) is None:
         raise ValueError("perfil desconhecido: %s" % perfil)
     eds = arestas(esqueleto)
@@ -691,7 +719,8 @@ def criar(doc, esqueleto, perfil=PERFIL_PADRAO, rotacao=0.0, alinhamento="Centro
     fixacao = _ALINHAMENTO_PARA_FIXACAO.get(alinhamento, alinhamento)
     if fixacao not in FIXACOES:
         raise ValueError("ponto de fixação desconhecido: %s" % alinhamento)
-    doc.openTransaction("Estrutura soldada")
+    if transacao:
+        doc.openTransaction("Estrutura soldada")
     est = doc.addObject("App::DocumentObjectGroupPython", "Estrutura")
     Estrutura(est)
     est.Esqueleto = esqueleto
@@ -701,18 +730,21 @@ def criar(doc, esqueleto, perfil=PERFIL_PADRAO, rotacao=0.0, alinhamento="Centro
     est.Espelhar = bool(espelhar)
     est.Uniao = uniao
     est.Material = material
-    definir_grupos(est, grupos_extras or [], len(eds))
+    definir_grupos(est, grupos_extras or [], len(eds), linhas_sem_barra)
     if FreeCAD.GuiUp:
         VPEstrutura(est.ViewObject)
+    fora = sem_barra(est)
     for i in range(len(eds)):
-        _nova_barra(doc, est, i)
+        if i not in fora:
+            _nova_barra(doc, est, i)
     doc.recompute()
-    if FreeCAD.GuiUp:
+    if FreeCAD.GuiUp and transacao:
         try:
             esqueleto.ViewObject.Visibility = False
         except Exception:
             pass
-    doc.commitTransaction()
+    if transacao:
+        doc.commitTransaction()
     return est
 
 
@@ -732,8 +764,9 @@ def _nova_barra(doc, est, i):
     return b
 
 
-def definir_grupos(est, grupos_extras, n_arestas=None):
-    """Grava os grupos extras e a que grupo pertence cada aresta (as não citadas ficam no padrão)."""
+def definir_grupos(est, grupos_extras, n_arestas=None, linhas_sem_barra=()):
+    """Grava os grupos extras e a que grupo pertence cada aresta (as não citadas ficam no padrão;
+    as de linhas_sem_barra ficam sem barra)."""
     import json
     if n_arestas is None:
         n_arestas = len(arestas(est.Esqueleto))
@@ -750,6 +783,9 @@ def definir_grupos(est, grupos_extras, n_arestas=None):
         for i in g.get("arestas", []):
             if 0 <= i < n_arestas:
                 por_aresta[i] = k
+    for i in linhas_sem_barra or ():
+        if 0 <= i < n_arestas:
+            por_aresta[i] = SEM_BARRA
     est.Grupos = lst
     est.GrupoDaAresta = por_aresta
 
@@ -785,15 +821,29 @@ def barras_de(est):
                    and "Indice" in o.PropertiesList], key=lambda o: o.Indice)
 
 
+def sincronizar_barras(est):
+    """Uma barra para cada linha com barra: cria as que faltam e apaga as que sobraram
+    (linha sem barra ou que saiu do esqueleto). Retorna (criadas, apagadas)."""
+    doc = est.Document
+    n = len(arestas(est.Esqueleto))
+    fora = sem_barra(est)
+    quer = {i for i in range(n) if i not in fora}
+    tem = {}
+    apagadas = 0
+    for b in barras_de(est):
+        if b.Indice in quer and b.Indice not in tem:
+            tem[b.Indice] = b
+        else:
+            doc.removeObject(b.Name)
+            apagadas += 1
+    novas = [_nova_barra(doc, est, i) for i in sorted(quer - set(tem))]
+    return novas, apagadas
+
+
 def atualizar(est):
     """Cria barras para linhas novas do esqueleto e apaga as que sobraram."""
     doc = est.Document
-    eds = arestas(est.Esqueleto)
-    atuais = barras_de(est)
-    for b in atuais[len(eds):]:
-        doc.removeObject(b.Name)
-    for i in range(len(atuais), len(eds)):
-        _nova_barra(doc, est, i)
+    sincronizar_barras(est)
     for b in barras_de(est):
         b.touch()
     doc.recompute()
@@ -855,10 +905,12 @@ class Canto:
 
 def cantos(est):
     """Cantos de duas barras e ligações em T da estrutura."""
-    eds = arestas(est.Esqueleto)
+    eds = arestas_ativas(est)
     res = []
     vistos = set()
     for i in range(len(eds)):
+        if eds[i] is None:
+            continue
         for k, lig in enumerate(ligacoes(eds, i)):
             if lig.tipo not in ("esquadria", "topo_T"):
                 continue
@@ -1009,7 +1061,10 @@ def gravar_lista_de_corte(doc, linhas):
 
 # ============================================================================ interface
 class SeletorPerfil(QtWidgets.QWidget):
-    """Família + perfil, com aviso quando o dado é 'a conferir'."""
+    """Família + perfil, com aviso quando o dado é 'a conferir'. mudou: o perfil escolhido mudou
+    (também quando a troca de família cai no primeiro perfil da lista)."""
+
+    mudou = QtCore.Signal()
 
     def __init__(self, inicial=PERFIL_PADRAO, parent=None):
         super().__init__(parent)
@@ -1027,6 +1082,7 @@ class SeletorPerfil(QtWidgets.QWidget):
         lay.addRow("", self.aviso)
         self.familia.currentIndexChanged.connect(self._familia)
         self.perfil.currentIndexChanged.connect(self._aviso)
+        self.perfil.currentIndexChanged.connect(lambda *_: self.mudou.emit())
         it = PrumoPerfis.perfil(inicial) or PrumoPerfis.perfil(PERFIL_PADRAO)
         self.familia.setCurrentIndex(max(0, self.familia.findData(it["familia"])))
         self._familia()
@@ -1042,6 +1098,7 @@ class SeletorPerfil(QtWidgets.QWidget):
             self.perfil.addItem("%s — %s kg/m%s" % (it["nome"], fmt(it["massa"], 2), marca), it["nome"])
         self.perfil.blockSignals(False)
         self._aviso()
+        self.mudou.emit()
 
     def _aviso(self, *_a):
         it = PrumoPerfis.perfil(self.perfil.currentData() or "")
@@ -1057,7 +1114,7 @@ class SeletorPerfil(QtWidgets.QWidget):
         return self.perfil.currentData()
 
 
-def editar(est, padrao, grupos_extras, uniao=None, material=None):
+def editar(est, padrao, grupos_extras, uniao=None, material=None, linhas_sem_barra=None):
     """Aplica o grupo padrão, os grupos extras (com as arestas) e as opções gerais à estrutura.
 
     As trocas individuais de perfil/giro são zeradas: o diálogo já as mostra como grupos."""
@@ -1066,11 +1123,16 @@ def editar(est, padrao, grupos_extras, uniao=None, material=None):
     if padrao.get("fixacao", "Centro") not in FIXACOES:
         raise ValueError("ponto de fixação desconhecido: %s" % padrao.get("fixacao"))
     n = len(arestas(est.Esqueleto))
-    definir_grupos(est, grupos_extras, n)
+    if linhas_sem_barra is None:
+        linhas_sem_barra = sem_barra(est)
+    definir_grupos(est, grupos_extras, n, linhas_sem_barra)
+    sincronizar_barras(est)
     est.Perfil = padrao["perfil"]
     est.Rotacao = float(padrao.get("giro", 0.0))
     est.Fixacao = padrao.get("fixacao", "Centro")
     est.Espelhar = bool(padrao.get("espelhar", False))
+    if "NomeGrupo" in est.PropertiesList and padrao.get("nome"):
+        est.NomeGrupo = padrao["nome"]
     est.PerfisIndividuais = []
     est.RotacoesIndividuais = []
     if uniao is not None:
@@ -1092,6 +1154,8 @@ def grupos_para_edicao(est):
     trocas = {}
     for i in range(n):
         k = grupo_da_barra(est, i)
+        if k == SEM_BARRA:
+            continue
         base = padrao if k == 0 else extras[k - 1]
         par = parametros(est, i)
         mudou = par["perfil"] != base["perfil"] or abs(float(par["giro"]) - float(base["giro"])) > 1e-9
@@ -1122,21 +1186,114 @@ def _descricao_aresta(e):
     return "%s mm, %s" % (fmt(e.Length, 0), d)
 
 
+def _ponto_txt(v):
+    return "%s; %s; %s" % (fmt(v.x, 0), fmt(v.y, 0), fmt(v.z, 0))
+
+
+def _onde_aresta(e):
+    """De onde até onde vai a linha (mm, coordenadas globais)."""
+    return "de (%s) a (%s)" % (_ponto_txt(e.Vertexes[0].Point), _ponto_txt(e.Vertexes[-1].Point))
+
+
+def _meio(e):
+    try:
+        return e.valueAt(e.FirstParameter + 0.5 * (e.LastParameter - e.FirstParameter))
+    except Exception:
+        return e.CenterOfMass
+
+
+class EtiquetasNaTela:
+    """Números das linhas desenhados na vista 3D (por cima de tudo) enquanto o diálogo está aberto.
+
+    Nada é gravado no arquivo. destacar(i) pinta o número da linha escolhida na tabela."""
+
+    COR = (0.0, 0.227, 0.439)      # azul Prumo #003A70
+    COR_DESTAQUE = (0.86, 0.33, 0.0)
+
+    def __init__(self, doc, pontos):
+        from pivy import coin
+        self._coin = coin
+        self.vista = None
+        self.raiz = None
+        self.cores = []
+        self.fontes = []
+        gd = FreeCADGui.getDocument(doc.Name)
+        vista = gd.ActiveView if gd is not None else None
+        if vista is None or not hasattr(vista, "getSceneGraph"):
+            return
+        raiz = coin.SoAnnotation()          # desenha depois da cena, sem ficar escondido atrás das barras
+        estilo = coin.SoPickStyle()
+        estilo.style = coin.SoPickStyle.UNPICKABLE
+        raiz.addChild(estilo)
+        for i, p in enumerate(pontos):
+            sep = coin.SoSeparator()
+            cor = coin.SoBaseColor()
+            cor.rgb.setValue(*self.COR)
+            fonte = coin.SoFont()
+            fonte.size = 18
+            fonte.name = "Arial:Bold"
+            tr = coin.SoTranslation()
+            tr.translation.setValue(p.x, p.y, p.z)
+            txt = coin.SoText2()
+            txt.string = str(i + 1)
+            txt.justification = coin.SoText2.CENTER
+            for n in (cor, fonte, tr, txt):
+                sep.addChild(n)
+            raiz.addChild(sep)
+            self.cores.append(cor)
+            self.fontes.append(fonte)
+        vista.getSceneGraph().addChild(raiz)
+        self.vista, self.raiz = vista, raiz
+        self.destacado = None
+
+    def __len__(self):
+        return len(self.cores)
+
+    def destacar(self, i):
+        for k, (cor, fonte) in enumerate(zip(self.cores, self.fontes)):
+            on = k == i
+            cor.rgb.setValue(*(self.COR_DESTAQUE if on else self.COR))
+            fonte.size = 26 if on else 18
+        self.destacado = i
+
+    def remover(self):
+        if self.raiz is not None and self.vista is not None:
+            try:
+                self.vista.getSceneGraph().removeChild(self.raiz)
+            except Exception:
+                pass
+        self.raiz = None
+        self.vista = None
+
+
+ROTULO_SEM_BARRA = "— sem barra —"
+
+
 class DialogoEstrutura(QtWidgets.QDialog):
     """Criação e edição da estrutura: grupos de barras (perfil, giro, fixação, espelhar) e as
-    linhas do esqueleto de cada grupo. Fica aberto enquanto se seleciona na tela."""
+    linhas do esqueleto de cada grupo. Fica aberto enquanto se seleciona na tela.
 
-    def __init__(self, esqueleto, est=None, parent=None):
+    ao_vivo=True (como no SolidWorks): clicar numa linha do desenho põe a linha no grupo atual e a
+    barra aparece na hora; perfil, giro, ponto de fixação, espelhar e cantos também atualizam a
+    prévia na hora. Tudo fica numa transação: Aplicar grava, Cancelar desfaz.
+    linhas: na criação, as linhas que começam com barra (None = todas)."""
+
+    def __init__(self, esqueleto, est=None, parent=None, ao_vivo=False, linhas=None):
         super().__init__(parent)
         self.esqueleto = esqueleto
         self.est = est
         self.resultado = None
+        self.ao_vivo = bool(ao_vivo)
+        self._transacao = False
+        self._criada = False
+        self._vis_esqueleto = None
         self.setWindowTitle("Editar estrutura soldada" if est else "Estrutura soldada")
         self.setMinimumSize(820, 600)
         self.resize(860, 800)
         self.eds = arestas(esqueleto)
         if est is not None:
             padrao, extras = grupos_para_edicao(est)
+            padrao["nome"] = padrao.get("nome") or "Padrão"
         else:
             g = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH)
             padrao = {"nome": "Padrão", "perfil": g.GetString("UltimoPerfil", PERFIL_PADRAO), "giro": 0.0,
@@ -1144,24 +1301,67 @@ class DialogoEstrutura(QtWidgets.QDialog):
             if PrumoPerfis.perfil(padrao["perfil"]) is None:
                 padrao["perfil"] = PERFIL_PADRAO
             extras = []
-        self.grupos_ed = [dict(padrao, nome="Padrão")] + [dict(x) for x in extras]
+        self.grupos_ed = [dict(padrao)] + [dict(x) for x in extras]
         self.da_aresta = [0] * len(self.eds)
         for k, g in enumerate(extras, 1):
             for i in g.get("arestas", []):
                 if 0 <= i < len(self.eds):
                     self.da_aresta[i] = k
+        if est is not None:
+            for i in sem_barra(est):
+                if i < len(self.da_aresta):
+                    self.da_aresta[i] = SEM_BARRA
+        elif linhas is not None:
+            quer = set(linhas)
+            self.da_aresta = [0 if i in quer else SEM_BARRA for i in range(len(self.eds))]
+        if est is None and self.ao_vivo:
+            # nasce zerado: o primeiro passo é criar um grupo (linhas já selecionadas viram o Grupo 1)
+            if linhas:
+                self.grupos_ed = [dict(padrao, nome="Grupo 1")]
+            else:
+                self.grupos_ed = []
+                self.da_aresta = [SEM_BARRA] * len(self.eds)
+        self._timer = QtCore.QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(200)
+        self._timer.timeout.connect(self._aplicar_ao_vivo)
         self._montar()
         self._carregando = False
         self.lista.setCurrentRow(0)
+        # números das linhas na tela e seleção nos dois sentidos (tabela ↔ vista 3D)
+        self.etiquetas = None
+        self._sincronizando = False
+        try:
+            self.etiquetas = EtiquetasNaTela(esqueleto.Document, [_meio(e) for e in self.eds])
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: números das linhas na tela: %s\n" % exc)
+        self._observando = False
+        try:
+            FreeCADGui.Selection.addObserver(self)
+            self._observando = True
+        except Exception:
+            pass
+        self.tabela.itemSelectionChanged.connect(self._linhas_escolhidas)
+        if self.ao_vivo:
+            self._iniciar_ao_vivo()
 
     # ------------------------------------------------------------------ montagem
     def _montar(self):
         import PrumoPainel as P
+        padrao_perfil = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).GetString("UltimoPerfil", PERFIL_PADRAO)
+        if PrumoPerfis.perfil(padrao_perfil) is None:
+            padrao_perfil = PERFIL_PADRAO
         self.setStyleSheet(P.qss())
         lay = QtWidgets.QVBoxLayout(self)
-        self.mensagem = P.Mensagem("1. Escolha o perfil do grupo Padrão (vale para todas as linhas). "
-                                   "2. Para outro perfil em algumas linhas, crie um grupo e ponha as linhas nele. "
-                                   "3. Confira os cantos e o material.")
+        if self.ao_vivo:
+            self.mensagem = P.Mensagem("Clique nas linhas do desenho: cada linha clicada ganha a barra do grupo "
+                                       "escolhido na hora (clique de novo para tirar). Para outro perfil, crie um "
+                                       "grupo e clique nas linhas dele. Tudo é prévia: Aplicar grava, Cancelar "
+                                       "desfaz.")
+        else:
+            self.mensagem = P.Mensagem("1. Escolha o perfil do grupo Padrão (vale para todas as linhas). "
+                                       "2. Para outro perfil em algumas linhas, crie um grupo e ponha as linhas "
+                                       "nele. 3. Confira os cantos e o material.")
         lay.addWidget(self.mensagem)
         topo = QtWidgets.QHBoxLayout()
         # grupos
@@ -1183,7 +1383,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         fl = QtWidgets.QFormLayout(ed)
         fl.addRow(P.titulo_secao("Perfil do grupo", "largura"))
         self.nome = QtWidgets.QLineEdit()
-        self.sel = SeletorPerfil(self.grupos_ed[0]["perfil"])
+        self.sel = SeletorPerfil(self.grupos_ed[0]["perfil"] if self.grupos_ed else padrao_perfil)
         self.giro = QtWidgets.QDoubleSpinBox()
         self.giro.setRange(-360, 360)
         self.giro.setSuffix(" °")
@@ -1202,30 +1402,54 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.sel.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         ed.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         topo.addWidget(ed, 1)
+        self.editor = ed
         lay.addLayout(topo, 1)
         # linhas do esqueleto
         lay.addWidget(P.titulo_secao("Linhas do esqueleto", "selecao"))
-        lay.addWidget(QtWidgets.QLabel("Escolha o grupo de cada linha, ou selecione linhas na tela e use o botão "
-                                       "abaixo."))
-        self.tabela = QtWidgets.QTableWidget(len(self.eds), 3)
-        self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Grupo"])
+        dica = QtWidgets.QLabel("O número de cada linha aparece sobre o desenho. Clique numa linha da tabela "
+                                "para destacá-la na tela" + (", ou clique no desenho para pôr a linha no grupo "
+                                "escolhido." if self.ao_vivo else ", e escolha o grupo de cada linha."))
+        dica.setWordWrap(True)
+        lay.addWidget(dica)
+        self.tabela = QtWidgets.QTableWidget(len(self.eds), 4)
+        self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Onde (mm)", "Grupo"])
         self.tabela.horizontalHeader().setStretchLastSection(True)
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.combos = []
         for i, e in enumerate(self.eds):
-            self.tabela.setItem(i, 0, QtWidgets.QTableWidgetItem("Linha %d" % (i + 1)))
+            barra = self._barra_da_linha(i)
+            it = QtWidgets.QTableWidgetItem("%d" % (i + 1) + (" · %s" % barra.Label if barra is not None else ""))
+            it.setToolTip("Linha %d do esboço%s" % (i + 1, (" — barra %s na árvore" % barra.Label)
+                                                         if barra is not None else ""))
+            self.tabela.setItem(i, 0, it)
             self.tabela.setItem(i, 1, QtWidgets.QTableWidgetItem(_descricao_aresta(e)))
+            self.tabela.setItem(i, 2, QtWidgets.QTableWidgetItem(_onde_aresta(e)))
+            for c in (0, 1, 2):
+                self.tabela.item(i, c).setFlags(self.tabela.item(i, c).flags() & ~QtCore.Qt.ItemIsEditable)
             cb = QtWidgets.QComboBox()
             cb.currentIndexChanged.connect(lambda k, i=i: self._linha_mudou(i, k))
-            self.tabela.setCellWidget(i, 2, cb)
+            self.tabela.setCellWidget(i, 3, cb)
             self.combos.append(cb)
         self.tabela.resizeColumnsToContents()
         self.tabela.setMinimumHeight(min(200, 34 + 30 * max(1, len(self.eds))))
         lay.addWidget(self.tabela, 2)
         bt = QtWidgets.QHBoxLayout()
-        self.bt_pegar = QtWidgets.QPushButton("Pôr as linhas selecionadas na tela no grupo atual")
-        self.bt_mostrar = QtWidgets.QPushButton("Mostrar na tela as linhas do grupo")
+        self.bt_pegar = QtWidgets.QPushButton("Pegar seleção da tela")
+        self.bt_mostrar = QtWidgets.QPushButton("Mostrar linhas do grupo")
+        self.bt_pegar.setToolTip("Põe no grupo escolhido as linhas (ou barras) já selecionadas na tela")
+        self.bt_mostrar.setToolTip("Seleciona na tela as linhas do grupo escolhido")
+        self.bt_todas = QtWidgets.QPushButton("Todas as linhas")
+        self.bt_todas.setToolTip("Põe todas as linhas do esboço no grupo escolhido (todas ganham barra)")
+        self.bt_esboco = QtWidgets.QPushButton("Mostrar esboço")
+        self.bt_esboco.setCheckable(True)
+        self.bt_esboco.setToolTip("Mostra ou esconde as linhas do esboço (esqueleto) na tela")
+        try:
+            self.bt_esboco.setChecked(bool(self.esqueleto.ViewObject.Visibility))
+        except Exception:
+            pass
+        bt.addWidget(self.bt_esboco)
+        bt.addWidget(self.bt_todas)
         bt.addWidget(self.bt_pegar)
         bt.addWidget(self.bt_mostrar)
         bt.addStretch(1)
@@ -1263,11 +1487,250 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.bt_remover.clicked.connect(self.remover_grupo)
         self.bt_pegar.clicked.connect(self.pegar_selecao)
         self.bt_mostrar.clicked.connect(self.mostrar_grupo)
+        self.bt_todas.clicked.connect(lambda: self.atribuir(range(len(self.eds))))
+        self.bt_esboco.toggled.connect(self.mostrar_esboco)
         self.nome.textEdited.connect(self._editado)
-        self.sel.perfil.currentIndexChanged.connect(self._editado)
+        self.sel.mudou.connect(self._editado)
         self.giro.valueChanged.connect(self._editado)
         self.fixacao.currentIndexChanged.connect(self._editado)
         self.espelhar.toggled.connect(self._editado)
+        self.uniao.currentIndexChanged.connect(lambda *_: self._agendar())
+        self.material.editingFinished.connect(self._agendar)
+
+    # ------------------------------------------------------------------ tabela ↔ tela
+    def _barra_da_linha(self, i):
+        if self.est is None:
+            return None
+        for b in getattr(self.est, "Group", []):
+            if eh_barra(b) and b.Indice == i:
+                return b
+        return None
+
+    def _linhas_escolhidas(self):
+        """Linha(s) escolhida(s) na tabela: destaca o número e seleciona a linha (ou a barra) na tela."""
+        if self._sincronizando:
+            return
+        linhas = sorted({ix.row() for ix in self.tabela.selectedIndexes()})
+        if self.etiquetas is not None:
+            self.etiquetas.destacar(linhas[0] if len(linhas) == 1 else None)
+        self._sincronizando = True
+        try:
+            FreeCADGui.Selection.clearSelection()
+            visivel_esq = getattr(getattr(self.esqueleto, "ViewObject", None), "Visibility", True)
+            for i in linhas:
+                barra = self._barra_da_linha(i)
+                if barra is not None and not visivel_esq:
+                    FreeCADGui.Selection.addSelection(barra)
+                else:
+                    FreeCADGui.Selection.addSelection(self.esqueleto, "Edge%d" % (i + 1))
+        except Exception:
+            pass
+        finally:
+            self._sincronizando = False
+
+    def _indice_da_selecao(self, obj, sub):
+        if obj is self.esqueleto and sub.startswith("Edge") and sub[4:].isdigit():
+            return int(sub[4:]) - 1
+        if eh_barra(obj) and obj.Esqueleto == self.esqueleto:
+            return obj.Indice
+        return None
+
+    # observador de seleção do FreeCAD: clique na tela → linha na tabela
+    def addSelection(self, doc, obj, sub, pnt):
+        if self._sincronizando:
+            return
+        try:
+            o = FreeCAD.getDocument(doc).getObject(obj)
+            i = self._indice_da_selecao(o, sub or "")
+        except Exception:
+            return
+        if i is None or not (0 <= i < self.tabela.rowCount()):
+            return
+        if self.ao_vivo:
+            # clique no desenho: a linha entra no grupo atual (ou sai, se já estava nele)
+            QtCore.QTimer.singleShot(0, lambda i=i: self.clicar_linha(i))
+            return
+        self._sincronizando = True
+        try:
+            self.tabela.selectRow(i)
+            self.tabela.scrollToItem(self.tabela.item(i, 0))
+            if self.etiquetas is not None:
+                self.etiquetas.destacar(i)
+        except RuntimeError:
+            pass
+        finally:
+            self._sincronizando = False
+
+    def setSelection(self, doc):
+        pass
+
+    def removeSelection(self, doc, obj, sub):
+        pass
+
+    def clearSelection(self, doc):
+        pass
+
+    def limpar_tela(self):
+        if getattr(self, "_observando", False):
+            try:
+                FreeCADGui.Selection.removeObserver(self)
+            except Exception:
+                pass
+            self._observando = False
+        if getattr(self, "etiquetas", None) is not None:
+            self.etiquetas.remover()
+            self.etiquetas = None
+
+    def done(self, r):
+        self._timer.stop()
+        if self.ao_vivo and self._transacao:
+            self._desfazer_ao_vivo()
+        self.limpar_tela()
+        super().done(r)
+
+    def closeEvent(self, ev):
+        self._timer.stop()
+        if self.ao_vivo and self._transacao:
+            self._desfazer_ao_vivo()
+        self.limpar_tela()
+        super().closeEvent(ev)
+
+    # ------------------------------------------------------------------ prévia ao vivo
+    def _agendar(self):
+        if self.ao_vivo and self._transacao and not getattr(self, "_carregando", True):
+            self._timer.start()
+
+    def _iniciar_ao_vivo(self):
+        doc = self.esqueleto.Document
+        doc.openTransaction("Editar estrutura" if self.est is not None else "Estrutura soldada")
+        self._transacao = True
+        try:
+            self._vis_esqueleto = self.esqueleto.ViewObject.Visibility
+        except Exception:
+            pass
+        self.bt_esboco.setChecked(True)   # as linhas sem barra precisam aparecer para o clique
+        self.mostrar_esboco(True)
+        self._criar_se_preciso()
+        self._estado_sem_grupo()
+
+    def _criar_se_preciso(self):
+        """Na criação, a estrutura (prévia) nasce quando existe o primeiro grupo."""
+        if self.est is None and self.grupos_ed and self._transacao:
+            padrao, extras = self.dados()
+            self.est = criar(self.esqueleto.Document, self.esqueleto, padrao["perfil"], padrao["giro"],
+                             padrao["fixacao"], self.uniao.currentText(), self.material.text().strip(), extras,
+                             padrao["espelhar"], self.linhas_sem_barra(), transacao=False)
+            self.est.NomeGrupo = padrao.get("nome", "Grupo 1")
+            self._criada = True
+            self._atualizar_rotulos_tabela()
+
+    def _estado_sem_grupo(self):
+        tem = bool(self.grupos_ed)
+        self.editor.setEnabled(tem)
+        for b in (self.bt_todas, self.bt_pegar, self.bt_mostrar):
+            b.setEnabled(tem)
+        if not tem:
+            self.aviso.setText("")
+            self.mensagem.mostrar("Comece criando um grupo de barras (botão Novo grupo): escolha o perfil e "
+                                  "clique nas linhas do desenho que levam esse perfil.", "info")
+        elif self.ao_vivo:
+            self.mensagem.mostrar("Clique nas linhas do desenho: cada linha clicada ganha a barra do grupo "
+                                  "escolhido na hora (clique de novo para tirar). Para outro perfil, crie outro "
+                                  "grupo. Tudo é prévia: Aplicar grava, Cancelar desfaz.", "info")
+
+    def mostrar_esboco(self, on):
+        try:
+            self.esqueleto.ViewObject.Visibility = bool(on)
+        except Exception:
+            pass
+
+    def _aplicar_ao_vivo(self):
+        """Leva o que está no diálogo para a estrutura (prévia)."""
+        if not (self.ao_vivo and self._transacao):
+            return
+        self._criar_se_preciso()
+        if self.est is None:
+            return
+        padrao, extras = self.dados()
+        try:
+            editar(self.est, padrao, extras, self.uniao.currentText(), self.material.text().strip(),
+                   self.linhas_sem_barra())
+            self.aviso.setText("")
+        except Exception as ex:
+            self.aviso.setText(str(ex))
+        self._atualizar_rotulos_tabela()
+
+    def _atualizar_rotulos_tabela(self):
+        for i in range(self.tabela.rowCount()):
+            b = self._barra_da_linha(i)
+            it = self.tabela.item(i, 0)
+            if it is not None:
+                it.setText("%d" % (i + 1) + (" · %s" % b.Label if b is not None else " · sem barra"))
+        self.tabela.resizeColumnToContents(0)
+
+    def clicar_linha(self, i):
+        """Linha clicada no desenho: entra no grupo atual; se já estava nele, fica sem barra."""
+        if not (0 <= i < len(self.da_aresta)):
+            return
+        if not self.grupos_ed:
+            self.aviso.setText("Crie um grupo primeiro (botão Novo grupo).")
+            return
+        k = max(0, self.lista.currentRow())
+        self.da_aresta[i] = SEM_BARRA if self.da_aresta[i] == k else k
+        self._recarregar_lista()
+        self._sincronizando = True
+        try:
+            self.tabela.selectRow(i)
+            if self.etiquetas is not None:
+                self.etiquetas.destacar(i)
+            FreeCADGui.Selection.clearSelection()
+        except RuntimeError:
+            pass
+        finally:
+            self._sincronizando = False
+        self._timer.stop()
+        self._aplicar_ao_vivo()      # clique: atualiza já (sem esperar)
+
+    def _confirmar_ao_vivo(self):
+        self._timer.stop()
+        self._aplicar_ao_vivo()
+        if self.aviso.text():
+            raise ValueError(self.aviso.text())
+        doc = self.esqueleto.Document
+        g = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH)
+        if self.grupos_ed:
+            g.SetString("UltimoPerfil", self.grupos_ed[0]["perfil"])
+        g.SetString("UltimoMaterialPerfil", self.material.text().strip())
+        doc.commitTransaction()
+        self._transacao = False
+        try:
+            self.esqueleto.ViewObject.Visibility = False if barras_de(self.est) else bool(self._vis_esqueleto)
+        except Exception:
+            pass
+        self.resultado = self.est
+        return self.resultado
+
+    def _desfazer_ao_vivo(self):
+        doc = self.esqueleto.Document
+        est_nome = self.est.Name if (self._criada and self.est is not None) else None
+        try:
+            doc.abortTransaction()
+        except Exception:
+            pass
+        self._transacao = False
+        # sem Desfazer ligado no documento: tira à mão a estrutura criada pela prévia
+        if est_nome and doc.getObject(est_nome) is not None:
+            for b in barras_de(doc.getObject(est_nome)):
+                doc.removeObject(b.Name)
+            doc.removeObject(est_nome)
+        if self._criada:
+            self.est = None
+        doc.recompute()
+        try:
+            if self._vis_esqueleto is not None:
+                self.esqueleto.ViewObject.Visibility = self._vis_esqueleto
+        except Exception:
+            pass
 
     def _rotulo(self, k):
         g = self.grupos_ed[k]
@@ -1280,16 +1743,18 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.lista.clear()
         for k in range(len(self.grupos_ed)):
             self.lista.addItem(self._rotulo(k))
-        self.lista.setCurrentRow(min(atual, len(self.grupos_ed) - 1))
+        if self.grupos_ed:
+            self.lista.setCurrentRow(min(atual, len(self.grupos_ed) - 1))
         self.lista.blockSignals(False)
-        nomes = [g["nome"] for g in self.grupos_ed]
+        nomes = [g["nome"] for g in self.grupos_ed] + [ROTULO_SEM_BARRA]
         for i, cb in enumerate(self.combos):
             cb.blockSignals(True)
             cb.clear()
             cb.addItems(nomes)
-            cb.setCurrentIndex(self.da_aresta[i])
+            k = self.da_aresta[i]
+            cb.setCurrentIndex(len(self.grupos_ed) if k == SEM_BARRA else k)
             cb.blockSignals(False)
-        self.bt_remover.setEnabled(self.lista.currentRow() > 0)
+        self.bt_remover.setEnabled(self.lista.currentRow() > 0 or (self.ao_vivo and bool(self.grupos_ed)))
 
     # ------------------------------------------------------------------ edição
     def _grupo_escolhido(self, k):
@@ -1298,7 +1763,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         g = self.grupos_ed[k]
         self._carregando = True
         self.nome.setText(g["nome"])
-        self.nome.setEnabled(k > 0)
+        self.nome.setEnabled(k > 0 or self.ao_vivo)
         it = PrumoPerfis.perfil(g["perfil"])
         if it:
             self.sel.familia.setCurrentIndex(max(0, self.sel.familia.findData(it["familia"])))
@@ -1307,7 +1772,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.fixacao.setCurrentText(g.get("fixacao", "Centro"))
         self.espelhar.setChecked(bool(g.get("espelhar", False)))
         self._carregando = False
-        self.bt_remover.setEnabled(k > 0)
+        self.bt_remover.setEnabled(k > 0 or self.ao_vivo)
 
     def _editado(self, *_a):
         if getattr(self, "_carregando", True):
@@ -1316,8 +1781,8 @@ class DialogoEstrutura(QtWidgets.QDialog):
         if k < 0:
             return
         g = self.grupos_ed[k]
-        if k > 0:
-            g["nome"] = self.nome.text().strip() or "Grupo %d" % k
+        if k > 0 or self.ao_vivo:
+            g["nome"] = self.nome.text().strip() or "Grupo %d" % (k + 1)
         g["perfil"] = self.sel.nome() or g["perfil"]
         g["giro"] = self.giro.value()
         g["fixacao"] = self.fixacao.currentText()
@@ -1325,26 +1790,49 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.lista.item(k).setText(self._rotulo(k))
         for cb in self.combos:
             cb.setItemText(k, g["nome"])
+        self._agendar()
 
     def _linha_mudou(self, i, k):
         if k < 0:
             return
-        self.da_aresta[i] = k
+        self.da_aresta[i] = SEM_BARRA if k >= len(self.grupos_ed) else k
         for j in range(len(self.grupos_ed)):
             self.lista.item(j).setText(self._rotulo(j))
+        self._agendar()
 
     def novo_grupo(self):
-        base = self.grupos_ed[max(0, self.lista.currentRow())]
+        if self.grupos_ed:
+            perfil = self.grupos_ed[max(0, self.lista.currentRow())]["perfil"]
+        else:
+            perfil = self.dados()[0]["perfil"]
         k = len(self.grupos_ed)
-        self.grupos_ed.append({"nome": "Grupo %d" % k, "perfil": base["perfil"], "giro": 0.0,
-                               "fixacao": "Centro", "espelhar": False})
+        self.grupos_ed.append({"nome": "Grupo %d" % (k + 1 if self.ao_vivo else k), "perfil": perfil,
+                               "giro": 0.0, "fixacao": "Centro", "espelhar": False})
         self._recarregar_lista()
         self.lista.setCurrentRow(k)
         self._grupo_escolhido(k)
+        if self.ao_vivo:
+            self._estado_sem_grupo()
+            self._criar_se_preciso()
+            self.nome.setFocus()
+            self.nome.selectAll()
         return k
 
     def remover_grupo(self):
         k = self.lista.currentRow()
+        if self.ao_vivo:
+            # ao vivo: as linhas do grupo removido ficam sem barra (qualquer grupo pode sair)
+            if k < 0 or not self.grupos_ed:
+                return
+            del self.grupos_ed[k]
+            self.da_aresta = [SEM_BARRA if x == k else (x - 1 if x > k else x) for x in self.da_aresta]
+            self._recarregar_lista()
+            if self.grupos_ed:
+                self.lista.setCurrentRow(max(0, k - 1))
+                self._grupo_escolhido(self.lista.currentRow())
+            self._estado_sem_grupo()
+            self._agendar()
+            return
         if k <= 0:
             return
         del self.grupos_ed[k]
@@ -1352,6 +1840,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.lista.setCurrentRow(k - 1)
         self._recarregar_lista()
         self._grupo_escolhido(self.lista.currentRow())
+        self._agendar()
 
     def atribuir(self, indices, k=None):
         """Põe as linhas indicadas no grupo k (padrão: o grupo atual)."""
@@ -1361,6 +1850,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
             if 0 <= i < len(self.eds):
                 self.da_aresta[i] = k
         self._recarregar_lista()
+        self._agendar()
 
     def pegar_selecao(self):
         idx = []
@@ -1387,6 +1877,13 @@ class DialogoEstrutura(QtWidgets.QDialog):
 
     # ------------------------------------------------------------------ resultado
     def dados(self):
+        if not self.grupos_ed:   # sem grupo: tudo sem barra, o perfil da estrutura fica como está
+            base = grupo_padrao(self.est) if self.est is not None else {
+                "nome": "Grupo 1", "perfil": FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).GetString(
+                    "UltimoPerfil", PERFIL_PADRAO), "giro": 0.0, "fixacao": "Centro", "espelhar": False}
+            if PrumoPerfis.perfil(base["perfil"]) is None:
+                base["perfil"] = PERFIL_PADRAO
+            return dict(base), []
         padrao = dict(self.grupos_ed[0])
         extras = []
         usados = {}
@@ -1398,8 +1895,15 @@ class DialogoEstrutura(QtWidgets.QDialog):
             extras.append(dict(g, arestas=linhas))
         return padrao, extras
 
+    def linhas_sem_barra(self):
+        return [i for i, x in enumerate(self.da_aresta) if x == SEM_BARRA]
+
     def aplicar(self):
         """Cria ou atualiza a estrutura. Retorna o objeto (ou levanta ValueError)."""
+        if all(x == SEM_BARRA for x in self.da_aresta):
+            raise ValueError("Nenhuma linha com barra: clique nas linhas do desenho.")
+        if self.ao_vivo:
+            return self._confirmar_ao_vivo()
         padrao, extras = self.dados()
         doc = self.esqueleto.Document
         uniao = self.uniao.currentText()
@@ -1409,11 +1913,11 @@ class DialogoEstrutura(QtWidgets.QDialog):
         g.SetString("UltimoMaterialPerfil", material)
         if self.est is None:
             self.resultado = criar(doc, self.esqueleto, padrao["perfil"], padrao["giro"], padrao["fixacao"],
-                                   uniao, material, extras, padrao["espelhar"])
+                                   uniao, material, extras, padrao["espelhar"], self.linhas_sem_barra())
         else:
             doc.openTransaction("Editar estrutura")
             try:
-                editar(self.est, padrao, extras, uniao, material)
+                editar(self.est, padrao, extras, uniao, material, self.linhas_sem_barra())
             except Exception:
                 doc.abortTransaction()
                 raise
@@ -1433,8 +1937,25 @@ class DialogoEstrutura(QtWidgets.QDialog):
 _dialogos = []
 
 
-def abrir_dialogo(esqueleto, est=None):
-    d = DialogoEstrutura(esqueleto, est, FreeCADGui.getMainWindow())
+def _linhas_pre_selecionadas(esqueleto):
+    """Linhas do esboço já selecionadas na tela (Edge3 → 2); vazio se o esboço inteiro foi escolhido."""
+    idx = []
+    try:
+        for s in FreeCADGui.Selection.getSelectionEx():
+            if s.Object == esqueleto:
+                idx += [int(n[4:]) - 1 for n in s.SubElementNames if n.startswith("Edge") and n[4:].isdigit()]
+    except Exception:
+        pass
+    return idx
+
+
+def abrir_dialogo(esqueleto, est=None, linhas=None):
+    """Abre o diálogo com a prévia ao vivo. Na criação, começam com barra as linhas já
+    selecionadas no desenho (nenhuma, se o esboço inteiro foi escolhido: clique nas linhas)."""
+    if est is None and linhas is None:
+        linhas = _linhas_pre_selecionadas(esqueleto)
+    FreeCADGui.Selection.clearSelection()
+    d = DialogoEstrutura(esqueleto, est, FreeCADGui.getMainWindow(), ao_vivo=True, linhas=linhas)
     d.setWindowModality(QtCore.Qt.NonModal)
     d.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
     _dialogos.append(d)

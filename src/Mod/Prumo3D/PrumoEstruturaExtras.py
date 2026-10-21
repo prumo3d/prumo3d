@@ -44,10 +44,13 @@ def _contexto(barra):
     est = barra.Estrutura
     if est is None or est.Esqueleto is None:
         raise ValueError("%s não pertence a uma estrutura" % barra.Label)
-    eds = E.arestas(est.Esqueleto)
-    if barra.Indice >= len(eds):
+    todas = E.arestas(est.Esqueleto)
+    if barra.Indice >= len(todas):
         raise ValueError("%s não tem mais linha no esqueleto" % barra.Label)
-    normal = E._normal_esqueleto(eds)
+    normal = E._normal_esqueleto(todas)
+    eds = E.arestas_ativas(est, todas)
+    if eds[barra.Indice] is None:
+        raise ValueError("%s está numa linha sem barra" % barra.Label)
     return est, eds, normal, E.Secao(est, eds, barra.Indice, normal)
 
 
@@ -870,10 +873,12 @@ class PainelSolda(P.PainelTarefa):
 
 def juntas_da_estrutura(est):
     """Pares de barras que se tocam (cantos, ligações em T e nós múltiplos)."""
-    eds = E.arestas(est.Esqueleto)
+    eds = E.arestas_ativas(est)
     bs = {b.Indice: b for b in E.barras_de(est)}
     pares = []
     for i in range(len(eds)):
+        if eds[i] is None:
+            continue
         for lig in E.ligacoes(eds, i):
             outros = [lig.outro] if lig.outro is not None else [j for j, _d in lig.outros]
             for j in outros:

@@ -2031,6 +2031,176 @@ class T25EstruturaInterface(unittest.TestCase):
         self.assertEqual(sorted(FreeCADGui.Selection.getSelectionEx()[0].SubElementNames), ["Edge1", "Edge3"])
         d.close()
 
+    def _esperar(self, n=10):
+        for _ in range(n):
+            FreeCADGui.updateGui()
+            QtCore.QCoreApplication.processEvents()
+
+    def _estruturas(self):
+        import PrumoEstrutura
+        return [o for o in self.doc.Objects if PrumoEstrutura.eh_estrutura(o)]
+
+    def test_ao_vivo_clicar_linhas_cria_barras_na_hora(self):
+        """Como no SolidWorks: clicar na linha do desenho cria a barra na hora; Aplicar grava."""
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        d = E.DialogoEstrutura(self.sk, ao_vivo=True, linhas=[])
+        # nasce zerado: sem grupo, sem estrutura; clicar avisa
+        self.assertEqual(d.grupos_ed, [])
+        self.assertIsNone(d.est)
+        self.assertFalse(d.editor.isEnabled())
+        self.assertTrue(self.sk.ViewObject.Visibility, "o esboço precisa aparecer para o clique")
+        d.clicar_linha(0)
+        self.assertIn("Crie um grupo", d.aviso.text())
+        self.assertEqual(d.novo_grupo(), 0)
+        self.assertEqual(d.grupos_ed[0]["nome"], "Grupo 1")
+        self.assertTrue(d.editor.isEnabled())
+        est = d.est
+        self.assertIsNotNone(est, "a prévia não criou a estrutura")
+        self.assertEqual(E.barras_de(est), [])
+        d.clicar_linha(0)
+        d.clicar_linha(2)
+        self.assertEqual([b.Indice for b in E.barras_de(est)], [0, 2])
+        d.clicar_linha(0)                      # clicar de novo tira
+        self.assertEqual([b.Indice for b in E.barras_de(est)], [2])
+        # clique na tela (observador de seleção)
+        FreeCADGui.Selection.addSelection(self.sk, "Edge2")
+        self._esperar()
+        self.assertEqual([b.Indice for b in E.barras_de(est)], [1, 2])
+        self.assertEqual(d.tabela.item(1, 0).text().split(" · ")[0], "2")
+        self.assertNotIn("sem barra", d.tabela.item(1, 0).text())
+        d._ok()
+        self.assertEqual(list(est.GrupoDaAresta), [E.SEM_BARRA, 0, 0, E.SEM_BARRA])
+        self.assertEqual(est.NomeGrupo, "Grupo 1")
+        self.assertFalse(self.sk.ViewObject.Visibility)
+        self.assertEqual(len(self._estruturas()), 1)
+
+    def test_ao_vivo_dois_grupos_remover_e_esboco(self):
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        d = E.DialogoEstrutura(self.sk, ao_vivo=True, linhas=[])
+        d.novo_grupo()
+        d.nome.setText("Vigas")
+        d.nome.textEdited.emit("Vigas")
+        self._escolher_perfil(d, "W 150 x 13,0")
+        d.clicar_linha(0)
+        d.clicar_linha(2)
+        d.novo_grupo()
+        self._escolher_perfil(d, TQ50)
+        d.clicar_linha(1)
+        d.clicar_linha(3)
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        est = d.est
+        self.assertEqual([b.Perfil for b in E.barras_de(est)], ["W 150 x 13,0", TQ50, "W 150 x 13,0", TQ50])
+        # botão do esboço
+        d.bt_esboco.setChecked(False)
+        self.assertFalse(self.sk.ViewObject.Visibility)
+        d.bt_esboco.setChecked(True)
+        self.assertTrue(self.sk.ViewObject.Visibility)
+        # remover o primeiro grupo: as linhas dele ficam sem barra e o segundo passa a ser o primeiro
+        d.lista.setCurrentRow(0)
+        d.remover_grupo()
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertEqual([b.Indice for b in E.barras_de(est)], [1, 3])
+        self.assertEqual(est.Perfil, TQ50)
+        d._ok()
+        self.assertEqual(est.NomeGrupo, "Grupo 2")
+        # reabrir para editar: os grupos e as linhas sem barra voltam iguais
+        d2 = E.DialogoEstrutura(self.sk, est, ao_vivo=True)
+        self.assertEqual([g["nome"] for g in d2.grupos_ed], ["Grupo 2"])
+        self.assertEqual(d2.da_aresta, [E.SEM_BARRA, 0, E.SEM_BARRA, 0])
+        d2.reject()
+
+    def test_ao_vivo_opcoes_atualizam_a_previa(self):
+        """Perfil, giro e ponto de fixação mudam a barra na hora, antes de Aplicar."""
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        d = E.DialogoEstrutura(self.sk, ao_vivo=True, linhas=[0, 1, 2, 3])
+        est = d.est
+        b0 = E.barras_de(est)[0]
+        bb0 = b0.Shape.BoundBox
+        d.fixacao.setCurrentText("Sup. centro")
+        self._esperar()
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertEqual(est.Fixacao, "Sup. centro")
+        self.assertNotAlmostEqual(b0.Shape.BoundBox.ZMax, bb0.ZMax, places=3)
+        d.giro.setValue(90)
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertAlmostEqual(float(est.Rotacao), 90.0)
+        self._escolher_perfil(d, TQ50)
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertEqual(b0.Perfil, TQ50)
+        d.reject()
+        self.assertEqual(self._estruturas(), [], "Cancelar não desfez a estrutura da prévia")
+
+    def test_ao_vivo_cancelar_edicao_volta_ao_que_era(self):
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        est = E.criar(self.doc, self.sk, "W 150 x 13,0")
+        d = E.DialogoEstrutura(self.sk, est, ao_vivo=True)
+        self._escolher_perfil(d, TQ50)
+        d.clicar_linha(3)                         # está no Padrão: sai
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertEqual(len(E.barras_de(est)), 3)
+        self.assertEqual(E.barras_de(est)[0].Perfil, TQ50)
+        d.reject()
+        self.doc.recompute()
+        bs = E.barras_de(est)
+        self.assertEqual(len(bs), 4)
+        self.assertEqual([b.Perfil for b in bs], ["W 150 x 13,0"] * 4)
+        self.assertEqual(list(est.GrupoDaAresta), [0, 0, 0, 0])
+
+    def test_trocar_familia_atualiza_o_grupo(self):
+        """Trocar só a família (cai no primeiro perfil da lista) também muda o perfil do grupo."""
+        import PrumoEstrutura as E
+        import PrumoPerfis
+        import PrumoUtil
+        FreeCAD.ParamGet(PrumoUtil.PARAM_PATH).SetString("UltimoPerfil", TQ50)
+        d = E.DialogoEstrutura(self.sk)
+        fam = PrumoPerfis.perfil("W 150 x 13,0")["familia"]
+        d.sel.familia.setCurrentIndex(d.sel.familia.findData(fam))
+        primeiro = PrumoPerfis.familia(fam)["itens"][0]["nome"]
+        self.assertEqual(d.grupos_ed[0]["perfil"], primeiro)
+        d.close()
+
+    def test_linha_sem_barra_nos_cantos(self):
+        """Retângulo sem a linha de baixo: os cantos dela viram pontas livres."""
+        import PrumoEstrutura as E
+        est = E.criar(self.doc, self.sk, "W 150 x 13,0", linhas_sem_barra=[0])
+        self.assertEqual([b.Indice for b in E.barras_de(est)], [1, 2, 3])
+        self.assertEqual(len(E.cantos(est)), 2)
+        dd = __import__("PrumoPerfis").perfil("W 150 x 13,0")
+        b1 = E.barras_de(est)[0]
+        self.assertAlmostEqual(b1.CorteInicio.Value, 0.0, places=6, msg="ponta sem vizinha deveria ser reta")
+        # devolver a linha: a barra volta e o canto também
+        padrao, extras = E.grupos_para_edicao(est)
+        E.editar(est, padrao, extras, linhas_sem_barra=[])
+        self.assertEqual(len(E.barras_de(est)), 4)
+        self.assertEqual(len(E.cantos(est)), 4)
+        self.assertTrue(dd)
+
+    def test_numeros_das_linhas_na_tela(self):
+        import PrumoEstrutura as E
+        d = E.DialogoEstrutura(self.sk)
+        self.assertIsNotNone(d.etiquetas)
+        self.assertEqual(len(d.etiquetas), 4)
+        d.tabela.selectRow(2)
+        self.assertEqual(d.etiquetas.destacado, 2)
+        sel = FreeCADGui.Selection.getSelectionEx()
+        self.assertEqual(sel[0].SubElementNames, ("Edge3",))
+        self.assertIn("de (", d.tabela.item(2, 2).text())
+        raiz = d.etiquetas.raiz
+        grafo = FreeCADGui.ActiveDocument.ActiveView.getSceneGraph()
+        self.assertGreaterEqual(grafo.findChild(raiz), 0)
+        d.close()
+        self.assertEqual(grafo.findChild(raiz), -1, "os números ficaram na tela depois de fechar")
+
     def test_grupo_vazio_nao_entra(self):
         import PrumoEstrutura
         d = PrumoEstrutura.DialogoEstrutura(self.sk)
