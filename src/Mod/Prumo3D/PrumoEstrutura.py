@@ -122,28 +122,82 @@ def referencia(t, normal):
     return cima.normalize()
 
 
-def eixos_secao(e, rot_graus, normal):
-    """(t, u, v): direção da barra, largura e altura da seção."""
-    t = _dir(e, True)
+def _sentido_canonico(e, t, normal, centro):
+    """Direção de referência da linha (t ou -t) que não depende do sentido em que a linha foi desenhada:
+    o eixo da seção que fica no plano do esqueleto aponta para fora do centro da estrutura. Assim
+    "Sup. centro" põe todas as barras de um quadro do mesmo lado (todas por fora), mesmo com linhas
+    desenhadas em sentidos diferentes."""
+    if centro is None:
+        return t
     v = referencia(t, normal)
-    if abs(rot_graus) > 1e-9:
-        r = FreeCAD.Rotation(t, rot_graus)
-        v = r.multVec(v)
     u = v.cross(t).normalize()
+    if normal is not None:
+        no_plano = u if abs(u.dot(normal)) < abs(v.dot(normal)) else v
+    else:
+        no_plano = u
+    try:
+        meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+    except Exception:
+        meio = e.CenterOfMass
+    w = meio - centro
+    if normal is not None:
+        w = w - normal * w.dot(normal)
+    d = no_plano.dot(w)
+    if abs(d) < 1e-6 * max(1.0, w.Length) or w.Length < 1e-6:
+        # linha que passa pelo centro: o eixo no plano aponta para +Z, senão +X, senão +Y
+        for ref in (FreeCAD.Vector(0, 0, 1), FreeCAD.Vector(1, 0, 0), FreeCAD.Vector(0, 1, 0)):
+            d = no_plano.dot(ref)
+            if abs(d) > 1e-6:
+                break
+    return t * -1 if d < 0 else t
+
+
+def eixos_secao(e, rot_graus, normal, centro=None):
+    """(t, u, v): direção da barra, largura e altura da seção.
+
+    t é a direção da linha (como foi desenhada: a barra é extrudada nela); u e v vêm da direção
+    canônica (ver _sentido_canonico), para o lado da seção não depender do sentido do desenho."""
+    t = _dir(e, True)
+    tc = _sentido_canonico(e, t, normal, centro)
+    v = referencia(tc, normal)
+    if abs(rot_graus) > 1e-9:
+        r = FreeCAD.Rotation(tc, rot_graus)
+        v = r.multVec(v)
+    u = v.cross(tc).normalize()
     return t, u, v
+
+
+_cache_centro = {}
+
+
+def centro_esqueleto(esqueleto):
+    """Centro (caixa envolvente, espaço global) do esqueleto inteiro: referência do lado das seções."""
+    try:
+        chave = (esqueleto.Document.Name, esqueleto.Name, str(esqueleto.Shape.BoundBox),
+                 str(PrumoUtil.placement_global(esqueleto)))
+    except Exception:
+        chave = None
+    if chave is not None and chave in _cache_centro:
+        return _cache_centro[chave]
+    c = forma_global(esqueleto).BoundBox.Center
+    if chave is not None:
+        if len(_cache_centro) > 64:
+            _cache_centro.clear()
+        _cache_centro[chave] = c
+    return c
 
 
 def _reta(e):
     return e.Curve.__class__.__name__ in ("Line", "LineSegment")
 
 
-def solido_bruto(e, it, rot_graus, desloc, normal, ext0=0.0, ext1=0.0, espelhar=False):
+def solido_bruto(e, it, rot_graus, desloc, normal, ext0=0.0, ext1=0.0, espelhar=False, centro=None):
     """Barra sem recortes sobre a aresta e, prolongada ext0 antes do início e ext1 após o fim.
 
     desloc = (du, dv): centro da caixa da seção em relação à linha (ver deslocamento()); aceita
     também o nome de uma fixação ou de um alinhamento antigo."""
     import Part
-    t, u, v = eixos_secao(e, rot_graus, normal)
+    t, u, v = eixos_secao(e, rot_graus, normal, centro)
     if isinstance(desloc, str):
         desloc = deslocamento(it, _ALINHAMENTO_PARA_FIXACAO.get(desloc, desloc), espelhar)
     du, dv = desloc
@@ -329,7 +383,8 @@ class Secao:
         self.giro = float(par["giro"])
         self.espelhar = bool(par["espelhar"])
         self.fixacao = par["fixacao"]
-        self.t, self.u, self.v = eixos_secao(eds[j], self.giro, normal)
+        self.centro = centro_esqueleto(est.Esqueleto)
+        self.t, self.u, self.v = eixos_secao(eds[j], self.giro, normal, self.centro)
         self.du, self.dv = deslocamento(self.it, self.fixacao, self.espelhar)
 
     def extremos(self, n):
@@ -481,7 +536,7 @@ def calcular_barra(est, i, eds=None):
     nome = sec.it["nome"]
     ligs = ligacoes(eds, i)
     ext = _extensoes(est, eds, i, normal, ligs)
-    sol = solido_bruto(e, sec.it, sec.giro, (sec.du, sec.dv), normal, ext[0], ext[1], sec.espelhar)
+    sol = solido_bruto(e, sec.it, sec.giro, (sec.du, sec.dv), normal, ext[0], ext[1], sec.espelhar, sec.centro)
     tam = 4 * (e.Length + sec.larg + sec.alt) + 100 + sum(ext)
     t = _dir(e, True)
     angs = [0.0, 0.0]
@@ -519,7 +574,8 @@ def calcular_barra(est, i, eds=None):
                 if j in passantes or j > i:
                     continue
                 sj = Secao(est, eds, j, normal)
-                bruto = solido_bruto(eds[j], sj.it, sj.giro, (sj.du, sj.dv), normal, 0.0, 0.0, sj.espelhar)
+                bruto = solido_bruto(eds[j], sj.it, sj.giro, (sj.du, sj.dv), normal, 0.0, 0.0, sj.espelhar,
+                                     sj.centro)
                 sol = _maior_pedaco(sol.cut(bruto), e)
     sol = _maior_pedaco(sol, e)
     if sol.Solids and len(sol.Solids) == 1:
@@ -678,6 +734,14 @@ class VPEstrutura:
     def getIcon(self):
         return PrumoUtil.icone("estrutura.svg")
 
+    def doubleClicked(self, vobj):
+        """Duplo clique: abre o Editar estrutura (o mesmo diálogo da criação, com prévia ao vivo)."""
+        est = vobj.Object
+        if est.Esqueleto is None:
+            return False
+        abrir_dialogo(est.Esqueleto, est)
+        return True
+
     def dumps(self):
         return None
 
@@ -695,6 +759,22 @@ class VPBarra:
     def getIcon(self):
         return PrumoUtil.icone("barra.svg")
 
+    def doubleClicked(self, vobj):
+        """Duplo clique numa barra: abre o Editar estrutura dela, com a linha da barra marcada."""
+        b = vobj.Object
+        est = b.Estrutura
+        if not eh_estrutura(est) or est.Esqueleto is None:
+            return False
+        d = abrir_dialogo(est.Esqueleto, est)
+        try:
+            d._sincronizando = True
+            d.tabela.selectRow(b.Indice)
+            if d.etiquetas is not None:
+                d.etiquetas.destacar(b.Indice)
+        finally:
+            d._sincronizando = False
+        return True
+
     def dumps(self):
         return None
 
@@ -704,7 +784,7 @@ class VPBarra:
 
 def criar(doc, esqueleto, perfil=PERFIL_PADRAO, rotacao=0.0, alinhamento="Centro",
           uniao="Meia-esquadria", material="", grupos_extras=None, espelhar=False, linhas_sem_barra=(),
-          transacao=True):
+          transacao=True, rotacoes=None):
     """Cria a estrutura e uma barra por linha do esqueleto. Retorna o grupo.
 
     alinhamento: ponto de fixação (FIXACOES) ou alinhamento antigo (Centro/Topo/Base).
@@ -731,6 +811,8 @@ def criar(doc, esqueleto, perfil=PERFIL_PADRAO, rotacao=0.0, alinhamento="Centro
     est.Uniao = uniao
     est.Material = material
     definir_grupos(est, grupos_extras or [], len(eds), linhas_sem_barra)
+    if rotacoes:
+        est.RotacoesIndividuais = [float(x) for x in rotacoes]
     if FreeCAD.GuiUp:
         VPEstrutura(est.ViewObject)
     fora = sem_barra(est)
@@ -1114,7 +1196,7 @@ class SeletorPerfil(QtWidgets.QWidget):
         return self.perfil.currentData()
 
 
-def editar(est, padrao, grupos_extras, uniao=None, material=None, linhas_sem_barra=None):
+def editar(est, padrao, grupos_extras, uniao=None, material=None, linhas_sem_barra=None, rotacoes=None):
     """Aplica o grupo padrão, os grupos extras (com as arestas) e as opções gerais à estrutura.
 
     As trocas individuais de perfil/giro são zeradas: o diálogo já as mostra como grupos."""
@@ -1134,7 +1216,7 @@ def editar(est, padrao, grupos_extras, uniao=None, material=None, linhas_sem_bar
     if "NomeGrupo" in est.PropertiesList and padrao.get("nome"):
         est.NomeGrupo = padrao["nome"]
     est.PerfisIndividuais = []
-    est.RotacoesIndividuais = []
+    est.RotacoesIndividuais = [float(x) for x in rotacoes] if rotacoes else []
     if uniao is not None:
         est.Uniao = uniao
     if material is not None:
@@ -1158,19 +1240,28 @@ def grupos_para_edicao(est):
             continue
         base = padrao if k == 0 else extras[k - 1]
         par = parametros(est, i)
-        mudou = par["perfil"] != base["perfil"] or abs(float(par["giro"]) - float(base["giro"])) > 1e-9
+        # só a troca de perfil vira grupo; o giro próprio da barra fica na própria linha
+        # (rotacoes_individuais)
+        mudou = par["perfil"] != base["perfil"]
         if mudou:
-            chave = (par["perfil"], round(float(par["giro"]), 6), base["fixacao"], bool(base["espelhar"]))
+            chave = (par["perfil"], round(float(base["giro"]), 6), base["fixacao"], bool(base["espelhar"]))
             if chave not in trocas:
                 g = copy.deepcopy(base)
                 g.update({"nome": "Troca: %s" % par["perfil"], "perfil": par["perfil"],
-                          "giro": float(par["giro"]), "arestas": []})
+                          "giro": float(base["giro"]), "arestas": []})
                 trocas[chave] = g
                 extras.append(g)
             trocas[chave]["arestas"].append(i)
         elif k > 0:
             extras[k - 1]["arestas"].append(i)
     return padrao, extras
+
+
+def rotacoes_individuais(est):
+    """Giro próprio de cada linha (somado ao giro do grupo), em graus."""
+    n = len(arestas(est.Esqueleto))
+    rots = list(getattr(est, "RotacoesIndividuais", []) or [])
+    return [float(rots[i]) if i < len(rots) else 0.0 for i in range(n)]
 
 
 def _descricao_aresta(e):
@@ -1210,7 +1301,7 @@ class EtiquetasNaTela:
     COR = (0.0, 0.227, 0.439)      # azul Prumo #003A70
     COR_DESTAQUE = (0.86, 0.33, 0.0)
 
-    def __init__(self, doc, pontos):
+    def __init__(self, doc, pontos, textos=None):
         from pivy import coin
         self._coin = coin
         self.vista = None
@@ -1235,7 +1326,7 @@ class EtiquetasNaTela:
             tr = coin.SoTranslation()
             tr.translation.setValue(p.x, p.y, p.z)
             txt = coin.SoText2()
-            txt.string = str(i + 1)
+            txt.string = str(i + 1) if textos is None else str(textos[i])
             txt.justification = coin.SoText2.CENTER
             for n in (cor, fonte, tr, txt):
                 sep.addChild(n)
@@ -1250,8 +1341,10 @@ class EtiquetasNaTela:
         return len(self.cores)
 
     def destacar(self, i):
+        """Destaca a etiqueta i (ou uma lista delas)."""
+        alvos = set(i) if isinstance(i, (list, tuple, set)) else {i}
         for k, (cor, fonte) in enumerate(zip(self.cores, self.fontes)):
-            on = k == i
+            on = k in alvos
             cor.rgb.setValue(*(self.COR_DESTAQUE if on else self.COR))
             fonte.size = 26 if on else 18
         self.destacado = i
@@ -1307,6 +1400,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
             for i in g.get("arestas", []):
                 if 0 <= i < len(self.eds):
                     self.da_aresta[i] = k
+        self.giro_linha = rotacoes_individuais(est) if est is not None else [0.0] * len(self.eds)
         if est is not None:
             for i in sem_barra(est):
                 if i < len(self.da_aresta):
@@ -1411,12 +1505,14 @@ class DialogoEstrutura(QtWidgets.QDialog):
                                 "escolhido." if self.ao_vivo else ", e escolha o grupo de cada linha."))
         dica.setWordWrap(True)
         lay.addWidget(dica)
-        self.tabela = QtWidgets.QTableWidget(len(self.eds), 4)
-        self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Onde (mm)", "Grupo"])
+        self.tabela = QtWidgets.QTableWidget(len(self.eds), 5)
+        self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Onde (mm)", "Grupo", "Giro da barra"])
+        self.tabela.horizontalHeaderItem(4).setToolTip("Giro só desta barra, somado ao giro do grupo")
         self.tabela.horizontalHeader().setStretchLastSection(True)
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.combos = []
+        self.giros = []
         for i, e in enumerate(self.eds):
             barra = self._barra_da_linha(i)
             it = QtWidgets.QTableWidgetItem("%d" % (i + 1) + (" · %s" % barra.Label if barra is not None else ""))
@@ -1431,6 +1527,17 @@ class DialogoEstrutura(QtWidgets.QDialog):
             cb.currentIndexChanged.connect(lambda k, i=i: self._linha_mudou(i, k))
             self.tabela.setCellWidget(i, 3, cb)
             self.combos.append(cb)
+            sp = QtWidgets.QDoubleSpinBox()
+            sp.setRange(-360.0, 360.0)
+            sp.setSingleStep(15.0)
+            sp.setDecimals(1)
+            sp.setSuffix(" °")
+            sp.setLocale(QtCore.QLocale(QtCore.QLocale.Portuguese, QtCore.QLocale.Brazil))
+            sp.setValue(self.giro_linha[i])
+            sp.setToolTip("Giro só desta barra (somado ao giro do grupo)")
+            sp.valueChanged.connect(lambda v, i=i: self._giro_mudou(i, v))
+            self.tabela.setCellWidget(i, 4, sp)
+            self.giros.append(sp)
         self.tabela.resizeColumnsToContents()
         self.tabela.setMinimumHeight(min(200, 34 + 30 * max(1, len(self.eds))))
         lay.addWidget(self.tabela, 2)
@@ -1448,8 +1555,11 @@ class DialogoEstrutura(QtWidgets.QDialog):
             self.bt_esboco.setChecked(bool(self.esqueleto.ViewObject.Visibility))
         except Exception:
             pass
+        self.bt_girar = QtWidgets.QPushButton("Girar 90°")
+        self.bt_girar.setToolTip("Gira 90° só as barras das linhas marcadas na tabela")
         bt.addWidget(self.bt_esboco)
         bt.addWidget(self.bt_todas)
+        bt.addWidget(self.bt_girar)
         bt.addWidget(self.bt_pegar)
         bt.addWidget(self.bt_mostrar)
         bt.addStretch(1)
@@ -1489,6 +1599,8 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.bt_mostrar.clicked.connect(self.mostrar_grupo)
         self.bt_todas.clicked.connect(lambda: self.atribuir(range(len(self.eds))))
         self.bt_esboco.toggled.connect(self.mostrar_esboco)
+        self.bt_girar.clicked.connect(lambda: self.girar_linhas(
+            sorted({ix.row() for ix in self.tabela.selectedIndexes()}), 90.0))
         self.nome.textEdited.connect(self._editado)
         self.sel.mudou.connect(self._editado)
         self.giro.valueChanged.connect(self._editado)
@@ -1619,7 +1731,8 @@ class DialogoEstrutura(QtWidgets.QDialog):
             padrao, extras = self.dados()
             self.est = criar(self.esqueleto.Document, self.esqueleto, padrao["perfil"], padrao["giro"],
                              padrao["fixacao"], self.uniao.currentText(), self.material.text().strip(), extras,
-                             padrao["espelhar"], self.linhas_sem_barra(), transacao=False)
+                             padrao["espelhar"], self.linhas_sem_barra(), transacao=False,
+                             rotacoes=self.giro_linha)
             self.est.NomeGrupo = padrao.get("nome", "Grupo 1")
             self._criada = True
             self._atualizar_rotulos_tabela()
@@ -1654,7 +1767,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         padrao, extras = self.dados()
         try:
             editar(self.est, padrao, extras, self.uniao.currentText(), self.material.text().strip(),
-                   self.linhas_sem_barra())
+                   self.linhas_sem_barra(), self.giro_linha)
             self.aviso.setText("")
         except Exception as ex:
             self.aviso.setText(str(ex))
@@ -1800,6 +1913,24 @@ class DialogoEstrutura(QtWidgets.QDialog):
             self.lista.item(j).setText(self._rotulo(j))
         self._agendar()
 
+    def _giro_mudou(self, i, v):
+        self.giro_linha[i] = float(v)
+        self._agendar()
+
+    def girar_linhas(self, linhas, graus=90.0):
+        """Soma o giro às barras indicadas (só elas, não o grupo)."""
+        if not linhas:
+            self.aviso.setText("Marque na tabela as linhas que vão girar.")
+            return
+        self.aviso.setText("")
+        for i in linhas:
+            novo = (self.giro_linha[i] + graus + 180.0) % 360.0 - 180.0
+            self.giros[i].blockSignals(True)
+            self.giros[i].setValue(novo)
+            self.giros[i].blockSignals(False)
+            self.giro_linha[i] = novo
+        self._agendar()
+
     def novo_grupo(self):
         if self.grupos_ed:
             perfil = self.grupos_ed[max(0, self.lista.currentRow())]["perfil"]
@@ -1913,11 +2044,12 @@ class DialogoEstrutura(QtWidgets.QDialog):
         g.SetString("UltimoMaterialPerfil", material)
         if self.est is None:
             self.resultado = criar(doc, self.esqueleto, padrao["perfil"], padrao["giro"], padrao["fixacao"],
-                                   uniao, material, extras, padrao["espelhar"], self.linhas_sem_barra())
+                                   uniao, material, extras, padrao["espelhar"], self.linhas_sem_barra(),
+                                   rotacoes=self.giro_linha)
         else:
             doc.openTransaction("Editar estrutura")
             try:
-                editar(self.est, padrao, extras, uniao, material, self.linhas_sem_barra())
+                editar(self.est, padrao, extras, uniao, material, self.linhas_sem_barra(), self.giro_linha)
             except Exception:
                 doc.abortTransaction()
                 raise

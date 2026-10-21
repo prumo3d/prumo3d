@@ -176,6 +176,12 @@ class VPFixador:
     def getIcon(self):
         return PrumoUtil.icone("fixador.svg")
 
+    def doubleClicked(self, vobj):
+        """Duplo clique: abre o painel de fixadores editando este (prévia ao vivo)."""
+        FreeCADGui.Selection.clearSelection()
+        PainelFixador().editar_objeto(vobj.Object).mostrar()
+        return True
+
     def dumps(self):
         return None
 
@@ -224,7 +230,10 @@ def diametro_para_furo(diam_furo):
 
 
 def criar(doc, tipo, m, comp=0.0, placement=None, material=""):
-    doc.openTransaction("Inserir fixador")
+    import PrumoPainel
+    propria = not PrumoPainel.EM_PREVIA["ativa"]   # na prévia, a transação é a do painel
+    if propria:
+        doc.openTransaction("Inserir fixador")
     o = doc.addObject("Part::FeaturePython", "Fixador")
     Fixador(o)
     o.Tipo = tipo
@@ -243,7 +252,8 @@ def criar(doc, tipo, m, comp=0.0, placement=None, material=""):
             pass
     doc.recompute()
     o.Label = denominacao(tipo, m, comp)
-    doc.commitTransaction()
+    if propria:
+        doc.commitTransaction()
     return o
 
 
@@ -273,6 +283,7 @@ _filtro_furo.caminho_completo = True   # precisa do caminho: posição dos cont�
 
 class PainelFixador(P.PainelTarefa):
     titulo = "Peças padronizadas"
+    previa = True
     ajuda = "Escolha o fixador. Para encaixar num furo, selecione a aresta do furo (opcional)."
 
     def __init__(self, diam_sugerido=None):
@@ -372,6 +383,32 @@ class PainelFixador(P.PainelTarefa):
         if comp is None:
             raise ValueError("comprimento inválido: %s" % self.comp.currentText())
         return t, self.diam.currentText(), comp, self.material.text().strip()
+
+    def carregar(self, obj):
+        i = self.tipo.findData(obj.Tipo)
+        if i >= 0:
+            self.tipo.setCurrentIndex(i)
+        self.diam.setCurrentText(obj.Diametro)
+        c = obj.Comprimento.Value if hasattr(obj.Comprimento, "Value") else float(obj.Comprimento)
+        if self.comp.isEnabled() and c:
+            self.comp.setEditText(fmt_dim(c))
+        self.material.setText(obj.Material)
+
+    def props_edicao(self):
+        tipo, m, comp, mat = self.valores()
+        d = dict(Tipo=tipo, Diametro=m, Comprimento=comp, Material=mat)
+        fs = self.furo.valores()
+        if fs:
+            d["Placement"] = fs[0][1]
+        return d
+
+    def aplicar_edicao(self, obj):
+        super().aplicar_edicao(obj)
+        tipo, m, comp, _mat = self.valores()
+        nome = denominacao(tipo, m, comp)
+        if obj.Label != nome:
+            obj.Label = nome
+        return obj
 
     def executar(self):
         tipo, m, comp, mat = self.valores()

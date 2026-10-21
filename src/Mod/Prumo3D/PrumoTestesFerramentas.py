@@ -934,6 +934,79 @@ class T17Estrutura(unittest.TestCase):
         est = PrumoEstrutura.criar(self.doc, sk, perfil, uniao=uniao)
         return sk, est, PrumoEstrutura.barras_de(est)
 
+    def _local(self, est, b):
+        """(umin, umax, vmin, vmax) da seção da barra medidos a partir da linha, nos eixos da seção."""
+        import PrumoEstrutura as E
+        eds = E.arestas(est.Esqueleto)
+        sec = E.Secao(est, eds, b.Indice, E._normal_esqueleto(eds))
+        e = eds[b.Indice]
+        meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+        corte = b.Shape.slice(sec.t, meio.dot(sec.t))
+        pts = [p - meio for w in corte for ed in w.Edges for p in ed.discretize(72)]
+        us = [p.dot(sec.u) for p in pts]
+        vs = [p.dot(sec.v) for p in pts]
+        return min(us), max(us), min(vs), max(vs)
+
+    def test_ponto_de_fixacao_em_todos_os_perfis(self):
+        """A linha fica no ponto escolhido da seção (caixa envolvente), para cada família, com e sem
+        espelhar e com giro."""
+        import PrumoEstrutura as E
+        import PrumoPerfis
+        sk = esboco_linhas(self.doc, [((0, 0), (1000, 0))], "XY")
+        tol = 0.05
+        for f in PrumoPerfis.familias():
+            nome = f["itens"][len(f["itens"]) // 2]["nome"]
+            larg, alt = PrumoPerfis.dimensoes(PrumoPerfis.perfil(nome))
+            for espelhar in (False, True):
+                for fx in E.FIXACOES:
+                    if fx == "Centroide":
+                        continue
+                    est = E.criar(self.doc, sk, nome, alinhamento=fx, espelhar=espelhar)
+                    b = E.barras_de(est)[0]
+                    umin, umax, vmin, vmax = self._local(est, b)
+                    msg = (nome, fx, espelhar, round(umin, 2), round(umax, 2), round(vmin, 2), round(vmax, 2))
+                    self.assertAlmostEqual(umax - umin, larg, delta=tol, msg=msg)
+                    self.assertAlmostEqual(vmax - vmin, alt, delta=tol, msg=msg)
+                    vert, horiz = fx.split(" ") if " " in fx else ("Meio", "centro")
+                    alvo_v = {"Sup.": vmax, "Inf.": vmin}.get(vert, (vmin + vmax) / 2.0)
+                    alvo_u = {"esquerdo": umin, "direito": umax}.get(horiz, (umin + umax) / 2.0)
+                    self.assertAlmostEqual(alvo_v, 0.0, delta=tol, msg=msg)
+                    self.assertAlmostEqual(alvo_u, 0.0, delta=tol, msg=msg)
+                    for o in E.barras_de(est):
+                        self.doc.removeObject(o.Name)
+                    self.doc.removeObject(est.Name)
+
+    def test_lado_da_secao_nao_depende_do_sentido_da_linha(self):
+        """Quadro com linhas desenhadas em sentidos misturados: todas as barras ficam do mesmo lado."""
+        import PrumoEstrutura as E
+        for plano in ("XZ", "XY"):
+            sk = esboco_linhas(self.doc, [((0, 0), (1000, 0)), ((1000, 600), (1000, 0)), ((0, 600), (1000, 600)),
+                                          ((0, 0), (0, 600))], plano, "Misto" + plano)
+            centro = E.centro_esqueleto(sk)
+            normal = FreeCAD.Vector(0, -1, 0) if plano == "XZ" else FreeCAD.Vector(0, 0, 1)
+            for fx in ("Sup. centro", "Inf. esquerdo", "Meio direito"):
+                for giro in (0.0, 90.0):
+                    est = E.criar(self.doc, sk, "W 150 x 13,0", rotacao=giro, alinhamento=fx)
+                    eds = E.arestas(sk)
+                    fora, prof = [], []
+                    for b in E.barras_de(est):
+                        e = eds[b.Indice]
+                        meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+                        d = b.Shape.BoundBox.Center - meio
+                        w = meio - centro
+                        w = w - normal * w.dot(normal)
+                        w.normalize()
+                        fora.append(round(d.dot(w), 2))
+                        prof.append(round(d.dot(normal), 2))
+                    self.assertEqual(len(set(fora)), 1, (plano, fx, giro, fora))
+                    self.assertEqual(len(set(prof)), 1, (plano, fx, giro, prof))
+                    for b in E.barras_de(est):
+                        self.assertTrue(b.Shape.isValid())
+                        self.assertEqual(len(b.Shape.Solids), 1)
+                    for o in E.barras_de(est):
+                        self.doc.removeObject(o.Name)
+                    self.doc.removeObject(est.Name)
+
     def test_quatro_barras_validas(self):
         sk, est, bs = self._quadro()
         self.assertEqual(len(bs), 4)
@@ -2156,6 +2229,38 @@ class T25EstruturaInterface(unittest.TestCase):
         self.assertEqual([b.Perfil for b in bs], ["W 150 x 13,0"] * 4)
         self.assertEqual(list(est.GrupoDaAresta), [0, 0, 0, 0])
 
+    def test_giro_individual_por_barra(self):
+        """Giro só de uma barra (somado ao do grupo), ao vivo; reabrir mostra o giro na linha."""
+        import PrumoEstrutura as E
+        self.doc.UndoMode = 1
+        d = E.DialogoEstrutura(self.sk, ao_vivo=True, linhas=[0, 1, 2, 3])
+        est = d.est
+        self._escolher_perfil(d, "W 150 x 13,0")    # perfil não simétrico: o giro muda a caixa
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        b1 = [b for b in E.barras_de(est) if b.Indice == 1][0]
+        bb = b1.Shape.BoundBox
+        d.tabela.selectRow(1)
+        d.girar_linhas([1], 90.0)
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertEqual(E.rotacoes_individuais(est), [0.0, 90.0, 0.0, 0.0])
+        self.assertAlmostEqual(float(E.parametros(est, 1)["giro"]), 90.0)
+        self.assertAlmostEqual(float(E.parametros(est, 0)["giro"]), 0.0)
+        bb2 = b1.Shape.BoundBox
+        self.assertNotAlmostEqual(bb.XLength, bb2.XLength, places=1, msg="a barra não girou")
+        d.giros[2].setValue(45.0)
+        d._timer.stop()
+        d._aplicar_ao_vivo()
+        self.assertAlmostEqual(E.rotacoes_individuais(est)[2], 45.0)
+        d._ok()
+        d2 = E.DialogoEstrutura(self.sk, est, ao_vivo=True)
+        self.assertEqual(len(d2.grupos_ed), 1, "o giro de uma barra não deve virar grupo")
+        self.assertEqual(d2.giro_linha, [0.0, 90.0, 45.0, 0.0])
+        self.assertAlmostEqual(d2.giros[1].value(), 90.0)
+        d2.reject()
+        self.assertEqual(E.rotacoes_individuais(est), [0.0, 90.0, 45.0, 0.0])
+
     def test_trocar_familia_atualiza_o_grupo(self):
         """Trocar só a família (cai no primeiro perfil da lista) também muda o perfil do grupo."""
         import PrumoEstrutura as E
@@ -3072,6 +3177,214 @@ class T33PaineisVisuais(unittest.TestCase):
         tp.pontas.setCurrentText("Início")
         self.assertIsNone(tp.pendencia())
         self.assertTrue(tp.accept())
+
+    # ---- prévia ao vivo e marcas Início/Fim
+    def _conta(self, prop):
+        return [o for o in self.doc.Objects if prop in o.PropertiesList]
+
+    def _fechar(self):
+        if FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+
+    def test_placa_previa_ao_vivo_e_marcas(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura()
+        p = X.PainelPlaca().mostrar()
+        try:
+            self.assertEqual(self._conta("DistanciaBorda"), [])
+            p.barras.aceitar(bs[1])
+            p.atualizar_previa()
+            placas = self._conta("DistanciaBorda")
+            self.assertEqual(len(placas), 1, "a placa não apareceu na hora")
+            # marcas Início e Fim na barra, com a ponta escolhida destacada
+            self.assertIsNotNone(p._etiquetas)
+            self.assertEqual(len(p._etiquetas), 2)
+            p.ponta.setCurrentText("Início")
+            p.atualizar_previa()
+            z_ini = self._conta("DistanciaBorda")[0].Shape.BoundBox.Center
+            self.assertEqual(p._etiquetas.destacado, [0], "a ponta escolhida não ficou destacada")
+            p.ponta.setCurrentText("Fim")
+            p.atualizar_previa()
+            placas = self._conta("DistanciaBorda")
+            self.assertEqual(len(placas), 1, "a prévia antiga ficou no desenho")
+            self.assertGreater((placas[0].Shape.BoundBox.Center - z_ini).Length, 100.0)
+            p.esp.setValue(25.0)
+            p.atualizar_previa()
+            self.assertEqual(len(self._conta("DistanciaBorda")), 1)
+            self.assertTrue(p.reject())
+        finally:
+            self._fechar()
+        self.assertEqual(self._conta("DistanciaBorda"), [], "Cancelar não tirou a prévia")
+        self.assertIsNone(p._etiquetas, "as marcas ficaram na tela")
+
+    def test_previa_ok_grava_e_desfazer_tira_de_uma_vez(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura()
+        p = X.PainelTampa().mostrar()
+        try:
+            p.barras.aceitar(bs[0])
+            p.pontas.setCurrentText("As duas pontas")
+            p.atualizar_previa()
+            self.assertEqual(len(self._conta("Recuo")), 2)
+            p.pontas.setCurrentText("Início")
+            p.atualizar_previa()
+            self.assertEqual(len(self._conta("Recuo")), 1)
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertEqual(len(self._conta("Recuo")), 1)
+        self.doc.undo()
+        self.assertEqual(self._conta("Recuo"), [], "OK deveria ser um passo só no Desfazer")
+
+    def test_reforco_previa_e_marcas_das_barras(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura()
+        p = X.PainelReforco().mostrar()
+        try:
+            p.barras.aceitar(bs[0])
+            p.barras.aceitar(bs[1])
+            p.atualizar_previa()
+            refs = self._conta("Perna1")
+            self.assertEqual(len(refs), 1)
+            v1 = refs[0].Shape.Volume
+            p.perna1.setValue(300.0)
+            p.atualizar_previa()
+            refs = self._conta("Perna1")
+            self.assertEqual(len(refs), 1)
+            self.assertGreater(refs[0].Shape.Volume, v1)
+            self.assertEqual(len(p._etiquetas), 2)
+        finally:
+            p.reject()
+            self._fechar()
+        self.assertEqual(self._conta("Perna1"), [])
+
+    def test_solda_previa(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        est, _bs = self._estrutura()
+        p = X.PainelSolda().mostrar()
+        try:
+            p.pecas.aceitar(est)
+            p.atualizar_previa()
+            n = len(X.lista_de_soldas([est]))
+            self.assertGreaterEqual(n, 4)
+            p.perna.setValue(8.0)
+            p.atualizar_previa()
+            self.assertEqual(len(X.lista_de_soldas([est])), n, "a prévia duplicou os cordões")
+        finally:
+            p.reject()
+            self._fechar()
+        self.assertEqual(len(X.lista_de_soldas([est])), 0)
+
+    # ---- duplo clique na árvore: o mesmo painel, editando o objeto
+    def _duplo_clique(self, obj):
+        self.assertTrue(obj.ViewObject.Proxy.doubleClicked(obj.ViewObject))
+        import PrumoPainel as P
+        p = P._ATIVO["painel"]
+        self.assertIsNotNone(p)
+        return p
+
+    def test_duplo_clique_edita_placa_no_lugar(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura("W 150 x 13,0")
+        placa = X.criar_placa_base(bs[1], "Início", Espessura=16.0)
+        nome = placa.Name
+        p = self._duplo_clique(placa)
+        try:
+            self.assertIs(p.editando, placa)
+            self.assertEqual(p.barras.valores(), [bs[1]])
+            self.assertAlmostEqual(p.esp.value(), 16.0)
+            self.assertEqual(p.ponta.currentText(), "Início")
+            p.esp.setValue(30.0)
+            p.atualizar_previa()
+            self.assertAlmostEqual(placa.Espessura.Value, 30.0, msg="a prévia não mexeu na placa")
+            self.assertEqual(len(self._conta("DistanciaBorda")), 1, "a edição criou outra placa")
+            self.assertTrue(p.reject())
+        finally:
+            self._fechar()
+        self.doc.recompute()
+        self.assertAlmostEqual(placa.Espessura.Value, 16.0, msg="Cancelar não voltou a espessura")
+        # de novo, agora com OK
+        p = self._duplo_clique(placa)
+        try:
+            p.esp.setValue(25.0)
+            p.ponta.setCurrentText("Fim")
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertEqual(placa.Name, nome)
+        self.assertAlmostEqual(placa.Espessura.Value, 25.0)
+        self.assertEqual(placa.Ponta, "Fim")
+        self.doc.undo()
+        self.assertAlmostEqual(placa.Espessura.Value, 16.0)
+
+    def test_duplo_clique_reforco_tampa_solda(self):
+        import PrumoEstruturaExtras as X
+        self.doc.UndoMode = 1
+        _est, bs = self._estrutura()
+        ref = X.criar_reforco(bs[0], bs[1], Perna1=150.0)
+        p = self._duplo_clique(ref)
+        try:
+            self.assertEqual(p.barras.valores(), [bs[0], bs[1]])
+            p.perna1.setValue(220.0)
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertAlmostEqual(ref.Perna1.Value, 220.0)
+        tampa = X.criar_tampa(bs[0], "Início")
+        p = self._duplo_clique(tampa)
+        try:
+            self.assertEqual(p.pontas.currentText(), "Início")
+            p.pontas.setCurrentText("Fim")
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertEqual(tampa.Ponta, "Fim")
+        solda = X.criar_solda([bs[0], bs[1]], 5.0)
+        p = self._duplo_clique(solda)
+        try:
+            self.assertEqual(p.pecas.valores(), [bs[0], bs[1]])
+            p.perna.setValue(7.0)
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertAlmostEqual(solda.Perna.Value, 7.0)
+        self.assertEqual(len([o for o in self.doc.Objects if "Perna1" in o.PropertiesList]), 1)
+
+    def test_duplo_clique_estrutura_e_barra(self):
+        import PrumoEstrutura as E
+        est, bs = self._estrutura()
+        self.assertTrue(est.ViewObject.Proxy.doubleClicked(est.ViewObject))
+        d = E._dialogos[-1]
+        self.assertIs(d.est, est)
+        self.assertTrue(d.ao_vivo)
+        d.reject()
+        self.assertTrue(bs[2].ViewObject.Proxy.doubleClicked(bs[2].ViewObject))
+        d = E._dialogos[-1]
+        self.assertEqual(sorted({ix.row() for ix in d.tabela.selectedIndexes()}), [bs[2].Indice])
+        d.reject()
+
+    def test_duplo_clique_fixador(self):
+        import PrumoFixadores as F
+        self.doc.UndoMode = 1
+        o = F.criar(self.doc, "sextavado", "M8", 30.0)
+        p = self._duplo_clique(o)
+        try:
+            self.assertEqual(p.diam.currentText(), "M8")
+            p.diam.setCurrentText("M10")
+            p.comp.setEditText("40")
+            p.atualizar_previa()
+            self.assertEqual(o.Diametro, "M10")
+            self.assertEqual(len([x for x in self.doc.Objects if x.TypeId == "Part::FeaturePython"
+                                  and "Diametro" in x.PropertiesList]), 1)
+            self.assertTrue(p.accept())
+        finally:
+            self._fechar()
+        self.assertIn("M10", o.Label)
 
     def test_folha_pelo_painel(self):
         import PrumoFolhas

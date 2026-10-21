@@ -170,6 +170,18 @@ class VPExtra:
         nome = getattr(tipo, "ICONE", self.icone)
         return PrumoUtil.icone(nome)
 
+    def doubleClicked(self, vobj):
+        """Duplo clique na árvore: abre o mesmo painel da criação, editando este objeto."""
+        return abrir_edicao(vobj.Object) is not None
+
+    def setEdit(self, vobj, mode=0):
+        if mode != 0:
+            return None   # outros modos (ex.: Transformar) seguem o padrão do FreeCAD
+        return abrir_edicao(vobj.Object) is not None
+
+    def unsetEdit(self, vobj, mode=0):
+        return False
+
     def dumps(self):
         return None
 
@@ -493,6 +505,11 @@ def _novo(doc, classe, nome, rotulo, **props):
 
 
 def _transacao(doc, titulo, f):
+    import PrumoPainel
+    if PrumoPainel.EM_PREVIA["ativa"]:   # prévia de um painel: a transação é a do painel
+        o = f()
+        doc.recompute()
+        return o
     doc.openTransaction(titulo)
     try:
         o = f()
@@ -630,8 +647,41 @@ def em_T(a, b):
                          eds[y.Indice].valueAt(eds[y.Indice].LastParameter)))
 
 
+def _marcas_pontas(barras, escolhidas):
+    """Marcas "Início" e "Fim" nas pontas das barras; escolhidas(b) → pontas destacadas (0, 1)."""
+    res = []
+    for b in barras:
+        try:
+            quer = set(escolhidas(b))
+        except Exception:
+            quer = set()
+        for k, nome in enumerate(PONTAS):
+            try:
+                p = ponta(b, k)[0]
+            except Exception:
+                continue
+            res.append((p, nome, k in quer))
+    return res
+
+
+def _meio_da_barra(b):
+    _est, eds, _n, _s = _contexto(b)
+    e = eds[b.Indice]
+    return e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+
+
 class PainelReforco(P.PainelTarefa):
     titulo = "Reforço (mão-francesa)"
+    previa = True
+
+    def marcas(self):
+        res = []
+        for k, b in enumerate(self.barras.valores()):
+            try:
+                res.append((_meio_da_barra(b), "%dª barra" % (k + 1), False))
+            except Exception:
+                pass
+        return res
     ajuda = "Selecione as duas barras do canto (ou da ligação em T)."
 
     def montar(self):
@@ -693,6 +743,24 @@ class PainelReforco(P.PainelTarefa):
                     Ponta=self.ponta_h.value(), Espessura=self.esp.value(), Chanfro=self.chanfro.value(),
                     Posicao=self.posicao.currentText(), Material=self.material.text().strip())
 
+    def carregar(self, obj):
+        for b in (obj.BarraA, obj.BarraB):
+            if b is not None:
+                self.barras.aceitar(b)
+        self.tipo.setCurrentText(obj.Tipo)
+        self.perna1.setValue(obj.Perna1.Value)
+        self.perna2.setValue(obj.Perna2.Value)
+        self.ponta_h.setValue(obj.Ponta.Value)
+        self.esp.setValue(obj.Espessura.Value)
+        self.chanfro.setValue(obj.Chanfro.Value)
+        self.posicao.setCurrentText(obj.Posicao)
+        self.material.setText(obj.Material)
+        self.lados.setEnabled(False)
+
+    def props_edicao(self):
+        a, b = self.barras.valores()
+        return dict(self.props(), BarraA=a, BarraB=b)
+
     def executar(self):
         a, b = self.barras.valores()
         _guardar_material(self.material.text().strip())
@@ -718,6 +786,10 @@ def _ponta_de_baixo(b):
 
 class PainelTampa(P.PainelTarefa):
     titulo = "Tampa de extremidade"
+    previa = True
+
+    def marcas(self):
+        return _marcas_pontas(self.barras.valores(), self.pontas_da)
     ajuda = "Selecione as barras de tubo (redondo ou quadrado) que recebem tampa."
     ESCOLHAS = ["Pontas livres", "Início", "Fim", "As duas pontas"]
 
@@ -754,6 +826,22 @@ class PainelTampa(P.PainelTarefa):
         return dict(Tipo=self.tipo.currentText(), Espessura=self.esp.value(), Folga=self.folga.value(),
                     Recuo=self.recuo.value(), Material=self.material.text().strip())
 
+    def carregar(self, obj):
+        self.barras.maximo = 1
+        if obj.Barra is not None:
+            self.barras.aceitar(obj.Barra)
+        self.pontas.setCurrentText(obj.Ponta)
+        self.tipo.setCurrentText(obj.Tipo)
+        self.esp.setValue(obj.Espessura.Value)
+        self.folga.setValue(obj.Folga.Value)
+        self.recuo.setValue(obj.Recuo.Value)
+        self.material.setText(obj.Material)
+
+    def props_edicao(self):
+        b = self.barras.valores()[0]
+        ks = self.pontas_da(b) or [0]
+        return dict(self.props(), Barra=b, Ponta=PONTAS[ks[0]])
+
     def pendencia(self):
         falta = super().pendencia()
         if falta:
@@ -772,6 +860,10 @@ class PainelTampa(P.PainelTarefa):
 
 class PainelPlaca(P.PainelTarefa):
     titulo = "Placa de base"
+    previa = True
+
+    def marcas(self):
+        return _marcas_pontas(self.barras.valores(), lambda b: [self.ponta_da(b)])
     ajuda = "Selecione as colunas (barras) que recebem a placa."
     ESCOLHAS = ["Ponta de baixo", "Início", "Fim"]
 
@@ -804,6 +896,23 @@ class PainelPlaca(P.PainelTarefa):
                     Furos=self.furos.currentText(), DiametroFuro=self.diam.value(),
                     DistanciaBorda=self.borda.value(), Material=self.material.text().strip())
 
+    def carregar(self, obj):
+        self.barras.maximo = 1
+        if obj.Barra is not None:
+            self.barras.aceitar(obj.Barra)
+        self.ponta.setCurrentText(obj.Ponta)
+        self.larg.setValue(obj.Largura.Value)
+        self.comp.setValue(obj.Comprimento.Value)
+        self.esp.setValue(obj.Espessura.Value)
+        self.furos.setCurrentText(obj.Furos)
+        self.diam.setValue(obj.DiametroFuro.Value)
+        self.borda.setValue(obj.DistanciaBorda.Value)
+        self.material.setText(obj.Material)
+
+    def props_edicao(self):
+        b = self.barras.valores()[0]
+        return dict(self.props(), Barra=b, Ponta=PONTAS[self.ponta_da(b)])
+
     def executar(self):
         _guardar_material(self.material.text().strip())
         feitos = [criar_placa_base(b, PONTAS[self.ponta_da(b)], **self.props()) for b in self.barras.valores()]
@@ -813,6 +922,7 @@ class PainelPlaca(P.PainelTarefa):
 
 class PainelSolda(P.PainelTarefa):
     titulo = "Cordão de solda"
+    previa = True
     ajuda = "Selecione a estrutura inteira (solda todas as juntas) ou duas ou mais peças que se tocam."
 
     def montar(self):
@@ -850,6 +960,20 @@ class PainelSolda(P.PainelTarefa):
             return "Pronto: um cordão em cada junta de %s." % ", ".join(e.Label for e in ests)
         return "Pronto: um cordão nas linhas de contato entre as peças."
 
+    def carregar(self, obj):
+        for p in obj.Pecas:
+            if p is not None:
+                self.pecas.aceitar(p)
+        self.perna.setValue(obj.Perna.Value)
+        self.processo.setCurrentText(obj.Processo)
+        self.eletrodo.setText(obj.Eletrodo)
+        self.obs.setText(obj.Observacao)
+
+    def props_edicao(self):
+        _ests, pecas = self._divide()
+        return dict(Pecas=pecas, Perna=self.perna.value(), Processo=self.processo.currentText(),
+                    Eletrodo=self.eletrodo.text().strip(), Observacao=self.obs.text().strip())
+
     def guardar(self):
         g = FreeCAD.ParamGet(PrumoUtil.PARAM_PATH)
         g.SetFloat("UltimaPernaSolda", self.perna.value())
@@ -869,6 +993,23 @@ class PainelSolda(P.PainelTarefa):
         feitos = [criar_solda(pecas, *args)]
         _relatar(feitos)
         return feitos
+
+
+def painel_de(obj):
+    """Classe do painel que edita o objeto (ou None)."""
+    proxy = getattr(obj, "Proxy", None)
+    return {Reforco: PainelReforco, Tampa: PainelTampa, PlacaBase: PainelPlaca,
+            Solda: PainelSolda}.get(type(proxy))
+
+
+def abrir_edicao(obj):
+    cls = painel_de(obj)
+    if cls is None or not FreeCAD.GuiUp:
+        return None
+    FreeCADGui.Selection.clearSelection()
+    p = cls()
+    p.editar_objeto(obj)
+    return p.mostrar()
 
 
 def juntas_da_estrutura(est):
@@ -904,6 +1045,9 @@ def _aviso(titulo, texto):
 
 def _relatar(objs):
     ruins = [o for o in objs if getattr(o, "Avisos", None)]
+    if ruins and P.EM_PREVIA["ativa"]:   # prévia: os avisos aparecem no próprio painel
+        P.EM_PREVIA["avisos"] += ["%s: %s" % (o.Label, "; ".join(o.Avisos)) for o in ruins]
+        return
     if ruins:
         _aviso("Prumo 3D", "\n".join("%s: %s" % (o.Label, "; ".join(o.Avisos)) for o in ruins))
 

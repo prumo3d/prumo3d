@@ -351,6 +351,7 @@ def agrupar_selecao(raiz, subs):
 
 
 _ATIVO = {"painel": None}   # painel do Prumo aberto no painel de tarefas
+EM_PREVIA = {"ativa": False, "avisos": []}   # durante a prévia: avisos vão para o painel, sem janela
 
 
 class CaixaSelecao(QtWidgets.QFrame):
@@ -526,14 +527,28 @@ class PainelTarefa:
     ajuda = ""
     icone_cmd = None
     texto_ok = "OK"
+    previa = False   # True: o resultado aparece no desenho enquanto se mexe no painel (OK grava)
 
     def __init__(self):
+        self.editando = None
         self.form = Formulario(self.titulo, self.icone_cmd, self.ajuda)
+        self._transacao_previa = False
+        self._doc_previa = None
+        self._previa_nomes = []
+        self._previa_erro = None
+        self._etiquetas = None
+        self._timer_previa = None
         self.montar()
         self.form.fechar_layout()
         self._observando = False
         for c in self.form.caixas:
             c.mudou.connect(self.atualizar)
+        if self.previa:
+            self._timer_previa = QtCore.QTimer(self.form)
+            self._timer_previa.setSingleShot(True)
+            self._timer_previa.setInterval(250)
+            self._timer_previa.timeout.connect(self.atualizar_previa)
+            self._ligar_mudancas()
         self._preencher_com_selecao()
         self.atualizar()
 
@@ -627,8 +642,183 @@ class PainelTarefa:
         falta = self.pendencia()
         if falta:
             self.form.mensagem.mostrar(falta, "info")
+        elif self._previa_erro:
+            self.form.mensagem.mostrar(self._previa_erro, "erro")
         else:
             self.form.mensagem.mostrar(self.pronto_texto(), "ok")
+        self._mudou()
+        self.mostrar_marcas()
+
+    # ---- edição de um objeto já feito (duplo clique na árvore)
+    def editar_objeto(self, obj):
+        """O painel passa a editar obj (em vez de criar outro): carrega os valores dele; a prévia
+        muda o próprio objeto, OK grava e Cancelar volta ao que era."""
+        self.editando = obj
+        self.form.setWindowTitle("Editar: %s" % obj.Label)
+        for c in self.form.caixas:
+            c.limpar()
+        self.carregar(obj)
+        self.atualizar()
+        return self
+
+    def carregar(self, obj):
+        """Preenche o painel com os valores de obj (subclasses)."""
+
+    def props_edicao(self):
+        """{propriedade: valor} que o painel grava no objeto em edição (subclasses)."""
+        return {}
+
+    def aplicar_edicao(self, obj):
+        mudou = False
+        for k, v in self.props_edicao().items():
+            if k not in obj.PropertiesList:
+                continue
+            atual = getattr(obj, k)
+            if hasattr(atual, "Value") and not hasattr(v, "Value"):
+                atual = atual.Value
+            if atual != v:
+                setattr(obj, k, v)
+                mudou = True
+        if mudou:
+            obj.touch()
+        return obj
+
+    # ---- prévia ao vivo (previa = True)
+    def _ligar_mudancas(self):
+        """Qualquer campo do painel que muda refaz a prévia."""
+        for w in self.form.findChildren(QtWidgets.QLineEdit):
+            w.textChanged.connect(self._campo_mudou)
+        for w in self.form.findChildren(QtWidgets.QComboBox):
+            w.currentIndexChanged.connect(self._campo_mudou)
+        for w in self.form.findChildren(QtWidgets.QDoubleSpinBox) + self.form.findChildren(QtWidgets.QSpinBox):
+            w.valueChanged.connect(self._campo_mudou)
+        for w in self.form.findChildren(QtWidgets.QAbstractButton):
+            if w.isCheckable():
+                w.toggled.connect(self._campo_mudou)
+
+    def _campo_mudou(self, *_a):
+        self._mudou()
+        self.mostrar_marcas()
+
+    def _mudou(self):
+        if self._transacao_previa and self._timer_previa is not None:
+            self._timer_previa.start()
+
+    def _remover_previa(self):
+        doc = self._doc_previa
+        for nome in reversed(self._previa_nomes):
+            try:
+                if doc is not None and doc.getObject(nome) is not None:
+                    doc.removeObject(nome)
+            except Exception:
+                pass
+        self._previa_nomes = []
+
+    def atualizar_previa(self):
+        """Refaz o resultado no desenho (dentro da transação aberta pelo painel)."""
+        if not self._transacao_previa or not self._vivo():
+            return
+        doc = self._doc_previa
+        self._remover_previa()
+        self._previa_erro = None
+        if self.pendencia() is None and self.editando is not None:
+            try:
+                self.aplicar_edicao(self.editando)
+                doc.recompute()
+                avisos = list(getattr(self.editando, "Avisos", []) or [])
+                if avisos:
+                    self._previa_erro = "%s: %s" % (self.editando.Label, "; ".join(avisos))
+            except Exception as ex:
+                self._previa_erro = str(ex)
+        elif self.pendencia() is None:
+            antes = {o.Name for o in doc.Objects}
+            EM_PREVIA["ativa"] = True
+            EM_PREVIA["avisos"] = []
+            try:
+                self.executar()
+            except Exception as ex:
+                self._previa_erro = str(ex)
+            finally:
+                EM_PREVIA["ativa"] = False
+            self._previa_nomes = [o.Name for o in doc.Objects if o.Name not in antes]
+            if EM_PREVIA["avisos"] and not self._previa_erro:
+                self._previa_erro = "; ".join(EM_PREVIA["avisos"])
+            try:
+                doc.recompute()
+            except Exception:
+                pass
+        falta = self.pendencia()
+        if falta:
+            self.form.mensagem.mostrar(falta, "info")
+        elif self._previa_erro:
+            self.form.mensagem.mostrar(self._previa_erro, "erro")
+        else:
+            self.form.mensagem.mostrar(self.pronto_texto(), "ok")
+        self.mostrar_marcas()
+
+    def _iniciar_previa(self):
+        doc = FreeCAD.ActiveDocument
+        if not self.previa or doc is None:
+            return
+        self._doc_previa = doc
+        doc.openTransaction(self.titulo)
+        self._transacao_previa = True
+        self.atualizar_previa()
+
+    def _fechar_previa(self, gravar):
+        if self._timer_previa is not None:
+            try:
+                self._timer_previa.stop()
+            except RuntimeError:
+                pass
+        if not self._transacao_previa:
+            return
+        doc = self._doc_previa
+        self._transacao_previa = False
+        if gravar:
+            doc.commitTransaction()
+        else:
+            nomes = list(self._previa_nomes)
+            try:
+                doc.abortTransaction()
+            except Exception:
+                pass
+            self._previa_nomes = nomes
+            self._remover_previa()   # sem Desfazer ligado no documento
+        self._previa_nomes = []
+        try:
+            doc.recompute()
+        except Exception:
+            pass
+
+    # ---- marcas na tela (ex.: Início / Fim das barras)
+    def marcas(self):
+        """[(ponto, texto, destacado)] desenhados sobre a vista 3D enquanto o painel está aberto."""
+        return []
+
+    def mostrar_marcas(self):
+        if not FreeCAD.GuiUp or not self._vivo():
+            return
+        try:
+            lst = self.marcas()
+        except Exception:
+            lst = []
+        self.remover_marcas()
+        doc = FreeCAD.ActiveDocument
+        if not lst or doc is None:
+            return
+        try:
+            import PrumoEstrutura
+            self._etiquetas = PrumoEstrutura.EtiquetasNaTela(doc, [p for p, _t, _d in lst],
+                                                             [t for _p, t, _d in lst])
+            self._etiquetas.destacar([k for k, (_p, _t, d) in enumerate(lst) if d])
+        except Exception:
+            self._etiquetas = None
+
+    def remover_marcas(self):
+        if self._etiquetas is not None:
+            self._etiquetas.remover()
+            self._etiquetas = None
 
     def pronto_texto(self):
         return "Pronto. Confira os valores e clique em OK."
@@ -666,9 +856,12 @@ class PainelTarefa:
         FreeCADGui.Control.showDialog(self)
         _ATIVO["painel"] = self
         self.aberto = True
+        self._iniciar_previa()
         return self
 
     def _parar(self):
+        if getattr(self, "_transacao_previa", False):   # fechado sem OK nem Cancelar: desfaz a prévia
+            self._fechar_previa(False)
         if self._observando:
             try:
                 FreeCADGui.Selection.removeObserver(self)
@@ -686,11 +879,31 @@ class PainelTarefa:
         if falta:
             self.form.mensagem.mostrar(falta, "erro")
             return False
+        if self._transacao_previa:
+            # a prévia já é o resultado: confere se está em dia e grava
+            if self._timer_previa is not None and self._timer_previa.isActive():
+                self._timer_previa.stop()
+                self.atualizar_previa()
+            if self._previa_erro and not self._previa_nomes and self.editando is None:
+                self.form.mensagem.mostrar(self._previa_erro, "erro")
+                return False
+            doc = self._doc_previa
+            self.resultado = [doc.getObject(n) for n in self._previa_nomes if doc.getObject(n) is not None]
+            if self.editando is not None:
+                self.resultado = [self.editando]
+            self._previa_nomes = []
+            self._fechar_previa(True)
+            self.remover_marcas()
+            self._parar()
+            return True
         doc = FreeCAD.ActiveDocument
         if doc is not None:
             doc.openTransaction(self.titulo)
         try:
-            self.resultado = self.executar()
+            if self.editando is not None:
+                self.resultado = [self.aplicar_edicao(self.editando)]
+            else:
+                self.resultado = self.executar()
         except Exception as ex:
             if doc is not None:
                 doc.abortTransaction()
@@ -703,6 +916,8 @@ class PainelTarefa:
         return True      # o FreeCAD fecha o painel
 
     def reject(self):
+        self._fechar_previa(False)
+        self.remover_marcas()
         self._parar()
         return True
 
@@ -714,6 +929,8 @@ class PainelTarefa:
 
     def close(self):
         """Descarta o painel sem executar (uso fora do painel de tarefas, como nos testes)."""
+        self._fechar_previa(False)
+        self.remover_marcas()
         self._parar()
         try:
             self.form.deleteLater()
