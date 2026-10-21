@@ -64,7 +64,7 @@ BrandingText " "
 !define MUI_FINISHPAGE_RUN_PARAMETERS "$\"$INSTDIR\${APP_RUN}$\""
 
 !define MUI_FINISHPAGE_LINK $(TEXT_FINISH_WEBSITE)
-!define MUI_FINISHPAGE_LINK_LOCATION "https://www.freecad.org/"
+!define MUI_FINISHPAGE_LINK_LOCATION "${APP_WEBPAGE}"
 #!define MUI_PAGE_CUSTOMFUNCTION_SHOW CheckDesktopShortcut
 !insertmacro MUI_PAGE_FINISH
 
