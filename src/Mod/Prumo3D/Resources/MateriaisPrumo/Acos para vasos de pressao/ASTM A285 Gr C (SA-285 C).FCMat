@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "ASTM A285 Gr C (SA-285 C)"
-  Description: "Limites mínimos da especificação ASTM A285 / ASME SA-285 Grade C. Fonte da conferência: aasteel.com, SSAB. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
+  Description: "LR 380 a 515 MPa. Limites mínimos da especificação ASTM A285 / ASME SA-285 Grade C. Fonte da conferência: aasteel.com, SSAB. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'

@@ -65,7 +65,7 @@ class VPAnalise:
         return PrumoUtil.icone("estrutura.svg")
 
     def updateData(self, obj, prop):
-        if prop in ("Situacao", "TaxaMaxima", "Mostrar", "Combinacao", "Escala", "Apoios", "Casos", "Resumo"):
+        if prop in ("Situacao", "TaxaMaxima", "Mostrar", "Combinacao", "Escala", "Apoios", "Casos", "Resumo", "Modo"):
             self.redesenhar()
 
     def onChanged(self, vobj, prop):
@@ -134,6 +134,8 @@ class VPAnalise:
                 self._deformada(m, r, tam, obj.Escala)
             elif mostrar == A.DEFORMADA_TAXA:
                 self._deformada(m, r, tam, obj.Escala, calc)
+            elif mostrar == A.MODO_VIBRAR:
+                self._modo(m, calc, tam, obj)
             else:
                 chave = {"Momento fletor (M)": "My", "Esforço cortante (V)": "Vz",
                          "Esforço normal (N)": "N"}[mostrar]
@@ -219,6 +221,12 @@ class VPAnalise:
                  "Rolete (vertical)": (coin.SoMarkerSet.CIRCLE_FILLED_9_9, (0.0, 0.23, 0.44))}
         for k, tipo in obj.Proxy.apoios(obj).items():
             p = A._ponto_da_chave(k)
+            if tipo.startswith("Mola"):
+                kx, _ky, kz = A.rigidez_mola(tipo)
+                self._marcas([p], (0.55, 0.30, 0.05), coin.SoMarkerSet.DIAMOND_FILLED_9_9)
+                self._texto((p[0], p[1], p[2] - 0.04 * tam), "Mola %s/%s kN/mm" % (_f(kx), _f(kz)),
+                            (0.55, 0.30, 0.05), 12)
+                continue
             idx, cor = tipos.get(tipo, tipos["Engaste"])
             self._marcas([p], cor, idx)
             self._texto((p[0], p[1], p[2] - 0.04 * tam), tipo.split(" ")[0], cor, 13)
@@ -232,12 +240,13 @@ class VPAnalise:
                 continue
             p0, t, L = calc.mapa["linhas"][i]
             d = min(0.04 * tam, 0.2 * L)
-            if tipo in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça"):
+            if tipo in ("Rótula no início", "Rótula nas duas pontas") or tipo in A.TRELICAS:
                 pts.append(p0 + t * d)
-            if tipo in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça"):
+            if tipo in ("Rótula no fim", "Rótula nas duas pontas") or tipo in A.TRELICAS:
                 pts.append(p0 + t * (L - d))
-            if tipo == "Barra de treliça":
-                self._texto(p0 + t * (L / 2.0), "treliça", (0.35, 0.35, 0.35), 11)
+            if tipo in A.TRELICAS:
+                self._texto(p0 + t * (L / 2.0), "treliça" if tipo == A.TRELICAS[0] else "só tração",
+                            (0.35, 0.35, 0.35), 11)
         self._marcas(pts, (0.0, 0.0, 0.0), coin.SoMarkerSet.CIRCLE_LINE_9_9)
 
     def _cargas(self, obj, calc, tam):
@@ -336,6 +345,25 @@ class VPAnalise:
         self._linhas(segs_pos, (0.20, 0.45, 0.80), 1)
         self._linhas(segs_neg, (0.85, 0.30, 0.20), 1)
 
+    def _modo(self, m, calc, tam, obj):
+        import numpy as np
+        modos = getattr(calc, "modos", None)
+        k = max(1, int(getattr(obj, "Modo", 1) or 1)) - 1
+        if not modos or k >= len(modos):
+            self._texto(_meio_modelo(m), "Calcule as frequências no painel (Resultados)", (0.6, 0.3, 0.1), 13)
+            return
+        f, phi = modos[k]
+        maxd = max(float(np.linalg.norm(phi[6 * n:6 * n + 3])) for n in range(len(m.nos))) or 1.0
+        esc = 0.08 * tam / maxd * (obj.Escala or 1.0)
+        segs = []
+        for b in m.barras:
+            a = m.nos[b.i] + phi[6 * b.i:6 * b.i + 3] * esc
+            c = m.nos[b.j] + phi[6 * b.j:6 * b.j + 3] * esc
+            segs.append([_vec(*a), _vec(*c)])
+        self._linhas(segs, (0.45, 0.20, 0.65), 4)
+        if not OPCOES["sem_titulo"]:
+            self._texto(_meio_modelo(m), "Modo %d · %s Hz" % (k + 1, _f(f, 2)), (0.45, 0.20, 0.65), 14)
+
     def _deformada(self, m, r, tam, escala, calc=None):
         import numpy as np
         maxd = max((float(np.linalg.norm(r.u[6 * n:6 * n + 3])) for n in range(len(m.nos))), default=0.0)
@@ -418,7 +446,8 @@ MODOS_CLIQUE = [("apoio", "Pôr apoio", "selecao", "Clique num nó (ponta de bar
                 ("detalhe", "Detalhar nó", "info", "Clique num nó (ligação ou apoio) para calcular o detalhe "
                  "por elementos finitos sólidos")]
 TIPOS_CARGA = ["Distribuída (kN/m)", "Concentrada na barra (kN)", "Distribuída variável / parcial (kN/m)"]
-ACOES_ROTULA = ["Rótula na ponta clicada", "Barra de treliça (rótula nas duas pontas)", "Tirar as rótulas da barra"]
+ACOES_ROTULA = ["Rótula na ponta clicada", "Barra de treliça (rótula nas duas pontas)", "Tirar as rótulas da barra",
+                "Contraventamento só tração"]
 
 
 class PainelAnalise(P.PainelTarefa):
@@ -451,18 +480,23 @@ class PainelAnalise(P.PainelTarefa):
         i = self.material.findData(obj.Material)
         self.material.setCurrentIndex(max(0, i))
         self.flecha = s0.linha("comprimento", P.lista(list(A.LIMITES_FLECHA), obj.LimiteFlecha),
-                               "Limite de flecha das vigas (Anexo C da NBR 8800).", "Flecha")
-        self.k = s0.linha("comprimento", P.numero(obj.K or 1.0, 0.5, 5.0, "", 2),
-                          "Coeficiente de flambagem: 1,0 para barras contraventadas (E.2.1.2); pilar em "
-                          "balanço, 2,1 (Tabela E.1).", "K (flambagem)")
+                               "Limite de flecha das vigas (Anexo B da NBR 8800:2024).", "Flecha")
+        # NBR 8800:2024 não usa K: o campo fica fora da tela (a propriedade antiga é mantida no arquivo)
+        self.k = P.numero(obj.K or 1.0, 0.5, 5.0, "", 2)
+        self.k.setVisible(False)
         aviso = s0.texto("<span style='color:#B5523F'>%s</span>" % _norma())
         # ---- clique
         s1 = f.secao("O clique na tela", "selecao")
         self.modo = P.Opcoes([(k, t, ic, d) for k, t, ic, d in MODOS_CLIQUE], "apoio")
         s1.widget(self.modo)
-        self.tipo_apoio = s1.linha("tipo", P.lista(list(A.APOIOS) + ["Tirar apoio"], "Engaste"),
+        self.tipo_apoio = s1.linha("tipo", P.lista(list(A.APOIOS) + ["Mola (kN/mm)", "Tirar apoio"], "Engaste"),
                                    "Engaste: trava tudo. Rótula: trava deslocamentos e solta rotações. Rolete: "
                                    "só trava a vertical.", "Apoio")
+        self.k_v = s1.linha("quantidade", P.numero(10.0, 0.0, 1e7, " kN/mm", 2), "Mola: rigidez vertical "
+                            "(apoio elástico: solo, viga de apoio, coxim).", "Mola vertical")
+        self.k_h = s1.linha("quantidade", P.numero(0.0, 0.0, 1e7, " kN/mm", 2), "Mola: rigidez horizontal, igual "
+                            "em X e Y (0 = solta na horizontal).", "Mola horizontal")
+        self.tipo_apoio.currentTextChanged.connect(lambda *_: self._campos_mola())
         self.lista_apoios = s1.widget(QtWidgets.QListWidget())
         self.lista_apoios.setMaximumHeight(90)
         self.acao_rotula = s1.linha("tipo", P.lista(ACOES_ROTULA), "Rótula: a ponta da barra não transmite momento "
@@ -500,6 +534,7 @@ class PainelAnalise(P.PainelTarefa):
                                 "do Início da barra. Variável: onde o trecho carregado começa.", "Posição")
         self.tipo_carga.currentIndexChanged.connect(lambda *_: self._campos_carga())
         self._campos_carga()
+        self._campos_mola()
         self.lista_cargas = s3.widget(QtWidgets.QListWidget())
         self.lista_cargas.setMaximumHeight(110)
         self.bt_tirar_carga = s3.widget(QtWidgets.QPushButton("Tirar a carga marcada"))
@@ -517,6 +552,12 @@ class PainelAnalise(P.PainelTarefa):
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setMinimumHeight(160)
         self.bt_memoria = s4.widget(QtWidgets.QPushButton("Memória de cálculo (PDF)…"))
+        self.bt_freq = s4.widget(QtWidgets.QPushButton("Frequências naturais (modos de vibrar)"))
+        self.bt_freq.setToolTip("Massa do peso próprio das barras e das cargas permanentes verticais. Útil para "
+                                "bancadas com motor, peneira ou bomba: fuja das frequências de operação.")
+        self.lista_modos = s4.widget(QtWidgets.QListWidget())
+        self.lista_modos.setMaximumHeight(110)
+        self.lista_modos.setVisible(False)
         self.bt_video = s4.widget(QtWidgets.QPushButton("Gravar vídeo do comportamento…"))
         self.bt_video.setToolTip("Vídeo com cargas e apoios, a deformada com as cores da taxa de uso, o momento "
                                  "fletor e as barras críticas (MP4 ou GIF)")
@@ -551,6 +592,8 @@ class PainelAnalise(P.PainelTarefa):
         self.bt_memoria.clicked.connect(self.memoria)
         self.bt_detalhe.clicked.connect(self.calcular_detalhe)
         self.bt_video.clicked.connect(self.video)
+        self.bt_freq.clicked.connect(self.calcular_modos)
+        self.lista_modos.currentRowChanged.connect(self._mostrar_modo)
         self.det_dist.valueChanged.connect(lambda *_: self.mostrar_marcas())
         self.modo.mudou.connect(self._modo_mudou)
         self._recarregar_casos()
@@ -639,6 +682,8 @@ class PainelAnalise(P.PainelTarefa):
 
     def por_apoio(self, ponto, tipo=None):
         tipo = tipo or self.tipo_apoio.currentText()
+        if tipo.startswith("Mola"):
+            tipo = A.texto_mola(self.k_h.value(), self.k_v.value())
         chave = A._chave_no(ponto)
         atuais = self.analise.Proxy.apoios(self.analise)
         if tipo == "Tirar apoio" or atuais.get(chave) == tipo:
@@ -745,6 +790,11 @@ class PainelAnalise(P.PainelTarefa):
             pass
 
     # ---- resultados
+    def _campos_mola(self):
+        mola = self.tipo_apoio.currentText().startswith("Mola")
+        self.k_v.setEnabled(mola)
+        self.k_h.setEnabled(mola)
+
     def _campos_carga(self):
         k = self.tipo_carga.currentIndex()
         self.posicao.setEnabled(k in (1, 2))
@@ -759,6 +809,8 @@ class PainelAnalise(P.PainelTarefa):
         atual = libs.get(i, "")
         if acao == 1:
             libs[i] = "Barra de treliça"
+        elif acao == 3:
+            libs[i] = A.TRELICAS[1]
         elif acao == 2:
             libs.pop(i, None)
         else:
@@ -783,6 +835,9 @@ class PainelAnalise(P.PainelTarefa):
         self.lista_apoios.clear()
         for k, tipo in obj.Proxy.apoios(obj).items():
             x, y, z = A._ponto_da_chave(k)
+            if tipo.startswith("Mola"):
+                kx, _ky, kz = A.rigidez_mola(tipo)
+                tipo = "Mola (H %s, V %s kN/mm)" % (_f(kx), _f(kz))
             self.lista_apoios.addItem("%s em (%s; %s; %s)" % (tipo, _f(x, 0), _f(y, 0), _f(z, 0)))
         if calc is None or calc.erro:
             self.resumo.setText("<span style='color:#B5523F'>%s</span>" % (obj.Situacao or "sem resultado"))
@@ -901,6 +956,35 @@ class PainelAnalise(P.PainelTarefa):
         except Exception:
             pass
         return detalhar_com_progresso(analise, ponto, comb, dist)
+
+    def calcular_modos(self):
+        calc = getattr(self.analise.Proxy, "calc", None)
+        if calc is None or calc.modelo is None or calc.erro:
+            self.form.mensagem.mostrar("Calcule a estrutura (apoios) antes das frequências.", "erro")
+            return None
+        try:
+            modos = A.frequencias(calc, self.casos(), 6)
+        except Exception as ex:
+            self.form.mensagem.mostrar("Frequências não calculadas: %s" % ex, "erro")
+            return None
+        self.lista_modos.clear()
+        for k, (f, _v) in enumerate(modos):
+            self.lista_modos.addItem("Modo %d: %s Hz" % (k + 1, _f(f, 2)))
+        self.lista_modos.setVisible(True)
+        self.lista_modos.setCurrentRow(0)
+        return modos
+
+    def _mostrar_modo(self, k):
+        if k < 0:
+            return
+        self.analise.Modo = k + 1
+        self.analise.Mostrar = A.MODO_VIBRAR
+        i = self.mostrar_r.findText(A.MODO_VIBRAR)
+        if i >= 0:
+            self.mostrar_r.blockSignals(True)
+            self.mostrar_r.setCurrentIndex(i)
+            self.mostrar_r.blockSignals(False)
+        self.analise.Document.recompute()
 
     def video(self):
         import PrumoVideo

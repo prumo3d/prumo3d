@@ -1446,11 +1446,14 @@ class T19VasoPressao(unittest.TestCase):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
         import PrumoVaso as V
-        d = V.DialogoVaso()
-        self.assertIn("tensão admissível", d.saida.toPlainText())
-        d.S.setValue(138.0)
-        self.assertIn("Espessuras mínimas", d.saida.toPlainText())
-        d.close()
+        p = V.PainelVaso()
+        try:
+            p.S.setValue(0.0)
+            self.assertIn("tensão admissível", p.pendencia())
+            p.S.setValue(138.0)
+            self.assertIsNone(p.pendencia())
+        finally:
+            p.form.deleteLater() if hasattr(p.form, "deleteLater") else None
 
 
 # ======================================================================= fixadores
@@ -5095,7 +5098,7 @@ class T42SimulacaoEstrutura(unittest.TestCase):
         self.assertAlmostEqual(A._flecha_do_membro(r, [0, 1, 2], m), exato, delta=exato * 1e-3)
 
     def test_balanco_e_membro_continuo(self):
-        """Balanço: Cb = 1, K = 2,1, flecha da ponta com limite 2L/250. Duas linhas colineares
+        """Balanço: Cb = 1, sem K (NBR 8800:2024: L real), flecha da ponta com limite 2L/250. Duas linhas colineares
         seguidas: um membro só (comprimento de flambagem da viga inteira)."""
         import PrumoEstrutura as E
         import PrumoAnaliseEstrutura as A
@@ -5107,7 +5110,7 @@ class T42SimulacaoEstrutura(unittest.TestCase):
         calc = A.calcular(est, casos, {A._chave_no((0, 0, 0)): "Engaste"})
         self.assertIsNone(calc.erro, calc.erro)
         self.assertTrue(calc.membros[0][2], "a ponta solta devia marcar balanço")
-        self.assertEqual(calc.verificacao[0]["membro"][1], 2.1)
+        self.assertEqual(calc.verificacao[0]["membro"][1], 1.0)
         f, lim, _tx, nome, txt = calc.flechas[0]
         self.assertAlmostEqual(lim, 2 * 2000 / 250.0)
         self.assertEqual(txt, "flecha do balanço")
@@ -5192,6 +5195,10 @@ class T43DetalheLigacao(unittest.TestCase):
         self.assertEqual(len(det.cortes), 2)
         self.assertEqual(sum(1 for c in det.cortes if c["fixo"]), 1)
         self.assertTrue(all(c["faces"] for c in det.cortes))
+        # soldas das barras que terminam no canto
+        soldas = [x for x in det.ligacoes if x["tipo"] == "solda"]
+        self.assertEqual(len(soldas), 2, det.ligacoes)
+        self.assertTrue(all(x["taxa"] > 0 and x["dw"] >= x["dw_min"] for x in soldas))
         # sem carga horizontal: as forças horizontais dos dois cortes se anulam
         self.assertAlmostEqual(sum(c["F"].x for c in det.cortes), 0.0, delta=1.0)
         # a diferença vertical é a carga majorada no pedaço de viga dentro do detalhe (~1,5 × 10 kN/m)
@@ -5429,6 +5436,425 @@ class T44RotulasCargasSecoes(unittest.TestCase):
         self.doc = FreeCAD.openDocument(arq)
         self.assertIsNotNone(PrumoPerfis.perfil(nome))
 
+
+class T45BancadaVasos(unittest.TestCase):
+    """Bancada de vasos de pressão: formulário com prévia, suportes, posição, teste de pressão,
+    desenho com cotas e tabela, e teste de pressão por elementos finitos de casca."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteVasos")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def test_criterios_e_pressao_de_teste(self):
+        import PrumoVaso as V
+        self.assertAlmostEqual(V.s_estimado(260.0, 485.0), min(485 / 3.5, 2 * 260 / 3.0))
+        self.assertAlmostEqual(V.pressao_teste(1.0, 138.0, 138.0, V.TESTES[0]), 1.3)
+        self.assertAlmostEqual(V.pressao_teste(1.0, 120.0, 138.0, V.TESTES[0]), 1.3 * 138 / 120)
+        self.assertAlmostEqual(V.pressao_teste(1.0, 138.0, None, V.TESTES[1]), 1.1)
+
+    def _vaso(self, **kw):
+        import PrumoVaso as V
+        v = V.criar(self.doc, 800, 1500, 1.0, 138.0, 1.0, 1.5, V.TAMPOS[0], "ASTM A516 Gr 70 (SA-516 70)", "100 °C",
+                    ['500; 90; Tubo 2" Sch 40; 150'])
+        v.Suportes = kw.get("suportes", "Selas")
+        v.Sy = 260.0
+        for k, val in kw.items():
+            if k != "suportes":
+                setattr(v, k, val)
+        self.doc.recompute()
+        return v
+
+    def test_suportes_posicao_e_teste(self):
+        import PrumoVaso as V
+        v = self._vaso()
+        self.assertEqual(v.Avisos, [])
+        self.assertTrue(v.Shape.isValid())
+        self.assertEqual(len(v.Shape.Solids), 1)
+        self.assertAlmostEqual(v.PMTA, min(v.PMTACostado, v.PMTATampo))
+        self.assertAlmostEqual(v.PressaoTeste, 1.3 * v.PMTA)
+        self.assertAlmostEqual(v.PressaoTesteFundo, v.PressaoTeste + V.AGUA * 800, places=6)
+        self.assertLess(v.Shape.BoundBox.ZMin, -400)                  # selas abaixo do vaso
+        v.Orientacao = "Vertical"
+        v.Suportes = "Saia"
+        self.doc.recompute()
+        bb = v.Shape.BoundBox
+        self.assertGreater(bb.ZLength, bb.XLength)                     # em pé
+        self.assertGreater(v.PressaoTesteFundo - v.PressaoTeste, V.AGUA * 1500)
+        v.Suportes = "Selas"
+        self.doc.recompute()
+        self.assertTrue(any("horizontal" in a for a in v.Avisos))
+        self.assertIn("Teste de pressão", V.memoria(v))
+
+    def test_desenho_com_cotas_e_tabela(self):
+        import PrumoVaso as V
+        v = self._vaso()
+        page = V.desenho(v)
+        tipos = [o.TypeId for o in page.Views]
+        self.assertIn("TechDraw::DrawProjGroup", tipos)
+        self.assertEqual(tipos.count("TechDraw::DrawViewDimension"), 2)
+        ann = [o for o in page.Views if o.TypeId == "TechDraw::DrawViewAnnotation"][0]
+        self.assertTrue(any("PMTA" in l for l in ann.Text))
+        self.assertTrue(any(l.startswith("N1") for l in ann.Text))
+
+    def test_painel_cria_e_edita(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoVaso as V
+        p = V.abrir_painel()
+        try:
+            i = p.material.findData("ASTM A516 Gr 70 (SA-516 70)")
+            self.assertGreaterEqual(i, 0)
+            p.material.setCurrentIndex(i)
+            p._estimar_s()
+            self.assertGreater(p.S.value(), 100.0)
+            p._mais_bocal()
+            self.assertEqual(len(p._linhas_bocais()), 1)
+            self.assertIsNone(p.pendencia())
+        finally:
+            p.accept()
+            FreeCADGui.Control.closeDialog()
+        vs = [o for o in self.doc.Objects if "PressaoProjeto" in o.PropertiesList]
+        self.assertEqual(len(vs), 1)
+        self.assertEqual(len(vs[0].Bocais), 1)
+        self.assertGreater(vs[0].PressaoTeste, 0.0)
+
+    def test_teste_de_pressao_casca(self):
+        """Membrana no meio do costado: von Mises ≈ √3/2 · P·R/t (casca cilíndrica fechada)."""
+        import math
+        import PrumoVaso as V
+        import PrumoFEM as F
+        v = self._vaso()
+        est, erro = V.simular_teste(v, tamanho=45.0)
+        self.assertEqual(erro, "", erro)
+        self.assertEqual(F.avaliar(est)["_bloqueios"], [])
+        r = est.resultados[0]
+        nos = r.Mesh.FemMesh.Nodes
+        tc = V.chapa_acima(v.MinimoCostado)
+        Rm = 400 + tc / 2.0
+        meio = [s for n, s in zip(r.NodeNumbers, r.vonMises) if abs(nos[n].x - 750) < 60 and nos[n].z > 0.6 * Rm]
+        teoria = v.PressaoTeste * Rm / tc * math.sqrt(3) / 2
+        self.assertLess(abs(sum(meio) / len(meio) - teoria) / teoria, 0.10)
+
+class T46NBR2024(unittest.TestCase):
+    """NBR 8800:2024 / NBR 8681:2025: área efetiva, Cb em λr sem teto, imperfeições (forças nocionais e
+    rigidez 80 %), tipos de caso novos com os nomes antigos, seção personalizada completa, solda e
+    parafuso."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteNBR2024")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_area_efetiva_e_cb(self):
+        import math
+        import PrumoNBR8800 as N
+        import PrumoSecao as S
+        fy, E = 250.0, 200000.0
+        p = S.propriedades("W 200 x 22,5")
+        Aef, nota = N.area_efetiva(p, fy, 1.0)
+        self.assertAlmostEqual(Aef, p["A"], msg="W 200 x 22,5 sem elemento esbelto em A36")
+        # chapa esbelta: alma de 4 mm com h = 600 mm → bef pela Tabela 5 (c1 = 0,18, c2 = 1,31)
+        q = dict(p, tipo="I", h=600.0, tw=4.0, bf=200.0, tf=16.0, A=2 * 200 * 16 + 600 * 4.0)
+        Aef, nota = N.area_efetiva(q, fy, 1.0)
+        lim = 1.49 * math.sqrt(E / fy)
+        sel = (1.31 * lim / 150.0) ** 2 * fy
+        r = math.sqrt(sel / fy)
+        bef = 600 * (1 - 0.18 * r) * r
+        self.assertAlmostEqual(Aef, q["A"] - (600 - bef) * 4.0, places=6)
+        self.assertIn("alma", nota)
+        # Cb sem o teto de 3,0
+        self.assertGreater(N.cb(1.0, 0.0, 0.0, 0.0), 3.0)
+        # λr com Cb: a FLT na faixa inelástica não multiplica por Cb e Mcr usa Cb
+        M1 = N.flexao_x(p, fy, 4000.0, 1.0)[0]
+        M2 = N.flexao_x(p, fy, 4000.0, 2.0)[0]
+        self.assertGreater(M2, M1)
+        self.assertLessEqual(M2, p["Zx"] * fy / 1.10 + 1e-6)
+        # cortante: kv = 5,34 numa alma esbelta
+        q2 = dict(p, h_tw=120.0)
+        lp = 1.10 * math.sqrt(5.34 * E / fy)
+        lr = 1.37 * math.sqrt(5.34 * E / fy)
+        self.assertGreater(120.0, lr)
+        self.assertAlmostEqual(N.cortante_z(q2, fy)[0], 1.24 * (lp / 120.0) ** 2 * 0.6 * p["d"] * p["tw"] * fy / 1.10,
+                               places=6)
+        # sem K: Ne com L
+        Ne, _m = N.forca_ne(p, 3000.0, K=2.1)
+        self.assertAlmostEqual(Ne, N.forca_ne(p, 3000.0)[0])
+
+    def test_tipos_de_caso_8681_2025(self):
+        import json
+        import PrumoAnaliseEstrutura as A
+        self.assertEqual(A.TIPOS_CASO["Permanente (equipamentos)"][0], 1.25)
+        self.assertEqual(A.TIPOS_CASO["Permanente (elementos industrializados)"][0], 1.30)
+        self.assertEqual(A.TIPOS_CASO["Temperatura gerada por equipamentos"][0], 1.50)
+        self.assertEqual(A.tipo_atual("Temperatura"), "Temperatura (variação atmosférica)")
+        self.assertEqual(A.tipo_atual("Permanente (elementos em geral e equipamentos)"), "Permanente (elementos em geral)")
+
+        class Obj:
+            Casos = [json.dumps({"nome": "T", "tipo": "Temperatura", "cargas": []})]
+        self.assertEqual(A.Analise.casos(None, Obj())[0]["tipo"], "Temperatura (variação atmosférica)")
+
+    def _portico(self):
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((6000, 0), (6000, 3000)), ((0, 3000), (6000, 3000))], "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        casos = [A.caso_padrao(), {"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                                   "cargas": [{"alvo": "barra", "linha": 2, "tipo": "distribuida", "valor": 8.0,
+                                               "direcao": "Para baixo (−Z)"}]}]
+        apoios = {A._chave_no((0, 0, 0)): "Engaste", A._chave_no((6000, 0, 0)): "Engaste"}
+        return est, casos, apoios
+
+    def test_forcas_nocionais(self):
+        import numpy as np
+        import PrumoAnaliseEstrutura as A
+        est, casos, apoios = self._portico()
+        calc = A.calcular(est, casos, apoios)
+        self.assertIsNone(calc.erro, calc.erro)
+        nomes = [n for n, t, _f in calc.combinacoes if t == "ELU"]
+        self.assertTrue(any(n.endswith("imperfeição +X") for n in nomes), nomes)
+        self.assertTrue(any(n.endswith("imperfeição −Y") for n in nomes), nomes)
+        self.assertFalse([n for n in nomes if "imperfeição" not in n], "combinação gravitacional sem imperfeição")
+        n = [x for x in nomes if x.endswith("imperfeição +X")][0]
+        caso = calc.imperfeicoes[n][1]
+        H = sum(f[0] for _no, f, _m in caso.nos)
+        fat = dict((nm, f) for nm, _t, f in calc.combinacoes)[n]
+        _m, lista, _mapa = A.montar_modelo(est, casos, apoios)
+        g = calc.modelo.cargas_gravitacionais([(lista[k], f) for k, f in fat if f])
+        livres = [k for k in range(len(g)) if k not in calc.modelo.apoios]
+        self.assertAlmostEqual(H * 1000.0, 0.003 * g[livres].sum(), delta=1e-6 * g.sum())
+        # a reação horizontal total equilibra as forças nocionais
+        r = calc.resultados[n]
+        Rx = sum(r.reac[6 * k] for k in calc.modelo.apoios)
+        self.assertAlmostEqual(-Rx / 1000.0, H, delta=1e-3 * abs(H) + 1e-6)
+        self.assertTrue(any("deslocabilidade" in a for a in calc.avisos), calc.avisos)
+        # combinação com vento não recebe imperfeição
+        casos.append({"nome": "V", "tipo": "Vento", "cargas": [{"alvo": "barra", "linha": 0, "tipo": "distribuida",
+                                                                 "valor": 1.0, "direcao": "+X"}]})
+        calc2 = A.calcular(est, casos, apoios)
+        self.assertIsNone(calc2.erro, calc2.erro)
+        for nm, t, f in calc2.combinacoes:
+            if any(casos[k]["tipo"] == "Vento" and v for k, v in f):
+                self.assertNotIn("imperfeição", nm)
+
+    def test_deslocabilidade_do_pilar_em_balanco(self):
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000))], "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        casos = [{"nome": "P", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                  "cargas": [{"alvo": "no", "no": A._chave_no((0, 0, 3000)), "tipo": "no", "valor": 10.0,
+                              "direcao": "Para baixo (−Z)"}]}]
+        apoios = {A._chave_no((0, 0, 0)): "Engaste"}
+        calc = A.calcular(est, casos, apoios)
+        self.assertIsNone(calc.erro, calc.erro)
+        self.assertGreater(calc.amplificacao, 1.10)
+        self.assertLess(calc.amplificacao, 1.40)
+        self.assertEqual(calc.rigidez, 0.8)
+        self.assertTrue(any("média deslocabilidade" in x for x in calc.avisos), calc.avisos)
+        calc1 = A.calcular(est, casos, apoios, segunda_ordem=False)
+        self.assertTrue(any(x.startswith("ATENÇÃO: análise de 1ª ordem") for x in calc1.avisos), calc1.avisos)
+
+    def test_rigidez_reduzida(self):
+        import PrumoPortico as PT
+        m = PT.Modelo()
+        s = PT.Secao(2860.0, 2029e4, 142e4, 6.0e4)
+        a, b = m.no((0, 0, 0)), m.no((0, 0, 3000))
+        m.barras.append(PT.Barra(a, b, s, (1, 0, 0)))
+        m.apoios[a] = [1] * 6
+        c = PT.Caso("H")
+        c.nos.append((b, [1.0, 0, 0], [0, 0, 0]))
+        u1 = m.resolver(c).u[6 * b]
+        u8 = m.resolver(c, rigidez=0.8).u[6 * b]
+        self.assertAlmostEqual(u8, u1 / 0.8, delta=1e-9 * abs(u1) + 1e-12)
+
+    def test_secao_personalizada_completa(self):
+        import PrumoNBR8800 as N
+        import PrumoSecao as S
+        import PrumoSecaoPersonalizada as SP
+        import PrumoSecaoGeral as SG
+        d, bf, tw, tf = 300.0, 150.0, 8.0, 12.0
+        a, b, w = bf / 2, d / 2, tw / 2
+        I = [(-a, -b), (a, -b), (a, -b + tf), (w, -b + tf), (w, b - tf), (a, b - tf), (a, b), (-a, b), (-a, b - tf),
+             (-w, b - tf), (-w, -b + tf), (-a, -b + tf)]
+        ch = SG.chapas(I, [])
+        self.assertEqual(sum(1 for c in ch if not c["apoiada_nas_duas"]), 4)
+        self.assertEqual(sum(1 for c in ch if c["apoiada_nas_duas"]), 1)
+        it = SP.item_de("I teste 2024", I, [])
+        SP.registrar(it)
+        try:
+            p = S.propriedades(it["nome"])
+            pI = S.propriedades({"nome": "I teste 2024 cat", "tipo": "I", "d": d, "bf": bf, "tw": tw, "tf": tf,
+                                 "massa": 1.0})
+            self.assertAlmostEqual(p["Cw"], pI["Cw"], delta=0.01 * pI["Cw"])
+            self.assertAlmostEqual(p["J"], pI["J"], delta=0.02 * pI["J"])
+            self.assertAlmostEqual(p["x0"], 0.0, delta=0.05)
+            for Lb in (3000.0, 8000.0):
+                self.assertAlmostEqual(N.flexao_x(p, 250.0, Lb)[0], N.flexao_x(pI, 250.0, Lb)[0],
+                                       delta=0.01 * N.flexao_x(pI, 250.0, Lb)[0])
+            self.assertAlmostEqual(N.compressao(p, 250.0, 4000.0)[0], N.compressao(pI, 250.0, 4000.0)[0],
+                                   delta=0.01 * N.compressao(pI, 250.0, 4000.0)[0])
+        finally:
+            SP.desregistrar(it["nome"])
+        # U: centro de cisalhamento perto da fórmula de paredes finas
+        d, bf, tw, tf = 200.0, 75.0, 6.0, 10.0
+        U = [(0, 0), (bf, 0), (bf, tf), (tw, tf), (tw, d - tf), (bf, d - tf), (bf, d), (0, d)]
+        g = SG.empenamento(U, [])
+        h0, b1 = d - tf, bf - tw / 2
+        e = 3 * b1 ** 2 * tf / (6 * b1 * tf + h0 * tw)
+        self.assertAlmostEqual(g["cu"] + g["x0"], tw / 2 - e, delta=1.0)
+
+    def test_solda_no_contorno(self):
+        import PrumoDetalheFEM as D
+        import PrumoSecao as S
+        p = S.propriedades("W 200 x 22,5")
+        e = {"N": 100000.0, "Vy": 0.0, "Vz": 0.0, "T": 0.0, "My": 0.0, "Mz": 0.0}
+        r = D.solda_contorno(p, e, 250.0, 400.0)
+        self.assertAlmostEqual(r["q"], 100000.0 / r["Lw"], places=6)
+        self.assertAlmostEqual(r["Lw"], 2 * p["d"] + 4 * p["bf"] - 2 * p["tw"], delta=1.0)
+        self.assertEqual(r["fonte"], "sugerida")
+        r2 = D.solda_contorno(p, dict(e, My=20e6), 250.0, 400.0, perna=3.0)
+        self.assertGreater(r2["taxa_solda"], r["taxa_solda"])
+        self.assertIn("perna", r2["texto"])
+
+    def test_solda_e_parafuso(self):
+        import math
+        import PrumoNBR8800 as N
+        F, txt = N.solda_filete(6.0, 100.0, 250.0, 400.0, 8.0)
+        self.assertAlmostEqual(F, 0.6 * 0.707 * 6 * 100 * 485 / 1.35, places=6)
+        self.assertNotIn("ATENÇÃO", txt)
+        self.assertIn("ATENÇÃO", N.solda_filete(3.0, 100.0, 250.0, 400.0, 16.0)[1])
+        Fv, Ft = N.parafuso(16.0, 825.0)
+        Ab = math.pi * 16 ** 2 / 4
+        self.assertAlmostEqual(Fv, 0.45 * Ab * 825 / 1.35)
+        self.assertAlmostEqual(Ft, 0.75 * Ab * 825 / 1.35)
+        self.assertAlmostEqual(N.parafuso(16.0, 825.0, rosca_no_plano=False)[0], 0.56 * Ab * 825 / 1.35)
+
+
+class T47MolasTracaoModos(unittest.TestCase):
+    """Apoio em mola, contraventamento só de tração e frequências naturais (modos de vibrar)."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteModos")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_mola_exata(self):
+        import PrumoPortico as PT
+        m = PT.Modelo()
+        s = PT.Secao(2860.0, 2029e4, 142e4, 6.0e4)
+        a, b = m.no((0, 0, 0)), m.no((0, 0, 1000))
+        m.barras.append(PT.Barra(a, b, s, (1, 0, 0)))
+        m.apoios[a] = [1, 1, 0, 1, 1, 1]
+        m.molas[a] = [0, 0, 5000.0, 0, 0, 0]          # 5 kN/mm
+        m.apoios[b] = [1, 1, 0, 1, 1, 1]
+        c = PT.Caso("P")
+        c.nos.append((b, [0, 0, -10.0], [0, 0, 0]))
+        r = m.resolver(c)
+        self.assertAlmostEqual(r.u[6 * a + 2], -10000.0 / 5000.0, places=9)
+        self.assertAlmostEqual(r.u[6 * b + 2], -2.0 - 10000.0 * 1000.0 / (200000.0 * 2860.0), places=9)
+
+    def test_mola_pela_analise(self):
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (4000, 0))], "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        self.doc.recompute()
+        mola = A.texto_mola(0.0, 2.0)
+        self.assertEqual(A.rigidez_mola(mola), (0.0, 0.0, 2.0))
+        casos = [{"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                  "cargas": [{"alvo": "barra", "linha": 0, "tipo": "distribuida", "valor": 5.0,
+                              "direcao": "Para baixo (−Z)"}]}]
+        calc = A.calcular(est, casos, {A._chave_no((0, 0, 0)): "Engaste", A._chave_no((4000, 0, 0)): mola},
+                          segunda_ordem=False)
+        self.assertIsNone(calc.erro, calc.erro)
+        nome = [n for n, t, _f in calc.combinacoes if t == "ELS"][0]
+        r = calc.resultados[nome]
+        no_b = A._no_mais_proximo(calc.modelo, (4000, 0, 0), 1.0)
+        no_a = A._no_mais_proximo(calc.modelo, (0, 0, 0), 1.0)
+        d = r.u[6 * no_b + 2]
+        self.assertLess(d, 0.0)
+        Fm = -2000.0 * d                                   # N
+        self.assertAlmostEqual(r.reac[6 * no_a + 2] + Fm, 5.0 * 4000.0, delta=5.0)
+
+    def test_contraventamento_so_tracao(self):
+        import PrumoPortico as PT
+        m = PT.Modelo()
+        s = PT.Secao(2860.0, 2029e4, 142e4, 6.0e4)
+        sb = PT.Secao(300.0, 1e3, 1e3, 1e2)
+        n = [m.no(p) for p in ((0, 0, 0), (3000, 0, 0), (0, 0, 3000), (3000, 0, 3000))]
+        for i, j in ((0, 2), (1, 3), (2, 3)):
+            m.barras.append(PT.Barra(n[i], n[j], s, (0, 1, 0), liberados=PT.TRELICA))
+        m.barras.append(PT.Barra(n[0], n[3], sb, (0, 1, 0), liberados=PT.TRELICA, so_tracao=True))
+        m.barras.append(PT.Barra(n[1], n[2], sb, (0, 1, 0), liberados=PT.TRELICA, so_tracao=True))
+        m.apoios[n[0]] = [1, 1, 1, 0, 0, 0]
+        m.apoios[n[1]] = [1, 1, 1, 0, 0, 0]
+        m.apoios[n[2]] = [0, 1, 0, 0, 0, 0]
+        m.apoios[n[3]] = [0, 1, 0, 0, 0, 0]
+        c = PT.Caso("H")
+        c.nos.append((n[2], [10.0, 0, 0], [0, 0, 0]))
+        r = m.resolver(c)
+        self.assertEqual(r.ativos[3:], [True, False])
+        N_t = r.esforcos(3, 0.0)["N"]
+        self.assertAlmostEqual(N_t, 10000.0 * math.sqrt(2.0), delta=1.0)
+        self.assertAlmostEqual(r.esforcos(4, 0.0)["N"], 0.0, delta=1e-6)
+
+    def test_frequencia_viga_biapoiada(self):
+        import PrumoPortico as PT
+        L, E, Iz, mkg = 6000.0, 200000.0, 142e4, 22.5
+        m = PT.Modelo()
+        s = PT.Secao(2860.0, 2029e4, Iz, 6.0e4, massa_kgm=mkg)
+        nos = [m.no((L * k / 8.0, 0, 0)) for k in range(9)]
+        for i, j in zip(nos[:-1], nos[1:]):
+            m.barras.append(PT.Barra(i, j, s, (0, 0, 1)))
+        m.apoios[nos[0]] = [1, 1, 1, 1, 0, 0]
+        m.apoios[nos[-1]] = [0, 1, 1, 1, 0, 0]
+        modos = m.modos(3)
+        exato = math.pi / (2 * L ** 2) * math.sqrt(E * Iz / (mkg * 1e-6))
+        self.assertAlmostEqual(modos[0][0], exato, delta=0.01 * exato)
+        self.assertTrue(all(modos[k][0] <= modos[k + 1][0] for k in range(len(modos) - 1)))
+
+    def test_painel_lista_modos(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import json
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        import PrumoAnaliseVista as V
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (5000, 3000)), ((5000, 3000), (5000, 0))],
+                           "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        self.doc.recompute()
+        an = A.criar(self.doc, est)
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        an.Casos = [json.dumps(A.caso_padrao(), ensure_ascii=False)]
+        self.doc.recompute()
+        p = V.abrir_painel(est, an)
+        try:
+            modos = p.calcular_modos()
+            self.assertTrue(modos)
+            self.assertEqual(p.lista_modos.count(), len(modos))
+            self.assertIn("Hz", p.lista_modos.item(0).text())
+            p.lista_modos.setCurrentRow(1)
+            self.assertEqual(an.Modo, 2)
+            self.assertEqual(an.Mostrar, A.MODO_VIBRAR)
+        finally:
+            p.reject()
+            FreeCADGui.Control.closeDialog()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -5437,4 +5863,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T34FluxoDeSelecao, T35PropriedadesDaPeca,
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
-           T43DetalheLigacao, T44RotulasCargasSecoes]
+           T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
+           T47MolasTracaoModos]

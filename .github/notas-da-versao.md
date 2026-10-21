@@ -15,6 +15,7 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   ícone, dica em cada campo e caixas de seleção que aceitam a seleção feita antes **ou depois** de
   abrir o comando. Subtrair, Unir e as outras booleanas também pedem a seleção se você chamar sem ela.
 - **Árvore do modelo** com nomes em português (Extrusão, Cavidade, Corpo...) e seleção em azul.
+- **Ícones do Prumo desde a primeira abertura**, sem precisar aplicar o tema e reiniciar.
 - **Materiais usados no Brasil**: a biblioteca traz só aços estruturais (NBR 7007, NBR 6648, ASTM),
   chapas, aços para vaso de pressão, tubos, inox, construção mecânica, ferro fundido, alumínio e latão,
   com norma e fonte em cada um. Arquivos feitos no FreeCAD original abrem com o material certo
@@ -45,17 +46,30 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   sentido em que a linha foi desenhada: num quadro, todas as barras ficam do mesmo lado.
 - **Simulação de estruturas por barras** (aba Estruturas → Simular estrutura): clique nos nós para
   pôr apoios (engaste, rótula, rolete), monte os casos de carga (peso próprio automático, cargas
-  distribuídas e concentradas nas barras, forças nos nós) e as combinações saem da NBR 8681. Os
+  distribuídas e concentradas nas barras, forças nos nós) e as combinações saem da NBR 8681:2025. Os
   esforços, as reações e a deformada são calculados na hora, e cada barra é verificada (tração,
   compressão com flambagem, flexão com FLT/FLM/FLA, cortante, esforços combinados e flecha), com a
   taxa de uso em cores na tela, os diagramas de N, V e M e a memória de cálculo em PDF. A análise é
   de 2ª ordem (P-Δ) nas combinações últimas e acusa quando a estrutura perde estabilidade (por
   exemplo, pórtico plano sem travamento fora do plano). Balanços e vigas contínuas desenhadas em
   vários pedaços são reconhecidos na flambagem e na flecha.
+- **NBR 8800:2024 e NBR 8681:2025**: a verificação foi refeita pelas edições vigentes, conferidas no
+  texto da norma. Sem coeficiente K (flambagem com o comprimento real e estabilidade pela análise de
+  2ª ordem), forças nocionais de 0,3 % da carga gravitacional em ±X e ±Y, rigidez de 80 % quando a
+  estrutura é de média deslocabilidade e aviso na grande, flambagem local pela área efetiva, Cb dentro
+  de λr e sem o teto de 3,0, kv = 5,34 e os novos coeficientes de ponderação (equipamentos 1,25,
+  industrializados 1,30, temperatura gerada por equipamentos 1,50). Arquivos com os tipos de caso
+  antigos abrem com os nomes novos.
+- **Molas, contraventamento só de tração e modos de vibrar**: apoio elástico (kN/mm) clicando no nó,
+  barras de contraventamento que saem do modelo quando comprimem, e as frequências naturais da
+  estrutura com a forma de cada modo desenhada na tela.
 - **Detalhe da ligação por elementos finitos**: no painel da simulação, escolha "Detalhar nó" e clique
   numa ligação ou apoio. O Prumo recorta o nó, aplica nos cortes os esforços da análise por barras e
   calcula as tensões no sólido (CalculiX), com a zona de perigo comparada a fy/γa1 e a conferência
   com a teoria de barras. O resultado abre no Assistente de simulação (malha, convergência, relatório).
+  As soldas das barras que chegam no nó (filete em todo o contorno: perna necessária, mínima e taxa
+  do metal-base) e os chumbadores da placa de base (tração, corte e interação) também são verificados
+  pela NBR 8800:2024.
 - **Rótulas e treliças**: no painel da simulação, o modo "Rótula" solta o momento na ponta clicada
   da barra (ligação flexível, viga Gerber) ou transforma a barra em treliça (só força normal). As
   rótulas aparecem na tela e na memória de cálculo.
@@ -63,7 +77,14 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   trecho dela.
 - **Seção personalizada** (aba Estruturas): um esboço fechado vira perfil da estrutura soldada
   (chapas compostas, perfis dobrados, perfis fora do catálogo), com área, inércias e constante de
-  torção calculadas pelo contorno. A verificação pela NBR 8800 dessas seções é simplificada (avisada).
+  torção calculadas pelo contorno. O empenamento é resolvido por elementos finitos na própria seção
+  (centro de cisalhamento, Cw e J), com flexo-torção e FLT gerais, e as chapas são reconhecidas
+  sozinhas para a flambagem local (mesas em balanço, almas, paredes) e o cortante.
+- **Vasos de pressão** (aba própria, "Vasos"): formulário com prévia ao vivo para casco, tampos
+  (elíptico 2:1, torisférico, hemisférico), diâmetro, comprimento, material, corrosão, bocais e
+  suportes (selas, saia ou pernas, na horizontal ou na vertical). Calcula espessuras e PMTA pelo
+  ASME VIII Div. 1, a pressão do teste hidrostático ou pneumático, simula o teste por elementos finitos
+  de casca e gera a folha A3 com vistas cotadas e a tabela de dados de projeto.
 - **Vídeo do comportamento**: grava um MP4 (ou GIF) da estrutura com cargas e apoios, a deformada
   colorida pela taxa de uso, o momento fletor e as barras críticas; no estudo de elementos finitos,
   a peça deformando com as cores de tensão (vermelho = atingiu o limite).
@@ -117,12 +138,12 @@ Clique em **Mais informações → Executar assim mesmo**.
   mostram as formas, mas esses objetos não são recalculados lá.
 - Alguns perfis e tubos estão marcados **"a conferir"** (fonte secundária): o Prumo avisa na escolha
   do perfil. Confira no catálogo do fabricante antes de usar em projeto.
-- O vaso de pressão ficou para uma versão futura.
-- A simulação de estruturas por barras verifica pela NBR 8800:2008 e combina pela NBR 8681:2003, que
-  foram substituídas pela NBR 8800:2024 e pela NBR 8681:2025: o resultado aparece com esse aviso e
-  serve para pré-dimensionamento até a conferência com as edições vigentes. Imperfeições iniciais da
-  análise de 2ª ordem (4.9.7) ainda não entram; barras ligadas rigidamente nos nós; ligações, placas
-  de base e soldas não são verificadas.
+- Vasos de pressão: reforço de aberturas, pressão externa, vento, sismo e cargas nos suportes ainda
+  não são calculados (o memorial avisa); o enquadramento na NR-13 fica com o responsável técnico.
+- Estruturas: grande deslocabilidade só é avisada (pede análise com não linearidade de material);
+  ancoragem dos chumbadores no concreto, tamanho máximo do filete e a interação de tração e corte nos
+  parafusos estão marcados "a checar"; a classificação de deslocabilidade usa o maior deslocamento da
+  estrutura, não andar a andar.
 
 ### Como relatar um problema
 

@@ -152,6 +152,7 @@ class Detalhe:
         self.espessura = 0.0
         self.apoio = None
         self.material = ("", 250.0, 400.0)
+        self.ligacoes = []        # verificações de solda e parafusos (dicts com "texto" e "taxa")
 
 
 def _secoes(est):
@@ -206,8 +207,9 @@ def montar(analise, ponto, combinacao=None, distancia=0.0):
     for i, s0 in linhas:
         p0, t, L = calc.mapa["linhas"][i]
         lib = calc.mapa.get("liberacoes", {}).get(i, "")
-        if (s0 < 1.0 and lib in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça")) or \
-                (s0 > L - 1.0 and lib in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça")):
+        trel = ("Barra de treliça", "Só tração (contraventamento)")
+        if (s0 < 1.0 and (lib in ("Rótula no início", "Rótula nas duas pontas") or lib in trel)) or \
+                (s0 > L - 1.0 and (lib in ("Rótula no fim", "Rótula nas duas pontas") or lib in trel)):
             d.avisos.append("A barra %d é rotulada neste nó no modelo por barras, mas no detalhe ela fica soldada "
                             "(peças fundidas): modele a ligação flexível real para avaliar." % (i + 1))
         esp = _pontos_especiais(calc, i)
@@ -302,11 +304,192 @@ def montar(analise, ponto, combinacao=None, distancia=0.0):
             fixo["linha"] + 1)
     d.avisos.append("Cargas aplicadas dentro da região do detalhe (no nó e nos pedaços de barra) não entram: "
                     "o equilíbrio delas vai para o engaste.")
-    d.avisos.append("Ligação considerada soldada em toda a volta (peças fundidas); soldas e parafusos não "
-                    "são verificados no detalhe.")
+    try:
+        d.ligacoes = verificar_ligacoes(calc, r, est, linhas, d.apoio)
+    except Exception as ex:
+        d.ligacoes = []
+        d.avisos.append("Verificação das soldas e parafusos não feita: %s" % ex)
+    d.avisos.append("No sólido a ligação fica soldada em toda a volta (peças fundidas); as soldas e os "
+                    "chumbadores são verificados à parte pela NBR 8800:2024 (6.2 e 6.3), com os esforços das "
+                    "barras no nó.")
     d.raio_zona = 0.8 * min(c["dist"] for c in d.cortes)
     d.espessura = min(2.0 * p.Volume / p.Area for p in pecas)
     return d
+
+
+# ------------------------------------------------------------------ soldas e chumbadores (6.2 e 6.3)
+DIAMETROS_CHUMBADOR = (12.0, 16.0, 20.0, 22.0, 24.0, 27.0, 30.0, 36.0, 42.0, 48.0)
+FUB_CHUMBADOR = 400.0       # MPa — ASTM F1554 grau 36 (fu mínimo 400 MPa, a checar com o fornecedor)
+
+
+def _contorno_externo(p):
+    import PrumoPerfis
+    it = PrumoPerfis.perfil(p["nome"]) if PrumoPerfis.perfil(p["nome"]) else None
+    if it is None:
+        raise ValueError("perfil %s fora do catálogo" % p["nome"])
+    ext, _furos = PrumoPerfis.contorno(it)
+    if isinstance(ext, tuple):          # tubo redondo
+        R = ext[1] / 2.0
+        ext = [(R * math.cos(2 * math.pi * k / 48), R * math.sin(2 * math.pi * k / 48)) for k in range(48)]
+    return [(u - p.get("cu", 0.0), v - p.get("cv", 0.0)) for u, v in ext]
+
+
+def _espessura_minima(p):
+    t = p["tipo"]
+    if t in ("I", "U"):
+        return min(p["tw"], p["tf"])
+    if t in ("L", "TQ", "TUBO"):
+        return p["t"]
+    if t == "POL" and p.get("chapas"):
+        return min(c["t"] for c in p["chapas"])
+    return math.sqrt(p["A"]) / 4.0
+
+
+def solda_contorno(p, e, fy, fu, perna=None, eletrodo="E70XX"):
+    """Filete em todo o contorno externo do perfil, pelo método elástico das linhas de solda: força
+    por milímetro de cordão no ponto mais solicitado (somas em módulo, a favor da segurança).
+    e: esforços da barra no nó (N, Vy, Vz, T, My em torno do eixo de maior inércia, Mz). Retorna dict."""
+    import PrumoNBR8800 as N
+    pts = _contorno_externo(p)
+    n = len(pts)
+    Lw = cu = cv = 0.0
+    seg = []
+    for k in range(n):
+        (u1, v1), (u2, v2) = pts[k], pts[(k + 1) % n]
+        L = math.hypot(u2 - u1, v2 - v1)
+        if L > 1e-9:
+            seg.append((u1, v1, u2, v2, L))
+            Lw += L
+            cu += L * (u1 + u2) / 2.0
+            cv += L * (v1 + v2) / 2.0
+    cu /= Lw
+    cv /= Lw
+    Iu = Iv = 0.0
+    for u1, v1, u2, v2, L in seg:
+        a1, a2, b1, b2 = v1 - cv, v2 - cv, u1 - cu, u2 - cu
+        Iu += L * (a1 * a1 + a1 * a2 + a2 * a2) / 3.0
+        Iv += L * (b1 * b1 + b1 * b2 + b2 * b2) / 3.0
+    Ip = Iu + Iv
+    q = 0.0
+    for u, v in pts:
+        du, dv = abs(u - cu), abs(v - cv)
+        fa = abs(e["N"]) / Lw + abs(e["My"]) * dv / Iu + abs(e["Mz"]) * du / Iv
+        fs = math.hypot(abs(e["Vy"]) / Lw + abs(e["T"]) * dv / Ip, abs(e["Vz"]) / Lw + abs(e["T"]) * du / Ip)
+        q = max(q, math.hypot(fa, fs))
+    fw = N.FW_ELETRODO.get(eletrodo, 485.0)
+    por_mm = 0.6 * fw * 0.707 / N.GAMA_W2           # N/mm de cordão por mm de perna
+    dw_req = q / por_mm
+    t = _espessura_minima(p)
+    dw_min = N.perna_minima(t)
+    fonte = "cordão do projeto"
+    if not perna:
+        perna = max(dw_min, math.ceil(dw_req))
+        fonte = "sugerida"
+    base = min(0.60 * fy * t / N.GAMA_A1, 0.60 * fu * t / N.GAMA_A2)
+    res = {"tipo": "solda", "q": q, "Lw": Lw, "dw_req": dw_req, "dw": float(perna), "dw_min": dw_min,
+           "fonte": fonte, "taxa_solda": q / (por_mm * perna), "taxa_base": q / base, "t": t}
+    res["taxa"] = max(res["taxa_solda"], res["taxa_base"])
+    txt = ("filete de %s mm (%s) em todo o contorno (%s mm de cordão): %s N/mm no ponto mais solicitado; "
+           "perna necessária %s mm, mínima %s mm; taxa da solda %s, do metal-base (t = %s mm) %s" % (
+               _f(perna), fonte, _f(Lw), _f(q), _f(dw_req, 1), _f(dw_min), _f(res["taxa_solda"], 2), _f(t, 1),
+               _f(res["taxa_base"], 2)))
+    if perna < dw_min:
+        txt += "; ATENÇÃO: perna abaixo da mínima"
+    if perna > t:
+        txt += "; ATENÇÃO: perna maior que a espessura da peça (a checar o tamanho máximo do filete)"
+    res["texto"] = txt
+    return res
+
+
+def chumbadores(placa, e):
+    """Chumbadores da placa de base pelo método elástico (sem contar a compressão no concreto: a favor
+    da segurança na tração). Retorna dict ou None se a placa não tiver furos."""
+    import PrumoNBR8800 as N
+    n = int(placa.Furos)
+    if not n:
+        return None
+    L, C = placa.Largura.Value, placa.Comprimento.Value
+    hl, hc, borda = L / 2.0, C / 2.0, placa.DistanciaBorda.Value
+    if n == 4:
+        pos = [(x, y) for x in (-hl + borda, hl - borda) for y in (-hc + borda, hc - borda)]
+    else:
+        pos = [(0, -hc + borda), (0, hc - borda)] if C >= L else [(-hl + borda, 0), (hl - borda, 0)]
+    su = sum(u * u for u, _v in pos)
+    sv = sum(v * v for _u, v in pos)
+    sr = su + sv
+    furo = placa.DiametroFuro.Value
+    d = max([x for x in DIAMETROS_CHUMBADOR if x <= furo - 1.5] or [DIAMETROS_CHUMBADOR[0]])
+    FvRd, FtRd = N.parafuso(d, FUB_CHUMBADOR, rosca_no_plano=True)
+    pior = (0.0, 0.0, 0.0)
+    for u, v in pos:
+        ft = max(e["N"], 0.0) / n + (abs(e["My"]) * abs(v) / sv if sv else 0.0) + \
+            (abs(e["Mz"]) * abs(u) / su if su else 0.0)
+        fv = math.hypot(e["Vy"], e["Vz"]) / n + (abs(e["T"]) * math.hypot(u, v) / sr if sr else 0.0)
+        it = N.parafuso_interacao(fv, ft, FvRd, FtRd)
+        if it > pior[2]:
+            pior = (ft, fv, it)
+    ft, fv, inter = pior
+    sem_braco = []
+    if su <= 1e-9 and abs(e["Mz"]) > 1e3:
+        sem_braco.append("Mz = %s kN·m" % _f(abs(e["Mz"]) / 1e6, 2))
+    if sv <= 1e-9 and abs(e["My"]) > 1e3:
+        sem_braco.append("My = %s kN·m" % _f(abs(e["My"]) / 1e6, 2))
+    res = {"tipo": "chumbador", "n": n, "d": d, "Ft": ft, "Fv": fv, "FtRd": FtRd, "FvRd": FvRd,
+           "taxa": max(ft / FtRd, fv / FvRd, inter)}
+    res["texto"] = ("%d chumbadores Ø%s mm (furo %s mm; aço com fub = %s MPa, a checar): tração %s kN × %s kN, "
+                    "corte %s kN × %s kN, interação %s; ancoragem no concreto não verificada" % (
+                        n, _f(d), _f(furo), _f(FUB_CHUMBADOR), _f(ft / 1e3, 1), _f(FtRd / 1e3, 1), _f(fv / 1e3, 1),
+                        _f(FvRd / 1e3, 1), _f(inter, 2)))
+    if sem_braco:
+        res["taxa"] = max(res["taxa"], 9.99)
+        res["texto"] += ("; ATENÇÃO: %s em torno da linha dos chumbadores não é resistido por eles (placa com "
+                         "chumbadores numa linha só): use 4 chumbadores ou modele a base como rótula nesse eixo"
+                         % " e ".join(sem_braco))
+    return res
+
+
+def verificar_ligacoes(calc, r, est, linhas, apoio):
+    """Soldas (barras que terminam no nó) e chumbadores (placa de base) do nó. Lista de dicts."""
+    import PrumoEstruturaExtras as X
+    fy, fu = calc.material[1], calc.material[2]
+    placas = [o for o in getattr(est, "Group", [])
+              if type(getattr(o, "Proxy", None)).__name__ == "PlacaBase" and getattr(o, "Barra", None) is not None]
+    soldas = [o for o in getattr(est, "Group", []) if X.eh_solda(o)]
+    termina = []
+    for i, s0 in linhas:
+        _p0, _t, L = calc.mapa["linhas"][i]
+        if s0 < 1.0 or s0 > L - 1.0:
+            termina.append((i, s0, L))
+    out = []
+    if len(linhas) < 2 and not apoio:
+        return out
+    for i, s0, L in termina:
+        if len(linhas) == 1 and not any(pl.Barra.Indice == i for pl in placas):
+            continue        # apoio direto, sem placa: nada a soldar no modelo
+        eb, x = _elemento_em(calc, i, min(max(s0, 0.0), L))
+        e = r.esforcos(eb, x)
+        p = calc.mapa["secoes"][i]
+        perna = None
+        outras = {j for j, _s in linhas if j != i}
+        for so in soldas:
+            idx = {getattr(pc, "Indice", None) for pc in so.Pecas}
+            placa_aqui = any(pc in placas and getattr(pc.Barra, "Indice", None) == i for pc in so.Pecas)
+            if i in idx and (idx & outras or placa_aqui):
+                perna = so.Perna.Value
+                break
+        sd = solda_contorno(p, e, fy, fu, perna)
+        sd["barra"] = i + 1
+        sd["texto"] = "Barra %d: %s" % (i + 1, sd["texto"])
+        out.append(sd)
+        k = 0 if s0 < 1.0 else 1
+        for pl in placas:
+            if pl.Barra.Indice == i and X.PONTAS.index(pl.Ponta) == k:
+                ch = chumbadores(pl, e)
+                if ch:
+                    ch["barra"] = i + 1
+                    ch["texto"] = "%s (barra %d): %s" % (pl.Label, i + 1, ch["texto"])
+                    out.append(ch)
+    return out
 
 
 def _faces_de_apoio(d, forma, est, linhas, calc, h):
@@ -400,6 +583,9 @@ def criar_estudo(analise, det, tamanho=None):
     est.put("PrumoGamaA1", GAMA_A1, "App::PropertyFloat")
     est.put("PrumoCombinacao", det.combinacao)
     est.put("PrumoAvisos", list(det.avisos), "App::PropertyStringList")
+    import json as _json
+    est.put("PrumoLigacoes", _json.dumps([{"texto": x["texto"], "taxa": x["taxa"], "tipo": x["tipo"]}
+                                          for x in det.ligacoes]))
     est.put("PrumoAnaliseBarras", analise.Name)
     if tamanho is None:
         tamanho = min(max(det.espessura, 4.0), 20.0)

@@ -36,6 +36,19 @@ INSTALL(
     PATTERN "__pycache__" EXCLUDE
 )
 
+# Tema de ícones do Prumo descompactado na instalação: o branding.xml aponta para ele (ProgramIcons)
+# e o FreeCAD já usa esses ícones na primeira abertura, sem precisar aplicar e reiniciar.
+file(ARCHIVE_EXTRACT
+    INPUT "${CMAKE_CURRENT_SOURCE_DIR}/Resources/tema-icones-prumo.zip"
+    DESTINATION "${CMAKE_BINARY_DIR}/Mod/Prumo3D/Resources/icones-tema"
+)
+INSTALL(
+    DIRECTORY
+        "${CMAKE_BINARY_DIR}/Mod/Prumo3D/Resources/icones-tema"
+    DESTINATION
+        Mod/Prumo3D/Resources
+)
+
 # Nome "Prumo 3D", tela de abertura e pasta de dados do usuário própria (%APPDATA%\Prumo3D,
 # ~/.local/share/Prumo3D). O FreeCAD procura o branding.xml na pasta bin do programa.
 INSTALL(

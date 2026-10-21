@@ -16,6 +16,8 @@
   <AppDataSkipVendor>true</AppDataSkipVendor>
   <!-- caminho relativo à pasta de instalação -->
   <SplashScreen>Mod/Prumo3D/Resources/splash_image.png</SplashScreen>
+  <!-- tema de ícones do Prumo (descompactado pelo CMake na instalação): vale desde a primeira abertura -->
+  <ProgramIcons>Mod/Prumo3D/Resources/icones-tema</ProgramIcons>
   <SplashTextColor>#003A70</SplashTextColor>
   <!-- versão desenhada pelo FreeCAD sobre a splash: transparente (a splash já traz o texto) -->
   <SplashInfoColor>#00FFFFFF</SplashInfoColor>

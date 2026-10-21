@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "SAE 1045"
-  Description: "A resistência do SAE 1045 depende do estado de fornecimento (laminado, trefilado, beneficiado) e a norma não fixa mínimo: use o valor do certificado. Densidade, módulo de elasticidade e Poisson típicos."
+  Description: "SAE J403/J404 especificam só a composição química. Propriedades mecânicas conforme a condição de fornecimento (laminado a quente, salvo outra condição declarada) e o certificado; densidade, módulo de elasticidade e Poisson típicos."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'

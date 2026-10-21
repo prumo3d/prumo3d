@@ -21,7 +21,9 @@ APOIOS = {
     "Rótula": [1, 1, 1, 0, 0, 0],
     "Rolete (vertical)": [0, 0, 1, 0, 0, 0],
 }
-LIBERACOES = ["Rótula no início", "Rótula no fim", "Rótula nas duas pontas", "Barra de treliça"]
+LIBERACOES = ["Rótula no início", "Rótula no fim", "Rótula nas duas pontas", "Barra de treliça",
+              "Só tração (contraventamento)"]
+TRELICAS = ("Barra de treliça", "Só tração (contraventamento)")
 
 DIRECOES = {
     "Para baixo (−Z)": (0, 0, -1), "Para cima (+Z)": (0, 0, 1),
@@ -29,18 +31,32 @@ DIRECOES = {
 }
 
 # Tipos de caso de carga: (γ desfavorável, γ favorável, ψ0, ψ1, ψ2, grupo)
-# Valores da NBR 8800:2008 Tabelas 1 e 2 (que adotam a NBR 8681:2003); fontes em
+# Valores conferidos na NBR 8681:2025 (antes: NBR 8800:2008 Tabelas 1 e 2); fontes antigas em
 # prumo-build/ferramentas/nbr8800_fontes.md
+# γ (desfavorável, favorável) e ψ0, ψ1, ψ2 — ABNT NBR 8681:2025, combinações normais, ações permanentes
+# consideradas separadamente
 TIPOS_CASO = {
     "Peso próprio da estrutura de aço": (1.25, 1.00, None, None, None, "permanente"),
-    "Permanente (elementos industrializados)": (1.35, 1.00, None, None, None, "permanente"),
-    "Permanente (elementos em geral e equipamentos)": (1.50, 1.00, None, None, None, "permanente"),
+    "Permanente (equipamentos)": (1.25, 1.00, None, None, None, "permanente"),
+    "Permanente (elementos industrializados)": (1.30, 1.00, None, None, None, "permanente"),
+    "Permanente (elementos em geral)": (1.50, 1.00, None, None, None, "permanente"),
     "Sobrecarga (sem predominância de equipamentos)": (1.50, 0.0, 0.5, 0.4, 0.3, "variavel"),
     "Sobrecarga (com equipamentos ou pessoas)": (1.50, 0.0, 0.7, 0.6, 0.4, "variavel"),
     "Sobrecarga em cobertura, depósitos e oficinas": (1.50, 0.0, 0.8, 0.7, 0.6, "variavel"),
     "Vento": (1.40, 0.0, 0.6, 0.3, 0.0, "vento"),
-    "Temperatura": (1.20, 0.0, 0.6, 0.5, 0.3, "variavel"),
+    "Temperatura (variação atmosférica)": (1.20, 0.0, 0.6, 0.5, 0.3, "variavel"),
+    # gerada por equipamentos: ψ das ações de uso; adotados os maiores (a favor da segurança)
+    "Temperatura gerada por equipamentos": (1.50, 0.0, 0.8, 0.7, 0.6, "variavel"),
 }
+# nomes das versões anteriores (NBR 8681:2003) → atuais
+TIPOS_ANTIGOS = {
+    "Permanente (elementos em geral e equipamentos)": "Permanente (elementos em geral)",
+    "Temperatura": "Temperatura (variação atmosférica)",
+}
+
+
+def tipo_atual(tipo):
+    return TIPOS_ANTIGOS.get(tipo, tipo) if tipo not in TIPOS_CASO else tipo
 TIPO_PESO = "Peso próprio da estrutura de aço"
 
 LIMITES_FLECHA = {"Cobertura (L/250)": 250.0, "Piso (L/350)": 350.0}
@@ -49,6 +65,19 @@ LIMITE_PILAR = 300.0      # deslocamento horizontal relativo das pontas do pilar
 
 def caso_padrao():
     return {"nome": "Peso próprio", "tipo": TIPO_PESO, "peso_proprio": True, "cargas": []}
+
+
+def texto_mola(kh, kv):
+    """'Mola:kx,ky,kz' (kN/mm) — horizontal igual em x e y."""
+    return "Mola:%g,%g,%g" % (kh, kh, kv)
+
+
+def rigidez_mola(tipo):
+    try:
+        kx, ky, kz = (float(v) for v in tipo.split(":", 1)[1].split(","))
+        return kx, ky, kz
+    except (ValueError, IndexError):
+        return 0.0, 0.0, 0.0
 
 
 def _chave_no(p):
@@ -189,8 +218,8 @@ def montar_modelo(est, casos, apoios, liberacoes=None):
         xs = finos + [xs[-1]]
         mapa["barras"][i] = []
         lib = (liberacoes or {}).get(i, "")
-        ini = lib in ("Rótula no início", "Rótula nas duas pontas", "Barra de treliça")
-        fim = lib in ("Rótula no fim", "Rótula nas duas pontas", "Barra de treliça")
+        ini = lib in ("Rótula no início", "Rótula nas duas pontas") or lib in TRELICAS
+        fim = lib in ("Rótula no fim", "Rótula nas duas pontas") or lib in TRELICAS
         for a, b in zip(xs[:-1], xs[1:]):
             ni = m.no(tuple(p0 + t * a))
             nj = m.no(tuple(p0 + t * b))
@@ -199,17 +228,20 @@ def montar_modelo(est, casos, apoios, liberacoes=None):
                 solto += list(PT.ROTULA_I)
             if fim and b == xs[-1]:
                 solto += list(PT.ROTULA_J)
-                if lib == "Barra de treliça":
+                if lib in TRELICAS:
                     solto.append(9)          # torção solta numa ponta (senão a barra gira em torno do eixo)
             m.barras.append(PT.Barra(ni, nj, sec, (v.x, v.y, v.z), nome="%d" % (i + 1), origem=(i, a),
-                                     liberados=solto))
+                                     liberados=solto, so_tracao=(lib == TRELICAS[1])))
             mapa["barras"][i].append((len(m.barras) - 1, a))
     for k, n in enumerate(m.nos):
         mapa["nos"][_chave_no(n)] = k
     # apoios
     for k, tipo in apoios.items():
         no = _no_mais_proximo(m, _ponto_da_chave(k))
-        if no is not None and tipo in APOIOS:
+        if no is not None and tipo.startswith("Mola"):
+            kx, ky, kz = rigidez_mola(tipo)
+            m.molas[no] = [kx * 1000.0, ky * 1000.0, kz * 1000.0, 0.0, 0.0, 0.0]   # kN/mm → N/mm
+        elif no is not None and tipo in APOIOS:
             m.apoios[no] = list(APOIOS[tipo])
     # casos
     lista = []
@@ -276,6 +308,8 @@ class Calculo:
         self.modelo = None
         self.mapa = None
         self.combinacoes = []     # (nome, tipo, fatores)
+        self.imperfeicoes = {}    # nome da combinação → (texto, Caso com as forças nocionais)
+        self.rigidez = 1.0        # 0,8 quando a análise usou a rigidez reduzida
         self.resultados = {}      # nome → Resultado
         self.verificacao = {}     # linha → dict (pior combinação ELU)
         self.flechas = {}         # linha → (flecha mm, limite mm, razão, combinação)
@@ -284,12 +318,56 @@ class Calculo:
         self.amplificacao = 1.0
         self.avisos = []
         self.membros = {}
+        self.modos = None         # [(f Hz, vetor)] quando calculados
 
     @property
     def taxa_maxima(self):
         vals = [v["taxa"] for v in self.verificacao.values()]
         vals += [f[2] for f in self.flechas.values()]
         return max(vals) if vals else 0.0
+
+
+def frequencias(calc, casos, n=6):
+    """Frequências naturais da estrutura (Hz): massa do peso próprio das barras e das cargas
+    permanentes verticais (distribuídas nas barras e nos nós, convertidas em massa)."""
+    import numpy as np
+    import PrumoPortico as PT
+    m = calc.modelo
+    extra = {}
+    g = 9806.65                               # mm/s²
+    m.massas = {}
+    for c in casos:
+        if TIPOS_CASO.get(c["tipo"], (0, 0, 0, 0, 0, ""))[5] != "permanente":
+            continue
+        for carga in c.get("cargas", []):
+            d = np.array(DIRECOES.get(carga.get("direcao", "Para baixo (−Z)"), (0, 0, -1)), dtype=float)
+            if d[2] > -0.5:
+                continue                      # só o que pesa (para baixo)
+            val = abs(float(carga.get("valor", 0.0)))
+            if carga["alvo"] == "barra":
+                i = int(carga["linha"])
+                if carga["tipo"] in ("distribuida", "trapezoidal"):
+                    v2 = abs(float(carga.get("valor2", carga["valor"])))
+                    for eb, _a in calc.mapa["barras"].get(i, []):
+                        extra[eb] = extra.get(eb, 0.0) + (val + v2) / 2.0 / g      # N/mm → t/mm
+                else:
+                    pos = float(carga.get("posicao", 0.0))
+                    no = None
+                    for eb, a0 in calc.mapa["barras"][i]:
+                        b = m.barras[eb]
+                        Lb = float(np.linalg.norm(m.nos[b.j] - m.nos[b.i]))
+                        if a0 - 1e-6 <= pos <= a0 + Lb + 1e-6:
+                            no = b.i if pos - a0 <= Lb / 2.0 else b.j
+                            break
+                    if no is None:
+                        no = m.barras[calc.mapa["barras"][i][-1][0]].j
+                    m.massas[no] = m.massas.get(no, 0.0) + val * 1000.0 / g
+            else:
+                no = _no_mais_proximo(m, _ponto_da_chave(carga["no"]))
+                if no is not None:
+                    m.massas[no] = m.massas.get(no, 0.0) + val * 1000.0 / g
+    calc.modos = m.modos(n, extra)
+    return calc.modos
 
 
 def membros(m, mapa):
@@ -345,6 +423,34 @@ def membros(m, mapa):
     return res
 
 
+def _com_imperfeicoes(calc, m, casos, lista):
+    """Combinações últimas sem vento ganham 4 variantes com forças nocionais (NBR 8800:2024, 4.10.7):
+    0,3 % da carga gravitacional de cálculo de cada nó, horizontal, em +X, −X, +Y e −Y. Nas combinações
+    com vento as forças nocionais não se somam (o vento já é a ação horizontal)."""
+    import PrumoPortico as PT
+    novas = []
+    for nome, tipo, fatores in calc.combinacoes:
+        com_vento = any(f and TIPOS_CASO[casos[k]["tipo"]][5] == "vento" for k, f in fatores)
+        if tipo != "ELU" or com_vento:
+            novas.append((nome, tipo, fatores))
+            continue
+        grav = m.cargas_gravitacionais([(lista[k], f) for k, f in fatores if f])
+        if not grav.any():
+            novas.append((nome, tipo, fatores))
+            continue
+        for eixo, sinal, rot in ((0, 1, "+X"), (0, -1, "−X"), (1, 1, "+Y"), (1, -1, "−Y")):
+            c = PT.Caso("imperfeição %s" % rot, "imperfeicao")
+            for no, g in enumerate(grav):
+                if g > 0 and not (no in m.apoios and m.apoios[no][eixo]):
+                    f = [0.0, 0.0, 0.0]
+                    f[eixo] = sinal * 0.003 * g / 1000.0       # kN
+                    c.nos.append((no, f, [0.0, 0.0, 0.0]))
+            n2 = "%s + imperfeição %s" % (nome, rot)
+            calc.imperfeicoes[n2] = ("forças nocionais 0,3 %% %s" % rot, c)
+            novas.append((n2, tipo, fatores))
+    return novas
+
+
 def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_flecha=250.0, K=1.0,
              segunda_ordem=True, liberacoes=None):
     import PrumoNBR8800 as N
@@ -353,31 +459,74 @@ def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_fl
     m, lista, mapa = montar_modelo(est, casos, apoios, liberacoes)
     calc.modelo, calc.mapa = m, mapa
     calc.combinacoes = combinacoes(casos)
-    if not m.apoios:
+    if not m.apoios and not any(any(k) for k in m.molas.values()):
         calc.erro = "a estrutura não tem apoios: clique nos nós para apoiar"
         return calc
+    calc.combinacoes = _com_imperfeicoes(calc, m, casos, lista)
     try:
+        partes_de = {}
         for nome, tipo, fatores in calc.combinacoes:
             partes = [(lista[k], f) for k, f in fatores if f]
+            if nome in calc.imperfeicoes:
+                partes.append((calc.imperfeicoes[nome][1], 1.0))
+            partes_de[nome] = partes
             calc.resultados[nome] = m.resolver(partes, segunda_ordem=(segunda_ordem and tipo == "ELU"))
+        if segunda_ordem:
+            calc.amplificacao = max([r.amplificacao for n2, r in calc.resultados.items()
+                                     if n2 in partes_de and dict((x[0], x[1]) for x in calc.combinacoes)[n2] == "ELU"]
+                                    or [1.0])
+        else:
+            # 1ª ordem escolhida: a deslocabilidade é conferida mesmo assim (4.10.4), com uma 2ª ordem à parte
+            amp = []
+            for nome, tipo, _f in calc.combinacoes:
+                if tipo == "ELU":
+                    try:
+                        amp.append(m.resolver(partes_de[nome], segunda_ordem=True).amplificacao)
+                    except ValueError:
+                        amp.append(float("inf"))
+            calc.amplificacao = max(amp or [1.0])
+        # 4.10.4 / 4.10.7 (NBR 8800:2024): média deslocabilidade → rigidez de 80 % nas combinações últimas
+        if segunda_ordem and calc.amplificacao > 1.10:
+            calc.rigidez = 0.8
+            for nome, tipo, _f in calc.combinacoes:
+                if tipo == "ELU":
+                    calc.resultados[nome] = m.resolver(partes_de[nome], segunda_ordem=True, rigidez=0.8)
     except ValueError as ex:
         calc.erro = str(ex)
         calc.resultados = {}
         return calc
-    calc.amplificacao = max([r.amplificacao for r in calc.resultados.values()] or [1.0])
     if nome_material.startswith("ASTM A36 (padrão"):
         calc.avisos.append("Material não informado: verificado como ASTM A36 (fy 250 MPa, fu 400 MPa). "
                            "Confira o aço real das barras.")
+    a = calc.amplificacao
+    classe = ("pequena" if a <= 1.10 else "média" if a <= 1.40 else "grande")
+    if not segunda_ordem:
+        if a > 1.10:
+            calc.avisos.append("ATENÇÃO: análise de 1ª ordem escolhida, mas a estrutura é de %s deslocabilidade "
+                               "(razão %.2f > 1,10): a NBR 8800:2024 exige a análise de 2ª ordem. Ligue a 2ª "
+                               "ordem; os resultados de 1ª ordem não valem para a verificação." % (classe, a))
+        else:
+            calc.avisos.append("Análise de 1ª ordem com forças nocionais de 0,3 %% (±X e ±Y); estrutura de pequena "
+                               "deslocabilidade (razão entre deslocamentos horizontais de 2ª e 1ª ordem %.2f)." % a)
     if segunda_ordem:
-        calc.avisos.append("Análise de 2ª ordem (P-Δ e P-δ) nas combinações últimas; amplificação máxima "
-                           "%.2f. Imperfeições iniciais e redução de rigidez (NBR 8800, 4.9.7): a checar."
-                           % calc.amplificacao)
+        txt = ("Análise de 2ª ordem (P-Δ e P-δ) nas combinações últimas, com forças nocionais de 0,3 %% da "
+               "carga gravitacional (±X e ±Y) nas combinações sem vento. Maior razão entre deslocamentos "
+               "horizontais de 2ª e 1ª ordem, nó a nó: %.2f → %s deslocabilidade (NBR 8800:2024, 4.10.4; "
+               "tomada nos nós, não andar a andar)" % (a, classe))
+        if calc.rigidez < 1.0:
+            txt += "; combinações últimas recalculadas com 80 % da rigidez (EI e EA)"
+        calc.avisos.append(txt + ".")
+        if a > 1.40:
+            calc.avisos.append("GRANDE deslocabilidade (razão %.2f > 1,40): a NBR 8800:2024 pede análise "
+                               "que considere as não linearidades geométrica e de material; o cálculo daqui "
+                               "(elástico com 80 %% da rigidez) não basta. Enrijeça a estrutura (travamentos, "
+                               "perfis) ou faça a análise avançada." % a)
     calc.membros = membros(m, mapa)
     # verificação por linha (barra do Prumo), pior combinação ELU
     for i, trechos in mapa["barras"].items():
         prop = mapa["secoes"][i]
         _ls, Lm, balanco = calc.membros[i]
-        Kb, Kz = (max(K, 2.1), 2.0) if balanco else (K, 1.0)
+        Kb = 1.0          # NBR 8800:2024: sem K; Ne com o comprimento destravado do membro
         pior = None
         elems_m = [eb for j in _ls for eb, _a in mapa["barras"][j]] if len(_ls) > 1 else None
         for nome, tipo, _f in calc.combinacoes:
@@ -390,7 +539,7 @@ def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_fl
             # tração e compressão: verifica as duas se aparecerem
             for Nv in sorted({esf["Nmax"], esf["Nmin"]}):
                 e2 = dict(esf, N=Nv)
-                ver = N.verificar(prop, fy, fu, Lm, e2, Kb, Kz, balanco)
+                ver = N.verificar(prop, fy, fu, Lm, e2, balanco=balanco)
                 ver["combinacao"] = nome
                 ver["esforcos"] = e2
                 ver["membro"] = (Lm, Kb, balanco)
@@ -576,10 +725,15 @@ class Analise:
                 obj.Mostrar = atual
         add("App::PropertyString", "Combinacao", "Vista", "Combinação mostrada (vazio = a pior ELU)", "")
         add("App::PropertyFloat", "Escala", "Vista", "Escala dos diagramas e da deformada (1 = automática)", 1.0)
+        add("App::PropertyInteger", "Modo", "Vista", "Modo de vibrar desenhado (1 = o de menor frequência)", 1)
         add("App::PropertyBool", "SegundaOrdem", "Análise", "Análise de 2ª ordem (P-Δ) nas combinações últimas",
             True)
-        add("App::PropertyFloat", "K", "Análise", "Coeficiente de flambagem K (1,0 para barras contraventadas; "
-            "pilar em balanço: 2,1 pela Tabela E.1)", 1.0)
+        add("App::PropertyFloat", "K", "Análise", "Não usado desde a NBR 8800:2024 (sem coeficiente K: a "
+            "estabilidade global fica com a análise de 2ª ordem com imperfeições)", 1.0)
+        try:
+            obj.setEditorMode("K", 2)
+        except Exception:
+            pass
         add("App::PropertyFloat", "TaxaMaxima", "Resultados", "Maior taxa de uso (1,00 = no limite)", 0.0, True)
         add("App::PropertyString", "BarraCritica", "Resultados", "Barra com a maior taxa", "", True)
         add("App::PropertyFloat", "DeslocamentoMax", "Resultados", "Maior deslocamento (mm, ELS)", 0.0, True)
@@ -595,9 +749,13 @@ class Analise:
         res = []
         for linha in obj.Casos:
             try:
-                res.append(json.loads(linha))
+                c = json.loads(linha)
             except ValueError:
                 continue
+            c["tipo"] = tipo_atual(c.get("tipo", ""))
+            if c["tipo"] not in TIPOS_CASO:
+                c["tipo"] = "Permanente (elementos em geral)"
+            res.append(c)
         return res or [caso_padrao()]
 
     def liberacoes(self, obj):
@@ -616,7 +774,7 @@ class Analise:
         res = {}
         for linha in obj.Apoios:
             k, _s, tipo = linha.partition("=")
-            if tipo in APOIOS:
+            if tipo in APOIOS or tipo.startswith("Mola:"):
                 res[k.strip()] = tipo
         return res
 
@@ -693,8 +851,9 @@ class Analise:
 
 
 DEFORMADA_TAXA = "Deformada com a taxa de uso"
+MODO_VIBRAR = "Modo de vibrar"
 MOSTRAR = ["Taxa de uso", "Momento fletor (M)", "Esforço cortante (V)", "Esforço normal (N)", "Deformada",
-           DEFORMADA_TAXA, "Cargas e apoios"]
+           DEFORMADA_TAXA, MODO_VIBRAR, "Cargas e apoios"]
 
 
 def criar(doc, est):

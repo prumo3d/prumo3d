@@ -112,8 +112,9 @@ class Secao:
 class Barra:
     """Barra entre os nós i e j. eixo_z: vetor que dá a direção do eixo local z (altura da seção)."""
 
-    def __init__(self, i, j, secao, eixo_z, nome="", origem=None, liberados=()):
+    def __init__(self, i, j, secao, eixo_z, nome="", origem=None, liberados=(), so_tracao=False):
         self.liberados = tuple(sorted(set(liberados)))   # graus locais soltos (rótulas): 4, 5, 9, 10, 11
+        self.so_tracao = bool(so_tracao)                 # contraventamento: sai do modelo se comprimir
         self.i, self.j = int(i), int(j)
         self.secao = secao
         self.eixo_z = np.array(eixo_z, dtype=float)
@@ -138,6 +139,8 @@ class Modelo:
         self.nos = []           # np.array([x, y, z]) mm
         self.barras = []
         self.apoios = {}        # nó: [6 bools] (ux, uy, uz, rx, ry, rz) travados
+        self.molas = {}         # nó: [6 rigidezes] N/mm (deslocamentos) e N·mm/rad (giros), eixos globais
+        self.massas = {}        # nó: massa concentrada extra (t = 1000 kg), nos três deslocamentos
 
     def no(self, p, tol=1e-3):
         p = np.array(p, dtype=float)
@@ -261,6 +264,81 @@ class Modelo:
             f[10] += -Pz * a * a * b / L ** 2
         return f
 
+    @staticmethod
+    def massa_local(m, L, r2):
+        """Matriz de massa consistente (12) da barra: m em t/mm, r2 = (Iy + Iz)/A para a torção."""
+        M = np.zeros((12, 12))
+        a = m * L
+        M[0, 0] = M[6, 6] = a / 3.0
+        M[0, 6] = M[6, 0] = a / 6.0
+        M[3, 3] = M[9, 9] = a * r2 / 3.0
+        M[3, 9] = M[9, 3] = a * r2 / 6.0
+        c = a / 420.0
+        # flexão no plano x-y (v, θz): graus 1, 5, 7, 11
+        for (i, j, v) in ((1, 1, 156), (1, 5, 22 * L), (1, 7, 54), (1, 11, -13 * L), (5, 5, 4 * L * L),
+                          (5, 7, 13 * L), (5, 11, -3 * L * L), (7, 7, 156), (7, 11, -22 * L), (11, 11, 4 * L * L)):
+            M[i, j] = M[j, i] = c * v
+        # flexão no plano x-z (w, θy): graus 2, 4, 8, 10 (sinais trocados nos giros)
+        for (i, j, v) in ((2, 2, 156), (2, 4, -22 * L), (2, 8, 54), (2, 10, 13 * L), (4, 4, 4 * L * L),
+                          (4, 8, -13 * L), (4, 10, -3 * L * L), (8, 8, 156), (8, 10, 22 * L), (10, 10, 4 * L * L)):
+            M[i, j] = M[j, i] = c * v
+        return M
+
+    def modos(self, n=6, massas_dist=None):
+        """Frequências naturais (Hz) e formas modais [(f, vetor de deslocamentos ndof)].
+        Massa: peso próprio das barras (massa linear da seção) + massas_dist {barra: t/mm} (cargas
+        permanentes convertidas em massa) + massas concentradas dos nós (self.massas)."""
+        from scipy.linalg import eigh
+        ndof = 6 * len(self.nos)
+        K = np.zeros((ndof, ndof))
+        M = np.zeros((ndof, ndof))
+        for nb, b in enumerate(self.barras):
+            R, L = self.eixos(b)
+            T = self._T(R)
+            k = self.rigidez_local(b.secao, L)
+            k2, _f2, _rec = _condensar(k, np.zeros(12), b.liberados)
+            m = b.secao.massa_kgm * 1e-6 + (massas_dist or {}).get(nb, 0.0)
+            r2 = (b.secao.Iy + b.secao.Iz) / b.secao.A
+            ml = self.massa_local(m, L, r2)
+            idx = list(range(6 * b.i, 6 * b.i + 6)) + list(range(6 * b.j, 6 * b.j + 6))
+            K[np.ix_(idx, idx)] += T.T @ k2 @ T
+            M[np.ix_(idx, idx)] += T.T @ ml @ T
+        for no, ks in self.molas.items():
+            for g in range(6):
+                K[6 * no + g, 6 * no + g] += float(ks[g])
+        for no, mt in self.massas.items():
+            for g in range(3):
+                M[6 * no + g, 6 * no + g] += float(mt)
+        presos = np.zeros(ndof, dtype=bool)
+        for no, travas in self.apoios.items():
+            for g in range(6):
+                if travas[g]:
+                    presos[6 * no + g] = True
+        diag = np.abs(np.diag(K))
+        tol = 1e-9 * max(1.0, diag.max())
+        for g in range(ndof):
+            if not presos[g] and diag[g] < tol and g % 6 >= 3:
+                presos[g] = True
+        livres = ~presos
+        molas = self._molas_de_giro(K, livres)
+        if molas is not None:
+            K = K + molas
+        Kf = K[np.ix_(livres, livres)]
+        Mf = M[np.ix_(livres, livres)]
+        # giros sem inércia (nó só de pontas rotuladas): um pouquinho de inércia para a matriz ser positiva
+        dm = np.diag(Mf).copy()
+        pequeno = dm <= 1e-12 * max(1e-30, dm.max())
+        Mf[np.diag_indices_from(Mf)] += np.where(pequeno, 1e-9 * dm.max(), 0.0)
+        n = min(n, Kf.shape[0])
+        w2, vec = eigh(Kf, Mf, subset_by_index=[0, n - 1])
+        res = []
+        for k in range(n):
+            phi = np.zeros(ndof)
+            phi[livres] = vec[:, k]
+            f = math.sqrt(max(w2[k], 0.0)) / (2 * math.pi)
+            res.append((f, phi))
+        return res
+
     def _texto_mecanismo(self, Kff, livres):
         """Mensagem do mecanismo apontando o nó e a direção que se movem sem resistência."""
         txt = "a estrutura é instável (mecanismo): faltam apoios ou travamentos"
@@ -313,11 +391,35 @@ class Modelo:
         return molas
 
     # ------------------------------------------------------------ solução
-    def resolver(self, caso_ou_combinacao, segunda_ordem=False):
+    def cargas_gravitacionais(self, caso_ou_combinacao):
+        """Carga vertical para baixo (N) que chega a cada nó na combinação: cargas nodais mais as
+        reações de engaste perfeito das barras (cada barra entrega a sua carga às duas pontas)."""
+        partes = caso_ou_combinacao if isinstance(caso_ou_combinacao, (list, tuple)) else [(caso_ou_combinacao, 1.0)]
+        Fz = np.zeros(len(self.nos))
+        for nb, b in enumerate(self.barras):
+            R, L = self.eixos(b)
+            T = self._T(R)
+            fe = np.zeros(12)
+            for caso, fator in partes:
+                dist, pont = self._cargas_locais(caso, nb, b, R, L)
+                dist = [(a, bb, q1 * fator, q2 * fator) for a, bb, q1, q2 in dist]
+                pont = [(a, P * fator) for a, P in pont]
+                fe += self._engaste_perfeito(dist, pont, L)
+            g = -(T.T @ fe)
+            Fz[b.i] += g[2]
+            Fz[b.j] += g[8]
+        for caso, fator in partes:
+            for (no, forca, _m) in caso.nos:
+                Fz[no] += float(forca[2]) * 1000.0 * fator
+        return np.maximum(-Fz, 0.0)
+
+    def resolver(self, caso_ou_combinacao, segunda_ordem=False, rigidez=1.0):
         """Resolve um caso ou uma combinação [(caso, fator)]. Retorna Resultado.
 
         segunda_ordem=True: análise P-Δ (rigidez geométrica, iterada até convergir); o resultado
-        traz o fator de amplificação dos deslocamentos (2ª ordem / 1ª ordem)."""
+        traz o fator de amplificação dos deslocamentos (2ª ordem / 1ª ordem).
+        rigidez: fator sobre a rigidez elástica das barras (0,8 na média deslocabilidade, NBR 8800:2024
+        4.10.7); a rigidez geométrica e as molas não mudam."""
         partes = caso_ou_combinacao if isinstance(caso_ou_combinacao, (list, tuple)) else [(caso_ou_combinacao, 1.0)]
         n = len(self.nos)
         ndof = 6 * n
@@ -326,7 +428,7 @@ class Modelo:
         for nb, b in enumerate(self.barras):
             R, L = self.eixos(b)
             T = self._T(R)
-            k = self.rigidez_local(b.secao, L)
+            k = self.rigidez_local(b.secao, L) * float(rigidez)
             idx = list(range(6 * b.i, 6 * b.i + 6)) + list(range(6 * b.j, 6 * b.j + 6))
             dist_t, pont_t, fe_t = [], [], np.zeros(12)
             for caso, fator in partes:
@@ -342,15 +444,23 @@ class Modelo:
                 F_nos[6 * no:6 * no + 3] += np.array(forca, dtype=float) * 1000.0 * fator
                 F_nos[6 * no + 3:6 * no + 6] += np.array(momento, dtype=float) * 1e6 * fator
 
+        ativos = [True] * len(info)
+
         def montar(kgs):
             K = np.zeros((ndof, ndof))
             F = F_nos.copy()
             cond = []
             for nb, (R, L, T, k, fe, _d, _p, idx, lib) in enumerate(info):
                 k2, f2, rec = _condensar(k + kgs[nb], fe, lib)
+                if not ativos[nb]:
+                    # barra só de tração comprimida: fora do modelo (o peso dela ainda vai aos nós)
+                    k2 = np.zeros((12, 12))
                 K[np.ix_(idx, idx)] += T.T @ k2 @ T
                 F[idx] -= T.T @ f2
                 cond.append((k2, f2, rec))
+            for no, ks in self.molas.items():
+                for g in range(6):
+                    K[6 * no + g, 6 * no + g] += float(ks[g])
             return K, F, cond
 
         kgs = [np.zeros((12, 12)) for _ in info]
@@ -360,7 +470,7 @@ class Modelo:
             for g in range(6):
                 if travas[g]:
                     presos[6 * no + g] = True
-        if not presos.any():
+        if not presos.any() and not any(any(ks) for ks in self.molas.values()):
             raise ValueError("a estrutura não tem apoios: clique nos nós para apoiar")
         # giro de nó onde só chegam pontas rotuladas (ex.: nó de treliça): não tem rigidez e não
         # influi em nada; fica travado. Deslocamento sem rigidez é nó solto: erro.
@@ -394,6 +504,39 @@ class Modelo:
             raise ValueError(self._texto_mecanismo(Kff, livres))
         u = np.zeros(ndof)
         u[livres] = uf
+        # barras só de tração: tira as comprimidas e devolve as que voltam a esticar, até estabilizar
+        self.ciclos_tracao = 0
+        if any(b.so_tracao for b in self.barras):
+            for self.ciclos_tracao in range(1, 31):
+                mudou = False
+                for nb, (R, L, T, k, fe, _d, _p, idx, lib) in enumerate(info):
+                    if not self.barras[nb].so_tracao:
+                        continue
+                    ul = T @ u[idx]
+                    if ativos[nb]:
+                        k2, f2, _rec = cond[nb]
+                        Nb = -(k2 @ ul + f2)[0]
+                        if Nb < -1e-6 * max(1.0, abs(k[0, 0])):
+                            ativos[nb] = False
+                            mudou = True
+                    elif ul[6] - ul[0] > 1e-9:
+                        ativos[nb] = True
+                        mudou = True
+                if not mudou:
+                    break
+                K, F, cond = montar(kgs)
+                if molas is not None:
+                    K = K + molas
+                Kff = K[np.ix_(livres, livres)]
+                try:
+                    uf = np.linalg.solve(Kff, F[livres])
+                except np.linalg.LinAlgError:
+                    raise ValueError(self._texto_mecanismo(Kff, livres))
+                if not np.all(np.isfinite(uf)) or (Kff.size and np.linalg.cond(Kff) > 1e15):
+                    raise ValueError(self._texto_mecanismo(Kff, livres) + " (com os contraventamentos "
+                                     "comprimidos fora do modelo)")
+                u = np.zeros(ndof)
+                u[livres] = uf
         u1 = u.copy()
         iteracoes = 0
         if segunda_ordem:
@@ -425,11 +568,10 @@ class Modelo:
                     break
         reac = K @ u - F
         res = Resultado(self, u, reac, presos)
+        res.ativos = list(ativos)
         res.segunda_ordem = segunda_ordem
         res.iteracoes = iteracoes
-        tr1 = max((np.linalg.norm(u1[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
-        tr2 = max((np.linalg.norm(u[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
-        res.amplificacao = tr2 / tr1 if tr1 > 1e-12 else 1.0
+        res.amplificacao = amplificacao_horizontal(u1, u, n)
         for nb, (R, L, T, k, fe, dist, pont, idx, lib) in enumerate(info):
             k2, f2, rec = cond[nb]
             ul = T @ u[idx]
@@ -443,6 +585,17 @@ class Modelo:
             res.cargas.append((dist, pont))
             res.geo.append((R, L))
         return res
+
+
+def amplificacao_horizontal(u1, u2, n):
+    """Maior razão, nó a nó, entre os deslocamentos horizontais (X, Y) de 2ª e de 1ª ordem; só os nós
+    com deslocamento de 1ª ordem de pelo menos 10 % do maior entram (evita razão de números pequenos)."""
+    h1 = [math.hypot(u1[6 * k], u1[6 * k + 1]) for k in range(n)]
+    h2 = [math.hypot(u2[6 * k], u2[6 * k + 1]) for k in range(n)]
+    mx = max(h1, default=0.0)
+    if mx <= 1e-9:
+        return 1.0
+    return max([b / a for a, b in zip(h1, h2) if a >= 0.1 * mx] or [1.0])
 
 
 class Resultado:

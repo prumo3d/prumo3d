@@ -239,12 +239,19 @@ def _torcao(it, p):
         J = 4 * (bm * bm) ** 2 * e / (4 * bm)
         return {"J": J, "Cw": 0.0, "x0": 0.0, "y0": 0.0}
     if t == "POL":
-        # seção personalizada: J pela função de Prandtl numa malha; Cw = 0 e centro de cisalhamento
-        # no centróide (aproximações a favor da segurança na torção; flexo-torção a checar)
-        import PrumoSecaoPersonalizada as SP
+        # seção personalizada: empenamento de Saint-Venant por elementos finitos (PrumoSecaoGeral) →
+        # J, centro de cisalhamento, Cw e coeficientes de Wagner; se a malha falhar, J pela função de
+        # Prandtl e Cw = 0 com o centro de cisalhamento no centróide (aviso na verificação)
         ext = [tuple(q) for q in it["contorno"]]
         furos = [[tuple(q) for q in f] for f in it.get("furos", [])]
-        return {"J": SP.constante_torcao(ext, furos), "Cw": 0.0, "x0": 0.0, "y0": 0.0}
+        try:
+            import PrumoSecaoGeral as SG
+            g = SG.empenamento(ext, furos)
+            return {"J": g["J"], "Cw": g["Cw"], "x0": g["x0"], "y0": g["y0"], "geral": g}
+        except Exception as ex:
+            import PrumoSecaoPersonalizada as SP
+            return {"J": SP.constante_torcao(ext, furos), "Cw": 0.0, "x0": 0.0, "y0": 0.0,
+                    "geral": None, "erro_geral": str(ex)}
     raise ValueError(t)
 
 
@@ -266,7 +273,13 @@ def _elementos(it):
         b = s - 3 * e           # parte plana (raio externo ~ 1,5 t, a checar com o fabricante)
         return {"bt_parede": b / e, "b": s, "t": e, "h": b}
     if t == "POL":
-        return {}
+        try:
+            import PrumoSecaoGeral as SG
+            ext = [tuple(q) for q in it["contorno"]]
+            furos = [[tuple(q) for q in f] for f in it.get("furos", [])]
+            return {"chapas": SG.chapas(ext, furos)}
+        except Exception:
+            return {"chapas": []}
     if t == "TUBO":
         return {"D_t": it["D"] / it["esp"]}
     return {}

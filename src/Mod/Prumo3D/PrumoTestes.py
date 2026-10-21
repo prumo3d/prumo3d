@@ -100,7 +100,7 @@ class T01Modulos(unittest.TestCase):
                      "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao", "PrumoNomes", "PrumoPainel", "PrumoSelecao", "PrumoPropriedades", "PrumoChapa", "PrumoVariantes", "PrumoCopiarProjeto", "PrumoInterferencia", "PrumoModelos", "PrumoGuiaMigracao",
                      "PrumoSecao", "PrumoPortico", "PrumoNBR8800", "PrumoAnaliseEstrutura", "PrumoAnaliseVista",
                      "PrumoAnaliseRelatorio", "PrumoDetalheFEM", "PrumoVideo",
-                     "PrumoSecaoPersonalizada"):
+                     "PrumoSecaoPersonalizada", "PrumoSecaoGeral"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):
@@ -365,7 +365,10 @@ class T05bMateriaisPrumo(unittest.TestCase):
         "AISI 304L (A240)": (170, 485, 195000), "AISI 316 (A240)": (205, 515, 195000),
         "Alumínio 6061-T6 (B209)": (240, 290, 69000), "NBR 7007 AR350 COR": (350, 485, 203000),
         "NBR 6648 CG250": (250, 400, 203000), "NBR 6650 CFQ250": (250, 400, 203000),
-        "AISI 316L (A240)": (170, 485, 193000),
+        "AISI 316L (A240)": (170, 485, 195000),
+        "AISI 430 (A240)": (205, 450, 200000),
+        "Alumínio 1100-H14": (95, 110, 69000),
+        "Alumínio 5052-H32": (160, 215, 69300),
     }
 
     def test_biblioteca_registrada_e_valores(self):
@@ -387,8 +390,8 @@ class T05bMateriaisPrumo(unittest.TestCase):
         sew = {d["nome"]: d for d in F.materiais() if d["biblioteca"] == "Prumo"}
         if not sew:
             self.skipTest("biblioteca Prumo ainda não carregada")
-        for nome in ("SAE 1020", "SAE 1045", "SAE 4140", "SAE 4340", "SAE 8620", "AISI 430 (A240)",
-                     "Alumínio 1100-H14", "Alumínio 5052-H32", "Latão C36000 (usinagem)",
+        for nome in ("SAE 1020", "SAE 1045", "SAE 4140", "SAE 4340", "SAE 8620",
+                     "Latão C36000 (usinagem)",
                      "Ferro fundido nodular FE 50007", "Chapa SAE 1020 (fina a quente)"):
             self.assertIn(nome, sew, nome)
             self.assertIsNone(F.props_mat(sew[nome]["props"])["Sy"], nome)

@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "SAE 8620"
-  Description: "A resistência do SAE 8620 depende do estado de fornecimento (laminado, trefilado, beneficiado) e a norma não fixa mínimo: use o valor do certificado. Densidade, módulo de elasticidade e Poisson típicos."
+  Description: "SAE J403/J404 especificam só a composição química. Propriedades mecânicas conforme a condição de fornecimento (recozido, para cementação) e o certificado; densidade, módulo de elasticidade e Poisson típicos."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'
@@ -17,6 +17,6 @@ Models:
     StandardCode: "SAE J404"
   LinearElastic:
     UUID: '7b561d1d-fb9b-44f6-9da9-56a4f74d7536'
-    Density: "7800 kg/m^3"
+    Density: "7850 kg/m^3"
     PoissonRatio: "0.29"
-    YoungsModulus: "190000 MPa"
+    YoungsModulus: "205000 MPa"

@@ -264,6 +264,20 @@ TABS = [
         ]),
         ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),
     ]},
+    {"id": "vasos", "label": "Vasos", "wb": None, "panels": [
+        ("Vaso de pressão", [
+            ("Prumo_Vaso", L, "Vaso de\npressão"),
+        ]),
+        ("Cálculo", [
+            ("Prumo_MemoriaVaso", L, "Memória de\ncálculo"), ("Prumo_TesteVaso", L, "Simular teste\nde pressão"),
+        ]),
+        ("Desenho", [
+            ("Prumo_DesenhoVaso", L, "Desenho\ndo vaso"),
+        ]),
+        ("Conferir", [
+            ("Prumo_Massa", L, "Propriedades\nde massa"), ("Std_Measure", S, "Medir"),
+        ]),
+    ]},
     {"id": "chapa", "label": "Chapa", "wb": "SMWorkbench", "panels": [
         ("Criar", [
             ("SheetMetal_AddBase", L, "Parede\nbase"), ("SheetMetal_BaseShape", S, "Formas prontas"),

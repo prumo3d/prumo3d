@@ -19,6 +19,6 @@ Models:
     UUID: '7b561d1d-fb9b-44f6-9da9-56a4f74d7536'
     Density: "8000 kg/m^3"
     PoissonRatio: "0.3"
-    YoungsModulus: "193000 MPa"
+    YoungsModulus: "195000 MPa"
     YieldStrength: "170 MPa"
     UltimateTensileStrength: "485 MPa"

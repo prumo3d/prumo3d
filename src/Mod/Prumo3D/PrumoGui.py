@@ -136,6 +136,7 @@ def remove_splash():
 
 # ------------------------------------------------------------- tema de ícones
 ICON_ZIP = os.path.join(RES_DIR, "tema-icones-prumo.zip")
+ICON_DIR_PACOTE = os.path.join(RES_DIR, "icones-tema")   # descompactado na instalação (CMake)
 BITMAPS = "User parameter:BaseApp/Preferences/Bitmaps"
 ICON_PATH_KEY = "CustomPathPrumo"  # lido por BitmapFactory::restoreCustomPaths (prefixo "CustomPath")
 
@@ -155,6 +156,27 @@ def install_icon_theme():
         bitmaps.RemString(ICON_PATH_KEY)
         return
     import zipfile
+    # Instalador: o tema já vem descompactado e o branding.xml o registra (ProgramIcons), lido pelo
+    # FreeCAD antes de criar qualquer ícone. No tema claro não precisa de mais nada; no escuro, a
+    # cópia recolorida vai na frente pelo caminho personalizado.
+    if os.path.isdir(ICON_DIR_PACOTE):
+        try:
+            import PrumoEstilo
+            escuro = PrumoEstilo.escuro()
+        except Exception:
+            escuro = False
+        if not escuro:
+            bitmaps.RemString(ICON_PATH_KEY)
+            return
+        stamp = "pacote-{}".format(int(os.path.getmtime(ICON_DIR_PACOTE)))
+        try:
+            esc = _icon_dir_escuro(ICON_DIR_PACOTE, stamp, os.path.join(FreeCAD.getUserAppDataDir(),
+                                                                        "PrumoIconesEscuro"))
+            if bitmaps.GetString(ICON_PATH_KEY, "") != esc:
+                bitmaps.SetString(ICON_PATH_KEY, esc)
+        except OSError as exc:
+            FreeCAD.Console.PrintWarning("Prumo: ícones do tema escuro não gerados: {}\n".format(exc))
+        return
 
     dest = _icon_dir()
     stamp = "{}-{}".format(os.path.getsize(ICON_ZIP), int(os.path.getmtime(ICON_ZIP)))
@@ -183,10 +205,10 @@ def install_icon_theme():
 ICONES_ESCURO = {"#1e2a38": "#c9d6e3", "#003a70": "#8cbceb", "#9fb1c4": "#6f8296"}
 
 
-def _icon_dir_escuro(dest, stamp):
+def _icon_dir_escuro(dest, stamp, esc=None):
     """Cópia recolorida do tema de ícones para o modo escuro."""
     import re
-    esc = dest.rstrip("/\\") + "Escuro"
+    esc = esc or dest.rstrip("/\\") + "Escuro"
     if _params().GetString("IconThemeStampEscuro", "") == stamp and os.path.isdir(esc):
         return esc
     shutil.rmtree(esc, ignore_errors=True)
@@ -844,7 +866,11 @@ def register_commands():
                                  "Prumo_SecaoPersonalizada", m.CmdSecaoPersonalizada())),
                              ("PrumoAnaliseVista", lambda m: FreeCADGui.addCommand("Prumo_AnaliseEstrutura",
                                                                                   m.CmdAnaliseEstrutura())),
-                             # PrumoVaso (vaso de pressão): desligado por enquanto; volta numa etapa própria
+                             ("PrumoVaso", lambda m: (
+                                 FreeCADGui.addCommand("Prumo_Vaso", m.CmdVaso()),
+                                 FreeCADGui.addCommand("Prumo_MemoriaVaso", m.CmdMemoriaVaso()),
+                                 FreeCADGui.addCommand("Prumo_DesenhoVaso", m.CmdDesenhoVaso()),
+                                 FreeCADGui.addCommand("Prumo_TesteVaso", m.CmdTesteVaso()))),
                              ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
                              ("PrumoContexto", lambda m: m.registrar_comandos())):
         try:

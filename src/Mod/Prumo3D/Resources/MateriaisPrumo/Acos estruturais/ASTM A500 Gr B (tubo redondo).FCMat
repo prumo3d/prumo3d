@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "ASTM A500 Gr B (tubo redondo)"
-  Description: "Limites mínimos da especificação ASTM A500 Grade B. Fonte da conferência: ASTM A500 (Wikipedia). Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
+  Description: "Tubo redondo (o tubo formado tem LE 315 MPa). Limites mínimos da especificação ASTM A500 Grade B. Fonte da conferência: ASTM A500 (AISC / ASTM A500). Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'

@@ -102,15 +102,17 @@ def _migrar_propriedades(obj):
 
 
 def _faces_validas(obj, subs):
+    """Faces (ou arestas, nos modelos de casca) que ainda existem na forma."""
     try:
-        n = len(obj.Shape.Faces)
+        n = {"Face": len(obj.Shape.Faces), "Edge": len(obj.Shape.Edges)}
     except Exception:
         return False
     for s in subs:
-        if not s.startswith("Face"):
+        tipo = "Face" if s.startswith("Face") else ("Edge" if s.startswith("Edge") else None)
+        if tipo is None:
             return False
         try:
-            if not 1 <= int(s[4:]) <= n:
+            if not 1 <= int(s[4:]) <= n[tipo]:
                 return False
         except ValueError:
             return False
@@ -409,10 +411,14 @@ def avaliar(est):
         r["estudo"] = (VAZIO, "Escolha a peça que será analisada", [(ERRO, "Nenhuma peça escolhida.")])
     else:
         nivel = OK
+        casca = bool(est.get("PrumoCasca", False))
         try:
             sh = peca.Shape
             nsol = len(sh.Solids)
-            if nsol == 0:
+            if casca:
+                if not sh.Faces:
+                    msgs.append((ERRO, "O modelo de casca não tem faces."))
+            elif nsol == 0:
                 msgs.append((ERRO, "A peça não tem sólido (é só superfície ou esboço). Escolha um sólido."))
             elif nsol > 1:
                 msgs.append((AVISO, "A peça tem {} sólidos separados. Eles só funcionam juntos se estiverem "
@@ -504,7 +510,7 @@ def avaliar(est):
     else:
         msgs = []
         fm = me.FemMesh
-        if fm.VolumeCount == 0:
+        if fm.VolumeCount == 0 and not (est.get("PrumoCasca", False) and fm.FaceCount > 0):
             msgs.append((ERRO, "A malha não tem elementos de volume. Gere novamente a partir do sólido."))
         if est.get("PrumoMalhaAssin") and est.get("PrumoMalhaAssin") != est.assinatura_geo():
             msgs.append((ERRO, "A peça mudou depois que a malha foi gerada: gere a malha novamente."))
@@ -514,7 +520,8 @@ def avaliar(est):
             msgs.append((AVISO, "Malha muito grande ({} nós): o cálculo pode levar muitos minutos e usar "
                                 "muita memória.".format(fmt(fm.NodeCount, 0))))
         nivel = ERRO if any(n == ERRO for n, _ in msgs) else (AVISO if msgs else OK)
-        r["malha"] = (nivel, "{} nós · {} elementos".format(fmt(fm.NodeCount, 0), fmt(fm.VolumeCount, 0)), msgs)
+        nel = fm.VolumeCount or fm.FaceCount
+        r["malha"] = (nivel, "{} nós · {} elementos".format(fmt(fm.NodeCount, 0), fmt(nel, 0)), msgs)
 
     # 6 cálculo
     bloq = [(k, mm) for k in ("estudo", "material", "fixacao", "carga", "malha")
@@ -1797,6 +1804,14 @@ class Assistente(QtWidgets.QWidget):
             txt += "Conferência com as barras: " + "; ".join(
                 "barra {} {} × {}".format(c["barra"], fmt(c["fem"], 0, "MPa"), fmt(c["barra_mpa"], 0, "MPa"))
                 for c in conf) + ". "
+        try:
+            lig = json.loads(est.get("PrumoLigacoes", "") or "[]")
+        except ValueError:
+            lig = []
+        if lig:
+            txt += "Ligações: " + "; ".join("{} taxa {}".format("solda" if x["tipo"] == "solda" else "chumbadores",
+                                                               fmt(x["taxa"], 2)) for x in lig) + \
+                " (detalhes no relatório). "
         if taxa > 1.0:
             txt += ("Pico em canto vivo cresce com a malha (singularidade): veja a convergência e considere "
                     "enrijecedor ou reforço no nó.")

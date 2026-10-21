@@ -189,11 +189,13 @@ def _corpo(est, doc, imgs, largura):
         ordem2 = getattr(malha, "ElementOrder", "2nd") == "2nd"
         h.append(_img(doc, "malha", imgs.get("malha"), "Figura 2 — Malha de elementos finitos", largura))
         h.append(_tab([_par("Gerador", "Gmsh"),
-                       _par("Elemento", "Tetraédrico de %s (%d nós)" % ("2ª ordem" if ordem2 else "1ª ordem",
-                                                                        10 if ordem2 else 4)),
+                       _par("Elemento", ("Casca triangular de %s (%d nós), na superfície média" % (
+                           "2ª ordem" if ordem2 else "1ª ordem", 6 if ordem2 else 3)) if est.get("PrumoCasca", False)
+                           else "Tetraédrico de %s (%d nós)" % ("2ª ordem" if ordem2 else "1ª ordem",
+                                                                10 if ordem2 else 4)),
                        _par("Tamanho máximo do elemento", str(getattr(malha, "CharacteristicLengthMax", "—"))),
                        _par("Nós", F.fmt(fm.NodeCount, 0)),
-                       _par("Elementos", F.fmt(fm.VolumeCount, 0))], larguras=["40%", "60%"]))
+                       _par("Elementos", F.fmt(fm.VolumeCount or fm.FaceCount, 0))], larguras=["40%", "60%"]))
 
     h.append("<h1>6. Solução</h1>")
     h.append(_tab([_par("Solver", "CalculiX" + (" " + est.get("PrumoCcxVersao") if est.get("PrumoCcxVersao") else "")),
@@ -446,6 +448,14 @@ def _detalhe(est, e):
         h.append(_tab([["%d" % c["barra"], F.fmt(c["pos"], 0, "mm"), F.fmt(c["fem"], 1, "MPa"),
                         F.fmt(c["barra_mpa"], 1, "MPa")] for c in conf],
                       cab=["Barra", "Distância ao nó", "Sólido", "Barras"], larguras=["15%", "25%", "30%", "30%"]))
+    try:
+        lig = json.loads(est.get("PrumoLigacoes", "") or "[]")
+    except ValueError:
+        lig = []
+    if lig:
+        h.append("<p>Soldas e chumbadores (NBR 8800:2024, 6.2 e 6.3), com os esforços das barras no nó:</p>")
+        h.append(_tab([[x["texto"], "<span class='destaque'>%s</span>" % F.fmt(x["taxa"], 2)] for x in lig],
+                      cab=["Verificação", "Taxa"], larguras=["85%", "15%"]))
     h.append("<p class='nota'>Picos em cantos vivos (encontro de mesas sem enrijecedor, raiz do recorte) são "
              "singularidades: crescem com o refino da malha e indicam plastificação local. Avalie com a "
              "convergência e, se preciso, enrijeça o nó.</p>")

@@ -69,13 +69,14 @@ def _corpo(analise, doc, imgs, largura):
     nome, fy, fu = calc.material
     h = "<h1>1. Objeto e normas</h1>"
     h += "<p>Verificação da estrutura soldada <b>%s</b> por barras (pórtico espacial), com as combinações de " \
-         "ações da ABNT NBR 8681:2003 e a verificação das barras de aço pela ABNT NBR 8800:2008.</p>" % est.Label
+         "ações da ABNT NBR 8681:2025 e a verificação das barras de aço pela ABNT NBR 8800:2024 (Versão Corrigida " \
+         "2025).</p>" % est.Label
     h += "<p class='nota' style='color:#B5523F'><b>Normas:</b> %s.</p>" % N.EDICAO
     h += R._tab([R._par("Aço", nome), R._par("fy / fu", "%s / %s MPa" % (_f(fy, 0), _f(fu, 0))),
                  R._par("E / G", "%s / %s MPa" % (_f(N.E_ACO, 0), _f(N.G_ACO, 0))),
                  R._par("γa1 / γa2", "%s / %s" % (_f(N.GAMA_A1), _f(N.GAMA_A2))),
                  R._par("Limite de flecha das vigas", analise.LimiteFlecha),
-                 R._par("Coeficiente de flambagem K", _f(analise.K or 1.0) + " (balanços: 2,1)"),
+                 R._par("Comprimento de flambagem", "L destravado do membro (sem K, NBR 8800:2024)"),
                  R._par("Pilares (deslocamento relativo)", "H/%d" % int(A.LIMITE_PILAR))])
     h += "<h2>Hipóteses e limites do cálculo</h2><ul>" + "".join("<li>%s</li>" % x for x in N.LIMITES) + "</ul>"
     if calc.avisos:
@@ -123,7 +124,9 @@ def _corpo(analise, doc, imgs, largura):
         h += "<p class='nota'>γ desfavorável %s; ψ0 / ψ1 / ψ2: %s</p>" % (
             _f(t[0]), " / ".join("—" if v is None else _f(v) for v in t[2:5]))
     casos = analise.Proxy.casos(analise)
-    h += R._tab([[n, tp, " + ".join("%s·%s" % (_f(f), casos[k]["nome"]) for k, f in fat)]
+    imp = getattr(calc, "imperfeicoes", {})
+    h += R._tab([[n, tp, " + ".join("%s·%s" % (_f(f), casos[k]["nome"]) for k, f in fat)
+                  + (" + %s" % imp[n][0] if n in imp else "")]
                  for n, tp, fat in calc.combinacoes], ["Combinação", "Tipo", "Fatores"])
     # resultados
     h += "<h1>5. Resultados</h1>"
@@ -265,7 +268,7 @@ def _capa(p, W, H, k, analise):
                "Memória de cálculo — estrutura metálica")
     p.setPen(QtGui.QColor(R.INK))
     p.setFont(R._fonte(5.0 * k, QtGui.QFont.DemiBold))
-    p.drawText(QtCore.QRectF(M * k, 112 * k, W, 12 * k), "Verificação por barras · NBR 8800:2008 · NBR 8681:2003")
+    p.drawText(QtCore.QRectF(M * k, 112 * k, W, 12 * k), "Verificação por barras · NBR 8800:2024 · NBR 8681:2025")
     linhas = [("Estrutura", analise.Estrutura.Label), ("Situação", analise.Situacao),
               ("Maior taxa de uso", _f(analise.TaxaMaxima, 2)), ("Data", time.strftime("%d/%m/%Y")),
               ("Responsável técnico", "—"), ("CREA", "—"), ("ART nº", "—")]

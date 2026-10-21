@@ -5,7 +5,7 @@ General:
   Author: "Prumo 3D"
   License: "CC-BY-4.0"
   Name: "Ferro fundido cinzento FC 250"
-  Description: "Densidade típica do Ferro fundido cinzento FC 250. O módulo de elasticidade varia com a classe e fica a conferir; a resistência vem do certificado. Serve para massa e lista de materiais."
+  Description: "NBR 6589 FC 250: LR mín. 250 MPa em corpo de prova separado; sem escoamento definido (não serve para verificação por escoamento). E de 103 a 118 GPa conforme a classe e Poisson 0,26 típicos (a checar na NBR 6589)."
 Models:
   Father:
     UUID: '9cdda8b6-b606-4778-8f13-3934d8668e67'
@@ -15,6 +15,9 @@ Models:
     KindOfMaterial: "Ferro fundido cinzento"
     MaterialNumber: "FC 250"
     StandardCode: "ABNT NBR 6589"
-  Density:
-    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+  LinearElastic:
+    UUID: '7b561d1d-fb9b-44f6-9da9-56a4f74d7536'
     Density: "7200 kg/m^3"
+    PoissonRatio: "0.26"
+    YoungsModulus: "110000 MPa"
+    UltimateTensileStrength: "250 MPa"

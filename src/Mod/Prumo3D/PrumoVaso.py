@@ -49,6 +49,29 @@ def tipo_tampo(tipo):
         return 0
     raise ValueError("tipo de tampo desconhecido: %s" % tipo)
 MPA_KGF = 10.1971621  # 1 MPa = 10,197 kgf/cm²
+ORIENTACOES = ["Horizontal", "Vertical"]
+SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas"]
+TESTES = ["Hidrostático (UG-99(b))", "Pneumático (UG-100)"]
+EFICIENCIAS = [(1.0, "1,00 — radiografia total"), (0.85, "0,85 — radiografia por amostragem"),
+               (0.70, "0,70 — sem radiografia")]
+AGUA = 9.80665e-6     # MPa por mm de coluna d'água (ρ = 1000 kg/m³)
+
+
+def s_estimado(sy, su):
+    """Tensão admissível estimada pelos critérios da ASME II-D (Mandatory Appendix 1, abaixo da
+    faixa de fluência): menor entre Su/3,5 e 2/3·Sy. Só referência: o valor de projeto é o da
+    tabela 1A da Seção II-D para o material e a temperatura (a checar)."""
+    if not sy or not su:
+        return 0.0
+    return min(su / 3.5, 2.0 * sy / 3.0)
+
+
+def pressao_teste(pmta, S, S_amb=None, tipo=TESTES[0]):
+    """Pressão de teste no topo do vaso (MPa): hidrostático 1,3·PMTA·(S_amb/S) — UG-99(b);
+    pneumático 1,1·PMTA·(S_amb/S) — UG-100. Edição vigente do código: a checar."""
+    r = (S_amb / S) if (S_amb and S) else 1.0
+    k = 1.1 if tipo.startswith("Pneu") else 1.3
+    return k * pmta * r
 
 
 # ============================================================================ cálculo
@@ -283,6 +306,59 @@ def geometria(D, comp, t_costado, t_tampo, tipo_tampo, bocais=()):
     return vaso
 
 
+def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altura=0.0, vertical=False):
+    """Sólidos dos suportes no sistema do vaso (eixo X, costado de 0 a comp).
+    Selas: duas chapas com berço de 120° (sela) a `pos_selas` das linhas de tangência (0 = 0,2·comp).
+    Saia: cilindro abaixo do tampo de baixo (vaso vertical: x < 0). Pernas: quatro tubos."""
+    import Part
+    Ri = D / 2.0
+    Ro = Ri + t_costado
+    pecas = []
+    if tipo == "Selas":
+        a = pos_selas or 0.2 * comp
+        h = altura or (Ro + 150.0)            # do eixo até o chão
+        larg_sela = max(150.0, 0.2 * D)
+        esp = 12.7
+        for x in (a, comp - a):
+            # chapa vertical (alma) em forma de berço: caixa menos o cilindro do vaso
+            caixa = Part.makeBox(esp, 2 * Ro * 0.94, h, FreeCAD.Vector(x - esp / 2, -Ro * 0.94, -h))
+            alma = caixa.cut(Part.makeCylinder(Ro, esp * 3, FreeCAD.Vector(x - esp * 1.5, 0, 0),
+                                               FreeCAD.Vector(1, 0, 0)))
+            base = Part.makeBox(larg_sela, 2 * Ro * 0.94, esp, FreeCAD.Vector(x - larg_sela / 2, -Ro * 0.94, -h))
+            # berço: faixa de chapa curva abaixo do vaso (120°)
+            ang = math.radians(60)
+            berco = Part.makeCylinder(Ro + esp, larg_sela, FreeCAD.Vector(x - larg_sela / 2, 0, 0),
+                                      FreeCAD.Vector(1, 0, 0)).cut(
+                Part.makeCylinder(Ro, larg_sela, FreeCAD.Vector(x - larg_sela / 2, 0, 0), FreeCAD.Vector(1, 0, 0)))
+            corte = Part.makeBox(larg_sela, 2 * (Ro + esp), (Ro + esp) * (1 + math.cos(ang)),
+                                 FreeCAD.Vector(x - larg_sela / 2, -(Ro + esp), -(Ro + esp)))
+            berco = berco.common(corte).common(
+                Part.makeBox(larg_sela, 2 * (Ro + esp) * math.sin(ang), Ro + esp,
+                             FreeCAD.Vector(x - larg_sela / 2, -(Ro + esp) * math.sin(ang), -(Ro + esp))))
+            pecas += [alma, base, berco]
+    elif tipo == "Saia":
+        h = altura or max(500.0, 0.5 * D)
+        ht = altura_tampo(Ri, t_tampo, tipo_tampo)
+        x0 = -max(h, ht + 100.0)
+        saia = Part.makeCylinder(Ro, -x0, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)).cut(
+            Part.makeCylinder(Ro - t_costado, -x0, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)))
+        anel = Part.makeCylinder(Ro + 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)).cut(
+            Part.makeCylinder(Ro - t_costado - 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)))
+        pecas += [saia, anel]
+    elif tipo == "Pernas":
+        h = altura or max(600.0, 0.6 * D)
+        ht = altura_tampo(Ri, t_tampo, tipo_tampo)
+        De = 88.9 if D < 1200 else 141.3
+        for k in range(4):
+            a = math.radians(45 + 90 * k)
+            c = FreeCAD.Vector(0, (Ro + De / 2) * math.cos(a), (Ro + De / 2) * math.sin(a))
+            perna = Part.makeCylinder(De / 2, h + 300.0, c + FreeCAD.Vector(-(ht + h), 0, 0), FreeCAD.Vector(1, 0, 0))
+            perna = perna.cut(Part.makeCylinder(De / 2 - 5.5, h + 300.0, c + FreeCAD.Vector(-(ht + h), 0, 0),
+                                                FreeCAD.Vector(1, 0, 0)))
+            pecas.append(perna)
+    return pecas
+
+
 def volume_interno(D, comp, tipo, t_tampo=0.0):
     """Volume interno (m³): costado + 2 tampos (fórmulas de volume interno dos tampos)."""
     Ri = D / 2.0
@@ -331,6 +407,26 @@ class Vaso:
         add("App::PropertyLength", "EspessuraTampo", "Adotado", "Espessura adotada dos tampos (0 = automática)", 0.0)
         add("App::PropertyStringList", "Bocais", "Adotado",
             "Bocais: 'posição mm; ângulo °; perfil do tubo; projeção mm' por linha")
+        if "Orientacao" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyEnumeration", "Orientacao", "Projeto", "Horizontal ou vertical")
+            obj.Orientacao = ORIENTACOES
+        if "Suportes" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyEnumeration", "Suportes", "Adotado", "Selas, saia ou pernas")
+            obj.Suportes = SUPORTES
+        add("App::PropertyLength", "PosicaoSelas", "Adotado", "Selas: distância da linha de tangência (0 = 0,2·L)",
+            0.0)
+        add("App::PropertyLength", "AlturaSuporte", "Adotado", "Altura do suporte (0 = automática)", 0.0)
+        add("App::PropertyFloat", "TensaoAdmissivelTeste", "Projeto",
+            "Tensão admissível S na temperatura do teste (MPa; 0 = igual a S)", 0.0)
+        if "TipoTeste" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyEnumeration", "TipoTeste", "Teste", "Teste de pressão")
+            obj.TipoTeste = TESTES
+        for n, d in (("PMTA", "PMTA do vaso (MPa)"), ("PressaoTeste", "Pressão de teste no topo (MPa)"),
+                     ("PressaoTesteFundo", "Pressão de teste no ponto mais baixo (MPa, com a coluna d'água)"),
+                     ("TensaoTeste", "Tensão de membrana no teste (MPa)"),
+                     ("LimiteTeste", "Limite adotado para a tensão no teste: 0,9·Sy (MPa, a checar)")):
+            add("App::PropertyFloat", n, "Teste", d, 0.0, ro=True)
+        add("App::PropertyFloat", "Sy", "Projeto", "Limite de escoamento do material (MPa; para o teste)", 0.0)
         for n, d in (("MinimoCostado", "Espessura mínima do costado com corrosão (mm)"),
                      ("MinimoTampo", "Espessura mínima do tampo com corrosão (mm)"),
                      ("PMTACostado", "PMTA do costado com a espessura adotada (MPa)"),
@@ -378,13 +474,54 @@ class Vaso:
                               % (fmt(obj.ComprimentoCostado.Value, 0, "mm"), linha))
                 continue
             bocais.append(b)
-        obj.Shape = geometria(obj.DiametroInterno.Value, obj.ComprimentoCostado.Value, tc, tt, obj.TipoTampo, bocais)
+        forma = geometria(obj.DiametroInterno.Value, obj.ComprimentoCostado.Value, tc, tt, obj.TipoTampo, bocais)
+        vertical = getattr(obj, "Orientacao", "Horizontal") == "Vertical"
+        sup = getattr(obj, "Suportes", "Nenhum")
+        if sup != "Nenhum":
+            if vertical and sup == "Selas":
+                avisos.append("Selas são para vaso horizontal: use saia ou pernas no vertical.")
+            elif not vertical and sup in ("Saia", "Pernas"):
+                avisos.append("Saia e pernas são para vaso vertical: use selas no horizontal.")
+            else:
+                pecas = suportes(sup, obj.DiametroInterno.Value, obj.ComprimentoCostado.Value, tc, tt,
+                                 obj.TipoTampo, obj.PosicaoSelas.Value, obj.AlturaSuporte.Value, vertical)
+                if pecas:
+                    forma = forma.fuse(pecas).removeSplitter()
+        if vertical:
+            # eixo do vaso na vertical (Z), linha de tangência de baixo em z = 0. A rotação vai para a
+            # geometria (a Placement do objeto sobrescreveria a da forma)
+            mat = FreeCAD.Matrix()
+            mat.rotateY(math.radians(-90))
+            forma = forma.transformGeometry(mat)
+        obj.Shape = forma
         obj.MinimoCostado = mc
         obj.MinimoTampo = mt
         obj.PMTACostado = c.pmta_costado(tc)
         obj.PMTATampo = c.pmta_tampo(tt)
         obj.VolumeInterno = volume_interno(obj.DiametroInterno.Value, obj.ComprimentoCostado.Value, obj.TipoTampo, tt)
         obj.MassaVazio = obj.Shape.Volume * 7850e-9
+        # teste de pressão
+        pmta = min(obj.PMTACostado, obj.PMTATampo)
+        obj.PMTA = pmta
+        S_t = obj.TensaoAdmissivelTeste or obj.TensaoAdmissivel
+        pt = pressao_teste(pmta, obj.TensaoAdmissivel, S_t, obj.TipoTeste)
+        obj.PressaoTeste = pt
+        Ri = obj.DiametroInterno.Value / 2.0
+        if vertical and obj.TipoTeste.startswith("Hidro"):
+            H = obj.ComprimentoCostado.Value + 2 * altura_tampo(Ri, tt, obj.TipoTampo)
+        elif obj.TipoTeste.startswith("Hidro"):
+            H = obj.DiametroInterno.Value
+        else:
+            H = 0.0
+        obj.PressaoTesteFundo = pt + AGUA * H
+        # teste com o vaso novo (sem corrosão): membrana circunferencial do costado (UG-27 invertida)
+        p_fundo = obj.PressaoTesteFundo
+        obj.TensaoTeste = p_fundo * (Ri + 0.6 * tc) / (obj.EficienciaJunta * tc) if tc > 0 else 0.0
+        obj.LimiteTeste = 0.9 * obj.Sy if obj.Sy else 0.0
+        if obj.LimiteTeste and obj.TensaoTeste > obj.LimiteTeste:
+            avisos.append("No teste, a tensão de membrana (%s MPa) passa de 0,9·Sy (%s MPa): reveja a espessura "
+                          "ou a pressão de teste (limite a checar no código vigente)."
+                          % (fmt(obj.TensaoTeste, 0), fmt(obj.LimiteTeste, 0)))
         obj.Avisos = avisos
 
     def dumps(self):
@@ -421,6 +558,19 @@ class VPVaso:
 
     def getIcon(self):
         return PrumoUtil.icone("vaso.svg")
+
+    def doubleClicked(self, vobj):
+        abrir_painel(vobj.Object)
+        return True
+
+    def setEdit(self, vobj, mode=0):
+        if mode == 0:
+            abrir_painel(vobj.Object)
+            return True
+        return False
+
+    def unsetEdit(self, vobj, mode=0):
+        return False
 
     def dumps(self):
         return None
@@ -488,146 +638,713 @@ def memoria(v):
         fmt(v.PMTACostado, 3, "MPa"), fmt(v.PMTATampo, 3, "MPa"), fmt(min(v.PMTACostado, v.PMTATampo), 3, "MPa")))
     L.append("Volume interno: %s   P·V: %s   Massa vazio (aço): %s" % (
         fmt(v.VolumeInterno, 3, "m³"), fmt(v.PressaoProjeto * v.VolumeInterno, 3, "MPa·m³"), fmt(v.MassaVazio, 1, "kg")))
+    if "PressaoTeste" in v.PropertiesList and v.PressaoTeste:
+        L.append("")
+        L.append("Teste de pressão (%s): Pt = %s × PMTA × (S teste / S projeto) = %s no topo; %s no ponto "
+                 "mais baixo (com a coluna d'água)" % (
+                     v.TipoTeste, "1,3" if v.TipoTeste.startswith("Hidro") else "1,1",
+                     fmt(v.PressaoTeste, 3, "MPa"), fmt(v.PressaoTesteFundo, 3, "MPa")))
+        L.append("  Tensão de membrana no costado durante o teste (vaso novo, sem corrosão): %s%s" % (
+            fmt(v.TensaoTeste, 1, "MPa"),
+            ("  — limite adotado 0,9·Sy = %s (a checar)" % fmt(v.LimiteTeste, 1, "MPa")) if v.LimiteTeste else ""))
     if v.Avisos:
         L.append("")
         L.append("Avisos:")
         L.extend("  • " + a for a in v.Avisos)
     L.append("")
     L.append("Não calculados: reforço de aberturas (UG-37), pressão externa/vácuo (UG-28), cargas de vento,")
-    L.append("sismo, apoios e teste hidrostático. Enquadramento na NR-13: conferir no texto vigente.")
+    L.append("sismo e apoios. Enquadramento na NR-13 e pressão de teste exigida: conferir no texto vigente.")
     return "\n".join(L)
 
 
-# ============================================================================ interface
-class DialogoVaso(QtWidgets.QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Vaso de pressão")
-        self.setMinimumWidth(620)
-        lay = QtWidgets.QHBoxLayout(self)
-        esq = QtWidgets.QVBoxLayout()
-        form = QtWidgets.QFormLayout()
+# ============================================================================ desenho e teste
+def casca_media(v):
+    """Superfície média do vaso para o modelo de casca (elementos S6 do CalculiX).
+    Retorna (forma, grupos) — grupos: {nome: (espessura, [índices de face], papel)} com papel
+    "pressao" (faces molhadas, já com a direção de fora) ou "suporte"; e as arestas de apoio."""
+    import Part
+    from BOPTools import SplitAPI
+    D, comp = v.DiametroInterno.Value, v.ComprimentoCostado.Value
+    tc = v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado)
+    tt = v.EspessuraTampo.Value or chapa_acima(v.MinimoTampo)
+    Ri = D / 2.0
+    Rm = Ri + tc / 2.0
+    eixo = FreeCAD.Vector(1, 0, 0)
+    pecas = []      # (face, papel, espessura, origem para a normal)
+    cil = [f for f in Part.makeCylinder(Rm, comp, FreeCAD.Vector(), eixo).Faces
+           if "Cylinder" in type(f.Surface).__name__][0]
+    bocais = []
+    for linha in v.Bocais:
+        b = interpretar_bocal(linha)
+        if b is not None and 0 <= b[0] - b[2] / 2 and b[0] + b[2] / 2 <= comp:
+            bocais.append(b)
+    for (x, ang, De, esp, proj) in bocais:
+        a = math.radians(ang)
+        d = FreeCAD.Vector(0, math.cos(a), math.sin(a))
+        rn = (De - esp) / 2.0
+        cil = cil.cut(Part.makeCylinder(rn, Rm + proj + 10, FreeCAD.Vector(x, 0, 0), d)).Faces[0]
+    pecas.append((cil, "costado", tc))
+    # tampos (superfície média com o raio do costado; a espessura vem do elemento)
+    n = tipo_tampo(v.TipoTampo)
+    if n == 0:
+        perfil = _curva_eliptica(Rm, Rm / 2.0)
+    elif n == 1:
+        L, r = _coroa_rebordo(Rm, 0.0)
+        perfil, _apice = _curva_torisferica(Rm, L, r)
+    else:
+        perfil = Part.Arc(FreeCAD.Vector(0, Rm, 0), FreeCAD.Vector(-Rm * math.cos(math.pi / 4), Rm * math.sin(math.pi / 4), 0),
+                          FreeCAD.Vector(-Rm, 0, 0)).toShape()
+    t1 = perfil.revolve(FreeCAD.Vector(), eixo, 360)
+    t2 = t1.mirror(FreeCAD.Vector(comp / 2.0, 0, 0), eixo)
+    for t in (t1, t2):
+        for f in t.Faces:
+            pecas.append((f, "tampo", tt))
+    for (x, ang, De, esp, proj) in bocais:
+        a = math.radians(ang)
+        d = FreeCAD.Vector(0, math.cos(a), math.sin(a))
+        rn = (De - esp) / 2.0
+        tubo = [f for f in Part.makeCylinder(rn, Rm + proj, FreeCAD.Vector(x, 0, 0), d).Faces
+                if "Cylinder" in type(f.Surface).__name__][0]
+        tubo = tubo.cut(Part.makeCylinder(Rm, comp, FreeCAD.Vector(), eixo))
+        for f in tubo.Faces:
+            pecas.append((f, "bocal", esp))
+        tampa = Part.Face(Part.Wire(Part.makeCircle(rn, FreeCAD.Vector(x, 0, 0) + d * (Rm + proj), d)))
+        pecas.append((tampa, "tampa do bocal", 3.0 * esp))
+    vertical = v.Orientacao == "Vertical"
+    sup = v.Suportes
+    base_z = None
+    if sup == "Selas" and not vertical:
+        a = v.PosicaoSelas.Value or 0.2 * comp
+        h = v.AlturaSuporte.Value or (Rm + tc / 2.0 + 150.0)
+        base_z = -h
+        for x in (a, comp - a):
+            pts = [FreeCAD.Vector(x, -Rm * 0.9, -h), FreeCAD.Vector(x, Rm * 0.9, -h), FreeCAD.Vector(x, Rm * 0.9, 0),
+                   FreeCAD.Vector(x, -Rm * 0.9, 0)]
+            f = Part.Face(Part.makePolygon(pts + [pts[0]]))
+            f = f.cut(Part.Face(Part.Wire(Part.makeCircle(Rm, FreeCAD.Vector(x, 0, 0), eixo)))).Faces[0]
+            pecas.append((f, "sela", 12.7))
+    elif sup == "Saia" and vertical:
+        h = v.AlturaSuporte.Value or max(500.0, 0.5 * D)
+        ht = altura_tampo(Ri, tt, v.TipoTampo)
+        x0 = -max(h, ht + 100.0)
+        saia = [f for f in Part.makeCylinder(Rm, -x0, FreeCAD.Vector(x0, 0, 0), eixo).Faces
+                if "Cylinder" in type(f.Surface).__name__][0]
+        pecas.append((saia, "saia", tc))
+        base_z = x0
+    elif sup == "Pernas" and vertical:
+        h = v.AlturaSuporte.Value or max(600.0, 0.6 * D)
+        ht = altura_tampo(Ri, tt, v.TipoTampo)
+        De = 88.9 if D < 1200 else 141.3
+        x0 = -(ht + h)
+        for k in range(4):
+            a = math.radians(45 + 90 * k)
+            c = FreeCAD.Vector(x0, Rm * math.cos(a), Rm * math.sin(a))
+            perna = [f for f in Part.makeCylinder((De - 5.5) / 2.0, ht + h + 300.0, c, eixo).Faces
+                     if "Cylinder" in type(f.Surface).__name__][0]
+            pecas.append((perna, "perna", 5.5))
+        base_z = x0
+    else:
+        raise ValueError("escolha os suportes do vaso (selas no horizontal; saia ou pernas no vertical)")
+    frag = SplitAPI.booleanFragments([p[0] for p in pecas], "Standard", 0.01)
+    if vertical:
+        frag.rotate(FreeCAD.Vector(), FreeCAD.Vector(0, 1, 0), -90)
+    # classifica cada face resultante pela peça de origem
+    grupos = {}
+    for k, f in enumerate(frag.Faces):
+        c = f.CenterOfMass
+        cl = c
+        if vertical:
+            cl = FreeCAD.Vector(c.z, c.y, -c.x)        # volta para o sistema do vaso (eixo X)
+        melhor = min(range(len(pecas)), key=lambda i: pecas[i][0].distToShape(Part.Vertex(cl))[0])
+        papel, esp = pecas[melhor][1], pecas[melhor][2]
+        grupos.setdefault((papel, round(esp, 3)), []).append(k)
+    # arestas de apoio: as mais baixas do modelo (base das selas, da saia ou das pernas)
+    zmin = frag.BoundBox.ZMin
+    apoio = [k for k, e in enumerate(frag.Edges) if abs(e.BoundBox.ZMax - zmin) < 0.5 and
+             abs(e.BoundBox.ZMin - zmin) < 0.5]
+    return frag, grupos, apoio, (Rm, comp, vertical)
 
-        def num(v, mn, mx, dec, suf):
-            w = QtWidgets.QDoubleSpinBox()
-            w.setRange(mn, mx)
-            w.setDecimals(dec)
-            w.setValue(v)
-            w.setSuffix(suf)
-            w.setLocale(QtCore.QLocale(QtCore.QLocale.Portuguese, QtCore.QLocale.Brazil))
-            w.valueChanged.connect(self.atualizar)
-            return w
 
-        self.D = num(1000, 50, 20000, 1, " mm")
-        self.L = num(2000, 0, 100000, 1, " mm")
-        self.P = num(1.0, 0.001, 100, 3, " MPa")
-        self.S = num(0.0, 0.0, 2000, 1, " MPa")
-        self.S.setSpecialValueText("informe (ASME II-D)")
-        self.E = QtWidgets.QComboBox()
-        for v, txt in ((1.0, "1,00 — radiografia total"), (0.85, "0,85 — radiografia por amostragem"),
-                       (0.70, "0,70 — sem radiografia")):
-            self.E.addItem(txt, v)
-        self.E.currentIndexChanged.connect(self.atualizar)
-        self.CA = num(0.0, 0, 20, 2, " mm")
-        self.tampo = QtWidgets.QComboBox()
-        self.tampo.addItems(TAMPOS)
-        self.tampo.currentIndexChanged.connect(self.atualizar)
-        self.material = QtWidgets.QLineEdit()
-        self.material.setPlaceholderText("ex.: ASTM A516 Gr. 70")
-        self.temp = QtWidgets.QLineEdit()
+def _normal_para_fora(face, centro_eixo, vertical, papel, bocal_dir=None):
+    """True quando a normal da face aponta para fora do vaso (lado sem pressão)."""
+    c = face.CenterOfMass
+    try:
+        u, w = face.Surface.parameter(c)
+        n = face.normalAt(u, w)
+    except Exception:
+        return True
+    p = FreeCAD.Vector(c.z, c.y, -c.x) if vertical else FreeCAD.Vector(c)
+    if vertical:
+        n = FreeCAD.Vector(n.z, n.y, -n.x)
+    Rm, comp = centro_eixo
+    if papel == "tampa do bocal":
+        ref = FreeCAD.Vector(0, p.y, p.z)
+    elif papel == "bocal":
+        return _bocal_fora(face, p, n, vertical)
+    else:
+        x = min(max(p.x, 0.0), comp)
+        ref = p - FreeCAD.Vector(x, 0, 0)
+    return n.dot(ref) > 0
+
+
+def _bocal_fora(face, p, n, vertical):
+    """Normal de parede de bocal aponta para fora se se afasta do eixo do bocal."""
+    # o eixo do bocal passa por (xb, 0, 0) na direção radial do vaso que contém p
+    rad = FreeCAD.Vector(0, p.y, p.z)
+    if rad.Length < 1e-9:
+        return True
+    d = rad.normalize()
+    # centro da seção do tubo nesse ponto: projeção de p no eixo do tubo (passa pelo plano x = x do eixo)
+    # aproximação: o eixo do tubo é a reta pelo ponto (xc, 0, 0) com xc = centro do bocal ≈ x do centro
+    # de massa da face (o tubo é simétrico em torno do eixo)
+    cm = face.CenterOfMass
+    if vertical:
+        cm = FreeCAD.Vector(cm.z, cm.y, -cm.x)
+    eixo_p = FreeCAD.Vector(cm.x, 0, 0) + d * (FreeCAD.Vector(0, p.y, p.z).dot(d))
+    return n.dot(p - eixo_p) > 0
+
+
+def simular_teste(v, tamanho=None, calcular=True):
+    """Teste de pressão por elementos finitos de casca: superfície média do costado, tampos e bocais
+    (com tampas cegas), suportes presos na base, pressão de teste nas faces molhadas.
+    Retorna (estudo PrumoFEM, erro)."""
+    import ObjectsFem
+    import PrumoFEM as F
+    doc = v.Document
+    try:
+        forma, grupos, apoio, (Rm, comp, vertical) = casca_media(v)
+    except ValueError as ex:
+        return None, str(ex)
+    if not apoio:
+        return None, "não achei a base dos suportes"
+    peca = doc.addObject("Part::Feature", "CascaDoVaso")
+    peca.Shape = forma
+    peca.Label = "Casca do vaso (superfície média)"
+    if FreeCAD.GuiUp:
+        peca.ViewObject.Visibility = False
+    an = ObjectsFem.makeAnalysis(doc, "TesteDePressao")
+    an.Label = "Teste de pressão · %s" % v.Label
+    try:
+        import FemGui
+        FemGui.setActiveAnalysis(an)
+    except Exception:
+        pass
+    est = F.Estudo(doc)
+    est.analise = an
+    est.garantir(peca)
+    est.put("PrumoTipo", "static")
+    est.solver.AnalysisType = "static"
+    mat = ObjectsFem.makeMaterialSolid(doc, "Material")
+    an.addObject(mat)
+    escolhido = None
+    for m in F.materiais():
+        if v.MaterialChapa and (m["nome"] == v.MaterialChapa or v.MaterialChapa.lower() in m["nome"].lower()):
+            escolhido = m
+            break
+    if escolhido is None:
+        escolhido = next((m for m in F.materiais() if "A516 Gr 70" in m["nome"]), F.materiais()[0])
+    props = dict(escolhido["props"])
+    if v.Sy:
+        props["YieldStrength"] = "%s MPa" % v.Sy
+    mat.Material = props
+    mat.Label = "Material · " + escolhido["nome"]
+    fora, dentro = [], []
+    for (papel, esp), ks in sorted(grupos.items()):
+        g = ObjectsFem.makeElementGeometry2D(doc, esp, "Espessura")
+        g.References = [(peca, tuple("Face%d" % (k + 1) for k in ks))]
+        g.Label = "Espessura %s mm · %s" % (fmt(esp, 2), papel)
+        an.addObject(g)
+        if papel in ("costado", "tampo", "bocal", "tampa do bocal"):
+            for k in ks:
+                f = forma.Faces[k]
+                (fora if _normal_para_fora(f, (Rm, comp), vertical, papel) else dentro).append("Face%d" % (k + 1))
+    for nome, lst, rev in (("PressaoTeste", fora, True), ("PressaoTesteB", dentro, False)):
+        if not lst:
+            continue
+        pr = ObjectsFem.makeConstraintPressure(doc, nome)
+        pr.References = [(peca, tuple(lst))]
+        pr.Pressure = "%s MPa" % v.PressaoTeste
+        pr.Reversed = rev
+        pr.Label = "Pressão de teste %s MPa" % fmt(v.PressaoTeste, 3)
+        an.addObject(pr)
+    fx = ObjectsFem.makeConstraintFixed(doc, "Apoios")
+    fx.References = [(peca, tuple("Edge%d" % (k + 1) for k in apoio))]
+    fx.Label = "Apoios (base dos suportes)"
+    an.addObject(fx)
+    est.put("PrumoCasca", True, "App::PropertyBool")
+    est.put("PrumoAvisos", ["Modelo de casca na superfície média (elementos de 2ª ordem); tampos com o raio "
+                            "médio do costado e a espessura própria.",
+                            "Pressão de teste uniforme (%s MPa, no topo); a coluna d'água (até %s MPa no fundo) e o "
+                            "peso da água não estão no modelo." % (fmt(v.PressaoTeste, 3), fmt(v.PressaoTesteFundo, 3)),
+                            "Bocais fechados com tampa cega rígida; flanges e soldas não modelados.",
+                            "Suportes presos na base; picos na ligação suporte-costado e na raiz dos bocais "
+                            "dependem da malha (avaliar com a convergência)."], "App::PropertyStringList")
+    doc.recompute()
+    if not calcular:
+        return est, ""
+    if tamanho is None:
+        tamanho = min(max(v.DiametroInterno.Value / 30.0, 15.0), 60.0)
+    ok, msg = F.gerar_malha(est, tamanho, "2nd")
+    if not ok:
+        return est, msg
+    ok, erro, _dt = F.calcular(est)
+    return est, ("" if ok else erro)
+
+
+def desenho(v, formato="A3", campos=None):
+    """Folha ABNT com as vistas do vaso e a tabela de dados de projeto, bocais e teste."""
+    import PrumoFolhas
+    doc = v.Document
+    c = dict(campos or {})
+    c.setdefault("titulo", v.Label)
+    c.setdefault("material", v.MaterialChapa or "")
+    page = PrumoFolhas.nova_folha(doc, formato, objs=[v], campos=c)
+    linhas = tabela_dados(v)
+    try:
+        ann = doc.addObject("TechDraw::DrawViewAnnotation", "DadosDoVaso")
+        ann.Label = "Dados de projeto"
+        ann.Text = linhas
+        ann.TextSize = 2.6
+        ann.LineSpace = 120
+        page.addView(ann)
+        larg = float(page.Template.Width)
+        ann.X = 25.0 + 55.0
+        ann.Y = 60.0 + 3.0 * len(linhas) / 2.0 + 18.0
+        _cotas(doc, page, v)
+    except Exception as ex:
+        FreeCAD.Console.PrintWarning("Prumo: tabela do vaso: %s\n" % ex)
+    doc.recompute()
+    return page
+
+
+def tabela_dados(v):
+    tc = v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado)
+    tt = v.EspessuraTampo.Value or chapa_acima(v.MinimoTampo)
+    L = ["DADOS DE PROJETO (ASME VIII-1, pré-dimensionamento)",
+         "Diâmetro interno: %s   Comprimento TL-TL: %s" % (fmt(v.DiametroInterno.Value, 0, "mm"),
+                                                         fmt(v.ComprimentoCostado.Value, 0, "mm")),
+         "Pressão de projeto: %s (%s)   Temperatura: %s" % (fmt(v.PressaoProjeto, 3, "MPa"),
+                                                          fmt(v.PressaoProjeto * MPA_KGF, 2, "kgf/cm²"),
+                                                          v.TemperaturaProjeto or "—"),
+         "PMTA: %s (%s)" % (fmt(v.PMTA, 3, "MPa"), fmt(v.PMTA * MPA_KGF, 2, "kgf/cm²")),
+         "Material: %s   S = %s   E = %s   Corrosão = %s" % (v.MaterialChapa or "—",
+                                                            fmt(v.TensaoAdmissivel, 1, "MPa"),
+                                                            fmt(v.EficienciaJunta, 2), fmt(v.Corrosao.Value, 1, "mm")),
+         "Costado: chapa %s (mín. %s)   Tampos %s: %s (mín. %s)" % (
+             fmt(tc, 2, "mm"), fmt(v.MinimoCostado, 2, "mm"), v.TipoTampo.split(" (")[0], fmt(tt, 2, "mm"),
+             fmt(v.MinimoTampo, 2, "mm")),
+         "Volume interno: %s   Massa vazio: %s" % (fmt(v.VolumeInterno, 3, "m³"), fmt(v.MassaVazio, 0, "kg")),
+         "Teste %s: %s no topo (%s)" % (v.TipoTeste.split(" (")[0].lower(), fmt(v.PressaoTeste, 3, "MPa"),
+                                        fmt(v.PressaoTeste * MPA_KGF, 2, "kgf/cm²"))]
+    if v.Bocais:
+        L.append("BOCAIS: posição; ângulo; tubo; projeção")
+        for k, b in enumerate(v.Bocais):
+            L.append("N%d: %s" % (k + 1, b.replace(";", " ;")))
+    return L
+
+
+def _cotas(doc, page, v=None):
+    """Cotas gerais na vista frontal (comprimento e altura totais), ligadas aos vértices 3D do vaso:
+    acompanham quando o vaso muda."""
+    vistas = [o for o in page.Views if o.TypeId == "TechDraw::DrawProjGroup"]
+    if not vistas or v is None:
+        return []
+    frente = None
+    for o in vistas[0].Views:
+        if getattr(o, "Type", "") == "Front":
+            frente = o
+    if frente is None:
+        return []
+    vs = v.Shape.Vertexes
+    if len(vs) < 2:
+        return []
+    idx = list(range(len(vs)))
+    feitas = []
+    for eixo, tipo in ((0, "DistanceX"), (2, "DistanceY")):
+        a = min(idx, key=lambda i: vs[i].Point[eixo])
+        b = max(idx, key=lambda i: vs[i].Point[eixo])
+        if abs(vs[b].Point[eixo] - vs[a].Point[eixo]) < 1e-6:
+            continue
+        d = doc.addObject("TechDraw::DrawViewDimension", "Cota")
+        d.Type = tipo
+        d.MeasureType = "True"
+        d.References2D = [(frente, "")]
+        d.References3D = [(v, "Vertex%d" % (a + 1)), (v, "Vertex%d" % (b + 1))]
+        page.addView(d)
+        # fora do desenho: a cota do comprimento embaixo da vista, a da altura à direita
+        bb = v.Shape.BoundBox
+        e = float(getattr(page, "Scale", 1.0) or 1.0)
+        if tipo == "DistanceX":
+            d.X, d.Y = 0.0, -(bb.ZLength * e / 2.0 + 8.0)
+        else:
+            d.X, d.Y = -(bb.XLength * e / 2.0 + 8.0), 0.0     # à esquerda (a vista lateral fica à direita)
+        try:
+            d.FormatSpec = "%.0f"
+        except Exception:
+            pass
+        feitas.append(d)
+    return feitas
+
+
+# ============================================================================ painel
+import PrumoPainel as P
+
+
+def _materiais_vaso():
+    import PrumoFEM
+    res = []
+    for d in PrumoFEM.materiais():
+        if d.get("biblioteca") != "Prumo":
+            continue
+        pm = PrumoFEM.props_mat(d["props"])
+        if pm.get("Sy") and pm.get("Su"):
+            res.append((d["nome"], pm["Sy"], pm["Su"], "vaso" in (d.get("grupo") or "").lower()))
+    res.sort(key=lambda r: (not r[3], r[0]))
+    return res
+
+
+def _tubos():
+    import PrumoPerfis
+    fam = PrumoPerfis.familia("TUBO")
+    return [it["nome"] for it in fam["itens"]] if fam else []
+
+
+class PainelVaso(P.PainelTarefa):
+    titulo = "Vaso de pressão"
+    previa = True
+    ajuda = ("Preencha os dados de projeto: o vaso aparece na hora, com as espessuras pelo ASME VIII-1 "
+             "(UG-27 e UG-32), a PMTA e a pressão de teste. OK grava; Cancelar desfaz.")
+
+    def montar(self):
+        f = self.form
+        s1 = f.secao("Geometria", "comprimento")
+        self.orient = s1.linha("tipo", P.lista(ORIENTACOES), "Vaso deitado (selas) ou em pé (saia ou pernas).",
+                               "Posição")
+        self.D = s1.linha("comprimento", P.numero(1000.0, 50.0, 20000.0, " mm", 1), "Diâmetro interno do costado.",
+                          "Diâmetro interno")
+        self.L = s1.linha("comprimento", P.numero(2000.0, 0.0, 100000.0, " mm", 1), "Comprimento do costado "
+                          "entre as linhas de tangência dos tampos.", "Comprimento (TL-TL)")
+        self.tampo = s1.linha("tipo", P.lista(TAMPOS), "Tipo dos dois tampos.", "Tampos")
+        s2 = f.secao("Projeto", "material")
+        self.P_ = s2.linha("quantidade", P.numero(1.0, 0.001, 100.0, " MPa", 3), "Pressão de projeto "
+                           "(manométrica, no topo).", "Pressão")
+        self.temp = s2.linha("texto", QtWidgets.QLineEdit(), "Temperatura de projeto (texto, vai para a "
+                             "memória e o desenho).", "Temperatura")
         self.temp.setPlaceholderText("ex.: 150 °C")
-        for rot, w in (("Diâmetro interno", self.D), ("Comprimento entre tangentes", self.L),
-                       ("Pressão de projeto", self.P), ("Tensão admissível S", self.S),
-                       ("Eficiência da junta E", self.E), ("Sobre-espessura de corrosão", self.CA),
-                       ("Tampos", self.tampo), ("Material", self.material), ("Temperatura de projeto", self.temp)):
-            form.addRow(rot, w)
-        esq.addLayout(form)
-        esq.addWidget(QtWidgets.QLabel("Bocais (posição mm; ângulo °; tubo; projeção mm), um por linha:"))
-        self.bocais = QtWidgets.QPlainTextEdit()
-        self.bocais.setPlaceholderText('300; 90; Tubo 2" Sch 40; 150')
-        self.bocais.setMaximumHeight(90)
-        esq.addWidget(self.bocais)
-        bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
-        bb.button(QtWidgets.QDialogButtonBox.Ok).setText("Criar vaso")
-        bb.button(QtWidgets.QDialogButtonBox.Cancel).setText("Cancelar")
-        bb.accepted.connect(self._ok)
-        bb.rejected.connect(self.reject)
-        esq.addWidget(bb)
-        lay.addLayout(esq, 3)
-        self.saida = QtWidgets.QTextBrowser()
-        self.saida.setMinimumWidth(260)
-        lay.addWidget(self.saida, 2)
-        self.atualizar()
+        self.material = s2.linha("material", QtWidgets.QComboBox(), "Chapa do costado e dos tampos. Sy e Su "
+                                 "vêm da biblioteca de materiais do Prumo.", "Material")
+        self._mats = _materiais_vaso()
+        for nome, sy, su, _v in self._mats:
+            self.material.addItem("%s — Sy %s / Su %s MPa" % (nome, fmt(sy, 0), fmt(su, 0)), nome)
+        self.S = s2.linha("quantidade", P.numero(0.0, 0.0, 2000.0, " MPa", 1), "Tensão admissível S na "
+                          "temperatura de projeto (ASME II-D, Tabela 1A).", "S (projeto)")
+        self.bt_s = s2.widget(QtWidgets.QPushButton("Estimar S pelo critério (Su/3,5 e 2/3·Sy)"))
+        self.bt_s.setToolTip("Referência abaixo da faixa de fluência; o valor de projeto é o da Seção II-D "
+                             "para o material e a temperatura (a checar).")
+        self.E = s2.linha("tipo", QtWidgets.QComboBox(), "Eficiência da junta soldada (UW-12).", "Eficiência E")
+        for v, txt in EFICIENCIAS:
+            self.E.addItem(txt, v)
+        self.CA = s2.linha("folga", P.numero(1.5, 0.0, 20.0, " mm", 2), "Sobre-espessura de corrosão.",
+                           "Corrosão")
+        s3 = f.secao("Espessuras adotadas", "espessura")
+        self.tc = s3.linha("espessura", P.numero(0.0, 0.0, 300.0, " mm", 2), "Chapa do costado (0 = a chapa "
+                           "comercial acima da mínima).", "Costado")
+        self.tt = s3.linha("espessura", P.numero(0.0, 0.0, 300.0, " mm", 2), "Chapa dos tampos (0 = automática).",
+                           "Tampos")
+        s4 = f.secao("Bocais", "posicao")
+        self.tab = s4.widget(QtWidgets.QTableWidget(0, 4))
+        self.tab.setHorizontalHeaderLabels(["Posição (mm)", "Ângulo (°)", "Tubo", "Projeção (mm)"])
+        self.tab.horizontalHeader().setStretchLastSection(True)
+        self.tab.verticalHeader().setVisible(False)
+        self.tab.setMinimumHeight(110)
+        lin = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(lin)
+        hl.setContentsMargins(0, 0, 0, 0)
+        self.bt_mais = QtWidgets.QPushButton("Adicionar bocal")
+        self.bt_menos = QtWidgets.QPushButton("Remover")
+        hl.addWidget(self.bt_mais)
+        hl.addWidget(self.bt_menos)
+        s4.widget(lin)
+        s5 = f.secao("Suportes", "selecao")
+        self.sup = s5.linha("tipo", P.lista(SUPORTES, "Selas"), "Horizontal: selas. Vertical: saia ou pernas.",
+                            "Tipo")
+        self.pos_selas = s5.linha("comprimento", P.numero(0.0, 0.0, 100000.0, " mm", 0), "Selas: distância da "
+                                  "linha de tangência (0 = 0,2·L).", "Posição das selas")
+        self.alt = s5.linha("comprimento", P.numero(0.0, 0.0, 20000.0, " mm", 0), "Altura do suporte "
+                            "(0 = automática).", "Altura")
+        s6 = f.secao("Teste de pressão", "empurra")
+        self.teste = s6.linha("tipo", P.lista(TESTES), "Hidrostático: 1,3 × PMTA. Pneumático: 1,1 × PMTA. "
+                              "Ajustados pela razão S no teste / S de projeto.", "Teste")
+        self.S_t = s6.linha("quantidade", P.numero(0.0, 0.0, 2000.0, " MPa", 1), "S na temperatura do teste "
+                            "(0 = igual ao S de projeto).", "S (teste)")
+        self.resultado = f.secao("Resultado", "info").texto("")
+        self.material.currentIndexChanged.connect(lambda *_: self._mudou())
+        self.bt_s.clicked.connect(self._estimar_s)
+        self.bt_mais.clicked.connect(self._mais_bocal)
+        self.bt_menos.clicked.connect(self._menos_bocal)
+        self.tab.cellChanged.connect(lambda *_: self._mudou())
+        self.orient.currentIndexChanged.connect(self._orient)
 
-    def atualizar(self, *_a):
-        if self.S.value() <= 0:
-            self.saida.setHtml("<p style='color:#B5523F'>Informe a tensão admissível S do material na "
-                               "temperatura de projeto (ASME Seção II, Parte D).</p>")
-            return
-        try:
-            c = Calculo(self.D.value(), self.P.value(), self.S.value(), self.E.currentData(),
-                        self.CA.value(), self.tampo.currentText())
-        except (ValueError, ZeroDivisionError) as exc:
-            self.saida.setHtml("<p style='color:#B5523F'>%s</p>" % exc)
-            return
-        mc, mt = c.minimos_com_corrosao()
-        html = ["<h3 style='color:#003A70;margin:0'>Espessuras mínimas</h3>",
-                "<p>Costado: <b>%s</b><br>Tampos: <b>%s</b></p>" % (fmt(mc, 2, "mm"), fmt(mt, 2, "mm")),
-                "<p style='color:#5B6876'>Chapa sugerida: costado %s, tampos %s<br>"
-                "(frações de polegada; disponibilidade a conferir)</p>" % (fmt(chapa_acima(mc), 2, "mm"),
-                                                                            fmt(chapa_acima(mt), 2, "mm")),
-                "<p>PMTA com essas chapas: <b>%s</b></p>" % fmt(min(c.pmta_costado(chapa_acima(mc)),
-                                                                     c.pmta_tampo(chapa_acima(mt))), 3, "MPa")]
-        for a in c.avisos:
-            html.append("<p style='color:#B5523F'>%s</p>" % a)
-        html.append("<p style='color:#5B6876;font-size:8pt'>ASME VIII-1, UG-27 e UG-32. Pré-dimensionamento: "
-                    "não inclui reforço de aberturas (UG-37), vácuo (UG-28) nem apoios.</p>")
-        self.saida.setHtml("".join(html))
+    # ---- campos
+    def _orient(self, *_a):
+        vertical = self.orient.currentText() == "Vertical"
+        if vertical and self.sup.currentText() == "Selas":
+            self.sup.setCurrentText("Saia")
+        if not vertical and self.sup.currentText() in ("Saia", "Pernas"):
+            self.sup.setCurrentText("Selas")
+        self.pos_selas.setEnabled(not vertical)
 
-    def _ok(self):
+    def _sy_su(self):
+        nome = self.material.currentData()
+        for n, sy, su, _v in self._mats:
+            if n == nome:
+                return sy, su
+        return 0.0, 0.0
+
+    def _estimar_s(self):
+        sy, su = self._sy_su()
+        self.S.setValue(round(s_estimado(sy, su), 1))
+
+    def _mais_bocal(self):
+        r = self.tab.rowCount()
+        self.tab.blockSignals(True)
+        self.tab.insertRow(r)
+        L = self.L.value()
+        for c, val in enumerate(("%g" % round(L * (0.25 + 0.5 * (r % 2)), 0), "90", None, "150")):
+            if c == 2:
+                cb = QtWidgets.QComboBox()
+                cb.addItems(_tubos())
+                i = cb.findText('Tubo 2" Sch 40')
+                cb.setCurrentIndex(max(0, i))
+                cb.currentIndexChanged.connect(lambda *_: self._mudou())
+                self.tab.setCellWidget(r, c, cb)
+            else:
+                self.tab.setItem(r, c, QtWidgets.QTableWidgetItem(val))
+        self.tab.blockSignals(False)
+        self._mudou()
+
+    def _menos_bocal(self):
+        r = self.tab.currentRow()
+        if r < 0:
+            r = self.tab.rowCount() - 1
+        if r >= 0:
+            self.tab.removeRow(r)
+            self._mudou()
+
+    def _linhas_bocais(self):
+        res = []
+        for r in range(self.tab.rowCount()):
+            try:
+                pos = self.tab.item(r, 0).text()
+                ang = self.tab.item(r, 1).text()
+                tubo = self.tab.cellWidget(r, 2).currentText()
+                proj = self.tab.item(r, 3).text()
+            except Exception:
+                continue
+            res.append("%s; %s; %s; %s" % (pos, ang, tubo, proj))
+        return res
+
+    def props(self):
+        sy, _su = self._sy_su()
+        return dict(DiametroInterno=self.D.value(), ComprimentoCostado=self.L.value(), PressaoProjeto=self.P_.value(),
+                    TemperaturaProjeto=self.temp.text().strip(), MaterialChapa=self.material.currentData() or "",
+                    TensaoAdmissivel=self.S.value(), EficienciaJunta=self.E.currentData(),
+                    Corrosao=self.CA.value(), TipoTampo=self.tampo.currentText(),
+                    EspessuraCostado=self.tc.value(), EspessuraTampo=self.tt.value(),
+                    Bocais=self._linhas_bocais(), Orientacao=self.orient.currentText(),
+                    Suportes=self.sup.currentText(), PosicaoSelas=self.pos_selas.value(),
+                    AlturaSuporte=self.alt.value(), TipoTeste=self.teste.currentText(),
+                    TensaoAdmissivelTeste=self.S_t.value(), Sy=sy)
+
+    def props_edicao(self):
+        return self.props()
+
+    def carregar(self, obj):
+        self.orient.setCurrentText(obj.Orientacao)
+        self.D.setValue(obj.DiametroInterno.Value)
+        self.L.setValue(obj.ComprimentoCostado.Value)
+        self.tampo.setCurrentText(obj.TipoTampo)
+        self.P_.setValue(obj.PressaoProjeto)
+        self.temp.setText(obj.TemperaturaProjeto)
+        i = self.material.findData(obj.MaterialChapa)
+        if i >= 0:
+            self.material.setCurrentIndex(i)
+        self.S.setValue(obj.TensaoAdmissivel)
+        i = self.E.findData(obj.EficienciaJunta)
+        if i >= 0:
+            self.E.setCurrentIndex(i)
+        self.CA.setValue(obj.Corrosao.Value)
+        self.tc.setValue(obj.EspessuraCostado.Value)
+        self.tt.setValue(obj.EspessuraTampo.Value)
+        self.sup.setCurrentText(obj.Suportes)
+        self.pos_selas.setValue(obj.PosicaoSelas.Value)
+        self.alt.setValue(obj.AlturaSuporte.Value)
+        self.teste.setCurrentText(obj.TipoTeste)
+        self.S_t.setValue(obj.TensaoAdmissivelTeste)
+        self.tab.setRowCount(0)
+        for linha in obj.Bocais:
+            partes = [x.strip() for x in linha.split(";")]
+            if len(partes) != 4:
+                continue
+            self._mais_bocal()
+            r = self.tab.rowCount() - 1
+            self.tab.blockSignals(True)
+            self.tab.item(r, 0).setText(partes[0])
+            self.tab.item(r, 1).setText(partes[1])
+            self.tab.cellWidget(r, 2).setCurrentText(partes[2])
+            self.tab.item(r, 3).setText(partes[3])
+            self.tab.blockSignals(False)
+
+    def pendencia(self):
         if self.S.value() <= 0:
-            QtWidgets.QMessageBox.warning(self, "Vaso de pressão", "Informe a tensão admissível S.")
-            return
+            return "Informe a tensão admissível S (ASME II-D) ou clique em Estimar S."
         try:
-            Calculo(self.D.value(), self.P.value(), self.S.value(), self.E.currentData(),
-                    self.CA.value(), self.tampo.currentText())
-        except (ValueError, ZeroDivisionError) as exc:
-            QtWidgets.QMessageBox.warning(self, "Vaso de pressão", str(exc))
-            return
-        linhas = [l.strip() for l in self.bocais.toPlainText().splitlines() if l.strip()]
-        ruins = [l for l in linhas if interpretar_bocal(l) is None]
-        if ruins:
-            QtWidgets.QMessageBox.warning(self, "Vaso de pressão",
-                                          "Bocal não reconhecido:\n%s\n\nUse: posição; ângulo; tubo (ex.: Tubo 2\" "
-                                          "Sch 40); projeção" % "\n".join(ruins))
-            return
-        self.linhas_bocais = linhas
-        self.accept()
+            Calculo(self.D.value(), self.P_.value(), self.S.value(), self.E.currentData(), self.CA.value(),
+                    self.tampo.currentText())
+        except (ValueError, ZeroDivisionError) as ex:
+            return str(ex)
+        return None
+
+    def executar(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument("Vaso")
+        v = doc.addObject("Part::FeaturePython", "VasoDePressao")
+        v.Label = "Vaso de pressão"
+        Vaso(v)
+        if FreeCAD.GuiUp:
+            VPVaso(v.ViewObject)
+        for k, val in self.props().items():
+            setattr(v, k, val)
+        doc.recompute()
+        self._vaso = v
+        self._mostrar_resultado(v)
+        return [v]
+
+    def aplicar_edicao(self, obj):
+        for k, val in self.props().items():
+            setattr(obj, k, val)
+        obj.Document.recompute()
+        self._mostrar_resultado(obj)
+
+    def marcas(self):
+        v = self.editando or getattr(self, "_vaso", None)
+        if v is None or getattr(v, "Shape", None) is None or v.Shape.isNull():
+            return []
+        res = []
+        try:
+            vertical = v.Orientacao == "Vertical"
+            for k, linha in enumerate(v.Bocais):
+                b = interpretar_bocal(linha)
+                if b is None:
+                    continue
+                x, ang, De, _e, proj = b
+                Ro = v.DiametroInterno.Value / 2.0 + (v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado))
+                a = math.radians(ang)
+                p = FreeCAD.Vector(x, (Ro + proj) * math.cos(a), (Ro + proj) * math.sin(a))
+                if vertical:
+                    p = FreeCAD.Vector(-p.z, p.y, p.x)
+                res.append((p, "N%d" % (k + 1), False))
+        except Exception:
+            pass
+        return res
+
+    def _mostrar_resultado(self, v):
+        if not v.Avisos and v.PMTA:
+            cor = "#1E5C46"
+        else:
+            cor = "#7A2E20" if any("menor que a mínima" in a or "não realizado" in a for a in v.Avisos) else "#4D3B00"
+        tc = v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado)
+        tt = v.EspessuraTampo.Value or chapa_acima(v.MinimoTampo)
+        html = ("<b>Costado</b>: mín. %s → chapa %s<br><b>Tampos</b>: mín. %s → chapa %s<br>"
+                "<b>PMTA</b> %s (%s)<br><b>Teste</b>: %s no topo · %s no fundo<br>"
+                "Volume %s · massa vazio %s" % (
+                    fmt(v.MinimoCostado, 2, "mm"), fmt(tc, 2, "mm"), fmt(v.MinimoTampo, 2, "mm"), fmt(tt, 2, "mm"),
+                    fmt(v.PMTA, 3, "MPa"), fmt(v.PMTA * MPA_KGF, 2, "kgf/cm²"), fmt(v.PressaoTeste, 3, "MPa"),
+                    fmt(v.PressaoTesteFundo, 3, "MPa"), fmt(v.VolumeInterno, 3, "m³"), fmt(v.MassaVazio, 0, "kg")))
+        if v.Avisos:
+            html += "".join("<br><span style='color:#B5523F'>⚠ %s</span>" % a for a in v.Avisos)
+        self.resultado.setText("<span style='color:%s'>%s</span>" % (cor, html))
+
+
+def abrir_painel(obj=None):
+    p = PainelVaso()
+    if obj is not None:
+        p.editar_objeto(obj)
+    return p.mostrar()
+
+
+def vaso_selecionado():
+    for o in FreeCADGui.Selection.getSelection():
+        if "PressaoProjeto" in o.PropertiesList:
+            return o
+    for o in (FreeCAD.ActiveDocument.Objects if FreeCAD.ActiveDocument else []):
+        if "PressaoProjeto" in o.PropertiesList:
+            return o
+    return None
 
 
 class CmdVaso:
     def GetResources(self):
         return {"Pixmap": PrumoUtil.icone("vaso.svg"),
                 "MenuText": "Vaso de pressão",
-                "ToolTip": "Costado, tampos e bocais com espessuras pelo ASME VIII-1 (UG-27 e UG-32), "
-                           "PMTA e memória de cálculo. Pré-dimensionamento."}
+                "ToolTip": "Formulário do vaso: diâmetro, comprimento, tampos, material, bocais e suportes, com as "
+                           "espessuras pelo ASME VIII-1 (UG-27 e UG-32), PMTA e pressão de teste na hora."}
 
     def IsActive(self):
         return True
 
     def Activated(self):
-        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument("Vaso")
-        d = DialogoVaso(FreeCADGui.getMainWindow())
-        if not d.exec():
-            return
-        v = criar(doc, d.D.value(), d.L.value(), d.P.value(), d.S.value(), d.E.currentData(), d.CA.value(),
-                  d.tampo.currentText(), d.material.text().strip(), d.temp.text().strip(),
-                  getattr(d, "linhas_bocais", []))
-        FreeCAD.Console.PrintMessage(memoria(v) + "\n")
+        if FreeCAD.ActiveDocument is None:
+            FreeCAD.newDocument("Vaso")
+        abrir_painel()
+
+
+class CmdDesenhoVaso:
+    def GetResources(self):
+        return {"Pixmap": PrumoUtil.icone("folha_abnt.svg"), "MenuText": "Desenho do vaso",
+                "ToolTip": "Folha ABNT com as vistas do vaso, cotas gerais e a tabela de dados de projeto, "
+                           "bocais e teste."}
+
+    def IsActive(self):
+        return FreeCAD.ActiveDocument is not None and vaso_selecionado() is not None
+
+    def Activated(self):
+        v = vaso_selecionado()
+        page = desenho(v)
         try:
-            FreeCADGui.SendMsgToActiveView("ViewFit")
+            page.ViewObject.doubleClicked()
         except Exception:
             pass
+
+
+class CmdTesteVaso:
+    def GetResources(self):
+        return {"Pixmap": PrumoUtil.icone("assistente_fem.svg"), "MenuText": "Simular teste de pressão",
+                "ToolTip": "Elementos finitos do vaso com a pressão de teste nas faces internas e os suportes "
+                           "presos: tensões de von Mises comparadas ao escoamento."}
+
+    def IsActive(self):
+        return FreeCAD.ActiveDocument is not None and vaso_selecionado() is not None
+
+    def Activated(self):
+        import PrumoFEM
+        v = vaso_selecionado()
+        mw = FreeCADGui.getMainWindow()
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        doc = v.Document
+        doc.openTransaction("Teste de pressão")
+        try:
+            est, erro = simular_teste(v)
+            doc.commitTransaction()
+        except Exception as ex:
+            doc.abortTransaction()
+            est, erro = None, str(ex)
+        QtWidgets.QApplication.restoreOverrideCursor()
+        if erro:
+            QtWidgets.QMessageBox.warning(mw, "Teste de pressão", erro)
+        if est is not None:
+            if not erro:
+                PrumoFEM.mostrar_campo(est, "tensao")
+            PrumoFEM.mostrar()
 
 
 class CmdMemoriaVaso:
