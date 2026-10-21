@@ -35,6 +35,7 @@ TIPOS_CASO = {
     "Permanente (elementos em geral e equipamentos)": (1.50, 1.00, None, None, None, "permanente"),
     "Sobrecarga (sem predominância de equipamentos)": (1.50, 0.0, 0.5, 0.4, 0.3, "variavel"),
     "Sobrecarga (com equipamentos ou pessoas)": (1.50, 0.0, 0.7, 0.6, 0.4, "variavel"),
+    "Sobrecarga em cobertura, depósitos e oficinas": (1.50, 0.0, 0.8, 0.7, 0.6, "variavel"),
     "Vento": (1.40, 0.0, 0.6, 0.3, 0.0, "vento"),
     "Temperatura": (1.20, 0.0, 0.6, 0.5, 0.3, "variavel"),
 }
@@ -84,19 +85,22 @@ def combinacoes(casos):
             res.append(("ELU %d: só permanentes" % n, "ELU", [(k, g(k)) for k, _c in perm]))
             continue
         for principal in variaveis:
-            for fav in favs:
-                fat = [(k, g(k, fav)) for k, _c in perm]
-                t = TIPOS_CASO[casos[principal]["tipo"]]
-                fat.append((principal, t[0]))
-                for j in variaveis:
-                    if j != principal:
+            outras_k = [j for j in variaveis if j != principal]
+            # com as secundárias (ψ0) e sem elas: variável favorável não entra (Tabela 1, nota a),
+            # ex.: sobrecarga aliviando a sucção do vento
+            for com_outras in ([True, False] if outras_k else [True]):
+                for fav in favs:
+                    fat = [(k, g(k, fav)) for k, _c in perm]
+                    t = TIPOS_CASO[casos[principal]["tipo"]]
+                    fat.append((principal, t[0]))
+                    usadas = outras_k if com_outras else []
+                    for j in usadas:
                         tj = TIPOS_CASO[casos[j]["tipo"]]
                         fat.append((j, tj[0] * tj[2]))
-                n += 1
-                outras = [nome_var(j) for j in variaveis if j != principal]
-                res.append(("ELU %d: %s (principal)%s%s" % (
-                    n, nome_var(principal), "".join(" + " + o for o in outras),
-                    ", permanentes favoráveis" if fav else ""), "ELU", fat))
+                    n += 1
+                    res.append(("ELU %d: %s (principal)%s%s" % (
+                        n, nome_var(principal), "".join(" + " + nome_var(o) for o in usadas),
+                        ", permanentes favoráveis" if fav else ""), "ELU", fat))
     # serviço
     m = 0
     for vs in grupos_vento:
@@ -114,6 +118,10 @@ def combinacoes(casos):
             outras = [nome_var(j) for j in variaveis if j != principal]
             res.append(("ELS %d: rara, %s (principal)%s" % (m, nome_var(principal),
                                                             "".join(" + " + o for o in outras)), "ELS", fat))
+    for v in ventos:
+        # Tabela C.1: sucção nas terças — só a variável de sentido oposto, valor característico
+        m += 1
+        res.append(("ELS %d: %s sozinho (característico)" % (m, nome_var(v)), "ELS", [(v, 1.0)]))
     return res
 
 
@@ -159,20 +167,24 @@ def montar_modelo(est, casos, apoios):
         par = E.parametros(est, i)
         sec_geo = E.Secao(est, ativas, i, normal)
         prop = S.propriedades(par["perfil"])
-        # eixos principais (cantoneira): gira u, v pelo ângulo principal
+        # eixos principais (cantoneira): o y local é o eixo de maior inércia (ângulo theta a partir
+        # de u, no sentido de v); z = t × y. Espelhar a seção inverte u, logo o sinal do ângulo.
         u, v = sec_geo.u, sec_geo.v
         if abs(prop.get("Ixy", 0.0)) > 1e-6 * prop["Ix"]:
-            th = 0.5 * math.atan2(-2 * prop["Ixy"], prop["Ix"] - prop["Iy"])
-            v = v * math.cos(th) + u * math.sin(th)
+            th = prop["theta"] * (-1.0 if par["espelhar"] else 1.0)
+            v = v * math.cos(th) - u * math.sin(th)
             Iy_loc, Iz_loc = prop["I1"], prop["I2"]
-            if prop["Ix"] < prop["Iy"]:
-                Iy_loc, Iz_loc = prop["I2"], prop["I1"]
         else:
             Iy_loc, Iz_loc = prop["Ix"], prop["Iy"]
         sec = PT.Secao(prop["A"], Iy_loc, Iz_loc, prop["J"], massa_kgm=prop["massa_kgm"], nome=par["perfil"])
         mapa["secoes"][i] = prop
         mapa["linhas"][i] = (p0, t, L)
         xs = sorted(cortes)
+        # cada trecho em 4 elementos: diagramas mais finos e efeito P-δ na análise de 2ª ordem
+        finos = []
+        for a, b in zip(xs[:-1], xs[1:]):
+            finos += [a + (b - a) * k / 4.0 for k in range(4)]
+        xs = finos + [xs[-1]]
         mapa["barras"][i] = []
         for a, b in zip(xs[:-1], xs[1:]):
             ni = m.no(tuple(p0 + t * a))
@@ -241,6 +253,9 @@ class Calculo:
         self.flechas = {}         # linha → (flecha mm, limite mm, razão, combinação)
         self.erro = None
         self.material = ("", 250.0, 400.0)
+        self.amplificacao = 1.0
+        self.avisos = []
+        self.membros = {}
 
     @property
     def taxa_maxima(self):
@@ -249,7 +264,55 @@ class Calculo:
         return max(vals) if vals else 0.0
 
 
-def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_flecha=250.0, K=1.0):
+def membros(m, mapa):
+    """Linhas colineares seguidas que só se encontram entre si (sem outra barra nem apoio no nó)
+    formam um membro só (uma viga contínua desenhada em dois pedaços): o comprimento de flambagem
+    e o destravado são os do membro. Retorna {linha: (lista de linhas do membro, comprimento,
+    extremidade livre?)}."""
+    import numpy as np
+    grau = {}
+    for b in m.barras:
+        grau[b.i] = grau.get(b.i, 0) + 1
+        grau[b.j] = grau.get(b.j, 0) + 1
+    ponta = {}
+    for i, (p0, t, L) in mapa["linhas"].items():
+        for q in (p0, p0 + t * L):
+            no = _no_mais_proximo(m, (q.x, q.y, q.z), 1.0)
+            ponta.setdefault(no, []).append(i)
+    pai = {i: i for i in mapa["linhas"]}
+
+    def raiz(i):
+        while pai[i] != i:
+            pai[i] = pai[pai[i]]
+            i = pai[i]
+        return i
+    for no, ls in ponta.items():
+        if len(ls) == 2 and grau.get(no, 0) == 2 and no not in m.apoios:
+            a, b = ls
+            ta, tb = mapa["linhas"][a][1], mapa["linhas"][b][1]
+            if abs(abs(ta.dot(tb)) - 1.0) < 1e-6:
+                pai[raiz(a)] = raiz(b)
+    grupos = {}
+    for i in mapa["linhas"]:
+        grupos.setdefault(raiz(i), []).append(i)
+    res = {}
+    for ls in grupos.values():
+        Ltot = sum(mapa["linhas"][i][2] for i in ls)
+        # extremidade livre: nó de ponta do membro com uma barra só e sem apoio
+        livre = False
+        for i in ls:
+            p0, t, L = mapa["linhas"][i]
+            for q in (p0, p0 + t * L):
+                no = _no_mais_proximo(m, (q.x, q.y, q.z), 1.0)
+                if grau.get(no, 0) == 1 and no not in m.apoios:
+                    livre = True
+        for i in ls:
+            res[i] = (sorted(ls), Ltot, livre)
+    return res
+
+
+def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_flecha=250.0, K=1.0,
+             segunda_ordem=True):
     import PrumoNBR8800 as N
     calc = Calculo()
     calc.material = (nome_material, fy, fu)
@@ -262,47 +325,78 @@ def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_fl
     try:
         for nome, tipo, fatores in calc.combinacoes:
             partes = [(lista[k], f) for k, f in fatores if f]
-            calc.resultados[nome] = m.resolver(partes)
+            calc.resultados[nome] = m.resolver(partes, segunda_ordem=(segunda_ordem and tipo == "ELU"))
     except ValueError as ex:
         calc.erro = str(ex)
         calc.resultados = {}
         return calc
+    calc.amplificacao = max([r.amplificacao for r in calc.resultados.values()] or [1.0])
+    if nome_material.startswith("ASTM A36 (padrão"):
+        calc.avisos.append("Material não informado: verificado como ASTM A36 (fy 250 MPa, fu 400 MPa). "
+                           "Confira o aço real das barras.")
+    if segunda_ordem:
+        calc.avisos.append("Análise de 2ª ordem (P-Δ e P-δ) nas combinações últimas; amplificação máxima "
+                           "%.2f. Imperfeições iniciais e redução de rigidez (NBR 8800, 4.9.7): a checar."
+                           % calc.amplificacao)
+    calc.membros = membros(m, mapa)
     # verificação por linha (barra do Prumo), pior combinação ELU
     for i, trechos in mapa["barras"].items():
         prop = mapa["secoes"][i]
-        L = mapa["linhas"][i][2]
+        _ls, Lm, balanco = calc.membros[i]
+        Kb, Kz = (max(K, 2.1), 2.0) if balanco else (K, 1.0)
         pior = None
+        elems_m = [eb for j in _ls for eb, _a in mapa["barras"][j]] if len(_ls) > 1 else None
         for nome, tipo, _f in calc.combinacoes:
             if tipo != "ELU":
                 continue
             r = calc.resultados[nome]
-            esf = _esforcos_da_linha(r, trechos, L)
+            esf = _esforcos_da_linha(r, trechos, mapa["linhas"][i][2])
+            if elems_m:
+                esf["Mcb"] = _cb_do_membro(r, elems_m, m)
             # tração e compressão: verifica as duas se aparecerem
             for Nv in sorted({esf["Nmax"], esf["Nmin"]}):
                 e2 = dict(esf, N=Nv)
-                ver = N.verificar(prop, fy, fu, L, e2, K)
+                ver = N.verificar(prop, fy, fu, Lm, e2, Kb, Kz, balanco)
                 ver["combinacao"] = nome
                 ver["esforcos"] = e2
+                ver["membro"] = (Lm, Kb, balanco)
                 if pior is None or ver["taxa"] > pior["taxa"]:
                     pior = ver
         calc.verificacao[i] = pior
-        # deslocamentos (ELS)
-        p0, t, L = mapa["linhas"][i]
+        for a in (pior or {}).get("avisos", []):
+            txt = "Barra %d: %s" % (i + 1, a)
+            if txt not in calc.avisos:
+                calc.avisos.append(txt)
+    # deslocamentos (ELS), por membro
+    feitos = set()
+    for i in mapa["barras"]:
+        ls, Lm, balanco = calc.membros[i]
+        if tuple(ls) in feitos:
+            continue
+        feitos.add(tuple(ls))
+        t = mapa["linhas"][ls[0]][1]
         horizontal = abs(t.z) < 0.7
-        lim = L / (limite_flecha if horizontal else LIMITE_PILAR)
+        if horizontal:
+            # Tabela C.1: L é o vão; no balanço, 2 × o comprimento do balanço
+            lim = (2 * Lm if balanco else Lm) / limite_flecha
+        else:
+            lim = Lm / LIMITE_PILAR
+        elementos = [eb for j in ls for eb, _a in mapa["barras"][j]]
         maior = (0.0, None)
         for nome, tipo, _f in calc.combinacoes:
             if tipo != "ELS":
                 continue
             r = calc.resultados[nome]
-            if horizontal:
-                f = _flecha_da_linha(r, trechos, m)
+            if horizontal and not balanco:
+                f = _flecha_do_membro(r, elementos, m)
             else:
-                f = _deriva_do_pilar(r, trechos, m, t)
+                f = _ponta_do_membro(r, elementos, m, t)
             if f > maior[0]:
                 maior = (f, nome)
-        calc.flechas[i] = (maior[0], lim, maior[0] / lim if lim else 0.0, maior[1],
-                           "flecha" if horizontal else "deslocamento horizontal")
+        for j in ls:
+            calc.flechas[j] = (maior[0], lim, maior[0] / lim if lim else 0.0, maior[1],
+                               ("flecha do balanço" if balanco else "flecha") if horizontal
+                               else "deslocamento horizontal")
     return calc
 
 
@@ -330,35 +424,86 @@ def _esforcos_da_linha(r, trechos, L):
             "Mq": (m_em(L / 4), m_em(L / 2), m_em(3 * L / 4))}
 
 
-def _flecha_da_linha(r, trechos, m):
-    """Flecha da barra inteira em relação à reta entre as pontas (mm)."""
+def _cb_do_membro(r, elementos, m):
+    """(|M|máx, |M| a 1/4, 1/2, 3/4) ao longo de um membro de várias linhas."""
     import numpy as np
-    # deslocamentos dos nós da barra inteira em relação à corda + flecha interna de cada trecho
-    nos = [m.barras[eb].i for eb, _a in trechos] + [m.barras[trechos[-1][0]].j]
-    u0, u1 = r.u[6 * nos[0]:6 * nos[0] + 3], r.u[6 * nos[-1]:6 * nos[-1] + 3]
-    p0, p1 = m.nos[nos[0]], m.nos[nos[-1]]
-    Lt = float(np.linalg.norm(p1 - p0))
+    am = []
+    for eb in elementos:
+        b = m.barras[eb]
+        R, _L = r.geo[eb]
+        for x, e in r.diagrama(eb, 11):
+            am.append((m.nos[b.i] + R[0] * x, abs(e["My"])))
+    pos = np.array([p for p, _v in am])
+    e = pos[-1] - pos[0]
+    n = np.linalg.norm(e)
+    if n < 1e-9:
+        return None
+    s = (pos - pos[0]) @ (e / n)
+    s0, s1 = float(s.min()), float(s.max())
+    Lm = s1 - s0
+
+    def em(f):
+        k = int(np.argmin(np.abs(s - (s0 + f * Lm))))
+        return am[k][1]
+    return (max(v for _p, v in am), em(0.25), em(0.5), em(0.75))
+
+
+def _pontos_deslocados(r, elementos, m, n=9):
+    """[(posição original, deslocamento total)] ao longo dos elementos (vetores numpy, mm)."""
+    import numpy as np
+    import PrumoPortico as PT
+    res = []
+    for eb in elementos:
+        b = m.barras[eb]
+        R, L = r.geo[eb]
+        ui, uj = r.u[6 * b.i:6 * b.i + 3], r.u[6 * b.j:6 * b.j + 3]
+        for k in range(n):
+            x = L * k / (n - 1)
+            xi = x / L
+            v, w = PT._deslocamento_no_vao(r, eb, x)
+            d = ui + (uj - ui) * xi + R.T @ np.array([0.0, v, w])
+            res.append((m.nos[b.i] + R[0] * x, d))
+    return res
+
+
+def _flecha_do_membro(r, elementos, m):
+    """Maior deslocamento transversal em relação à reta que liga os deslocamentos das pontas do
+    membro (soma a corda de cada trecho com a flecha dentro dele)."""
+    import numpy as np
+    pts = _pontos_deslocados(r, elementos, m)
+    pos = np.array([p for p, _d in pts])
+    eixo = pos[-1] - pos[0]
+    # pontas do membro: os dois pontos mais afastados ao longo do eixo
+    if np.linalg.norm(eixo) < 1e-9:
+        return 0.0
+    e = eixo / np.linalg.norm(eixo)
+    proj = pos @ e
+    a, b = int(np.argmin(proj)), int(np.argmax(proj))
+    pa, pb = proj[a], proj[b]
+    da, db = pts[a][1], pts[b][1]
     maior = 0.0
-    for k, n in enumerate(nos):
-        s = float(np.linalg.norm(m.nos[n] - p0)) / Lt if Lt else 0.0
-        rel = r.u[6 * n:6 * n + 3] - (u0 + (u1 - u0) * s)
-        eixo = (p1 - p0) / Lt
-        rel = rel - eixo * float(np.dot(rel, eixo))
+    for (p, d), s in zip(pts, proj):
+        f = (s - pa) / (pb - pa) if pb > pa else 0.0
+        rel = d - (da + (db - da) * f)
+        rel = rel - e * float(rel @ e)
         maior = max(maior, float(np.linalg.norm(rel)))
-    for eb, _a in trechos:
-        fy_, fz_ = r.flecha_local(eb)
-        maior = max(maior, math.hypot(fy_, fz_))
     return maior
 
 
-def _deriva_do_pilar(r, trechos, m, t):
+def _ponta_do_membro(r, elementos, m, t):
+    """Balanço ou pilar: deslocamento transversal de uma ponta em relação à outra (o maior)."""
     import numpy as np
-    n0 = m.barras[trechos[0][0]].i
-    n1 = m.barras[trechos[-1][0]].j
-    d = r.u[6 * n1:6 * n1 + 3] - r.u[6 * n0:6 * n0 + 3]
+    pts = _pontos_deslocados(r, elementos, m)
     tv = np.array([t.x, t.y, t.z])
-    d = d - tv * float(np.dot(d, tv))
-    return float(np.linalg.norm(d))
+    proj = [float(p @ tv) for p, _d in pts]
+    a, b = int(np.argmin(proj)), int(np.argmax(proj))
+    maior = 0.0
+    for k in range(len(pts)):
+        for ref in (a, b):
+            d = pts[k][1] - pts[ref][1]
+            d = d - tv * float(d @ tv)
+            maior = max(maior, float(np.linalg.norm(d)))
+    return maior
 
 
 # ------------------------------------------------------------------ objeto na árvore
@@ -390,6 +535,8 @@ class Analise:
             obj.Mostrar = MOSTRAR
         add("App::PropertyString", "Combinacao", "Vista", "Combinação mostrada (vazio = a pior ELU)", "")
         add("App::PropertyFloat", "Escala", "Vista", "Escala dos diagramas e da deformada (1 = automática)", 1.0)
+        add("App::PropertyBool", "SegundaOrdem", "Análise", "Análise de 2ª ordem (P-Δ) nas combinações últimas",
+            True)
         add("App::PropertyFloat", "K", "Análise", "Coeficiente de flambagem K (1,0 para barras contraventadas; "
             "pilar em balanço: 2,1 pela Tabela E.1)", 1.0)
         add("App::PropertyFloat", "TaxaMaxima", "Resultados", "Maior taxa de uso (1,00 = no limite)", 0.0, True)
@@ -440,7 +587,8 @@ class Analise:
         nome, fy, fu = self.material(obj)
         try:
             self.calc = calcular(est, self.casos(obj), self.apoios(obj), fy, fu, nome,
-                                 LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0)
+                                 LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0,
+                                 bool(getattr(obj, "SegundaOrdem", True)))
         except Exception:
             self.calc = None
         return self.calc
@@ -458,7 +606,8 @@ class Analise:
         nome, fy, fu = self.material(obj)
         try:
             calc = calcular(est, self.casos(obj), self.apoios(obj), fy, fu, nome,
-                            LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0)
+                            LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0,
+                                 bool(getattr(obj, "SegundaOrdem", True)))
         except Exception as ex:
             obj.Situacao = "erro: %s" % ex
             obj.TaxaMaxima = 0.0
@@ -481,7 +630,7 @@ class Analise:
         obj.Situacao = "atende" if tx <= 1.0 else "não atende"
         obj.Resumo = ["Barra %d: %s — taxa %.2f (%s, %s)" % (i + 1, calc.mapa["secoes"][i]["nome"], v["taxa"],
                                                               v["governa"], v["combinacao"])
-                      for i, v in piores]
+                      for i, v in piores] + ["Aviso: " + a for a in calc.avisos]
 
     def dumps(self):
         return None

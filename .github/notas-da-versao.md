@@ -48,7 +48,10 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   distribuídas e concentradas nas barras, forças nos nós) e as combinações saem da NBR 8681. Os
   esforços, as reações e a deformada são calculados na hora, e cada barra é verificada (tração,
   compressão com flambagem, flexão com FLT/FLM/FLA, cortante, esforços combinados e flecha), com a
-  taxa de uso em cores na tela, os diagramas de N, V e M e a memória de cálculo em PDF.
+  taxa de uso em cores na tela, os diagramas de N, V e M e a memória de cálculo em PDF. A análise é
+  de 2ª ordem (P-Δ) nas combinações últimas e acusa quando a estrutura perde estabilidade (por
+  exemplo, pórtico plano sem travamento fora do plano). Balanços e vigas contínuas desenhadas em
+  vários pedaços são reconhecidos na flambagem e na flecha.
 - **Prévia ao vivo** também no reforço, tampa, placa de base, solda e fixadores: o resultado aparece
   no desenho enquanto se mexe no painel, com "Início" e "Fim" marcados nas barras. Os avisos aparecem
   no painel antes de aplicar. Duplo clique na árvore (estrutura, barra, reforço, tampa, placa, solda,
@@ -102,8 +105,9 @@ Clique em **Mais informações → Executar assim mesmo**.
 - O vaso de pressão ficou para uma versão futura.
 - A simulação de estruturas por barras verifica pela NBR 8800:2008 e combina pela NBR 8681:2003, que
   foram substituídas pela NBR 8800:2024 e pela NBR 8681:2025: o resultado aparece com esse aviso e
-  serve para pré-dimensionamento até a conferência com as edições vigentes. Análise de 1ª ordem (sem
-  P-Δ), barras ligadas rigidamente nos nós; ligações, placas de base e soldas não são verificadas.
+  serve para pré-dimensionamento até a conferência com as edições vigentes. Imperfeições iniciais da
+  análise de 2ª ordem (4.9.7) ainda não entram; barras ligadas rigidamente nos nós; ligações, placas
+  de base e soldas não são verificadas.
 
 ### Como relatar um problema
 

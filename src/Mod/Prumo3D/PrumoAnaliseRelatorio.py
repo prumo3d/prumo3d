@@ -75,9 +75,12 @@ def _corpo(analise, doc, imgs, largura):
                  R._par("E / G", "%s / %s MPa" % (_f(N.E_ACO, 0), _f(N.G_ACO, 0))),
                  R._par("γa1 / γa2", "%s / %s" % (_f(N.GAMA_A1), _f(N.GAMA_A2))),
                  R._par("Limite de flecha das vigas", analise.LimiteFlecha),
-                 R._par("Coeficiente de flambagem K", _f(analise.K or 1.0)),
+                 R._par("Coeficiente de flambagem K", _f(analise.K or 1.0) + " (balanços: 2,1)"),
                  R._par("Pilares (deslocamento relativo)", "H/%d" % int(A.LIMITE_PILAR))])
     h += "<h2>Hipóteses e limites do cálculo</h2><ul>" + "".join("<li>%s</li>" % x for x in N.LIMITES) + "</ul>"
+    if calc.avisos:
+        h += "<h2>Avisos deste cálculo</h2><ul>" + "".join(
+            "<li style='color:#B5523F'>%s</li>" % x for x in calc.avisos) + "</ul>"
     # geometria
     h += "<h1>2. Barras e seções</h1>"
     linhas = []

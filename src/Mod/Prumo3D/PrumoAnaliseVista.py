@@ -677,7 +677,8 @@ class PainelAnalise(P.PainelTarefa):
             "<b>%s</b> · maior taxa de uso <b>%s</b> (%s)<br>Maior deslocamento (ELS): %s mm · aço: %s "
             "(fy %s, fu %s MPa)<br>%d combinações (NBR 8681)" % (
                 "Atende" if ok else "NÃO ATENDE", _f(obj.TaxaMaxima, 2), obj.BarraCritica,
-                _f(obj.DeslocamentoMax, 1), mat[0], _f(mat[1], 0), _f(mat[2], 0), len(calc.combinacoes)))
+                _f(obj.DeslocamentoMax, 1), mat[0], _f(mat[1], 0), _f(mat[2], 0), len(calc.combinacoes))
+            + "".join("<br><span style='color:#B5523F'>⚠ %s</span>" % a for a in calc.avisos))
         self.form.mensagem.mostrar("Atende: maior taxa %s." % _f(obj.TaxaMaxima, 2) if ok else
                                    "Não atende: maior taxa %s (%s)." % (_f(obj.TaxaMaxima, 2), obj.BarraCritica),
                                    "ok" if ok else "erro")

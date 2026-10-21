@@ -108,6 +108,23 @@ class Modelo:
         return k
 
     @staticmethod
+    def rigidez_geometrica(N, L):
+        """Matriz geométrica (consistente) da barra com força normal N (tração +), eixos locais."""
+        kg = np.zeros((12, 12))
+        if N == 0:
+            return kg
+        c = N / L
+        A = np.array([[6 / 5, L / 10, -6 / 5, L / 10], [L / 10, 2 * L * L / 15, -L / 10, -L * L / 30],
+                      [-6 / 5, -L / 10, 6 / 5, -L / 10], [L / 10, -L * L / 30, -L / 10, 2 * L * L / 15]]) * c
+        B = np.array([[6 / 5, -L / 10, -6 / 5, -L / 10], [-L / 10, 2 * L * L / 15, L / 10, -L * L / 30],
+                      [-6 / 5, L / 10, 6 / 5, L / 10], [-L / 10, -L * L / 30, L / 10, 2 * L * L / 15]]) * c
+        for M, idx in ((A, (1, 5, 7, 11)), (B, (2, 4, 8, 10))):
+            for a, ia in enumerate(idx):
+                for b, ib in enumerate(idx):
+                    kg[ia, ib] += M[a, b]
+        return kg
+
+    @staticmethod
     def _T(R):
         T = np.zeros((12, 12))
         for n in range(4):
@@ -164,8 +181,11 @@ class Modelo:
         return f
 
     # ------------------------------------------------------------ solução
-    def resolver(self, caso_ou_combinacao):
-        """Resolve um caso ou uma combinação [(caso, fator)]. Retorna Resultado."""
+    def resolver(self, caso_ou_combinacao, segunda_ordem=False):
+        """Resolve um caso ou uma combinação [(caso, fator)]. Retorna Resultado.
+
+        segunda_ordem=True: análise P-Δ (rigidez geométrica, iterada até convergir); o resultado
+        traz o fator de amplificação dos deslocamentos (2ª ordem / 1ª ordem)."""
         partes = caso_ou_combinacao if isinstance(caso_ou_combinacao, (list, tuple)) else [(caso_ou_combinacao, 1.0)]
         n = len(self.nos)
         ndof = 6 * n
@@ -214,11 +234,43 @@ class Modelo:
             raise ValueError("a estrutura é instável (mecanismo): faltam apoios ou travamentos")
         u = np.zeros(ndof)
         u[livres] = uf
+        u1 = u.copy()
+        kgs = [np.zeros((12, 12)) for _ in info]
+        iteracoes = 0
+        if segunda_ordem:
+            for iteracoes in range(1, 41):
+                Kt = K.copy()
+                for nb, (R, L, T, k, fe, dist, pont, idx) in enumerate(info):
+                    f = (k + kgs[nb]) @ (T @ u[idx]) + fe
+                    kgs[nb] = self.rigidez_geometrica(-f[0], L)
+                    Kt[np.ix_(idx, idx)] += T.T @ kgs[nb] @ T
+                Ktf = Kt[np.ix_(livres, livres)]
+                try:
+                    novo = np.linalg.solve(Ktf, F[livres])
+                    ok = np.all(np.isfinite(novo))
+                except np.linalg.LinAlgError:
+                    ok = False
+                if ok:
+                    ok = np.min(np.linalg.eigvalsh((Ktf + Ktf.T) / 2.0)) > 0
+                if not ok:
+                    raise ValueError("instabilidade global na análise de 2ª ordem: as cargas passam da carga "
+                                     "crítica da estrutura. Confira os travamentos fora do plano (um pórtico plano só com "
+                                     "apoios na base gira de lado) e os perfis")
+                dif = np.max(np.abs(novo - u[livres])) if novo.size else 0.0
+                u[livres] = novo
+                if dif <= 1e-6 * max(1.0, np.max(np.abs(novo))):
+                    break
+            K = Kt
         reac = K @ u - F
         res = Resultado(self, u, reac, presos)
+        res.segunda_ordem = segunda_ordem
+        res.iteracoes = iteracoes
+        tr1 = max((np.linalg.norm(u1[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
+        tr2 = max((np.linalg.norm(u[6 * n:6 * n + 3]) for n in range(n)), default=0.0)
+        res.amplificacao = tr2 / tr1 if tr1 > 1e-12 else 1.0
         for nb, (R, L, T, k, fe, dist, pont, idx) in enumerate(info):
             ul = T @ u[idx]
-            res.extremos.append(k @ ul + fe)
+            res.extremos.append((k + kgs[nb]) @ ul + fe)
             res.cargas.append((dist, pont))
             res.geo.append((R, L))
         return res
@@ -233,6 +285,9 @@ class Resultado:
         self.reac = reac
         self.presos = presos
         self.extremos = []      # 12 forças locais nas pontas de cada barra (convenção da matriz)
+        self.segunda_ordem = False
+        self.iteracoes = 0
+        self.amplificacao = 1.0
         self.cargas = []
         self.geo = []
 
@@ -321,6 +376,33 @@ class Resultado:
             maxy = max(maxy, abs(v - corda_y))
             maxz = max(maxz, abs(w - corda_z))
         return maxy, maxz
+
+
+def _deslocamento_no_vao(r, nb, x):
+    """(v, w) locais da barra nb na posição x, em relação à reta entre as suas pontas (mm, com sinal)."""
+    m = r.modelo
+    b = m.barras[nb]
+    R, L = r.geo[nb]
+    di = R @ r.u[6 * b.i:6 * b.i + 3]
+    dj = R @ r.u[6 * b.j:6 * b.j + 3]
+    ri = R @ r.u[6 * b.i + 3:6 * b.i + 6]
+    rj = R @ r.u[6 * b.j + 3:6 * b.j + 6]
+    s = b.secao
+    dist, pont = r.cargas[nb]
+    xi = x / L
+    h1, h2 = 1 - 3 * xi ** 2 + 2 * xi ** 3, x * (1 - xi) ** 2
+    h3, h4 = 3 * xi ** 2 - 2 * xi ** 3, x * (xi ** 2 - xi)
+    v = h1 * di[1] + h2 * ri[2] + h3 * dj[1] + h4 * rj[2]
+    w = h1 * di[2] - h2 * ri[1] + h3 * dj[2] - h4 * rj[1]
+    for qx, qy, qz in dist:
+        v += qy * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iz)
+        w += qz * x ** 2 * (L - x) ** 2 / (24 * s.E * s.Iy)
+    for a, (Px, Py, Pz) in pont:
+        v += _flecha_pontual_biengastada(Py, a, x, L, s.E * s.Iz)
+        w += _flecha_pontual_biengastada(Pz, a, x, L, s.E * s.Iy)
+    v -= di[1] + (dj[1] - di[1]) * xi
+    w -= di[2] + (dj[2] - di[2]) * xi
+    return v, w
 
 
 def _flecha_pontual_biengastada(P, a, x, L, EI):

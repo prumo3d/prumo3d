@@ -4977,8 +4977,10 @@ class T42SimulacaoEstrutura(unittest.TestCase):
                                       ((3000, 3000), (3000, 0))], "XZ")
         est = E.criar(self.doc, sk, "W 200 x 22,5")
         m, _l, mapa = A.montar_modelo(est, [A.caso_padrao()], {})
-        self.assertEqual(len(mapa["barras"][1]), 2, "a viga devia ser dividida no pilar do meio")
-        self.assertEqual(len(m.nos), 6)
+        # 2 trechos (dividida no pilar do meio) × 4 elementos cada
+        self.assertEqual(len(mapa["barras"][1]), 8, "a viga devia ser dividida no pilar do meio")
+        self.assertIsNotNone(A._no_mais_proximo(m, (3000, 0, 3000), 1.0))
+        self.assertEqual(len(m.nos), 6 + 3 * 3 + 6)
 
     def test_painel_clique_e_cancelar(self):
         if not FreeCAD.GuiUp:
@@ -4998,6 +5000,9 @@ class T42SimulacaoEstrutura(unittest.TestCase):
             self.assertEqual(sorted(an.Proxy.apoios(an).values()), ["Engaste", "Rótula"])
             p.modo.definir("barra")
             k = p.novo_caso("Sobrecarga")
+            # um pilar engastado e outro rotulado, sem travamento fora do plano: o pórtico gira em planta
+            # só contra a torção do pilar engastado e a 2ª ordem acusa instabilidade (correto).
+            an.SegundaOrdem = False
             p.valor.setValue(8.0)
             p.clique(bs[1], "Face1", (2500.0, 0.0, 3000.0))
             casos = an.Proxy.casos(an)
@@ -5046,6 +5051,101 @@ class T42SimulacaoEstrutura(unittest.TestCase):
             self.assertIs(A.analise_de(an.Estrutura), an, "Cancelar não pode apagar uma análise que já existia")
         self.assertIn("Prumo_AnaliseEstrutura", FreeCADGui.Command.listAll() if FreeCAD.GuiUp else
                       ["Prumo_AnaliseEstrutura"])
+
+    def test_segunda_ordem_pilar_em_balanco(self):
+        """Pilar engastado com P e H no topo: δ = H/P·(tan(kL)/k − L) (solução exata)."""
+        import math
+        import PrumoPortico as PT
+        s = PT.Secao(A=2860, Iy=2029e4, Iz=2029e4, J=5e4)
+        m = PT.Modelo()
+        L, n = 3000.0, 8
+        nos = [m.no((0, 0, L * k / n)) for k in range(n + 1)]
+        for a, b in zip(nos[:-1], nos[1:]):
+            m.barras.append(PT.Barra(a, b, s, (1, 0, 0)))
+        m.apoios[nos[0]] = [1] * 6
+        c = PT.Caso("PH")
+        c.nos.append((nos[-1], [1.0, 0, -300.0], [0, 0, 0]))
+        r1 = m.resolver(c)
+        r2 = m.resolver(c, segunda_ordem=True)
+        k = math.sqrt(300e3 / (200000 * 2029e4))
+        exato = 1e3 / 300e3 * (math.tan(k * L) / k - L)
+        self.assertAlmostEqual(r2.deslocamento(nos[-1])[0], exato, delta=exato * 1e-3)
+        self.assertGreater(r2.amplificacao, 1.1)
+        self.assertLess(r1.deslocamento(nos[-1])[0], exato)
+        c.nos[0] = (nos[-1], [1.0, 0, -5000.0], [0, 0, 0])     # acima da crítica (≈ 1100 kN)
+        with self.assertRaises(ValueError):
+            m.resolver(c, segunda_ordem=True)
+
+    def test_flecha_de_viga_dividida_em_trechos(self):
+        """Viga com nós no meio: a flecha é a da viga inteira (corda das pontas), não a de um trecho."""
+        import PrumoPortico as PT
+        import PrumoAnaliseEstrutura as A
+        PT_, m, s, a, b = self._viga()
+        m = PT.Modelo()
+        nos = [m.no((x, 0, 0)) for x in (0, 2000, 4000, 6000)]
+        for i, j in zip(nos[:-1], nos[1:]):
+            m.barras.append(PT.Barra(i, j, s, (0, 0, 1)))
+        m.apoios[nos[0]] = [1, 1, 1, 1, 0, 0]
+        m.apoios[nos[-1]] = [0, 1, 1, 0, 0, 0]
+        c = PT.Caso("q")
+        for k in range(3):
+            c.distribuidas.append((k, [0, 0, -10], True))
+        r = m.resolver(c)
+        exato = 5 * 10 * 6000 ** 4 / (384 * 200000 * 8578e4)
+        self.assertAlmostEqual(A._flecha_do_membro(r, [0, 1, 2], m), exato, delta=exato * 1e-3)
+
+    def test_balanco_e_membro_continuo(self):
+        """Balanço: Cb = 1, K = 2,1, flecha da ponta com limite 2L/250. Duas linhas colineares
+        seguidas: um membro só (comprimento de flambagem da viga inteira)."""
+        import PrumoEstrutura as E
+        import PrumoAnaliseEstrutura as A
+        sk = esboco_linhas(self.doc, [((0, 0), (2000, 0))], "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        casos = [A.caso_padrao(), {"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                                   "cargas": [{"alvo": "barra", "linha": 0, "tipo": "distribuida", "valor": 5.0,
+                                               "direcao": "Para baixo (−Z)"}]}]
+        calc = A.calcular(est, casos, {A._chave_no((0, 0, 0)): "Engaste"})
+        self.assertIsNone(calc.erro, calc.erro)
+        self.assertTrue(calc.membros[0][2], "a ponta solta devia marcar balanço")
+        self.assertEqual(calc.verificacao[0]["membro"][1], 2.1)
+        f, lim, _tx, nome, txt = calc.flechas[0]
+        self.assertAlmostEqual(lim, 2 * 2000 / 250.0)
+        self.assertEqual(txt, "flecha do balanço")
+        r = calc.resultados[nome]
+        ponta = A._no_mais_proximo(calc.modelo, (2000, 0, 0), 1.0)
+        self.assertAlmostEqual(f, abs(r.deslocamento(ponta)[2]), delta=1e-6 + 1e-3 * f)
+        # viga contínua desenhada em dois pedaços
+        sk2 = esboco_linhas(self.doc, [((0, 0), (3000, 0)), ((3000, 0), (6000, 0))], "XZ", "Esq2")
+        est2 = E.criar(self.doc, sk2, "W 200 x 22,5")
+        m, _l, mapa = A.montar_modelo(est2, [A.caso_padrao()],
+                                      {A._chave_no((0, 0, 0)): "Engaste", A._chave_no((6000, 0, 0)): "Rolete (vertical)"})
+        mb = A.membros(m, mapa)
+        self.assertEqual(mb[0][0], [0, 1])
+        self.assertAlmostEqual(mb[1][1], 6000.0)
+        self.assertFalse(mb[0][2])
+
+    def test_combinacoes_de_succao_e_avisos(self):
+        import PrumoAnaliseEstrutura as A
+        casos = [A.caso_padrao(),
+                 {"nome": "Q", "tipo": "Sobrecarga em cobertura, depósitos e oficinas", "cargas": []},
+                 {"nome": "V", "tipo": "Vento", "cargas": []}]
+        self.assertEqual(A.TIPOS_CASO[casos[1]["tipo"]][2], 0.8)
+        cs = A.combinacoes(casos)
+        # vento principal, permanentes favoráveis e sem a sobrecarga (que aliviaria a sucção)
+        self.assertTrue(any(t == "ELU" and sorted(f) == [(0, 1.0), (2, 1.4)] for _n, t, f in cs))
+        # sobrecarga principal com o vento secundário (ψ0 = 0,6)
+        self.assertTrue(any(t == "ELU" and sorted(f) == [(0, 1.25), (1, 1.5), (2, 1.4 * 0.6)]
+                            for _n, t, f in cs))
+        self.assertTrue(any(t == "ELS" and f == [(2, 1.0)] for _n, t, f in cs))
+        est = self._portico()
+        an = self._analise(est)
+        an.Material = ""
+        est.Material = ""
+        self.doc.recompute()
+        calc = an.Proxy.calc
+        self.assertTrue(any("Material não informado" in a for a in calc.avisos), calc.avisos)
+        self.assertTrue(any("2ª ordem" in a for a in calc.avisos))
+        self.assertTrue(any(x.startswith("Aviso:") for x in an.Resumo))
 
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,

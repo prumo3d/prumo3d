@@ -181,6 +181,19 @@ def propriedades(perfil):
     m = (p["Ix"] + p["Iy"]) / 2.0
     r = math.sqrt(((p["Ix"] - p["Iy"]) / 2.0) ** 2 + p["Ixy"] ** 2)
     p["I1"], p["I2"] = m + r, m - r
+    # eixos principais: ângulo th do eixo de maior inércia (I1) em relação a u (largura)
+    p["theta"] = 0.5 * math.atan2(-2 * p["Ixy"], p["Ix"] - p["Iy"]) if abs(p["Ixy"]) > 1e-9 * p["Ix"] else 0.0
+    if t == "TUBO":
+        p["W1"] = p["W2"] = p["Wx"]
+    else:
+        # módulos elásticos nos eixos principais (cantoneira): distância máxima às fibras
+        c, s_ = math.cos(p["theta"]), math.sin(p["theta"])
+        pts = [(x - p["cu"], y - p["cv"]) for pol, _s in _poligonos(it) for x, y in pol]
+        # coordenada ao longo do eixo de menor inércia (n2) e do de maior (n1)
+        d1 = max(abs(-x * s_ + y * c) for x, y in pts)     # distância ao eixo 1 (flexão em torno de 1)
+        d2 = max(abs(x * c + y * s_) for x, y in pts)      # distância ao eixo 2
+        p["W1"] = p["I1"] / d1
+        p["W2"] = p["I2"] / d2
     p["rx"] = math.sqrt(p["Ix"] / p["A"])
     p["ry"] = math.sqrt(p["Iy"] / p["A"])
     p["rmin"] = math.sqrt(max(p["I2"], 0.0) / p["A"])
