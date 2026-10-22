@@ -53,6 +53,8 @@ EQUIVALENCIAS = [
      ["Part_Cut", "Part_Fuse", "Part_Common"], "Subtrair: primeiro a peça base, depois a ferramenta."),
     ("Avaliar", "Propriedades de massa", "Mass properties", "Propriedades de massa", "peca", ["Prumo_Massa"], ""),
     ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Std_Measure"], ""),
+    ("Estruturas", "Routing (tubulação)", "Piping / Pipe Routing", "Tubulação", "estruturas", ["Prumo_Tubulacao"],
+     "Desenhe o traçado com o Esboço 3D; joelhos, tês e reduções saem do catálogo (PVC soldável Tigre)."),
     ("Estruturas", "Membro estrutural", "Frame generator / Structure", "Estrutura soldada", "estruturas",
      ["Prumo_Estrutura"], "Perfis brasileiros (W, U, L, tubos, metalon) sobre as linhas de um esboço."),
     ("Estruturas", "Perfil personalizado (biblioteca de perfis)", "Custom profile", "Seção personalizada",

@@ -6425,6 +6425,102 @@ class T52Esboco3D(unittest.TestCase):
         self.assertEqual(len(self.doc.Objects), n0)
 
 
+class T53Tubulacao(unittest.TestCase):
+    """Tubulação PVC soldável sobre o Esboço 3D: conexões por nó, corte descontando avanços, lista."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteTubulacao")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _tracado(self, pts, quebras=()):
+        import PrumoEsboco3D as E
+        return E.criar(self.doc, [FreeCAD.Vector(*p) for p in pts], quebras=quebras)
+
+    def test_joelhos_e_corte(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        L = C.linha(C.PADRAO)
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 0, 1000), (1000, 1000, 1000)])
+        t = T.criar(e, dn=25)
+        self.assertEqual(t.Conexoes, ["2 × Joelho 90° soldável 25 mm"])
+        res = t.Proxy.ultimo
+        avanco = L["joelho90"][25] - L["bolsa"][25]
+        cortes = sorted(round(x["corte"], 3) for x in res["tubos"])
+        self.assertAlmostEqual(cortes[0], 1000 - 2 * avanco, 3)      # trecho do meio: dois joelhos
+        self.assertAlmostEqual(cortes[1], 1000 - avanco, 3)
+        self.assertEqual(t.Barras, 1)                                  # ~2,98 m cabem numa barra de 6 m
+        self.assertFalse(t.Avisos)
+        self.assertTrue(t.Shape.isValid())
+        self.assertEqual(len(t.Shape.Solids), 5)                        # 3 tubos + 2 joelhos
+
+    def test_te_reducao_e_cap(self):
+        import PrumoTubulacao as T
+        # linha principal 0-2000 em x, ramal em y no meio
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (2000, 0, 0), (1000, 0, 0), (1000, 800, 0)], quebras=[3])
+        t = T.criar(e, dn=50, tampar=True)
+        self.assertIn("1 × Tê soldável 50 mm", t.Conexoes)
+        t.DiametrosTrechos = ["3: 25"]
+        self.doc.recompute()
+        self.assertIn("1 × Tê de redução soldável 50 × 25", t.Conexoes)
+        self.assertIn("2 × Cap soldável 50 mm", t.Conexoes)
+        self.assertIn("1 × Cap soldável 25 mm", t.Conexoes)
+        self.assertFalse(t.Avisos)
+
+    def test_45_reducao_alinhada_e_angulo_ruim(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1700, 700, 0)])
+        t = T.criar(e, dn=32)
+        self.assertEqual(t.Conexoes, ["1 × Joelho 45° soldável 32 mm"])
+        e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(1000, 0, 0), FreeCAD.Vector(2000, 0, 0)]
+        t.DiametrosTrechos = ["2: 25"]
+        self.doc.recompute()
+        self.assertEqual(t.Conexoes, ["1 × Luva de redução soldável 32 × 25"])
+        e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(1000, 0, 0), FreeCAD.Vector(1500, 300, 0)]
+        t.DiametrosTrechos = []
+        self.doc.recompute()
+        self.assertEqual(t.Conexoes, [])
+        self.assertTrue(any("ângulo" in a for a in t.Avisos))
+
+    def test_trecho_longo_emenda_e_continuo(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (4000, 0, 0), (9000, 0, 0)])     # alinhados: um tubo de 9 m
+        t = T.criar(e, dn=20)
+        self.assertEqual(t.Conexoes, [])
+        self.assertEqual(t.Barras, 2)
+        self.assertIn("1 emenda(s)", t.ListaCorte[0])
+
+    def test_cruzeta(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(-500, 0, 0), (500, 0, 0), (0, -500, 0), (0, 0, 0), (0, 500, 0)], quebras=[2])
+        # o traçado do ramal passa pelo nó do meio: divide a linha principal no centro
+        e.Pontos = [FreeCAD.Vector(-500, 0, 0), FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(500, 0, 0),
+                    FreeCAD.Vector(0, -500, 0), FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 500, 0)]
+        e.Quebras = [3]
+        self.doc.recompute()
+        t = T.criar(e, dn=50)
+        self.assertEqual(t.Conexoes, ["1 × Cruzeta soldável 50 mm"])
+
+    def test_lista_e_painel(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0)])
+        t = T.criar(e, dn=25)
+        txt = T.texto_lista(t)
+        self.assertIn("Joelho 90° soldável 25 mm", txt)
+        self.assertIn("Tigre", txt)
+        if not FreeCAD.GuiUp:
+            return
+        pn = T.abrir_painel(t)
+        self.assertEqual(pn.tabela.rowCount(), 2)
+        pn.dn.setCurrentIndex(pn.dn.findData(40))
+        self.assertEqual(t.Conexoes, ["1 × Joelho 90° soldável 40 mm"])
+        pn.accept()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6435,4 +6531,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D]
+           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao]

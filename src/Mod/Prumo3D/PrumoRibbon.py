@@ -246,6 +246,9 @@ TABS = [
             ("Prumo_SecaoPersonalizada", S, "Seção personalizada"),
             ("Prumo_Esboco3D", S, "Esboço 3D"),
         ]),
+        ("Tubulação", [
+            ("Prumo_Tubulacao", L, "Tubulação"), ("Prumo_Esboco3D", S, "Traçado 3D"),
+        ]),
         ("Reforços e ligações", [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
             ("Prumo_PlacaBase", L, "Placa de\nbase"),

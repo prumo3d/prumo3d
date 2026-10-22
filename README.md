@@ -35,6 +35,10 @@ Novidades
 
 Na 0.1.1: faixa contextual na aba Esboço e conferência do esboço ao sair, com o botão Corrigir.
 
+**Na próxima versão:** **Tubulação**, com tubos e conexões de PVC soldável (Tigre) montados sozinhos
+sobre o traçado do Esboço 3D: joelhos, tês, reduções e cruzetas, tubo cortado na medida e lista de
+materiais.
+
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
 O que o Prumo 3D tem de diferente

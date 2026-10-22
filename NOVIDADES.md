@@ -9,6 +9,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+Já está no código e entra na próxima versão.
+
+### Novo
+
+- **Tubulação** (aba Estruturas): tubos e conexões automáticos sobre o traçado do Esboço 3D (ou de um
+  esboço com linhas retas). Em cada nó entra a peça certa do catálogo: joelho 90° ou 45°, tê, tê de
+  redução (ou tê com bucha), luva de redução, cruzeta e cap nas pontas soltas. O tubo de cada trecho sai
+  cortado descontando o avanço das conexões, e a lista mostra as peças, as barras de 6 m necessárias
+  (com emenda pela bolsa quando o trecho passa da barra) e os avisos (ângulo sem conexão, redução que
+  não existe). O diâmetro pode mudar trecho a trecho. "Copiar lista de materiais" leva tudo para a
+  planilha. Primeira linha: **PVC soldável água fria Tigre**, de 20 a 110 mm, com as medidas do catálogo
+  técnico do fabricante.
+
 ## 0.2.0 beta — 22/10/2026
 
 ### Novo
