@@ -24,6 +24,9 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   quando você o faz, e "Mostrar onde" pisca o botão certo na faixa.
 - **Esboço:** pontos-ímã em quadrantes, pontos médios e interseções; linhas de inferência
   (alinhamento com pontos existentes); ao concluir o esboço, a vista enquadra o modelo.
+- **Régua de histórico** do corpo, como no ZW3D e no SolidWorks: arraste a régua amarela no painel
+  Histórico do corpo para recuar o modelo até uma operação; as seguintes ficam em cinza e as novas
+  entram naquele ponto. Desfazer volta a régua.
 - **Cotas na tela:** duplo clique na peça mostra as cotas da operação para editar ali mesmo.
 - **Menu do botão direito** pela seleção (extrusão, cavidade, arredondamento, medir, massa).
 - **Propriedades de massa** (massa, centro de gravidade, inércia) e **lista de materiais** com tabela

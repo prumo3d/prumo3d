@@ -5983,6 +5983,106 @@ class T48AssistenteEstrutura(unittest.TestCase):
         self.assertEqual(AE.avaliar(an)["relatorio"][0], AE.OK)
 
 
+class T49ReguaHistorico(unittest.TestCase):
+    """Régua de histórico do Corpo: recuar a ponta, inserir no ponto da régua e voltar ao fim."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteRegua")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def _corpo(self):
+        import Part
+        import Sketcher
+        doc = self.doc
+        corpo = doc.addObject("PartDesign::Body", "Body")
+        sk = corpo.newObject("Sketcher::SketchObject", "Esboco")
+        sk.AttachmentSupport = (doc.getObject("XY_Plane") or corpo.Origin.OriginFeatures[3], [""])
+        sk.MapMode = "FlatFace"
+        V = FreeCAD.Vector
+        pts = [V(0, 0, 0), V(40, 0, 0), V(40, 30, 0), V(0, 30, 0)]
+        for k in range(4):
+            sk.addGeometry(Part.LineSegment(pts[k], pts[(k + 1) % 4]))
+        for k in range(4):
+            sk.addConstraint(Sketcher.Constraint("Coincident", k, 2, (k + 1) % 4, 1))
+        pad = corpo.newObject("PartDesign::Pad", "Extrusao")
+        pad.Profile = sk
+        pad.Length = 10
+        doc.recompute()
+        fil = corpo.newObject("PartDesign::Chamfer", "Chanfro")
+        fil.Base = (pad, ["Edge1"])
+        fil.Size = 2
+        doc.recompute()
+        return corpo, sk, pad, fil
+
+    def test_recuar_e_voltar(self):
+        import PrumoRegua as R
+        corpo, sk, pad, fil = self._corpo()
+        self.assertIs(corpo.Tip, fil)
+        ls = R.itens(corpo)
+        self.assertEqual([o.Name for o in ls], [sk.Name, pad.Name, fil.Name])
+        self.assertEqual(R.posicao_da_ponta(corpo), 3)
+        v_total = corpo.Shape.Volume
+        # régua logo depois da extrusão: o chanfro sai do modelo
+        self.assertIs(R.mover_regua(corpo, 2), pad)
+        self.assertIs(corpo.Tip, pad)
+        self.assertAlmostEqual(corpo.Shape.Volume, 40 * 30 * 10, delta=1e-6)
+        self.assertGreater(corpo.Shape.Volume, v_total)
+        self.assertEqual(R.posicao_da_ponta(corpo), 2)
+        # régua logo depois do esboço: nenhum sólido acima → corpo vazio
+        self.assertIsNone(R.mover_regua(corpo, 1))
+        self.assertIsNone(corpo.Tip)
+        self.assertTrue(corpo.Shape.isNull() or corpo.Shape.Volume < 1e-9)
+        # Desfazer volta a régua
+        self.doc.undo()
+        self.assertIs(corpo.Tip, pad)
+        # fim
+        self.assertIs(R.ate_o_fim(corpo), fil)
+        self.assertAlmostEqual(corpo.Shape.Volume, v_total, delta=1e-6)
+
+    def test_nova_operacao_entra_no_ponto_da_regua(self):
+        import PrumoRegua as R
+        corpo, sk, pad, fil = self._corpo()
+        R.mover_regua(corpo, 2)
+        furo = corpo.newObject("PartDesign::Chamfer", "Chanfro2")
+        furo.Base = (pad, ["Edge3"])
+        furo.Size = 1
+        self.doc.recompute()
+        ls = [o.Name for o in R.itens(corpo)]
+        self.assertLess(ls.index(furo.Name), ls.index(fil.Name), ls)
+        self.assertIs(corpo.Tip, furo)
+
+    def test_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRegua as R
+        from PySide import QtCore
+        corpo, sk, pad, fil = self._corpo()
+        FreeCADGui.ActiveDocument.ActiveView.setActiveObject("pdbody", corpo)
+        dock = R.mostrar(True)
+        try:
+            w = dock.widget()
+            w.atualizar(force=True)
+            textos = [w.lista.item(i).text() for i in range(w.lista.count())]
+            self.assertEqual(len(textos), 4)
+            self.assertIn("régua", textos[-1])
+            w._botao("menos")
+            self.assertIs(corpo.Tip, pad)
+            regua = [i for i in range(w.lista.count()) if w.lista.item(i).data(QtCore.Qt.UserRole + 1)]
+            self.assertEqual(regua, [2])
+            self.assertIn("recuado", w.sub.text())
+            w._botao("fim")
+            self.assertIs(corpo.Tip, fil)
+            w.mover(0)
+            self.assertIsNone(corpo.Tip)
+            w._botao("mais")
+            self.assertIs(corpo.Tip, pad)
+        finally:
+            dock.hide()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -5992,4 +6092,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
-           T47MolasTracaoModos, T48AssistenteEstrutura]
+           T47MolasTracaoModos, T48AssistenteEstrutura,
+           T49ReguaHistorico]

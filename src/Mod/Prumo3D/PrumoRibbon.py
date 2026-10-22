@@ -123,6 +123,7 @@ TABS = [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches", L, "Esboço"),
             ("PartDesign_CompDatums", S, "Referências"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
+            ("Prumo_ReguaHistorico", S, "Régua de histórico"),
         ]),
         ("Adicionar material", [
             ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),

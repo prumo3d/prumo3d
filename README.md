@@ -141,6 +141,9 @@ Todos os recursos
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
   de inferência alinham o cursor na horizontal ou na vertical com pontos existentes.
 
+* **Régua de histórico** Painel com as operações do corpo e uma régua para arrastar: o modelo recua até a
+  operação escolhida e as novas operações entram naquele ponto, como no ZW3D e no SolidWorks.
+
 * **Cotas na tela** Duplo clique numa face mostra as cotas da operação que a criou (comprimento da extrusão,
   raio do arredondamento, diâmetro do furo, cotas do esboço) para mudar o valor ali mesmo.
 

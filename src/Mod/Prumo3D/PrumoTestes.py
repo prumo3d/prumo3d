@@ -100,7 +100,8 @@ class T01Modulos(unittest.TestCase):
                      "PrumoFixadores", "PrumoEstruturaExtras", "PrumoVersao", "PrumoNomes", "PrumoPainel", "PrumoSelecao", "PrumoPropriedades", "PrumoChapa", "PrumoVariantes", "PrumoCopiarProjeto", "PrumoInterferencia", "PrumoModelos", "PrumoGuiaMigracao",
                      "PrumoSecao", "PrumoPortico", "PrumoNBR8800", "PrumoAnaliseEstrutura", "PrumoAnaliseVista",
                      "PrumoAnaliseRelatorio", "PrumoDetalheFEM", "PrumoVideo",
-                     "PrumoSecaoPersonalizada", "PrumoSecaoGeral", "PrumoAssistenteEstrutura"):
+                     "PrumoSecaoPersonalizada", "PrumoSecaoGeral", "PrumoAssistenteEstrutura",
+                     "PrumoRegua"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):

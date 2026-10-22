@@ -21,6 +21,8 @@ EQUIVALENCIAS = [
     ("Peça", "Ressalto/Base extrudado", "Extrude / Extrusion", "Extrusão", "peca", ["PartDesign_Pad"],
      "Sem esboço selecionado, o comando pede o esboço."),
     ("Peça", "Corte extrudado", "Extrude (cut) / Pocket", "Cavidade", "peca", ["PartDesign_Pocket"], ""),
+    ("Peça", "Barra de retrocesso (rollback)", "Rollback bar / History", "Régua de histórico", "peca",
+     ["Prumo_ReguaHistorico"], "Arraste a régua amarela no painel Histórico do corpo; novas operações entram ali."),
     ("Peça", "Ressalto revolucionado", "Revolve", "Revolução", "peca", ["PartDesign_Revolution"], ""),
     ("Peça", "Corte revolucionado", "Revolve (cut)", "Ranhura", "peca", ["PartDesign_Groove"], ""),
     ("Peça", "Varredura", "Sweep", "Varredura", "peca", ["PartDesign_AdditivePipe"], ""),
