@@ -23,6 +23,8 @@ Já está no código e entra na próxima versão.
   não existe). O diâmetro pode mudar trecho a trecho. "Copiar lista de materiais" leva tudo para a
   planilha. Primeira linha: **PVC soldável água fria Tigre**, de 20 a 110 mm, com as medidas do catálogo
   técnico do fabricante.
+- **Registro de esfera na tubulação:** na tabela do painel, informe a distância do início do trecho até o
+  registro (20 a 60 mm). O tubo é dividido e cada metade entra numa bolsa do registro.
 - **Tubulação na lista de materiais:** a Lista de materiais (e a tabela na folha ABNT) traz um item por
   diâmetro de tubo, em barras, e um por conexão, com o fabricante.
 

@@ -41,7 +41,7 @@ TIGRE_SOLDAVEL = {
         110: {"De": 110.0, "e": 6.1, "bolsa_tubo": 91.0},
     },
     # profundidade da bolsa das conexões: cota A do cap soldável (p. 10), que coincide com a cota B da
-    # cruzeta e com a bucha curta; a conferir na norma
+    # cruzeta, com a bucha curta e com a cota L (bolsa) do registro de esfera VS soldável (p. 41)
     "bolsa": {20: 16.0, 25: 18.5, 32: 22.0, 40: 26.0, 50: 31.0, 60: 36.0, 75: 43.5, 85: 48.5, 110: 58.8},
     # diâmetro externo do corpo: cota D3 do cap soldável (p. 10)
     "corpo": {20: 28.5, 25: 34.0, 32: 43.0, 40: 52.0, 50: 63.0, 60: 76.0, 75: 95.0, 85: 104.4, 110: 134.9},
@@ -80,11 +80,20 @@ TIGRE_SOLDAVEL = {
     },
     # Cap soldável (p. 10): comprimento A
     "cap": {20: 16.0, 25: 18.5, 32: 22.0, 40: 26.0, 50: 31.0, 60: 36.0, 75: 43.5, 85: 48.5, 110: 58.8},
+    # Registro esfera VS soldável (p. 41): A comprimento total, L bolsa, E diâmetro do corpo, B altura,
+    # C comprimento da alavanca
+    "registro": {
+        20: {"A": 74.0, "bolsa": 16.0, "corpo": 50.0, "altura": 56.0, "alavanca": 76.0},
+        25: {"A": 87.9, "bolsa": 18.5, "corpo": 61.0, "altura": 64.0, "alavanca": 80.0},
+        32: {"A": 99.5, "bolsa": 22.0, "corpo": 68.0, "altura": 70.0, "alavanca": 90.0},
+        40: {"A": 118.6, "bolsa": 26.0, "corpo": 83.0, "altura": 74.0, "alavanca": 110.0},
+        50: {"A": 138.2, "bolsa": 31.0, "corpo": 96.0, "altura": 96.5, "alavanca": 140.0},
+        60: {"A": 165.1, "bolsa": 36.0, "corpo": 115.0, "altura": 107.0, "alavanca": 170.0},
+    },
     "a_conferir": {
         ("bucha_curta", (110, 85)): "A = 31 mm, menor que a bolsa de 110 (provável erro na tabela)",
         ("bucha_longa", (50, 25)): "A = 31 mm, fora da sequência da tabela",
         ("cruzeta", 20): "na tabela, D = 25 para a cruzeta de 20",
-        ("bolsa", None): "profundidade da bolsa tirada da cota A do cap",
     },
 }
 

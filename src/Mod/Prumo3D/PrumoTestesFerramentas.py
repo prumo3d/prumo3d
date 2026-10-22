@@ -6505,6 +6505,28 @@ class T53Tubulacao(unittest.TestCase):
         t = T.criar(e, dn=50)
         self.assertEqual(t.Conexoes, ["1 × Cruzeta soldável 50 mm"])
 
+    def test_registro_divide_o_tubo(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        L = C.linha(C.PADRAO)
+        e = self._tracado([(0, 0, 0), (2000, 0, 0)])
+        t = T.criar(e, dn=25)
+        t.Registros = ["1: 500"]
+        self.doc.recompute()
+        self.assertEqual(t.Conexoes, ["1 × Registro de esfera soldável 25 mm"])
+        rg = L["registro"][25]
+        cortes = sorted(round(x["corte"], 2) for x in t.Proxy.ultimo["tubos"])
+        self.assertAlmostEqual(cortes[0], 500 - (rg["A"] / 2 - rg["bolsa"]), 2)
+        self.assertAlmostEqual(cortes[1], 1500 - (rg["A"] / 2 - rg["bolsa"]), 2)
+        self.assertTrue(t.Shape.isValid())
+        t.Registros = ["1: 10"]                                 # encostado na ponta: não cabe
+        self.doc.recompute()
+        self.assertTrue(any("não cabe" in a for a in t.Avisos))
+        t.Diametro = "110 mm"
+        t.Registros = ["1: 1000"]
+        self.doc.recompute()
+        self.assertTrue(any("registro de 110" in a for a in t.Avisos))
+
     def test_lista_de_materiais(self):
         import PrumoTubulacao as T
         import PrumoBOM

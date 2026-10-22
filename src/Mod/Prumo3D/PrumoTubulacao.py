@@ -87,8 +87,9 @@ def _rec(nome, desc, no, pernas, corpo, extra=()):
     return {"tipo": nome, "desc": desc, "no": no, "pernas": pernas, "corpo": corpo, "extras": list(extra)}
 
 
-def montar(segs, dns, lid=CAT.PADRAO, tampar=False):
-    """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria)."""
+def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
+    """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria).
+    registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}."""
     L = CAT.linha(lid)
     nos, lig = _nos(segs)
     avisos = []
@@ -133,7 +134,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False):
             if desvio < TOL_ANG:
                 if d1 == d2:
                     recuo[(s1, p1)] = recuo[(s2, p2)] = 0.0
-                    continua.append((s1, s2))
+                    continua.append(((s1, p1), (s2, p2)))
                     continue
                 D, d = max(d1, d2), min(d1, d2)
                 if (D, d) in L["luva_reducao"]:
@@ -261,32 +262,59 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False):
             recuo[(s, p)] = 0.0
 
     tubos = []
+    ponta_peca = {}     # (seg, ponta) -> índice do tubo que chega naquela ponta
     for s, (na, nb) in enumerate(lig):
         if na == nb:
             continue
         a, b = nos[na], nos[nb]
         u = (b - a).normalize()
+        comp_seg = (b - a).Length
         ra, rb = recuo.get((s, 0), 0.0), recuo.get((s, 1), 0.0)
-        ini = a + u * ra
-        fim = b - u * rb
-        comp = (b - a).Length - ra - rb
-        if comp <= 1.0:
-            avisos.append("Trecho %d curto demais: as conexões das pontas já ocupam o espaço." % (s + 1))
-            continue
-        tubos.append({"seg": s, "ini": ini, "fim": fim, "dn": dns[s], "corte": comp})
+        # registros no trecho: dividem o tubo (cada metade entra numa bolsa do registro)
+        cortes = []
+        for pos in sorted((registros or {}).get(s, [])):
+            d = dns[s]
+            if d not in L.get("registro", {}):
+                avisos.append("Trecho %d: não há registro de %d mm no catálogo." % (s + 1, d))
+                continue
+            A, bol = L["registro"][d]["A"], L["registro"][d]["bolsa"]
+            if pos - A / 2.0 < ra + 1.0 or pos + A / 2.0 > comp_seg - rb - 1.0:
+                avisos.append("Trecho %d: o registro a %.0f mm do início não cabe entre as conexões."
+                              % (s + 1, pos))
+                continue
+            cortes.append((pos - (A / 2.0 - bol), pos + (A / 2.0 - bol)))
+            conexoes.append(_rec("Registro", "Registro de esfera soldável %d mm" % d, a + u * pos,
+                                 [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0)], L["registro"][d]["corpo"]))
+        trechos_tubo = []
+        ini = ra
+        for c0, c1 in cortes:
+            trechos_tubo.append((ini, c0))
+            ini = c1
+        trechos_tubo.append((ini, comp_seg - rb))
+        for k, (t0, t1) in enumerate(trechos_tubo):
+            if t1 - t0 <= 1.0:
+                avisos.append("Trecho %d curto demais: as conexões das pontas já ocupam o espaço." % (s + 1))
+                continue
+            tubos.append({"seg": s, "ini": a + u * t0, "fim": a + u * t1, "dn": dns[s], "corte": t1 - t0})
+            if k == 0:
+                ponta_peca[(s, 0)] = len(tubos) - 1
+            if k == len(trechos_tubo) - 1:
+                ponta_peca[(s, 1)] = len(tubos) - 1
     # trechos alinhados sem conexão viram um tubo só na lista de corte
-    grupo = list(range(len(segs)))
+    grupo = list(range(len(tubos)))
 
     def raiz(i):
         while grupo[i] != i:
             grupo[i] = grupo[grupo[i]]
             i = grupo[i]
         return i
-    for s1, s2 in continua:
-        grupo[raiz(s1)] = raiz(s2)
+    for (s1, p1), (s2, p2) in continua:
+        t1, t2 = ponta_peca.get((s1, p1)), ponta_peca.get((s2, p2))
+        if t1 is not None and t2 is not None:
+            grupo[raiz(t1)] = raiz(t2)
     pecas = {}
-    for t in tubos:
-        r = raiz(t["seg"])
+    for i, t in enumerate(tubos):
+        r = raiz(i)
         pecas.setdefault(r, {"dn": t["dn"], "corte": 0.0, "trechos": []})
         pecas[r]["corte"] += t["corte"]
         pecas[r]["trechos"].append(t["seg"] + 1)
@@ -370,7 +398,16 @@ def solido_conexao(c, L):
             furos.append(_cil(tb["De"] / 2.0, P + u * (cf - b), u, b + 0.5))
             furos.append(_cil(tb["De"] / 2.0 - tb["e"], P, u, cf))
         corpo = parte if corpo is None else corpo.fuse(parte)
-    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução"):
+    if c["tipo"] == "Registro":
+        u = c["pernas"][0][2]
+        cima = FreeCAD.Vector(0, 0, 1) if abs(u.z) < 0.9 else FreeCAD.Vector(1, 0, 0)
+        cima = (cima - u * cima.dot(u)).normalize()
+        dd = c["pernas"][0][3]
+        rg = L["registro"][dd]
+        corpo = corpo.fuse(_cil(rg["corpo"] / 2.0 * 0.55, P, cima, rg["altura"]))
+        alavanca = _cil(4.0, P + cima * (rg["altura"] - 4.0), u, rg["alavanca"] * 0.5)
+        corpo = corpo.fuse(alavanca)
+    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução", "Registro"):
         corpo = corpo.fuse(Part.makeSphere(R, P))
     for f in furos:
         corpo = corpo.cut(f)
@@ -421,6 +458,8 @@ class Tubulacao:
         add("App::PropertyStringList", "DiametrosTrechos", "Tubulação",
             "Diâmetro de trechos específicos: 'trecho: DE' (ex.: '3: 20')", [])
         add("App::PropertyBool", "TamparPontas", "Tubulação", "Põe cap nas pontas soltas", False)
+        add("App::PropertyStringList", "Registros", "Tubulação",
+            "Registros de esfera: 'trecho: distância do início até o centro (mm)' (ex.: '2: 300')", [])
         add("App::PropertyStringList", "Conexoes", "Resultados", "Conexões (quantidade × peça)", [], ro=True)
         add("App::PropertyStringList", "ListaCorte", "Resultados", "Tubos por diâmetro e barras", [], ro=True)
         add("App::PropertyStringList", "Avisos", "Resultados", "Avisos do traçado", [], ro=True)
@@ -444,10 +483,20 @@ class Tubulacao:
                 continue
         return dns
 
+    def registros(self, obj):
+        reg = {}
+        for item in getattr(obj, "Registros", []) or []:
+            try:
+                t, pos = item.split(":")
+                reg.setdefault(int(t) - 1, []).append(float(pos.replace("mm", "").replace(",", ".").strip()))
+            except ValueError:
+                continue
+        return reg
+
     def calcular(self, obj):
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
-        res = montar(segs, dns, obj.Linha, obj.TamparPontas)
+        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj))
         res["avisos"] = avisos + res["avisos"]
         res["segs"] = segs
         res["dns"] = dns
@@ -602,7 +651,8 @@ if FreeCAD.GuiUp:
             lay = QtWidgets.QVBoxLayout(self.form)
             dica = QtWidgets.QLabel(
                 "Escolha a linha e o diâmetro: tubos e conexões saem sozinhos em cada nó do traçado "
-                "(joelhos, tês, reduções, cruzetas). Para mudar o diâmetro de um trecho, use a tabela.")
+                "(joelhos, tês, reduções, cruzetas). Na tabela, mude o diâmetro de um trecho ou ponha um "
+                "registro de esfera pela distância do início do trecho.")
             dica.setWordWrap(True)
             lay.addWidget(dica)
             fl = QtWidgets.QFormLayout()
@@ -629,8 +679,10 @@ if FreeCAD.GuiUp:
             self.cap.toggled.connect(self._mudou)
             fl.addRow("", self.cap)
             lay.addLayout(fl)
-            self.tabela = QtWidgets.QTableWidget(0, 3)
-            self.tabela.setHorizontalHeaderLabels(["Trecho", "Comprimento (mm)", "DE"])
+            self.tabela = QtWidgets.QTableWidget(0, 4)
+            self.tabela.setHorizontalHeaderLabels(["Trecho", "Comprimento (mm)", "DE", "Registro a (mm)"])
+            self.tabela.horizontalHeaderItem(3).setToolTip(
+                "Distância do início do trecho até o centro do registro de esfera; vários: 300; 1200")
             self.tabela.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
             self.tabela.verticalHeader().setVisible(False)
             self.tabela.setMinimumHeight(140)
@@ -686,6 +738,21 @@ if FreeCAD.GuiUp:
             self.obj.DiametrosTrechos = itens
             self._atualizar()
 
+        def _registro(self, i, ed):
+            if self._ocupado:
+                return
+            itens = [x for x in self.obj.Registros if not x.strip().startswith("%d:" % (i + 1))]
+            for parte in ed.text().split(";"):
+                parte = parte.strip().replace(".", "").replace(",", ".")
+                if parte:
+                    try:
+                        itens.append("%d: %g" % (i + 1, float(parte)))
+                    except ValueError:
+                        pass
+            if itens != list(self.obj.Registros):
+                self.obj.Registros = itens
+                self._atualizar()
+
         def _atualizar(self):
             self.doc.recompute()
             res = getattr(self.obj.Proxy, "ultimo", None) or self.obj.Proxy.calcular(self.obj)
@@ -703,6 +770,11 @@ if FreeCAD.GuiUp:
                     cb.setCurrentIndex(max(0, cb.findData(dns[i])))
                     cb.currentIndexChanged.connect(lambda _x, i=i, cb=cb: self._dn_trecho(i, cb))
                     self.tabela.setCellWidget(i, 2, cb)
+                    pos = self.obj.Proxy.registros(self.obj).get(i, [])
+                    ed = QtWidgets.QLineEdit("; ".join(PrumoUtil.fmt(p_, 0) for p_ in pos))
+                    ed.setPlaceholderText("sem registro")
+                    ed.editingFinished.connect(lambda i=i, ed=ed: self._registro(i, ed))
+                    self.tabela.setCellWidget(i, 3, ed)
             finally:
                 self._ocupado = False
             html = ["<b>Conexões</b><br>" + ("<br>".join(self.obj.Conexoes) or "—"),
