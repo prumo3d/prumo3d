@@ -6225,6 +6225,80 @@ class T50ConferirEsboco(unittest.TestCase):
             QtWidgets.QApplication.processEvents()
 
 
+class T51FaixaContextual(unittest.TestCase):
+    """Aba Esboço mostra só as ferramentas do momento: fora da edição (criar/editar/validar) e dentro
+    (desenhar/restringir/modificar)."""
+
+    def setUp(self):
+        import PrumoRibbon
+        self.R = PrumoRibbon
+        self.rb = PrumoRibbon._state.get("ribbon")
+        if self.rb is None:
+            self.skipTest("faixa Prumo não instalada nesta sessão")
+        self.p = FreeCAD.ParamGet(PrumoRibbon.PARAM_PATH)
+        self.tinha = "RibbonContextual" in self.p.GetBools()
+        self.antes = self.p.GetBool("RibbonContextual", True)
+        self.p.SetBool("RibbonContextual", True)
+        self.doc = novo_doc("PrumoTesteFaixaCtx")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        self.sk = esboco_retangulo(body)
+
+    def tearDown(self):
+        if FreeCADGui.ActiveDocument is not None:
+            try:
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+        if self.tinha:
+            self.p.SetBool("RibbonContextual", self.antes)
+        else:
+            self.p.RemBool("RibbonContextual")
+        fechar(self.doc)
+
+    def _cmds(self):
+        for _ in range(5):
+            FreeCADGui.updateGui()
+        return {b._cmd for pn in self.rb.paineis for b in pn.findChildren(QtWidgets.QWidget)
+                if getattr(b, "_cmd", None)}, len(self.rb.paineis)
+
+    def test_regra(self):
+        tab = self.rb._tabs[self.rb.tab_index("esboco")]
+        c = self.R.cabe_no_contexto
+        self.assertTrue(c(tab, "Esboço", "Sketcher_NewSketch", False))
+        self.assertFalse(c(tab, "Esboço", "Sketcher_NewSketch", True))
+        self.assertFalse(c(tab, "Desenhar", "Sketcher_CreateLine", False))
+        self.assertTrue(c(tab, "Desenhar", "Sketcher_CreateLine", True))
+        self.assertFalse(c(tab, "Esboço", "Sketcher_LeaveSketch", False))
+        self.assertTrue(c(tab, "Esboço", "Sketcher_LeaveSketch", True))
+        peca = self.rb._tabs[self.rb.tab_index("peca")]
+        self.assertTrue(c(peca, "Qualquer", "PartDesign_Pad", True))     # outras abas não são filtradas
+        self.p.SetBool("RibbonContextual", False)
+        self.assertTrue(c(tab, "Desenhar", "Sketcher_CreateLine", False))
+
+    def test_troca_ao_entrar_e_sair(self):
+        self.rb.select_tab("esboco", user=True)
+        fora, _ = self._cmds()
+        self.assertIn("Sketcher_NewSketch", fora)
+        self.assertNotIn("Sketcher_CreateLine", fora)
+        self.assertNotIn("Sketcher_LeaveSketch", fora)
+        FreeCADGui.ActiveDocument.setEdit(self.sk.Name)
+        self.rb.check_edit()
+        dentro, _ = self._cmds()
+        self.assertEqual(self.rb._tabs[self.rb.tabbar.currentIndex()]["id"], "esboco")
+        self.assertIn("Sketcher_CreateLine", dentro)
+        self.assertIn("Sketcher_LeaveSketch", dentro)
+        self.assertNotIn("Sketcher_NewSketch", dentro)
+        self.assertNotIn("Sketcher_ValidateSketch", dentro)
+        FreeCADGui.ActiveDocument.resetEdit()
+        self.rb.select_tab("esboco", user=True)
+        self.rb.check_edit()
+        de_novo, _ = self._cmds()
+        self.assertIn("Sketcher_NewSketch", de_novo)
+        self.assertNotIn("Sketcher_CreateLine", de_novo)
+
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6235,4 +6309,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico, T50ConferirEsboco]
+           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual]

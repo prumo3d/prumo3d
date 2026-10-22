@@ -79,7 +79,7 @@ TABS = [
             ("Std_LinkActions", S, "Vínculos"), ("Std_VarSet", S, "Variáveis"),
         ]),
     ]},
-    {"id": "esboco", "label": "Esboço", "wb": "SketcherWorkbench", "panels": [
+    {"id": "esboco", "label": "Esboço", "wb": "SketcherWorkbench", "contexto": "esboco", "panels": [
         ("Esboço", [
             ("Sketcher_NewSketch", L, "Novo\nesboço"), ("Sketcher_EditSketch", L, "Editar\nesboço"),
             ("Sketcher_LeaveSketch", L, "Concluir\nesboço"),
@@ -956,6 +956,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._tabs = list(TABS)
         self._dynamic = None  # aba gerada para bancadas sem aba própria
         self._edit_prev = None
+        self._ctx_edicao = None
         self._building = False
 
         lay = QtWidgets.QVBoxLayout(self)
@@ -1032,11 +1033,21 @@ class PrumoRibbon(QtWidgets.QWidget):
         m = QtWidgets.QMenu(self)
         a1 = m.addAction("Restaurar a largura dos grupos desta aba")
         a2 = m.addAction("Altura padrão da faixa")
+        m.addSeparator()
+        a3 = m.addAction("Mostrar só as ferramentas do momento (Esboço)")
+        a3.setCheckable(True)
+        a3.setChecked(faixa_contextual())
+        a3.setToolTip("Desmarcado, a aba Esboço mostra tudo, com o que não se aplica esmaecido")
         esc = m.exec(self.content.mapToGlobal(pos)) if hasattr(m, "exec") else m.exec_(self.content.mapToGlobal(pos))
         if esc is a1:
             self.restaurar_larguras()
         elif esc is a2:
             self.definir_altura(ALTURA_PADRAO)
+        elif esc is a3:
+            _params().SetBool("RibbonContextual", a3.isChecked())
+            idx = self.tabbar.currentIndex()
+            if 0 <= idx < len(self._tabs):
+                self.build(self._tabs[idx])
 
     # ---- seletor de bancadas (logo após a marca)
     def _build_wb_button(self):
@@ -1253,9 +1264,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         split.setChildrenCollapsible(False)
         split.setHandleWidth(9)
         paineis = []
+        editando = editando_esboco()
+        self._ctx_edicao = editando
         for title, entries in tab["panels"]:
             panel = RibbonPanel(title)
             for cmd, size, label in entries:
+                if not cabe_no_contexto(tab, title, cmd, editando):
+                    continue
                 acts = _cmd_actions(cmd)
                 if not acts:
                     continue
@@ -1303,7 +1318,8 @@ class PrumoRibbon(QtWidgets.QWidget):
         page.setMinimumWidth(alvo)
 
     def _chave_larguras(self, tab):
-        return "RibbonPaineis_" + str(tab.get("id", "x"))
+        suf = "_edicao" if tab.get("contexto") and getattr(self, "_ctx_edicao", False) else ""
+        return "RibbonPaineis_" + str(tab.get("id", "x")) + suf
 
     def _larguras_salvas(self, tab, paineis):
         nat = [pn._natural for pn in paineis]
@@ -1340,12 +1356,7 @@ class PrumoRibbon(QtWidgets.QWidget):
 
     # ---- edição de esboço: mostra a aba Esboço sem trocar de bancada
     def check_edit(self):
-        try:
-            gdoc = FreeCADGui.ActiveDocument
-            vp = gdoc.getInEdit() if gdoc else None
-            editing = bool(vp) and vp.Object.TypeId.startswith("Sketcher::")
-        except Exception:
-            editing = False
+        editing = editando_esboco()
         cur = self._tabs[self.tabbar.currentIndex()]["id"] if self.tabbar.currentIndex() >= 0 else None
         if editing and cur != "esboco" and self._edit_prev is None:
             self._edit_prev = cur
@@ -1354,6 +1365,46 @@ class PrumoRibbon(QtWidgets.QWidget):
             prev, self._edit_prev = self._edit_prev, None
             if cur == "esboco":
                 self.select_tab(prev)
+        # entrou ou saiu da edição sem trocar de aba (bancada Esboço): refaz a faixa no novo contexto
+        idx = self.tabbar.currentIndex()
+        if 0 <= idx < len(self._tabs):
+            tab = self._tabs[idx]
+            if tab.get("contexto") and getattr(self, "_ctx_edicao", None) != editing:
+                self.build(tab)
+
+
+# --------------------------------------------------------------------------
+# Faixa contextual: na aba Esboço, só aparecem as ferramentas que servem para o momento.
+# Fora da edição: criar, editar, anexar, validar...; dentro da edição: desenhar, restringir, modificar.
+# Ferramentas que só dependem da seleção (Offset, Rotacionar...) continuam visíveis, só esmaecidas.
+ESBOCO_FORA_DA_EDICAO = {
+    "Sketcher_NewSketch", "Sketcher_EditSketch", "Sketcher_MapSketch", "Sketcher_ReorientSketch",
+    "Sketcher_ValidateSketch", "Sketcher_MergeSketches", "Sketcher_MirrorSketch",
+}
+ESBOCO_SO_NA_EDICAO_PAINEL = {"Desenhar", "Restrições", "Modificar", "Auxiliares"}
+ESBOCO_SO_NA_EDICAO = {"Sketcher_LeaveSketch", "Sketcher_ViewSketch", "Sketcher_ViewSection"}
+
+
+def faixa_contextual():
+    return _params().GetBool("RibbonContextual", True)
+
+
+def editando_esboco():
+    try:
+        gdoc = FreeCADGui.ActiveDocument
+        vp = gdoc.getInEdit() if gdoc else None
+        return bool(vp) and vp.Object.TypeId.startswith("Sketcher::")
+    except Exception:
+        return False
+
+
+def cabe_no_contexto(tab, painel, cmd, editando):
+    """O botão aparece no contexto atual? Só a aba marcada com "contexto" é filtrada."""
+    if tab.get("contexto") != "esboco" or not faixa_contextual():
+        return True
+    if editando:
+        return cmd not in ESBOCO_FORA_DA_EDICAO
+    return painel not in ESBOCO_SO_NA_EDICAO_PAINEL and cmd not in ESBOCO_SO_NA_EDICAO
 
 
 # --------------------------------------------------------------------------
