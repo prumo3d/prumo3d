@@ -3,11 +3,12 @@
 # - Ao enviar uma tag "v*" (ex.: v0.1.0-beta): compila Windows e Linux nas máquinas do GitHub
 #   (gratuitas em repositório público), empacota e cria a versão na página de versões. Tag com
 #   hífen (beta, rc) sai marcada como pré-lançamento.
-# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota, sem publicar.
-#     Máquina "github" (padrão): os arquivos ficam como artefatos da execução por 3 dias.
-#     Máquina "pc": roda no computador próprio registrado como runner (rótulo "prumo"); os
-#       arquivos ficam na pasta PRUMO_PACOTES (padrão: <pasta do usuário>/Prumo3D-pacotes/<rótulo>).
-#       Só quem tem acesso de escrita dispara este fluxo; o fluxo não roda em pull requests.
+# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota, sem publicar; os
+#   arquivos ficam como artefatos da execução por 3 dias.
+# - O fluxo não roda em pull requests. O repositório é público e não tem runner próprio (o runner
+#   do computador de desenvolvimento foi removido em 21/10/2026): tudo roda nas máquinas do GitHub.
+#   Os passos para computador próprio (runner.environment != 'github-hosted') ficaram para o caso de
+#   um runner voltar a ser registrado.
 #
 # Formatos:
 #   Windows: instalador (.exe) e versão portátil (.7z)
@@ -28,9 +29,9 @@ on:
         required: false
         default: "teste"
       maquina:
-        description: "Onde compilar: github (máquinas do GitHub) ou pc (runner próprio)"
+        description: "Onde compilar (só as máquinas do GitHub; o runner próprio foi removido)"
         type: choice
-        options: [github, pc]
+        options: [github]
         default: github
       plataformas:
         description: "Quais pacotes"

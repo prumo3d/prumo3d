@@ -1,6 +1,10 @@
 # Prumo 3D: registra este computador como "runner" próprio do GitHub Actions (repositório prumo3d/prumo3d),
 # para gerar os pacotes sem gastar minutos do GitHub.
 #
+# ATENÇÃO: o runner próprio foi removido em 21/10/2026, quando o repositório ficou público (runner
+# próprio em repositório público deixa pull requests de terceiros rodarem código neste computador).
+# Não registre de novo sem restringir quem pode disparar workflows.
+#
 # Uso (PowerShell comum, não precisa ser administrador):
 #   1. No GitHub: prumo3d/prumo3d -> Settings -> Actions -> Runners -> New self-hosted runner -> Windows.
 #      Copie só o código que aparece depois de "--token" (vale por cerca de 1 hora).
