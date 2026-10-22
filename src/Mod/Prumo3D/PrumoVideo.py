@@ -2,7 +2,7 @@
 """Vídeo do comportamento da estrutura (análise por barras) e do detalhe por elementos finitos.
 
 Cada quadro é uma captura da vista 3D com uma faixa de título e uma legenda desenhadas por cima
-(Pillow). O vídeo sai em MP4 quando o ffmpeg está disponível (vem com o Prumo no Windows) e em GIF
+(Pillow). O vídeo sai em MP4 quando o ffmpeg está disponível (vem no pacote do Prumo) e em GIF
 animado como alternativa.
 """
 import math

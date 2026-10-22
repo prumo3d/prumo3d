@@ -31,6 +31,7 @@ cp ${conda_env}/bin_tmp/pyside6-rcc ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/gmsh ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/dot ${conda_env}/bin/
 cp ${conda_env}/bin_tmp/unflatten ${conda_env}/bin/
+cp ${conda_env}/bin_tmp/ffmpeg ${conda_env}/bin/ || echo "aviso: ffmpeg ausente"  # Prumo 3D: vídeo em MP4
 cp ${conda_env}/bin_tmp/branding.xml ${conda_env}/bin/  # Prumo 3D: nome, splash e pasta de dados próprios
 rm -rf ${conda_env}/bin_tmp
 

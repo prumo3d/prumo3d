@@ -21,6 +21,8 @@ cp -a ${conda_env}/Library/bin/ccx.exe ${copy_dir}/bin || echo "aviso: ccx.exe a
 cp -a ${conda_env}/Library/bin/gmsh.exe ${copy_dir}/bin || echo "aviso: gmsh.exe ausente"
 cp -a ${conda_env}/Library/bin/dot.exe ${copy_dir}/bin || echo "aviso: dot.exe ausente"
 cp -a ${conda_env}/Library/bin/unflatten.exe ${copy_dir}/bin || echo "aviso: unflatten.exe ausente"
+# Prumo 3D: ffmpeg para o vídeo do comportamento sair em MP4 (sem ele, o Prumo grava GIF)
+cp -a ${conda_env}/Library/bin/ffmpeg.exe ${copy_dir}/bin || echo "aviso: ffmpeg.exe ausente"
 cp -a ${conda_env}/Library/mingw-w64/bin/* ${copy_dir}/bin || echo "aviso: mingw-w64 ausente"
 # copy resources -- perhaps needs reduction
 cp -a ${conda_env}/Library/share ${copy_dir}/share
