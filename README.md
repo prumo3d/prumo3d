@@ -27,17 +27,14 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.2.0 beta** (22/10/2026)
+**Versão atual: 0.3.0 beta** (22/10/2026)
 
-- **Esboço 3D:** linhas no espaço clicando na vista. O ponto cai no plano do último ponto e **Tab** troca o
-  plano (XY, YZ, ZX); encaixa em vértices, faz ramais e curvas de tubo nos cantos. Serve de esqueleto da
-  estrutura soldada e de caminho de varredura.
+- **Tubulação:** tubos e conexões de PVC soldável (Tigre, 20 a 110 mm) montados sozinhos sobre o traçado
+  do Esboço 3D: joelhos, tês, reduções, cruzetas, caps e registros de esfera, tubo cortado na medida,
+  barras de 6 m e itens na lista de materiais.
 
-Na 0.1.1: faixa contextual na aba Esboço e conferência do esboço ao sair, com o botão Corrigir.
-
-**Na próxima versão:** **Tubulação**, com tubos e conexões de PVC soldável (Tigre) montados sozinhos
-sobre o traçado do Esboço 3D: joelhos, tês, reduções e cruzetas, tubo cortado na medida e lista de
-materiais.
+Na 0.2.0: **Esboço 3D**, com linhas no espaço clicando na vista (Tab troca o plano), ramais e curvas nos
+cantos. Na 0.1.1: faixa contextual na aba Esboço e conferência do esboço ao sair.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
@@ -157,6 +154,10 @@ Todos os recursos
 
 * **Chapa e montagem** Fator K por material e planificação em DXF; verificar interferência; copiar
   projeto (Pack and Go). Guia "vindo do SolidWorks / ZW3D" com a equivalência dos comandos.
+
+* **Tubulação** Tubos e conexões de PVC soldável sobre o traçado: joelhos, tês, reduções, cruzetas,
+  caps e registros escolhidos pelo catálogo do fabricante, tubo cortado descontando as bolsas, lista de
+  corte em barras e itens na lista de materiais.
 
 * **Esboço 3D** Linhas no espaço, ponto a ponto: clique na vista (Tab troca o plano XY, YZ, ZX) ou
   digite as coordenadas; encaixa em vértices, faz ramais e curvas nos cantos. Vira esqueleto da
