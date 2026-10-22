@@ -27,16 +27,13 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.1.1 beta** (22/10/2026)
+**Versão atual: 0.2.0 beta** (22/10/2026)
 
-- **Faixa contextual na aba Esboço:** só aparecem as ferramentas que servem no momento (fora ou dentro
-  da edição do esboço).
-- **Conferência do esboço ao sair:** contorno aberto, pontas quase encostadas e elementos de tamanho
-  zero aparecem num aviso com o botão Corrigir, antes de a extrusão falhar.
-- Console Python fechado ao abrir, para quem está começando.
+- **Esboço 3D:** linhas no espaço clicando na vista. O ponto cai no plano do último ponto e **Tab** troca o
+  plano (XY, YZ, ZX); encaixa em vértices, faz ramais e curvas de tubo nos cantos. Serve de esqueleto da
+  estrutura soldada e de caminho de varredura.
 
-**Na próxima versão:** **Esboço 3D**, com linhas no espaço clicando na vista (Tab troca o plano XY, YZ,
-ZX), ramais e curvas de tubo nos cantos, para esqueleto de estrutura e caminho de varredura.
+Na 0.1.1: faixa contextual na aba Esboço e conferência do esboço ao sair, com o botão Corrigir.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
@@ -156,6 +153,10 @@ Todos os recursos
 
 * **Chapa e montagem** Fator K por material e planificação em DXF; verificar interferência; copiar
   projeto (Pack and Go). Guia "vindo do SolidWorks / ZW3D" com a equivalência dos comandos.
+
+* **Esboço 3D** Linhas no espaço, ponto a ponto: clique na vista (Tab troca o plano XY, YZ, ZX) ou
+  digite as coordenadas; encaixa em vértices, faz ramais e curvas nos cantos. Vira esqueleto da
+  estrutura soldada ou caminho de tubo e varredura.
 
 * **Esboço com ímãs e inferência** Ao desenhar, aparecem pontos-ímã nos quadrantes de círculos e arcos, no
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
