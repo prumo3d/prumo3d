@@ -6299,6 +6299,132 @@ class T51FaixaContextual(unittest.TestCase):
 
 
 
+class T52Esboco3D(unittest.TestCase):
+    """Esboço 3D: pontos no espaço, ramais, curvas nos cantos, plano com Tab e uso como esqueleto."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteEsboco3D")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def test_polilinha_e_comprimento(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        o = E.criar(self.doc, [V(0, 0, 0), V(1000, 0, 0), V(1000, 0, 500), V(1000, 800, 500)])
+        self.assertEqual(len(o.Shape.Edges), 3)
+        self.assertAlmostEqual(float(o.Comprimento), 2300.0, 6)
+        self.assertEqual(len(o.Shape.Wires), 1)
+
+    def test_ramal_e_fechado(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        o = E.criar(self.doc, [V(0, 0, 0), V(1000, 0, 0), V(1000, 0, 1000), V(500, 0, 0), V(500, 600, 0)],
+                    quebras=[3])
+        self.assertEqual(len(o.Shape.Wires), 2)
+        self.assertEqual(len(o.Shape.Edges), 3)
+        o.Quebras = []
+        o.Fechado = True
+        self.doc.recompute()
+        self.assertTrue(o.Shape.Wires[0].isClosed())
+
+    def test_curva_nos_cantos(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        o = E.criar(self.doc, [V(0, 0, 0), V(1000, 0, 0), V(1000, 1000, 0)], raio=100.0)
+        tipos = [type(e.Curve).__name__ for e in o.Shape.Edges]
+        self.assertIn("Circle", tipos)
+        esperado = 900 + 900 + math.pi / 2 * 100
+        self.assertAlmostEqual(float(o.Comprimento), esperado, 3)
+        self.assertTrue(o.Shape.Wires[0].isValid())
+        # arco tangente: varredura de um círculo pelo caminho gera sólido válido
+        import Part
+        perfil = Part.Wire(Part.makeCircle(20, V(0, 0, 0), V(1, 0, 0)))
+        tubo = Part.Wire(o.Shape.Edges).makePipeShell([perfil], True, True)
+        self.assertTrue(tubo.isValid())
+        self.assertGreater(tubo.Volume, 0)
+
+    def test_plano_e_grade(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        self.assertEqual(E.proximo_plano("XY"), "YZ")
+        self.assertEqual(E.proximo_plano("YZ"), "ZX")
+        self.assertEqual(E.proximo_plano("ZX"), "XY")
+        # vista de cima (olhando -Z) no plano XY que passa por z=300
+        p = E.no_plano(V(120, 40, 5000), V(0, 0, -1), V(0, 0, 300), "XY")
+        self.assertAlmostEqual(p.z, 300, 6)
+        self.assertAlmostEqual(p.x, 120, 6)
+        self.assertIsNone(E.no_plano(V(0, 0, 0), V(1, 0, 0), V(0, 0, 0), "XY"))   # plano de perfil
+        q = E.na_grade(V(123, 47, 999), V(0, 0, 300), 10.0, "XY")
+        self.assertEqual((q.x, q.y, q.z), (120.0, 50.0, 300.0))
+
+    def test_esqueleto_da_estrutura(self):
+        import PrumoEsboco3D as E
+        import PrumoEstrutura
+        V = FreeCAD.Vector
+        o = E.criar(self.doc, [V(0, 0, 0), V(0, 0, 1000), V(1000, 0, 1000), V(1000, 800, 1000)])
+        self.assertEqual(len(PrumoEstrutura.arestas(o)), 3)
+
+    def test_painel_digitado_e_tab(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        from PySide import QtCore, QtGui
+        pn = E.abrir_painel()
+        o = pn.obj
+        pn.relativo.setChecked(True)
+        for v in ((0, 0, 0), (500, 0, 0), (0, 0, 300)):
+            for s_, x in zip(pn.coord, v):
+                s_.setValue(x)
+            pn.adicionar_digitado()
+        self.assertEqual([tuple(p) for p in o.Pontos], [(0, 0, 0), (500, 0, 0), (500, 0, 300)])
+        self.assertEqual(pn.tabela.rowCount(), 3)
+        # ramal: próximo ponto absoluto começa trecho novo
+        pn.bt_ramal.setChecked(True)
+        pn.relativo.setChecked(False)
+        for s_, x in zip(pn.coord, (250, 0, 0)):
+            s_.setValue(x)
+        pn.adicionar_digitado()
+        for s_, x in zip(pn.coord, (250, 400, 0)):
+            s_.setValue(x)
+        pn.adicionar_digitado()
+        self.assertEqual(list(o.Quebras), [3])
+        self.assertEqual(len(o.Shape.Wires), 2)
+        # modo desenho: Tab (com o cursor na vista) troca o plano, Esc termina o trecho
+        pn.bt_clicar.setChecked(True)
+        self.assertIsNotNone(pn._vista)
+        original = E._cursor_na_vista
+        E._cursor_na_vista = lambda: True
+        try:
+            ev = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Tab, QtCore.Qt.NoModifier)
+            self.assertTrue(pn._filtro.eventFilter(pn.form, ev))
+            self.assertEqual(pn.plano, "YZ")
+            ev = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Escape, QtCore.Qt.NoModifier)
+            pn._filtro.eventFilter(pn.form, ev)
+            self.assertTrue(pn._ramal_pendente)
+            pn._filtro.eventFilter(pn.form, ev)
+            self.assertIsNone(pn._vista, "Esc de novo para de desenhar")
+        finally:
+            E._cursor_na_vista = original
+        pn.remover()
+        self.assertEqual(len(o.Pontos), 4)
+        pn.accept()
+        self.assertIsNotNone(self.doc.getObject(o.Name))
+
+    def test_cancelar_desfaz(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        n0 = len(self.doc.Objects)
+        pn = E.abrir_painel()
+        pn.adicionar(FreeCAD.Vector(1, 2, 3))
+        pn.reject()
+        self.assertEqual(len(self.doc.Objects), n0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6309,4 +6435,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual]
+           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D]

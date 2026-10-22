@@ -873,6 +873,8 @@ def register_commands():
                              ("PrumoRegua", lambda m: (
                                  FreeCADGui.addCommand("Prumo_ReguaHistorico", m.CmdRegua()),
                                  FreeCADGui.getMainWindow().workbenchActivated.connect(m.ao_trocar_bancada))),
+                             ("PrumoEsboco3D", lambda m: FreeCADGui.addCommand("Prumo_Esboco3D",
+                                                                              m.CmdEsboco3D())),
                              ("PrumoAssistenteEstrutura", lambda m: FreeCADGui.addCommand(
                                  "Prumo_AssistenteEstrutura", m.CmdAssistenteEstrutura())),
                              ("PrumoVaso", lambda m: (

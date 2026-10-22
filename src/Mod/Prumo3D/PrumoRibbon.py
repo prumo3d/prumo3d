@@ -81,7 +81,8 @@ TABS = [
     ]},
     {"id": "esboco", "label": "Esboço", "wb": "SketcherWorkbench", "contexto": "esboco", "panels": [
         ("Esboço", [
-            ("Sketcher_NewSketch", L, "Novo\nesboço"), ("Sketcher_EditSketch", L, "Editar\nesboço"),
+            ("Sketcher_NewSketch", L, "Novo\nesboço"), ("Prumo_Esboco3D", L, "Esboço\n3D"),
+            ("Sketcher_EditSketch", L, "Editar\nesboço"),
             ("Sketcher_LeaveSketch", L, "Concluir\nesboço"),
             ("Sketcher_MapSketch", S, "Anexar"), ("Sketcher_ReorientSketch", S, "Reorientar"),
             ("Sketcher_ViewSketch", S, "Vista normal"), ("Sketcher_ViewSection", S, "Vista em corte"),
@@ -243,6 +244,7 @@ TABS = [
             ("Prumo_Cantos", L, "Cantos"),
             ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
             ("Prumo_SecaoPersonalizada", S, "Seção personalizada"),
+            ("Prumo_Esboco3D", S, "Esboço 3D"),
         ]),
         ("Reforços e ligações", [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
@@ -1378,7 +1380,7 @@ class PrumoRibbon(QtWidgets.QWidget):
 # Fora da edição: criar, editar, anexar, validar...; dentro da edição: desenhar, restringir, modificar.
 # Ferramentas que só dependem da seleção (Offset, Rotacionar...) continuam visíveis, só esmaecidas.
 ESBOCO_FORA_DA_EDICAO = {
-    "Sketcher_NewSketch", "Sketcher_EditSketch", "Sketcher_MapSketch", "Sketcher_ReorientSketch",
+    "Sketcher_NewSketch", "Prumo_Esboco3D", "Sketcher_EditSketch", "Sketcher_MapSketch", "Sketcher_ReorientSketch",
     "Sketcher_ValidateSketch", "Sketcher_MergeSketches", "Sketcher_MirrorSketch",
 }
 ESBOCO_SO_NA_EDICAO_PAINEL = {"Desenhar", "Restrições", "Modificar", "Auxiliares"}

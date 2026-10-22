@@ -18,6 +18,9 @@ except ImportError:  # pragma: no cover
 EQUIVALENCIAS = [
     ("Peça", "Esboço", "Sketch", "Esboço", "peca", ["PartDesign_CompSketches", "PartDesign_NewSketch"],
      "Prefira apoiar o esboço nos planos da origem: esboço em face gerada pode quebrar se o modelo mudar."),
+    ("Peça", "Esboço 3D", "3D Sketch", "Esboço 3D", "esboco", ["Prumo_Esboco3D"],
+     "Clique na vista: o ponto cai no plano do último ponto; Tab troca o plano (XY, YZ, ZX), Esc termina o "
+     "trecho. Serve de esqueleto de estrutura e caminho de tubo."),
     ("Peça", "Ressalto/Base extrudado", "Extrude / Extrusion", "Extrusão", "peca", ["PartDesign_Pad"],
      "Sem esboço selecionado, o comando pede o esboço."),
     ("Peça", "Corte extrudado", "Extrude (cut) / Pocket", "Cavidade", "peca", ["PartDesign_Pocket"], ""),
