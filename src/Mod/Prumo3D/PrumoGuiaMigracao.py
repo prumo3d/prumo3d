@@ -89,6 +89,8 @@ EQUIVALENCIAS = [
      ["Prumo_AssistenteFEM"], ""),
     ("Simulação", "Simulation (vigas / estrutura soldada)", "Frame analysis", "Simular estrutura", "estruturas",
      ["Prumo_AnaliseEstrutura"], "Apoios clicando nos nós, combinações NBR 8681 e verificação NBR 8800."),
+    ("Simulação", "Simulation Advisor (estrutura soldada)", "Frame analysis wizard", "Assistente de estruturas",
+     "estruturas", ["Prumo_AssistenteEstrutura"], "Passo a passo com pendências, cálculo, ligações e memória."),
     ("Simulação", "Simulation: articulação / treliça (beam joints)", "Beam end release", "Rótula / treliça",
      "estruturas", ["Prumo_AnaliseEstrutura"], "No painel da simulação: modo Rótula, clicando perto da ponta."),
 ]

@@ -800,6 +800,7 @@ class Analise:
             self.calc = calcular(est, self.casos(obj), self.apoios(obj), fy, fu, nome,
                                  LIMITES_FLECHA.get(obj.LimiteFlecha, 250.0), obj.K or 1.0,
                                  bool(getattr(obj, "SegundaOrdem", True)), self.liberacoes(obj))
+            self.assinatura = assinatura(obj)
         except Exception:
             self.calc = None
         return self.calc
@@ -825,6 +826,7 @@ class Analise:
             obj.Resumo = []
             return
         self.calc = calc
+        self.assinatura = assinatura(obj)
         if calc.erro:      # o modelo existe (nós para clicar), mas sem resultado
             obj.Situacao = "erro: %s" % calc.erro
             obj.TaxaMaxima = 0.0
@@ -854,6 +856,22 @@ DEFORMADA_TAXA = "Deformada com a taxa de uso"
 MODO_VIBRAR = "Modo de vibrar"
 MOSTRAR = ["Taxa de uso", "Momento fletor (M)", "Esforço cortante (V)", "Esforço normal (N)", "Deformada",
            DEFORMADA_TAXA, MODO_VIBRAR, "Cargas e apoios"]
+
+
+def assinatura(obj):
+    """O que muda o resultado: dados da análise e a geometria/perfis das barras (não a vista)."""
+    import PrumoEstrutura as E
+    est = obj.Estrutura
+    barras = []
+    try:
+        for b in E.barras_de(est):
+            bb = b.Shape.BoundBox
+            barras.append((b.Perfil, round(bb.XMin, 3), round(bb.YMin, 3), round(bb.ZMin, 3), round(bb.XMax, 3),
+                           round(bb.YMax, 3), round(bb.ZMax, 3)))
+    except Exception:
+        pass
+    return (tuple(obj.Apoios), tuple(obj.Casos), tuple(getattr(obj, "Liberacoes", []) or []), obj.Material,
+            bool(getattr(obj, "SegundaOrdem", True)), obj.LimiteFlecha, tuple(barras))
 
 
 def criar(doc, est):

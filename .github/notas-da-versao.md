@@ -53,6 +53,10 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
   de 2ª ordem (P-Δ) nas combinações últimas e acusa quando a estrutura perde estabilidade (por
   exemplo, pórtico plano sem travamento fora do plano). Balanços e vigas contínuas desenhadas em
   vários pedaços são reconhecidos na flambagem e na flecha.
+- **Assistente de estruturas** (abas Estruturas e Simulação): o passo a passo da simulação por barras,
+  como o Assistente de simulação. Estrutura, material, apoios, rótulas, casos de carga, critérios,
+  conferência de pendências (carga zero, apoio fora de nó, barra que sumiu, falta de vento), cálculo,
+  resultados com deslocabilidade, detalhe das ligações e memória de cálculo em PDF.
 - **NBR 8800:2024 e NBR 8681:2025**: a verificação foi refeita pelas edições vigentes, conferidas no
   texto da norma. Sem coeficiente K (flambagem com o comprimento real e estabilidade pela análise de
   2ª ordem), forças nocionais de 0,3 % da carga gravitacional em ±X e ±Y, rigidez de 80 % quando a

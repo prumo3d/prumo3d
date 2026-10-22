@@ -5855,6 +5855,126 @@ class T47MolasTracaoModos(unittest.TestCase):
             FreeCADGui.Control.closeDialog()
 
 
+class T48AssistenteEstrutura(unittest.TestCase):
+    """Assistente de estruturas: etapas com pendências que bloqueiam o cálculo, cálculo, resultados e
+    memória de cálculo."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteAssistEst")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+            import PrumoAssistenteEstrutura as AE
+            d = AE._estado.get("dock")
+            if d is not None and AE.F._vivo(d):
+                d.close()
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def _estrutura(self):
+        import PrumoEstrutura as E
+        sk = esboco_linhas(self.doc, [((0, 0), (0, 3000)), ((0, 3000), (5000, 3000)), ((5000, 3000), (5000, 0))],
+                           "XZ")
+        est = E.criar(self.doc, sk, "W 200 x 22,5", material="ASTM A36")
+        self.doc.recompute()
+        return est
+
+    def test_conferencia_das_etapas(self):
+        import json
+        import PrumoAnaliseEstrutura as A
+        import PrumoAssistenteEstrutura as AE
+        est = self._estrutura()
+        r = AE.avaliar(None, est)
+        self.assertEqual(r["estrutura"][0], AE.ERRO)
+        self.assertTrue(r["_bloqueios"])
+        an = A.criar(self.doc, est)
+        an.Casos = []
+        self.doc.recompute()
+        r = AE.avaliar(an)
+        self.assertEqual(r["apoios"][0], AE.VAZIO)
+        self.assertIn("apoios", [k for k, _m in r["_bloqueios"]])
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        casos = [A.caso_padrao(),
+                 {"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                  "cargas": [{"alvo": "barra", "linha": 1, "tipo": "distribuida", "valor": 0.0,
+                              "direcao": "Para baixo (−Z)"}]}]
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        self.doc.recompute()
+        r = AE.avaliar(an)
+        self.assertEqual(r["cargas"][0], AE.ERRO, r["cargas"])
+        self.assertTrue(any("valor zero" in m for _k, m in r["_bloqueios"]))
+        casos[1]["cargas"][0]["valor"] = 8.0
+        casos[1]["cargas"].append({"alvo": "barra", "linha": 7, "tipo": "distribuida", "valor": 1.0,
+                                   "direcao": "Para baixo (−Z)"})
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        self.doc.recompute()
+        r = AE.avaliar(an)
+        self.assertTrue(any("não existe mais" in m for _k, m in r["_bloqueios"]), r["_bloqueios"])
+        del casos[1]["cargas"][1]
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        self.doc.recompute()
+        r = AE.avaliar(an)
+        self.assertEqual(r["_bloqueios"], [])
+        self.assertEqual(r["calculo"][0], AE.OK, r["calculo"])
+        self.assertIn(r["resultado"][0], (AE.OK, AE.AVISO, AE.ERRO))
+        self.assertTrue(any("vento" in m for _n, m in r["cargas"][2]))
+        self.assertIn("Taxa máxima", r["resultado"][1])
+        # apoio que não cai num nó
+        an.Apoios = list(an.Apoios) + ["%s=Engaste" % A._chave_no((2500, 0, 0))]
+        self.doc.recompute()
+        self.assertTrue(any("não cai em nenhum nó" in m for _k, m in AE.avaliar(an)["_bloqueios"]))
+
+    def test_assistente_calcula_e_gera_relatorio(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import json
+        import os
+        import tempfile
+        import PrumoAnaliseEstrutura as A
+        import PrumoAssistenteEstrutura as AE
+        est = self._estrutura()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(est)
+        dock = AE.mostrar()
+        w = dock.widget()
+        self.assertEqual(w.estrutura_escolhida(), est)
+        self.assertTrue(w.bt_criar.isVisible() or w.analise() is None)
+        w._criar_analise()
+        an = w.analise()
+        self.assertIsNotNone(an)
+        self.assertFalse(w.bt_calc.isEnabled(), "sem apoios o cálculo não pode liberar")
+        self.assertTrue(w.etapas["apoios"].aberta())
+        p = w.painel("apoio")
+        self.assertEqual(p.modo.valor(), "apoio")
+        p.reject()
+        FreeCADGui.Control.closeDialog()
+        an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((5000, 0, 0))]
+        casos = [A.caso_padrao(), {"nome": "Q", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                                   "cargas": [{"alvo": "barra", "linha": 1, "tipo": "distribuida", "valor": 5.0,
+                                               "direcao": "Para baixo (−Z)"}]}]
+        an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+        w.atualizar(force=True)
+        self.assertTrue(w.bt_calc.isEnabled())
+        self.assertTrue(w.calcular())
+        r = AE.avaliar(an)
+        self.assertEqual(r["calculo"][0], AE.OK)
+        self.assertNotEqual(w.c_taxa.valor.text(), "—")
+        w.ck_so.setChecked(False)
+        self.assertFalse(an.SegundaOrdem)
+        w.ck_so.setChecked(True)
+        w.calcular()
+        modos = w._frequencias()
+        self.assertTrue(modos and "Hz" in w.lb_freq.text())
+        js = w._listar_juntas()
+        self.assertTrue(js and w.cb_junta.count() == len(js))
+        pdf = os.path.join(tempfile.mkdtemp(), "memoria.pdf")
+        self.assertEqual(w.relatorio(pdf), pdf)
+        self.assertTrue(os.path.getsize(pdf) > 10000)
+        self.assertEqual(AE.avaliar(an)["relatorio"][0], AE.OK)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -5864,4 +5984,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T36ChapaFatorKeDXF, T37Variantes, T37bVariantesPainel, T38CopiarProjeto,
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
-           T47MolasTracaoModos]
+           T47MolasTracaoModos, T48AssistenteEstrutura]
