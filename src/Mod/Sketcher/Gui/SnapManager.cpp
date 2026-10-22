@@ -655,15 +655,15 @@ void addCurveKeyPoints(int geoId, const Part::GeomCurve* curve, std::vector<KeyC
     else if (curve->is<Part::GeomEllipse>()) {
         auto* ellipse = static_cast<const Part::GeomEllipse*>(curve);
         const Base::Vector3d c = ellipse->getCenter();
-        Base::Vector3d major = ellipse->getMajorAxisDir();
-        major.Normalize();
-        const Base::Vector3d minor(-major.y, major.x, 0.);
+        Base::Vector3d eixoMaior = ellipse->getMajorAxisDir();
+        eixoMaior.Normalize();
+        const Base::Vector3d eixoMenor(-eixoMaior.y, eixoMaior.x, 0.);
         const double a = ellipse->getMajorRadius();
         const double b = ellipse->getMinorRadius();
-        add(c + major * a, KeyPointKind::AxisVertex);
-        add(c - major * a, KeyPointKind::AxisVertex);
-        add(c + minor * b, KeyPointKind::AxisVertex);
-        add(c - minor * b, KeyPointKind::AxisVertex);
+        add(c + eixoMaior * a, KeyPointKind::AxisVertex);
+        add(c - eixoMaior * a, KeyPointKind::AxisVertex);
+        add(c + eixoMenor * b, KeyPointKind::AxisVertex);
+        add(c - eixoMenor * b, KeyPointKind::AxisVertex);
     }
     else if (curve->is<Part::GeomLineSegment>()) {
         auto* line = static_cast<const Part::GeomLineSegment*>(curve);
