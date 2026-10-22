@@ -11,6 +11,19 @@
 set "CMAKE_GENERATOR="
 set "CMAKE_GENERATOR_PLATFORM="
 
+@REM Cache de compilacao (ccache) entre versoes: o fluxo do GitHub grava a pasta do cache em
+@REM prumo_ccache_dir.txt na raiz do codigo (o rattler-build nao repassa variaveis de ambiente).
+if not exist "%SRC_DIR%\prumo_ccache_dir.txt" goto sem_ccache
+set /p CCACHE_DIR=<"%SRC_DIR%\prumo_ccache_dir.txt"
+for %%I in ("%SRC_DIR%\..") do set "CCACHE_BASEDIR=%%~fI"
+set "CCACHE_NOHASHDIR=1"
+set "CCACHE_COMPILERCHECK=content"
+set "CCACHE_MAXSIZE=2500M"
+if not exist "%CCACHE_DIR%" mkdir "%CCACHE_DIR%"
+ccache -z
+echo ccache: %CCACHE_DIR% (base %CCACHE_BASEDIR%)
+:sem_ccache
+
 cmake ^
     %CMAKE_ARGS% ^
     --preset conda-windows-release ^
@@ -29,12 +42,14 @@ cmake ^
     -D Python3_EXECUTABLE:FILEPATH="%PYTHON%" ^
     -D SMESH_INCLUDE_DIR:FILEPATH="%LIBRARY_PREFIX%/include/smesh" ^
     -D SMESH_LIBRARY:FILEPATH="%LIBRARY_PREFIX%/lib/SMESH.lib" ^
+    -D FREECAD_USE_MP_COMPILE_FLAG:BOOL=OFF ^
     -B build ^
     -S .
 if %ERRORLEVEL% neq 0 exit 1
 
 ninja -C build install
 if %ERRORLEVEL% neq 0 exit 1
+ccache -s
 
 ren %LIBRARY_PREFIX%\bin\FreeCAD.exe freecad.exe
 ren %LIBRARY_PREFIX%\bin\FreeCADCmd.exe freecadcmd.exe

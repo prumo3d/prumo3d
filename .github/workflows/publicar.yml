@@ -3,8 +3,13 @@
 # - Ao enviar uma tag "v*" (ex.: v0.1.0-beta): compila Windows e Linux nas máquinas do GitHub
 #   (gratuitas em repositório público), empacota e cria a versão na página de versões. Tag com
 #   hífen (beta, rc) sai marcada como pré-lançamento.
-# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota, sem publicar; os
-#   arquivos ficam como artefatos da execução por 3 dias.
+# - Manualmente (Actions → "Publicar versão" → Run workflow, no ramo main):
+#     * com "versao" preenchida (ex.: 0.1.2-beta): compila, empacota, cria a tag v<versao> no commit
+#       e publica. É o caminho recomendado: guarda o cache de compilação para as próximas versões.
+#     * sem "versao": só compila e empacota; os arquivos ficam como artefatos por 3 dias.
+# - Cache de compilação (ccache): o cache das execuções no main é guardado e reaproveitado pelas
+#   próximas (inclusive pelas de tag, que só leem: o GitHub isola o cache gravado numa tag). Só o C++
+#   que mudou é recompilado.
 # - O fluxo não roda em pull requests. O repositório é público e não tem runner próprio (o runner
 #   do computador de desenvolvimento foi removido em 21/10/2026): tudo roda nas máquinas do GitHub.
 #   Os passos para computador próprio (runner.environment != 'github-hosted') ficaram para o caso de
@@ -24,6 +29,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      versao:
+        description: "Versão a publicar (ex.: 0.1.2-beta). Vazio = só compilar, sem publicar"
+        required: false
+        default: ""
       rotulo:
         description: "Rótulo dos arquivos (ex.: teste)"
         required: false
@@ -129,16 +138,38 @@ jobs:
 
       - name: Definir o rótulo da versão
         shell: bash
+        env:
+          VERSAO: ${{ github.event.inputs.versao }}
         run: |
+          versao="${VERSAO}"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             BUILD_TAG="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${versao}" ]]; then
+            BUILD_TAG="${versao#v}"
           else
             BUILD_TAG="${{ github.event.inputs.rotulo || 'teste' }}-${GITHUB_RUN_NUMBER}"
           fi
           echo "BUILD_TAG=${BUILD_TAG}" >> "$GITHUB_ENV"
           echo "Rótulo: ${BUILD_TAG}"
 
+      # pasta fixa do ccache; o caminho vai num arquivo na raiz do código, que os roteiros de
+      # compilação (build.sh / build.bat) leem
+      - name: Pasta do cache de compilação
+        shell: bash
+        run: |
+          if [ "${RUNNER_OS}" = "Windows" ]; then d='D:\ccache'; else d="${HOME}/ccache"; fi
+          echo "PRUMO_CCACHE_DIR=${d}" >> "$GITHUB_ENV"
+          printf '%s' "${d}" > prumo_ccache_dir.txt
+
+      - name: Restaurar o cache de compilação
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.PRUMO_CCACHE_DIR }}
+          key: ccache-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: ccache-${{ matrix.target }}-
+
       - name: Compilar (rattler-build)
+        id: compilar
         shell: bash
         run: |
           set -euo pipefail
@@ -149,6 +180,15 @@ jobs:
           # também guarda os roteiros de empacotamento, que são do repositório
           git clean -ffdxq -- "${{ matrix.pasta }}"
           pixi install
+
+      # grava mesmo se a compilação falhar depois de ter compilado boa parte; só no main (o cache
+      # gravado numa tag fica preso a ela e ocuparia a cota à toa)
+      - name: Guardar o cache de compilação
+        if: always() && github.ref == 'refs/heads/main' && steps.compilar.outcome != 'skipped'
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.PRUMO_CCACHE_DIR }}
+          key: ccache-${{ matrix.target }}-${{ github.run_id }}
 
       - name: Empacotar
         shell: bash
@@ -198,7 +238,7 @@ jobs:
   publicar:
     name: Publicar na página de versões
     needs: pacotes
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event.inputs.versao != '')
     runs-on: ubuntu-latest
     steps:
       - name: Baixar o código
@@ -214,15 +254,23 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSAO: ${{ github.event.inputs.versao }}
         run: |
           set -euo pipefail
           ls -la arquivos
           notas=".github/notas-da-versao.md"
           extra=()
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+            extra+=(--verify-tag)          # a tag já existe (foi ela que disparou)
+          else
+            tag="v${VERSAO#v}"
+            extra+=(--target "${GITHUB_SHA}")   # cria a tag no commit compilado
+          fi
+          if [[ "${tag}" == *-* ]]; then
             extra+=(--prerelease)          # v0.1.0-beta, v1.0.0-rc1...
           fi
-          gh release create "${GITHUB_REF_NAME}" arquivos/* \
-            --title "Prumo 3D ${GITHUB_REF_NAME#v}" \
+          gh release create "${tag}" arquivos/* \
+            --title "Prumo 3D ${tag#v}" \
             --notes-file "${notas}" \
-            --verify-tag "${extra[@]}"
+            "${extra[@]}"

@@ -30,6 +30,21 @@ fi
 unset CMAKE_GENERATOR
 unset CMAKE_GENERATOR_PLATFORM
 
+# Cache de compilação (ccache) entre versões: o fluxo do GitHub grava a pasta do cache em
+# prumo_ccache_dir.txt na raiz do código (o rattler-build não repassa variáveis de ambiente).
+# Sem o arquivo (compilação local), o ccache segue o padrão.
+if [[ -f "${SRC_DIR}/prumo_ccache_dir.txt" ]]; then
+    export CCACHE_DIR="$(tr -d '\r\n' < "${SRC_DIR}/prumo_ccache_dir.txt")"
+    # a pasta de trabalho do rattler-build muda a cada compilação: caminhos relativos a ela
+    export CCACHE_BASEDIR="$(dirname "${SRC_DIR}")"
+    export CCACHE_NOHASHDIR=1
+    export CCACHE_COMPILERCHECK=content
+    export CCACHE_MAXSIZE=2500M
+    mkdir -p "${CCACHE_DIR}"
+    ccache -z || true
+    echo "ccache: ${CCACHE_DIR} (base ${CCACHE_BASEDIR})"
+fi
+
 cmake \
     ${CMAKE_ARGS} \
     --preset ${CMAKE_PRESET} \
@@ -51,6 +66,7 @@ cmake \
 
 cmake --build build
 cmake --install build
+ccache -s || true
 
 mv ${PREFIX}/bin/FreeCAD ${PREFIX}/bin/freecad || true
 mv ${PREFIX}/bin/FreeCADCmd ${PREFIX}/bin/freecadcmd || true
