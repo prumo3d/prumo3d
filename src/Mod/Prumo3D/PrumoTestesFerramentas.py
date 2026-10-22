@@ -6505,6 +6505,22 @@ class T53Tubulacao(unittest.TestCase):
         t = T.criar(e, dn=50)
         self.assertEqual(t.Conexoes, ["1 × Cruzeta soldável 50 mm"])
 
+    def test_lista_de_materiais(self):
+        import PrumoTubulacao as T
+        import PrumoBOM
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0), (1000, 1000, 800)])
+        t = T.criar(e, dn=25)
+        linhas = PrumoBOM.coletar([e, t], 7850)
+        den = {l.denominacao: l for l in linhas}
+        self.assertEqual(den["Joelho 90° soldável 25 mm"].qtd, 2)
+        tubo = [l for l in linhas if l.denominacao.startswith("Tubo")][0]
+        self.assertEqual(tubo.qtd, 1)
+        self.assertEqual(tubo.material, "PVC rígido")
+        self.assertIsNone(tubo.massa)
+        self.assertEqual(len(linhas), 2)                        # o traçado não entra na lista
+        sheet = PrumoBOM.gravar_planilha(self.doc, linhas)
+        self.assertEqual(sheet.get("G2"), "—")
+
     def test_lista_e_painel(self):
         import PrumoTubulacao as T
         e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0)])

@@ -507,6 +507,29 @@ def e_tubulacao(obj):
     return obj is not None and isinstance(getattr(obj, "Proxy", None), Tubulacao)
 
 
+def linhas_bom(obj):
+    """Itens para a lista de materiais: [(chave, denominação, material, dimensões, quantidade, obs)]."""
+    L = CAT.linha(obj.Linha)
+    res = obj.Proxy.calcular(obj)
+    itens = []
+    lc = lista_de_corte(res.get("pecas", []), L)
+    for d in sorted(lc):
+        r = lc[d]
+        tb = L["tubos"][d]
+        itens.append((("tubo", L["id"], d), "Tubo %s %d mm (barra de %.0f m)" % (
+            "soldável" if "soldavel" in L["id"] else "", d, L["barra"] / 1000.0),
+            L["material"], "DE %s × %s — %s m no total" % (
+                _num(tb["De"]), _num(tb["e"]), _num(round(r["total"] / 1000.0, 2))),
+            r["barras"], L["fabricante"]))
+    for desc, n in resumo_conexoes(res["conexoes"]).items():
+        itens.append((("conexao", L["id"], desc), desc, L["material"], "—", n, L["fabricante"]))
+    return itens
+
+
+def _num(v):
+    return ("%g" % v).replace(".", ",")
+
+
 def texto_lista(obj):
     """Lista de materiais em texto (para copiar para planilha)."""
     L = CAT.linha(obj.Linha)

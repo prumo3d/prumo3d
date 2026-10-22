@@ -39,7 +39,7 @@ class Linha:
 
     @property
     def massa_total(self):
-        return self.massa * self.qtd
+        return None if self.massa is None else self.massa * self.qtd
 
 
 def _alvo(obj):
@@ -81,6 +81,18 @@ def _dimensoes(obj, sh):
     return " × ".join(fmt_dim(x) for x in lados)
 
 
+def _tubulacao():
+    import PrumoTubulacao
+    return PrumoTubulacao
+
+
+def _e_tubulacao(obj):
+    try:
+        return _tubulacao().e_tubulacao(obj)
+    except Exception:
+        return False
+
+
 def coletar(objs, densidade_padrao=None):
     """Linhas da lista de materiais para os objetos (abre montagens, partes e grupos)."""
     if densidade_padrao is None:
@@ -91,6 +103,14 @@ def coletar(objs, densidade_padrao=None):
         base = _alvo(obj)
         if "Perna" in base.PropertiesList and "Pecas" in base.PropertiesList:
             continue  # cordão de solda: vai para a lista de soldas
+        if _e_tubulacao(base):
+            # tubulação: um item por diâmetro de tubo (em barras) e por conexão
+            for chave, den, mat, dim, qtd, obs in _tubulacao().linhas_bom(base):
+                if chave not in linhas:
+                    linhas[chave] = Linha(chave, den, mat, dim, None, obs)
+                    ordem.append(chave)
+                linhas[chave].qtd += qtd
+            continue
         perfil = _prop(base, "Perfil")
         if perfil:
             comp = _prop(base, "ComprimentoCorte", "Comprimento")
@@ -170,7 +190,7 @@ def gravar_planilha(doc, linhas, titulo="Lista de materiais"):
         sheet.set("G%d" % r, "'" + fmt(ln.massa, 3))
         sheet.set("H%d" % r, "'" + fmt(ln.massa_total, 3))
         sheet.set("I%d" % r, "'" + ln.obs)
-        total += ln.massa_total
+        total += ln.massa_total or 0.0
     r = len(linhas) + 2
     sheet.set("G%d" % r, "Total")
     sheet.set("H%d" % r, "'" + fmt(total, 3))
