@@ -319,7 +319,9 @@ def montar(analise, ponto, combinacao=None, distancia=0.0):
 
 # ------------------------------------------------------------------ soldas e chumbadores (6.2 e 6.3)
 DIAMETROS_CHUMBADOR = (12.0, 16.0, 20.0, 22.0, 24.0, 27.0, 30.0, 36.0, 42.0, 48.0)
-FUB_CHUMBADOR = 400.0       # MPa — ASTM F1554 grau 36 (fu mínimo 400 MPa, a checar com o fornecedor)
+# MPa — a NBR 8800:2024 dá as disposições de bases de pilares para chumbadores de ASTM A36 (Tabela 18,
+# nota a); fu do A36 = 400 MPa, o mínimo da Tabela A.2 (o certificado do chumbador manda)
+FUB_CHUMBADOR = 400.0
 
 
 def _contorno_externo(p):
@@ -395,8 +397,8 @@ def solda_contorno(p, e, fy, fu, perna=None, eletrodo="E70XX"):
                _f(res["taxa_base"], 2)))
     if perna < dw_min:
         txt += "; ATENÇÃO: perna abaixo da mínima"
-    if perna > t:
-        txt += "; ATENÇÃO: perna maior que a espessura da peça (a checar o tamanho máximo do filete)"
+    if perna > N.perna_maxima(t) + 1e-9:
+        txt += "; ATENÇÃO: perna acima da máxima de %s mm ao longo da borda (6.2.6.2.2)" % _f(N.perna_maxima(t), 1)
     res["texto"] = txt
     return res
 
@@ -436,7 +438,7 @@ def chumbadores(placa, e):
         sem_braco.append("My = %s kN·m" % _f(abs(e["My"]) / 1e6, 2))
     res = {"tipo": "chumbador", "n": n, "d": d, "Ft": ft, "Fv": fv, "FtRd": FtRd, "FvRd": FvRd,
            "taxa": max(ft / FtRd, fv / FvRd, inter)}
-    res["texto"] = ("%d chumbadores Ø%s mm (furo %s mm; aço com fub = %s MPa, a checar): tração %s kN × %s kN, "
+    res["texto"] = ("%d chumbadores Ø%s mm (furo %s mm; ASTM A36, fu = %s MPa): tração %s kN × %s kN, "
                     "corte %s kN × %s kN, interação %s; ancoragem no concreto não verificada" % (
                         n, _f(d), _f(furo), _f(FUB_CHUMBADOR), _f(ft / 1e3, 1), _f(FtRd / 1e3, 1), _f(fv / 1e3, 1),
                         _f(FvRd / 1e3, 1), _f(inter, 2)))
@@ -463,7 +465,20 @@ def verificar_ligacoes(calc, r, est, linhas, apoio):
     out = []
     if len(linhas) < 2 and not apoio:
         return out
+    # duas barras alinhadas que chegam ao nó por lados opostos: viga contínua desenhada em pedaços
+    # (a peça real passa direto pelo nó); não há solda de topo entre elas
+    continuas = set()
+    saida = {}
     for i, s0, L in termina:
+        _p0, t, _L = calc.mapa["linhas"][i]
+        saida[i] = t * (1.0 if s0 < 1.0 else -1.0)
+    for i in saida:
+        for j in saida:
+            if i < j and saida[i].dot(saida[j]) < -0.999:
+                continuas.update((i, j))
+    for i, s0, L in termina:
+        if i in continuas:
+            continue
         if len(linhas) == 1 and not any(pl.Barra.Indice == i for pl in placas):
             continue        # apoio direto, sem placa: nada a soldar no modelo
         eb, x = _elemento_em(calc, i, min(max(s0, 0.0), L))

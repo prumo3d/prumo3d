@@ -1,13 +1,13 @@
 # Prumo 3D: gera os pacotes para Windows e Linux e publica na página de versões.
 #
-# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota.
-#     Máquina "pc" (padrão): roda no computador próprio registrado como runner (rótulo "prumo"),
-#       sem gastar minutos do GitHub; os arquivos ficam no próprio computador, na pasta
-#       PRUMO_PACOTES (padrão: <pasta do usuário>/Prumo3D-pacotes/<rótulo>).
-#     Máquina "github": roda nas máquinas do GitHub e guarda os arquivos como artefatos da
-#       execução (gasta minutos e armazenamento do plano).
-# - Ao enviar uma tag "v*" (ex.: v1.1.4): compila nas máquinas do GitHub, empacota e cria a
-#   versão com os arquivos (pensado para quando o repositório for público, em que é gratuito).
+# - Ao enviar uma tag "v*" (ex.: v0.1.0-beta): compila Windows e Linux nas máquinas do GitHub
+#   (gratuitas em repositório público), empacota e cria a versão na página de versões. Tag com
+#   hífen (beta, rc) sai marcada como pré-lançamento.
+# - Manualmente (Actions → "Publicar versão" → Run workflow): compila e empacota, sem publicar.
+#     Máquina "github" (padrão): os arquivos ficam como artefatos da execução por 3 dias.
+#     Máquina "pc": roda no computador próprio registrado como runner (rótulo "prumo"); os
+#       arquivos ficam na pasta PRUMO_PACOTES (padrão: <pasta do usuário>/Prumo3D-pacotes/<rótulo>).
+#       Só quem tem acesso de escrita dispara este fluxo; o fluxo não roda em pull requests.
 #
 # Formatos:
 #   Windows: instalador (.exe) e versão portátil (.7z)
@@ -28,15 +28,15 @@ on:
         required: false
         default: "teste"
       maquina:
-        description: "Onde compilar: pc (runner próprio, sem custo) ou github (gasta minutos)"
+        description: "Onde compilar: github (máquinas do GitHub) ou pc (runner próprio)"
         type: choice
-        options: [pc, github]
-        default: pc
+        options: [github, pc]
+        default: github
       plataformas:
         description: "Quais pacotes"
         type: choice
-        options: [win-64, linux-64, ambas]
-        default: win-64
+        options: [ambas, win-64, linux-64]
+        default: ambas
 
 permissions:
   contents: write
@@ -217,7 +217,11 @@ jobs:
           set -euo pipefail
           ls -la arquivos
           notas=".github/notas-da-versao.md"
+          extra=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            extra+=(--prerelease)          # v0.1.0-beta, v1.0.0-rc1...
+          fi
           gh release create "${GITHUB_REF_NAME}" arquivos/* \
             --title "Prumo 3D ${GITHUB_REF_NAME#v}" \
             --notes-file "${notas}" \
-            --verify-tag
+            --verify-tag "${extra[@]}"

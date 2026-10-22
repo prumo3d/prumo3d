@@ -21,7 +21,10 @@ except ImportError:  # pragma: no cover
     from PySide2 import QtCore, QtWidgets
 
 
-OPCOES = {"sem_titulo": False}     # vídeo: o título vai na faixa do quadro, não na cena
+OPCOES = {"sem_titulo": False}
+# fonte dos textos na cena 3D: sem nome, o Coin usa a fonte padrão (monoespaçada); Arial existe no
+# Windows e o fontconfig do Linux troca por uma equivalente (Liberation Sans / DejaVu Sans)
+FONTE_3D = "Arial"     # vídeo: o título vai na faixa do quadro, não na cena
 
 
 def _cor_taxa(t):
@@ -141,8 +144,7 @@ class VPAnalise:
                          "Esforço normal (N)": "N"}[mostrar]
                 self._diagrama(m, r, chave, tam, obj.Escala)
             if not OPCOES["sem_titulo"]:
-                self._texto(_meio_modelo(m) + _vec(0, 0, 0), "%s · %s" % (mostrar, nome), (0.0, 0.23, 0.44),
-                            tam * 0.0 + 14)
+                self._texto(_meio_modelo(m), "%s · %s" % (mostrar, nome), (0.0, 0.23, 0.44), 15, centro=True)
 
     def _calcular_e_desenhar(self):
         self._calculando = False
@@ -196,17 +198,20 @@ class VPAnalise:
         for n in (mat, c, mk):
             s.addChild(n)
 
-    def _texto(self, p, txt, cor=(0.0, 0.23, 0.44), tamanho=14):
+    def _texto(self, p, txt, cor=(0.0, 0.23, 0.44), tamanho=14, centro=False):
         from pivy import coin
         s = self._sep()
         mat = coin.SoBaseColor()
         mat.rgb.setValue(*cor)
         f = coin.SoFont()
+        f.name = FONTE_3D
         f.size = tamanho
         tr = coin.SoTranslation()
         tr.translation.setValue(float(p[0]), float(p[1]), float(p[2]))
         t = coin.SoText2()
         t.string = txt
+        if centro:
+            t.justification = coin.SoText2.CENTER
         for n in (mat, f, tr, t):
             s.addChild(n)
 
@@ -350,7 +355,8 @@ class VPAnalise:
         modos = getattr(calc, "modos", None)
         k = max(1, int(getattr(obj, "Modo", 1) or 1)) - 1
         if not modos or k >= len(modos):
-            self._texto(_meio_modelo(m), "Calcule as frequências no painel (Resultados)", (0.6, 0.3, 0.1), 13)
+            self._texto(_meio_modelo(m), "Calcule as frequências no painel (Resultados)", (0.6, 0.3, 0.1), 13,
+                        centro=True)
             return
         f, phi = modos[k]
         maxd = max(float(np.linalg.norm(phi[6 * n:6 * n + 3])) for n in range(len(m.nos))) or 1.0
@@ -362,7 +368,8 @@ class VPAnalise:
             segs.append([_vec(*a), _vec(*c)])
         self._linhas(segs, (0.45, 0.20, 0.65), 4)
         if not OPCOES["sem_titulo"]:
-            self._texto(_meio_modelo(m), "Modo %d · %s Hz" % (k + 1, _f(f, 2)), (0.45, 0.20, 0.65), 14)
+            self._texto(_meio_modelo(m), "Modo %d · %s Hz" % (k + 1, _f(f, 2)), (0.45, 0.20, 0.65), 15,
+                        centro=True)
 
     def _deformada(self, m, r, tam, escala, calc=None):
         import numpy as np
@@ -421,7 +428,8 @@ def _meio_modelo(m):
     a = np.array(m.nos)
     c = (a.max(axis=0) + a.min(axis=0)) / 2.0
     top = a.max(axis=0)
-    return _vec(c[0], c[1], top[2] + 0.08 * _tamanho(m))
+    # acima do contorno do modelo também na vista isométrica (o topo projetado sobe ~0,25 do tamanho)
+    return _vec(c[0], c[1], top[2] + 0.32 * _tamanho(m))
 
 
 def _pior_combinacao(calc):

@@ -144,10 +144,9 @@ Clique em **Mais informações → Executar assim mesmo**.
   do perfil. Confira no catálogo do fabricante antes de usar em projeto.
 - Vasos de pressão: reforço de aberturas, pressão externa, vento, sismo e cargas nos suportes ainda
   não são calculados (o memorial avisa); o enquadramento na NR-13 fica com o responsável técnico.
-- Estruturas: grande deslocabilidade só é avisada (pede análise com não linearidade de material);
-  ancoragem dos chumbadores no concreto, tamanho máximo do filete e a interação de tração e corte nos
-  parafusos estão marcados "a checar"; a classificação de deslocabilidade usa o maior deslocamento da
-  estrutura, não andar a andar.
+- Estruturas: grande deslocabilidade só é avisada (pede análise com não linearidade de material); a
+  ancoragem dos chumbadores no concreto não é verificada; a classificação de deslocabilidade usa os
+  deslocamentos horizontais nó a nó, não andar a andar.
 
 ### Como relatar um problema
 

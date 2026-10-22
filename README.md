@@ -10,17 +10,83 @@
 [Documentação do FreeCAD](https://wiki.freecad.org)
 
 O Prumo 3D é um modelador 3D paramétrico livre e gratuito, em português, para projeto mecânico:
-peças, montagens, desenho técnico e simulação por elementos finitos. É baseado no
+peças, montagens, desenho técnico no padrão ABNT, estruturas metálicas calculadas pelas normas
+brasileiras, vasos de pressão e simulação por elementos finitos. É baseado no
 [FreeCAD](https://www.freecad.org) e mantém tudo o que ele oferece, com uma interface reorganizada e
 ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 
 > [!NOTE]
 > O Prumo 3D não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.
 
-<!-- Imagens: serão adicionadas a partir das capturas do Prumo 3D (pasta .github/images/prumo). -->
+![Tela inicial do Prumo 3D](.github/images/prumo/tela-inicial.png)
 
-Visão geral
------------
+O que o Prumo 3D tem de diferente
+---------------------------------
+
+### Estruturas metálicas calculadas pelas normas brasileiras
+
+Desenhe o esqueleto, escolha os perfis (W, HP, U, I, cantoneiras, tubos e metalon de catálogos
+nacionais) e calcule a estrutura por barras no próprio modelo: apoios clicando nos nós, rótulas e
+treliças, casos de carga e combinações da **ABNT NBR 8681:2025**, análise de 2ª ordem com
+imperfeições e verificação de cada barra pela **ABNT NBR 8800:2024**. A taxa de uso aparece em cores
+na deformada, e a memória de cálculo sai em PDF.
+
+O **Assistente de estruturas** conduz o cálculo em etapas e só libera quando não há pendências: carga
+com valor zero, apoio fora de nó, barra que sumiu do desenho, falta de caso de vento, deslocabilidade
+alta.
+
+![Estrutura soldada com a taxa de uso e o assistente de estruturas](.github/images/prumo/estrutura-assistente.png)
+
+### Detalhe da ligação por elementos finitos
+
+Um clique num nó recorta a ligação, aplica nos cortes os esforços da análise por barras e calcula as
+tensões no sólido (CalculiX). As soldas de filete (perna necessária, mínima e máxima) e os chumbadores
+da placa de base são verificados pela NBR 8800:2024. O Assistente de simulação acompanha malha,
+convergência e relatório.
+
+![Detalhe de ligação calculado por elementos finitos](.github/images/prumo/detalhe-ligacao-fem.png)
+
+### Vasos de pressão do formulário ao desenho
+
+Aba própria com formulário e prévia ao vivo: casco, tampos (elíptico 2:1, torisférico, hemisférico),
+material, corrosão, bocais e suportes (selas, saia ou pernas). Espessuras e PMTA pelo ASME VIII
+Div. 1, pressão de teste hidrostático ou pneumático, teste simulado por elementos finitos de casca e
+folha A3 com vistas cotadas e tabela de dados de projeto.
+
+| Formulário com prévia | Desenho gerado |
+|---|---|
+| ![Formulário do vaso de pressão](.github/images/prumo/vaso-de-pressao.png) | ![Desenho do vaso em folha A3](.github/images/prumo/vaso-desenho.png) |
+
+### Desenho técnico no padrão ABNT e chapa metálica
+
+Folhas A0 a A4 com legenda brasileira (responsável técnico, CREA/CFT, ART, 1º diedro), lista de
+materiais ligada ao modelo, e chapa metálica com fator K por material e planificação em DXF num
+clique.
+
+| Folha ABNT | Chapa dobrada |
+|---|---|
+| ![Folha ABNT com vistas e lista de materiais](.github/images/prumo/folha-abnt.png) | ![Chapa metálica dobrada](.github/images/prumo/chapa-metalica.png) |
+
+### Em resumo
+
+| | Prumo 3D |
+|---|---|
+| Idioma | Tudo em português, inclusive propriedades e listas |
+| Interface | Faixa de ferramentas por abas, painéis visuais, tela inicial, tutoriais e guia para quem vem do SolidWorks ou ZW3D |
+| Estruturas | Perfis brasileiros, cantos, reforços, soldas, lista de corte, cálculo pela NBR 8800:2024 e NBR 8681:2025 |
+| Simulação | Assistentes passo a passo para elementos finitos e para estruturas, com pendências e relatório em PDF |
+| Vasos | Formulário ASME VIII-1, teste de pressão, desenho cotado |
+| Desenho | Folhas ABNT com legenda brasileira e lista de materiais |
+| Materiais | Aços e ligas usados no Brasil, com norma e fonte em cada um |
+| Base | FreeCAD 1.1: OpenCASCADE, Coin3D, Qt e Python, com tudo o que o FreeCAD oferece |
+
+> [!IMPORTANT]
+> Versão beta, para testar. Os cálculos ajudam no projeto, mas não substituem a análise e a
+> responsabilidade técnica de um profissional habilitado (com ART). Itens fora do escopo de cada
+> verificação aparecem como aviso no próprio programa e na memória de cálculo.
+
+Todos os recursos
+-----------------
 
 * **Tudo em português** Menus, painéis, nomes de propriedades e opções de listas traduzidos, inclusive termos
   que a tradução oficial do FreeCAD ainda não cobre.
@@ -34,6 +100,17 @@ Visão geral
 
 * **Assistente de simulação** Análise por elementos finitos em etapas guiadas: peça, material, fixações,
   cargas, malha, verificação de pendências, resultados e relatório em PDF.
+
+* **Assistente de estruturas** Cálculo por barras em etapas guiadas: estrutura, material, apoios (inclusive
+  molas), rótulas, treliças e contraventamentos só de tração, casos de carga, critérios, conferência de
+  pendências, resultados, detalhe das ligações e memória de cálculo. Também calcula as frequências
+  naturais e grava vídeo do comportamento da estrutura.
+
+* **Seção personalizada** Um esboço fechado vira perfil da estrutura, com centro de cisalhamento, J e Cw
+  calculados por elementos finitos na própria seção e verificação completa pela NBR 8800:2024.
+
+* **Vasos de pressão** Formulário com prévia, espessuras e PMTA (ASME VIII-1), teste de pressão simulado
+  por elementos finitos de casca e desenho cotado em folha A3.
 
 * **Biblioteca de materiais** Aços estruturais, inoxidáveis, para vasos de pressão, para construção mecânica,
   tubos, forjados e alumínio, com as especificações usadas no Brasil.
@@ -127,8 +204,10 @@ Compilação
 ----------
 
 **Automática:** cada tag `v*` enviada ao GitHub dispara o fluxo
-[Publicar versão](.github/workflows/publicar.yml), que compila no Windows e no Linux e publica os arquivos.
-Ele também pode ser rodado à mão pela aba *Actions*, para testes.
+[Publicar versão](.github/workflows/publicar.yml), que compila no Windows e no Linux (AppImage) nas
+máquinas do GitHub e publica os arquivos na página de versões. Tags com hífen (por exemplo
+`v0.1-beta`) saem como pré-lançamento. O fluxo também pode ser rodado à mão pela aba *Actions*, para
+testes.
 
 **No Windows, localmente:** o roteiro [`prumo-build/compilar.ps1`](prumo-build/compilar.ps1) confere os
 pré-requisitos e compila. É preciso:

@@ -624,9 +624,9 @@ def verificar(p, fy, fu, L, esf, K=1.0, Kz=1.0, balanco=False):
 
 
 # ------------------------------------------------------------------ ligações (6.2 e 6.3)
-# Perna mínima do filete pela menor espessura das partes soldadas (mm) — Tabela 11 da edição de 2024;
-# faixas iguais às da Tabela 10 de 2008 (a checar na edição vigente)
-PERNA_MINIMA = ((6.35, 3.0), (12.5, 5.0), (19.0, 6.0), (1e9, 8.0))
+# Perna mínima do filete pela menor espessura das partes soldadas (mm) — 6.2.6.2.1 e Tabela 11 da
+# NBR 8800:2024 (conferida no texto da norma em 21/10/2026); filetes executados com um só passe
+PERNA_MINIMA = ((6.3, 3.0), (12.5, 5.0), (19.0, 6.0), (1e9, 8.0))
 
 
 def perna_minima(t_menor):
@@ -634,6 +634,18 @@ def perna_minima(t_menor):
         if t_menor <= lim:
             return dw
     return 8.0
+
+
+def perna_maxima(t_borda):
+    """Tamanho máximo do filete ao longo da borda de uma peça de espessura t (6.2.6.2.2): a própria
+    espessura abaixo de 6,3 mm; a espessura menos 1,5 mm a partir de 6,3 mm (salvo solda indicada nos
+    desenhos como reforçada para obter a garganta total)."""
+    return t_borda if t_borda < 6.3 else t_borda - 1.5
+
+
+def comprimento_minimo_filete(dw):
+    """Comprimento efetivo mínimo do filete (6.2.6.2.3): 4 vezes a perna e não menos que 40 mm."""
+    return max(4.0 * dw, 40.0)
 
 
 def solda_filete(dw, comprimento, fy, fu, t_base, eletrodo="E70XX"):
@@ -650,20 +662,24 @@ def solda_filete(dw, comprimento, fy, fu, t_base, eletrodo="E70XX"):
     txt = "filete %.0f mm × %.0f mm (%s): solda %.1f kN, metal-base %.1f kN" % (
         dw, comprimento, eletrodo, Rw / 1000.0, Rb / 1000.0)
     if dw < perna_minima(t_base):
-        txt += "; ATENÇÃO: perna abaixo da mínima de %.0f mm" % perna_minima(t_base)
+        txt += "; ATENÇÃO: perna abaixo da mínima de %.0f mm (Tabela 11)" % perna_minima(t_base)
+    if dw > perna_maxima(t_base) + 1e-9:
+        txt += "; ATENÇÃO: perna acima da máxima de %.1f mm ao longo da borda (6.2.6.2.2)" % perna_maxima(t_base)
+    if comprimento < comprimento_minimo_filete(dw) - 1e-9:
+        txt += "; ATENÇÃO: cordão mais curto que %.0f mm (6.2.6.2.3)" % comprimento_minimo_filete(dw)
     return min(Rw, Rb), txt
 
 
 def parafuso(d, fub, rosca_no_plano=True, planos=1):
-    """(Fv,Rd, Ft,Rd) em N de um parafuso de diâmetro d (mm) — 6.3.3.
+    """(Fv,Rd, Ft,Rd) em N de um parafuso de diâmetro d (mm) — 6.3.3.1 e 6.3.3.2.
 
-    Cisalhamento: 0,45 (rosca no plano de corte) ou 0,56 (rosca fora) × Ab·fub/γa2 por plano.
-    Tração: 0,75·Ab·fub/γa2 com Ab a área bruta do fuste."""
+    Cisalhamento: 0,45 (rosca no plano de corte, ou parafuso comum) ou 0,56 (alta resistência com a rosca
+    fora do plano) × Ab·fub/γa2 por plano. Tração: Abe·fub/γa2 com Abe = 0,75·Ab (6.3.2.2)."""
     Ab = math.pi * d * d / 4.0
     cv = 0.45 if rosca_no_plano else 0.56
     return cv * Ab * fub / GAMA_A2 * planos, 0.75 * Ab * fub / GAMA_A2
 
 
 def parafuso_interacao(Fv, Ft, FvRd, FtRd):
-    """Tração e cisalhamento combinados: (Ft/FtRd)² + (Fv/FvRd)² ≤ 1 (forma da edição de 2008, a checar)."""
+    """Tração e cisalhamento combinados (6.3.3.4): (Ft,Sd/Ft,Rd)² + (Fv,Sd/Fv,Rd)² ≤ 1,0."""
     return (Ft / FtRd) ** 2 + (Fv / FvRd) ** 2 if FtRd and FvRd else 0.0
