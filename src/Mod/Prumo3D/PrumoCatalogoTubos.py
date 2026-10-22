@@ -22,8 +22,9 @@ TIGRE_SOLDAVEL = {
     "fabricante": "Tigre",
     "fonte": "Tigre, Catálogo Técnico Predial Água Fria (fev/2008), Linha Soldável, p. 08–15. O Catálogo "
              "Predial 2025 (TG1.386-25) e o Manual Técnico 2025 trazem só códigos e bitolas, sem as cotas",
-    "norma": "ABNT NBR 5648 – Tubos e conexões de PVC-U com junta soldável para sistemas prediais de água "
-             "fria – Requisitos (citada no Manual Técnico Tigre 2025, p. 81; edição vigente a checar)",
+    "norma": "ABNT NBR 5648:2018 – Tubos e conexões de PVC-U com junta soldável para sistemas prediais de "
+             "água fria – Requisitos (publicada em 19/12/2018, em vigor, confirmada em 13/12/2023 e em revisão "
+             "pela ABNT; conferido no catálogo ABNT em 22/10/2026)",
     "pressao": "Tubos 7,5 kgf/cm² (75 m.c.a.) a 20 °C; conexões 20–50 mm 75 m.c.a., 60–110 mm 100 m.c.a.",
     "temperatura_max": "20 °C",
     "cor": (0.55, 0.36, 0.20),
