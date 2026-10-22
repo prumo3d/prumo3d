@@ -4,7 +4,11 @@
 
 ### Modelagem 3D paramétrica em português
 
+[![Versão](https://img.shields.io/github/v/release/prumo3d/prumo3d?include_prereleases&label=vers%C3%A3o&color=003A70)](https://github.com/prumo3d/prumo3d/releases)
+[![Downloads](https://img.shields.io/github/downloads/prumo3d/prumo3d/total?label=downloads&color=F7BE00)](https://github.com/prumo3d/prumo3d/releases)
+
 [Baixar](https://github.com/prumo3d/prumo3d/releases/latest) •
+[Novidades](NOVIDADES.md) •
 [Problemas e sugestões](https://github.com/prumo3d/prumo3d/issues) •
 [Como contribuir](CONTRIBUTING.md) •
 [Documentação do FreeCAD](https://wiki.freecad.org)
@@ -19,6 +23,22 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 > O Prumo 3D não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.
 
 ![Tela inicial do Prumo 3D](.github/images/prumo/tela-inicial.png)
+
+Novidades
+---------
+
+**Versão atual: 0.1.1 beta** (22/10/2026)
+
+- **Faixa contextual na aba Esboço:** só aparecem as ferramentas que servem no momento (fora ou dentro
+  da edição do esboço).
+- **Conferência do esboço ao sair:** contorno aberto, pontas quase encostadas e elementos de tamanho
+  zero aparecem num aviso com o botão Corrigir, antes de a extrusão falhar.
+- Console Python fechado ao abrir, para quem está começando.
+
+**Na próxima versão:** **Esboço 3D**, com linhas no espaço clicando na vista (Tab troca o plano XY, YZ,
+ZX), ramais e curvas de tubo nos cantos, para esqueleto de estrutura e caminho de varredura.
+
+[Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
 O que o Prumo 3D tem de diferente
 ---------------------------------
