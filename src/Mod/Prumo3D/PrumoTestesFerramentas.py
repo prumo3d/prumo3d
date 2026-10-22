@@ -6083,6 +6083,148 @@ class T49ReguaHistorico(unittest.TestCase):
             dock.hide()
 
 
+class T50ConferirEsboco(unittest.TestCase):
+    """Conferência do esboço ao sair: pontas quase encostadas, perfil aberto, degeneradas, correção."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteConfEsboco")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        import PrumoValidarEsboco as VE
+        a = VE._estado.get("aviso")
+        if a is not None:
+            try:
+                a.fechar()
+            except RuntimeError:
+                pass
+        if FreeCAD.GuiUp and FreeCADGui.ActiveDocument is not None:
+            try:
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def _retangulo(self, folga=0.03, degenerada=False, pad=True):
+        import Part
+        V = FreeCAD.Vector
+        corpo = self.doc.addObject("PartDesign::Body", "Body")
+        sk = corpo.newObject("Sketcher::SketchObject", "Perfil")
+        sk.AttachmentSupport = (corpo.Origin.OriginFeatures[3], [""])
+        sk.MapMode = "FlatFace"
+        sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(40, 0, 0)))
+        sk.addGeometry(Part.LineSegment(V(40, 0, 0), V(40, 30, 0)))
+        sk.addGeometry(Part.LineSegment(V(40, 30 + folga, 0), V(0, 30, 0)))
+        sk.addGeometry(Part.LineSegment(V(0, 30, 0), V(0, 0, 0)))
+        if degenerada:
+            sk.addGeometry(Part.LineSegment(V(10, 10, 0), V(10, 10.0000001, 0)))
+        p = None
+        if pad:
+            p = corpo.newObject("PartDesign::Pad", "Extrusao")
+            p.Profile = sk
+            p.Length = 5
+        self.doc.recompute()
+        return sk, p
+
+    def test_pontas_quase_encostadas_e_correcao(self):
+        import PrumoValidarEsboco as VE
+        sk, pad = self._retangulo(folga=0.03, degenerada=True)
+        r = VE.conferir(sk)
+        self.assertTrue(r["precisa_fechado"])
+        self.assertEqual(len(r["quase"]), 1)
+        self.assertAlmostEqual(r["quase"][0][0], 0.03, places=6)
+        self.assertEqual(r["degeneradas"], 1)
+        self.assertTrue(r["corrigivel"])
+        self.assertTrue(any("quase encostadas" in x for x in r["problemas"]), r["problemas"])
+        r2 = VE.corrigir(sk)
+        self.assertEqual(r2["problemas"], [], r2)
+        self.assertEqual(len(sk.Shape.Wires), 1)
+        self.assertTrue(sk.Shape.Wires[0].isClosed())
+        self.assertTrue(pad.Shape.isValid() and pad.Shape.Volume > 5000)
+        # Desfazer volta o esboço como estava
+        self.doc.undo()
+        self.doc.recompute()
+        self.assertEqual(len(VE.conferir(sk)["quase"]), 1)
+
+    def test_esboco_aberto_de_proposito_nao_avisa(self):
+        import Part
+        import PrumoValidarEsboco as VE
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esqueleto")
+        sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(0, 3000, 0)))
+        sk.addGeometry(Part.LineSegment(V(0, 3000, 0), V(5000, 3000, 0)))
+        self.doc.recompute()
+        self.assertEqual(VE.conferir(sk)["problemas"], [])
+        # o mesmo esboço como perfil de extrusão (Part): ponta solta passa a importar
+        ex = self.doc.addObject("Part::Extrusion", "Ext")
+        ex.Base = sk
+        self.doc.recompute()
+        r = VE.conferir(sk)
+        self.assertTrue(r["precisa_fechado"])
+        self.assertTrue(any("ponta(s) solta(s)" in x for x in r["problemas"]), r["problemas"])
+
+    def test_retangulo_fechado_sem_aviso(self):
+        import PrumoValidarEsboco as VE
+        import Sketcher
+        sk, pad = self._retangulo(folga=0.0)
+        for k in range(4):
+            sk.addConstraint(Sketcher.Constraint("Coincident", k, 2, (k + 1) % 4, 1))
+        self.doc.recompute()
+        self.assertEqual(VE.conferir(sk)["problemas"], [])
+
+    def test_aviso_ao_sair_da_edicao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoValidarEsboco as VE
+        sk, pad = self._retangulo(folga=0.05)
+        gd = FreeCADGui.getDocument(self.doc.Name)
+        gd.setEdit(sk.Name)
+        self._esperar(300)
+        gd.resetEdit()
+        self._esperar(900)
+        a = VE._estado.get("aviso")
+        self.assertIsNotNone(a, "devia avisar ao sair do esboço com pontas quase encostadas")
+        self.assertTrue(a.bt_corrigir.isVisible())
+        a.corrigir()
+        self.assertIn("Pronto", a.texto.text())
+        self.assertTrue(sk.Shape.Wires[0].isClosed())
+
+    def test_console_python_comeca_fechado(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtWidgets
+        import PrumoGui
+        g = FreeCAD.ParamGet(PrumoGui.PARAM_PATH)
+        tinha = "ModoDistribuicao" in g.GetBools()
+        antes = g.GetBool("ModoDistribuicao", False)
+        mw = FreeCADGui.getMainWindow()
+        console = mw.findChild(QtWidgets.QDockWidget, "Python console")
+        if console is None:
+            self.skipTest("sem o painel do console")
+        vis = console.isVisible()
+        try:
+            g.RemBool("ModoDistribuicao")
+            console.setVisible(True)
+            PrumoGui.apply_modo_distribuicao()
+            self.assertFalse(console.isVisible(), "o console Python deve começar fechado")
+            g.SetBool("ModoDistribuicao", False)        # desligado de propósito: quem programa vê o console
+            PrumoGui.apply_modo_distribuicao()
+            self.assertTrue(console.isVisible())
+        finally:
+            if tinha:
+                g.SetBool("ModoDistribuicao", antes)
+            else:
+                g.RemBool("ModoDistribuicao")
+            console.setVisible(vis)
+
+    def _esperar(self, ms):
+        from PySide import QtCore, QtWidgets
+        t = QtCore.QElapsedTimer()
+        t.start()
+        while t.elapsed() < ms:
+            QtWidgets.QApplication.processEvents()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6093,4 +6235,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico]
+           T49ReguaHistorico, T50ConferirEsboco]

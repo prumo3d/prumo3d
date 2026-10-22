@@ -144,6 +144,9 @@ Todos os recursos
 * **Régua de histórico** Painel com as operações do corpo e uma régua para arrastar: o modelo recua até a
   operação escolhida e as novas operações entram naquele ponto, como no ZW3D e no SolidWorks.
 
+* **Conferência do esboço** Ao concluir um esboço, o Prumo avisa de pontas quase encostadas, pontas soltas
+  num perfil e elementos de tamanho zero, e corrige com um clique (o problema do "esboço aberto").
+
 * **Cotas na tela** Duplo clique numa face mostra as cotas da operação que a criou (comprimento da extrusão,
   raio do arredondamento, diâmetro do furo, cotas do esboço) para mudar o valor ali mesmo.
 

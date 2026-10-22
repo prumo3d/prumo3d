@@ -101,7 +101,7 @@ class T01Modulos(unittest.TestCase):
                      "PrumoSecao", "PrumoPortico", "PrumoNBR8800", "PrumoAnaliseEstrutura", "PrumoAnaliseVista",
                      "PrumoAnaliseRelatorio", "PrumoDetalheFEM", "PrumoVideo",
                      "PrumoSecaoPersonalizada", "PrumoSecaoGeral", "PrumoAssistenteEstrutura",
-                     "PrumoRegua"):
+                     "PrumoRegua", "PrumoValidarEsboco"):
             __import__(nome)
 
     def test_comandos_prumo_registrados(self):

@@ -747,20 +747,24 @@ DEV_DOCKS = ("Python console", "Report view")
 
 
 def apply_modo_distribuicao(on=None):
-    """Esconde (ou mostra) console Python e Relatório, que o usuário final não usa."""
-    if on is None:
-        if "ModoDistribuicao" in _params().GetBools():
-            on = _params().GetBool("ModoDistribuicao", False)
-        else:
-            # sem escolha do usuário: em tela de notebook o console e o relatório começam escondidos
-            import PrumoRibbon
-            on = PrumoRibbon.tela_pequena()
+    """Esconde (ou mostra) console Python e Relatório, que o usuário final não usa.
+
+    Sem escolha do usuário (menu Prumo → Modo distribuição): o console Python começa sempre fechado
+    (confunde quem está começando); o Relatório começa fechado só em tela de notebook. Com o modo
+    distribuição desligado de propósito, os dois aparecem (uso de quem programa)."""
     mw = FreeCADGui.getMainWindow()
     if mw is None:
         return
+    if on is None and "ModoDistribuicao" not in _params().GetBools():
+        import PrumoRibbon
+        esconder = {"Python console": True, "Report view": PrumoRibbon.tela_pequena()}
+    else:
+        if on is None:
+            on = _params().GetBool("ModoDistribuicao", False)
+        esconder = {n: bool(on) for n in DEV_DOCKS}
     for dock in mw.findChildren(QtWidgets.QDockWidget):
-        if dock.objectName() in DEV_DOCKS:
-            dock.setVisible(not on)
+        if dock.objectName() in esconder:
+            dock.setVisible(not esconder[dock.objectName()])
 
 
 class CmdModoDistribuicao:
@@ -1004,6 +1008,11 @@ class _ObservadorEdicao:
             return
         if obj is None or obj.TypeId != "Sketcher::SketchObject":
             return
+        try:   # conferência do esboço (perfil aberto, pontas quase encostadas...)
+            import PrumoValidarEsboco
+            PrumoValidarEsboco.ao_sair_do_esboco(obj)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: conferir esboço: {}\n".format(exc))
         if not FreeCAD.ParamGet(PARAM_PATH).GetBool("EnquadrarAoSairDoEsboco", True):
             return
         # depois que o Esboço restaura a câmera

@@ -27,6 +27,9 @@ dia a dia da engenharia mecânica no Brasil. É baseado no FreeCAD 1.1 e usa os 
 - **Régua de histórico** do corpo, como no ZW3D e no SolidWorks: arraste a régua amarela no painel
   Histórico do corpo para recuar o modelo até uma operação; as seguintes ficam em cinza e as novas
   entram naquele ponto. Desfazer volta a régua.
+- **Conferência do esboço ao sair**: pontas quase encostadas (contorno que parece fechado mas está
+  aberto), pontas soltas num perfil de extrusão, elementos de tamanho zero e coincidências que faltam
+  aparecem num aviso com o botão Corrigir, antes de a extrusão falhar.
 - **Cotas na tela:** duplo clique na peça mostra as cotas da operação para editar ali mesmo.
 - **Menu do botão direito** pela seleção (extrusão, cavidade, arredondamento, medir, massa).
 - **Propriedades de massa** (massa, centro de gravidade, inércia) e **lista de materiais** com tabela
