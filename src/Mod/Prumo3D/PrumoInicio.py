@@ -40,6 +40,24 @@ NOVOS = [
     ("document-open", "Abrir arquivo", "Abra um projeto .FCStd, STEP, IGES, STL…", "abrir"),
 ]
 
+# Ajuda: os três caminhos para aprender (abaixo de Novo projeto)
+AJUDA = [
+    ("ajuda_peca.svg", "Tutorial da primeira peça", "Primeira vez no Prumo 3D? Esboço, extrusão, furo e folha em "
+                                                     "10 passos.", lambda: _abrir_tutorial("peca")),
+    ("ajuda_estrutura.svg", "Tutorial da estrutura soldada", "Perfis, cantos, reforços e placas de base em 9 "
+                                                             "passos.", lambda: _abrir_tutorial("estrutura")),
+    ("ajuda_migracao.svg", "Vem do SolidWorks ou do ZW3D?", "Veja onde fica cada comando que você já usa.",
+     lambda: _abrir_guia_migracao()),
+]
+
+
+def _icone_arquivo(nome, size):
+    p = os.path.join(HERE, "Resources", "icons", nome)
+    dpr = max(QtWidgets.QApplication.instance().devicePixelRatio(), 1)
+    pm = QtGui.QIcon(p).pixmap(int(size * dpr), int(size * dpr))
+    pm.setDevicePixelRatio(dpr)
+    return pm
+
 
 def _params():
     return FreeCAD.ParamGet(PARAM_PATH)
@@ -303,29 +321,20 @@ class InicioPrumo(QtWidgets.QWidget):
         for c in range(3):
             grid.setColumnStretch(c, 1)
         self.v.addLayout(grid)
-        tut = QtWidgets.QPushButton("Primeira vez no Prumo 3D?  Faça o tutorial da primeira peça (10 passos)  ›")
-        tut.setObjectName("SwTutLink")
-        tut.setCursor(QtCore.Qt.PointingHandCursor)
-        tut.setFlat(True)
-        tut.setStyleSheet(PrumoEstilo.tema(
-            "QPushButton#SwTutLink { text-align: left; color: #003A70; font-weight: 600; border: none; "
-            "background: transparent; padding: 6px 2px; } QPushButton#SwTutLink:hover { color: #C99A00; }"))
-        tut.clicked.connect(lambda *_: _abrir_tutorial("peca"))
-        self.v.addWidget(tut)
-        tut2 = QtWidgets.QPushButton("Vai fazer estrutura metálica?  Tutorial da estrutura soldada (9 passos)  ›")
-        tut2.setObjectName("SwTutLink")
-        tut2.setCursor(QtCore.Qt.PointingHandCursor)
-        tut2.setFlat(True)
-        tut2.setStyleSheet(tut.styleSheet())
-        tut2.clicked.connect(lambda *_: _abrir_tutorial("estrutura"))
-        self.v.addWidget(tut2)
-        tut3 = QtWidgets.QPushButton("Vem do SolidWorks ou do ZW3D?  Veja onde fica cada comando  ›")
-        tut3.setObjectName("SwTutLink")
-        tut3.setCursor(QtCore.Qt.PointingHandCursor)
-        tut3.setFlat(True)
-        tut3.setStyleSheet(tut.styleSheet())
-        tut3.clicked.connect(lambda *_: _abrir_guia_migracao())
-        self.v.addWidget(tut3)
+
+        # ajuda: tutoriais e guia de migração, em cartões como os demais
+        self._section("Ajuda")
+        ga = QtWidgets.QGridLayout()
+        ga.setHorizontalSpacing(14)
+        ga.setVerticalSpacing(14)
+        self.cartoes_ajuda = []
+        for i, (arq, titulo, texto, acao) in enumerate(AJUDA):
+            card = Card(_icone_arquivo(arq, 34), titulo, texto, acao)
+            self.cartoes_ajuda.append(card)
+            ga.addWidget(card, i // 3, i % 3)
+        for c in range(3):
+            ga.setColumnStretch(c, 1)
+        self.v.addLayout(ga)
 
         # exemplos prontos
         exs = [e for e in EXEMPLOS if os.path.isfile(os.path.join(EXEMPLOS_DIR, e[0]))]
@@ -503,6 +512,16 @@ def _on_subwindow(sub):
     ja_estava = _side.get("no_inicio", False)
     _side["no_inicio"] = inicio
     if inicio and ja_estava:
+        # nos primeiros segundos o FreeCAD ainda restaura o arranjo gravado e pode reabrir painéis:
+        # continua escondendo; depois disso, um painel reaberto pelo usuário fica
+        import time
+        if time.time() < _side.get("esconder_ate", 0):
+            reabertos = [d.objectName() for d in docks if d.isVisible()]
+            for d in docks:
+                if d.isVisible():
+                    d.hide()
+            if reabertos:
+                _set_hidden_names(hidden + reabertos)
         return
     if inicio:
         newly = [d.objectName() for d in docks if d.isVisible()]
@@ -586,6 +605,8 @@ def esconder_laterais_na_abertura():
     depois de instalar, quando o FreeCAD ainda não tem o layout gravado)."""
     if not _params().GetBool("OcultarLateralNoInicio", True) or FreeCAD.listDocuments():
         return
+    import time
+    _side["esconder_ate"] = time.time() + 10
     mw = FreeCADGui.getMainWindow()
     if mw is None:
         return

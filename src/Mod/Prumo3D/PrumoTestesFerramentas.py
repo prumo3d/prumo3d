@@ -7219,6 +7219,29 @@ class T57PainelDoEsboco(unittest.TestCase):
         f.deleteLater()
 
 
+class T58TelaInicialAjuda(unittest.TestCase):
+    """Tela inicial: área Ajuda logo abaixo de Novo projeto, com três cartões com ícone."""
+
+    def test_area_ajuda(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtWidgets
+        import PrumoInicio
+        w = PrumoInicio.InicioPrumo()
+        try:
+            self.assertEqual(len(w.cartoes_ajuda), 3)
+            for c in w.cartoes_ajuda:
+                ib = c.findChild(QtWidgets.QLabel, "SwIconBox")
+                self.assertIsNotNone(ib.pixmap())
+                self.assertFalse(ib.pixmap().isNull(), "cartão de ajuda sem ícone")
+            secoes = [l.text() for l in w.findChildren(QtWidgets.QLabel, "SwSecao")]
+            self.assertEqual(secoes[:2], ["Novo projeto", "Ajuda"])
+            for nome, *_r in PrumoInicio.AJUDA:
+                self.assertTrue(os.path.isfile(os.path.join(PrumoInicio.HERE, "Resources", "icons", nome)), nome)
+        finally:
+            w.deleteLater()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7231,4 +7254,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T47MolasTracaoModos, T48AssistenteEstrutura,
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
            T55PainelLateral, T56PropriedadesEAparencia,
-           T57PainelDoEsboco]
+           T57PainelDoEsboco, T58TelaInicialAjuda]

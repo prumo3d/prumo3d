@@ -366,7 +366,7 @@ def organizar(no_inicio=False):
         return False       # o FreeCAD subiu com o painel "Modelo" (preferência mudou nesta sessão)
     if _params().GetBool("PropriedadesEmCartoes", True):
         try:
-            _instalar_abas_novas(mw, ds)
+            _instalar_abas_novas(mw, ds, no_inicio)
             ds = docks(mw)
         except Exception as exc:
             if not _estado.get("aviso_cartoes"):
@@ -415,7 +415,7 @@ def aparencia():
     return w if isinstance(w, PrumoInspetor.Aparencia) else None
 
 
-def _instalar_abas_novas(mw, ds):
+def _instalar_abas_novas(mw, ds, no_inicio=False):
     import PrumoInspetor
     prop = ds.get(PROPRIEDADES)
     if prop is not None and not isinstance(prop.widget(), PrumoInspetor.Propriedades):
@@ -423,7 +423,8 @@ def _instalar_abas_novas(mw, ds):
         novo = PrumoInspetor.Propriedades(avancado=original)
         prop.setWidget(novo)
         prop.visibilityChanged.connect(lambda vis: vis and atualizar(forcar=True))
-    if APARENCIA not in ds:
+    if APARENCIA not in ds and not no_inicio:
+        # com a tela inicial na frente os painéis estão escondidos: cria depois, para não reabri-los
         d = QtWidgets.QDockWidget(TITULOS[APARENCIA], mw)
         d.setObjectName(APARENCIA)
         d.setWindowIcon(icone(APARENCIA))
