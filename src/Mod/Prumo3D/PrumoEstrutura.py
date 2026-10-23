@@ -1452,6 +1452,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
             padrao_perfil = PERFIL_PADRAO
         self.setStyleSheet(P.qss())
         lay = QtWidgets.QVBoxLayout(self)
+        lay.setSpacing(10)
         if self.ao_vivo:
             self.mensagem = P.Mensagem("Clique nas linhas do desenho: cada linha clicada ganha a barra do grupo "
                                        "escolhido na hora (clique de novo para tirar). Para outro perfil, crie um "
@@ -1463,9 +1464,9 @@ class DialogoEstrutura(QtWidgets.QDialog):
                                        "nele. 3. Confira os cantos e o material.")
         lay.addWidget(self.mensagem)
         topo = QtWidgets.QHBoxLayout()
+        topo.setSpacing(10)
         # grupos
-        col = QtWidgets.QVBoxLayout()
-        col.addWidget(P.titulo_secao("Grupos de barras", "tipo"))
+        card_grupos, col = P.bloco("Grupos de barras", "tipo")
         self.lista = QtWidgets.QListWidget()
         self.lista.setMinimumWidth(250)
         self.lista.setMaximumWidth(300)
@@ -1476,11 +1477,10 @@ class DialogoEstrutura(QtWidgets.QDialog):
         bl.addWidget(self.bt_novo)
         bl.addWidget(self.bt_remover)
         col.addLayout(bl)
-        topo.addLayout(col)
+        card_grupos.setMaximumWidth(330)
+        topo.addWidget(card_grupos)
         # editor do grupo
-        ed = QtWidgets.QWidget()
-        fl = QtWidgets.QFormLayout(ed)
-        fl.addRow(P.titulo_secao("Perfil do grupo", "largura"))
+        ed, fl = P.bloco("Perfil do grupo", "largura", QtWidgets.QFormLayout)
         self.nome = QtWidgets.QLineEdit()
         self.sel = SeletorPerfil(self.grupos_ed[0]["perfil"] if self.grupos_ed else padrao_perfil)
         self.giro = QtWidgets.QDoubleSpinBox()
@@ -1504,12 +1504,14 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.editor = ed
         lay.addLayout(topo, 1)
         # linhas do esqueleto
-        lay.addWidget(P.titulo_secao("Linhas do esqueleto", "selecao"))
+        card_linhas, cl = P.bloco("Linhas do esqueleto", "selecao")
+        lay.addWidget(card_linhas, 2)
         dica = QtWidgets.QLabel("O número de cada linha aparece sobre o desenho. Clique numa linha da tabela "
                                 "para destacá-la na tela" + (", ou clique no desenho para pôr a linha no grupo "
                                 "escolhido." if self.ao_vivo else ", e escolha o grupo de cada linha."))
         dica.setWordWrap(True)
-        lay.addWidget(dica)
+        dica.setObjectName("PrumoDica")
+        cl.addWidget(dica)
         self.tabela = QtWidgets.QTableWidget(len(self.eds), 5)
         self.tabela.setHorizontalHeaderLabels(["Linha", "Medida", "Onde (mm)", "Grupo", "Giro da barra"])
         self.tabela.horizontalHeaderItem(4).setToolTip("Giro só desta barra, somado ao giro do grupo")
@@ -1545,7 +1547,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
             self.giros.append(sp)
         self.tabela.resizeColumnsToContents()
         self.tabela.setMinimumHeight(min(200, 34 + 30 * max(1, len(self.eds))))
-        lay.addWidget(self.tabela, 2)
+        cl.addWidget(self.tabela, 1)
         bt = QtWidgets.QHBoxLayout()
         self.bt_pegar = QtWidgets.QPushButton("Pegar seleção da tela")
         self.bt_mostrar = QtWidgets.QPushButton("Mostrar linhas do grupo")
@@ -1568,10 +1570,9 @@ class DialogoEstrutura(QtWidgets.QDialog):
         bt.addWidget(self.bt_pegar)
         bt.addWidget(self.bt_mostrar)
         bt.addStretch(1)
-        lay.addLayout(bt)
+        cl.addLayout(bt)
         # opções gerais
-        lay.addWidget(P.titulo_secao("Opções", "chanfro"))
-        fg = QtWidgets.QFormLayout()
+        card_op, fg = P.bloco("Opções", "chanfro", QtWidgets.QFormLayout)
         self.uniao = QtWidgets.QComboBox()
         self.uniao.addItems(UNIOES)
         self.uniao.setToolTip("Cantos de duas barras. Cada canto pode ser trocado depois em \"Cantos\".")
@@ -1585,7 +1586,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
                   self.uniao)
         fg.addRow(P.rotulo("material", "Material", "Vai para a lista de corte e a lista de materiais"),
                   self.material)
-        lay.addLayout(fg)
+        lay.addWidget(card_op)
         self.aviso = QtWidgets.QLabel("")
         self.aviso.setStyleSheet("color:#B5523F")
         lay.addWidget(self.aviso)
@@ -2331,15 +2332,16 @@ class DialogoCantos(QtWidgets.QDialog):
         import PrumoPainel as P
         self.setStyleSheet(P.qss())
         lay = QtWidgets.QVBoxLayout(self)
-        lay.addWidget(P.titulo_secao("Tratamento dos cantos", "chanfro"))
+        card_cantos, cl = P.bloco("Tratamento dos cantos", "chanfro")
+        lay.addWidget(card_cantos, 1)
         todos = cantos(est)
         if barras:
             idx = {b.Indice for b in barras}
             self.linhas = [[c] for c in todos if c.i in idx or c.j in idx]
-            lay.addWidget(QtWidgets.QLabel("Cantos das barras selecionadas, um a um."))
+            cl.addWidget(QtWidgets.QLabel("Cantos das barras selecionadas, um a um."))
         else:
             self.linhas = list(agrupar_cantos(todos).values())
-            lay.addWidget(QtWidgets.QLabel("Cantos parecidos estão juntos: a escolha vale para todos do grupo."))
+            cl.addWidget(QtWidgets.QLabel("Cantos parecidos estão juntos: a escolha vale para todos do grupo."))
         self.tabela = QtWidgets.QTableWidget(len(self.linhas), 3)
         self.tabela.setHorizontalHeaderLabels(["Cantos", "Hoje", "Tratamento"])
         self.tabela.horizontalHeader().setStretchLastSection(True)
@@ -2394,7 +2396,7 @@ class DialogoCantos(QtWidgets.QDialog):
         guia.addWidget(self.nota)
         guia.addStretch(1)
         meio.addLayout(guia)
-        lay.addLayout(meio, 1)
+        cl.addLayout(meio, 1)
         self.tabela.currentCellChanged.connect(lambda *_: self.atualizar_desenho())
         self.tabela.currentCellChanged.connect(lambda *_: self.marcar_cantos())
         for cb in self.combos:

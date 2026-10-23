@@ -7272,6 +7272,39 @@ class T59PadraoVisualNosPaineis(unittest.TestCase):
         self.assertNotIn("border-left: 3px", P.qss())
         f.deleteLater()
 
+    def test_aviso_amarelo_aparece(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainel as P
+        f = P.Formulario("Teste", None, "Dica do momento")
+        f.resize(300, 120)
+        f.show()
+        FreeCADGui.updateGui()
+        img = f.mensagem.grab().toImage()
+        self.assertEqual(img.pixelColor(3, img.height() // 2).name(), "#fff8dc",
+                         "a mensagem do painel ficou sem o fundo amarelo")
+        f.close()
+        f.deleteLater()
+
+    def test_dialogos_em_cartoes(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtWidgets
+        import PrumoMassa
+        import PrumoGuiaMigracao
+        doc = novo_doc("PrumoTesteCartoes")
+        try:
+            caixa = doc.addObject("Part::Box", "Caixa")
+            doc.recompute()
+            d = PrumoMassa.DialogoMassa([caixa])
+            self.assertGreaterEqual(len(d.findChildren(QtWidgets.QFrame, "PrumoSecao")), 2)
+            d.deleteLater()
+            g = PrumoGuiaMigracao.GuiaMigracao()
+            self.assertGreaterEqual(len(g.findChildren(QtWidgets.QFrame, "PrumoSecao")), 2)
+            g.deleteLater()
+        finally:
+            fechar(doc)
+
     def test_painel_prumo_sem_quadro_repetido(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")

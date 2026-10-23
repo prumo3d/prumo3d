@@ -9,6 +9,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Ajustes
+
+- **Mais telas no padrão novo:** Estrutura soldada, Cantos da estrutura, Propriedades de massa, guia
+  "Vem do SolidWorks", Esboço 3D e Tubulação agora em cartões, como o resto do sistema.
+- **Avisos dos painéis voltaram a ter o fundo amarelo** (o estilo da letra apagava o fundo da caixa de
+  instrução).
+
 ## 0.6.0 beta — 23/10/2026
 
 ### Novo

@@ -648,14 +648,14 @@ if FreeCAD.GuiUp:
             self.form = QtWidgets.QWidget()
             self.form.setWindowTitle("Tubulação")
             self.form.setWindowIcon(QtGui.QIcon(PrumoUtil.icone("tubulacao.svg")))
-            lay = QtWidgets.QVBoxLayout(self.form)
-            dica = QtWidgets.QLabel(
+            import PrumoPainel as P
+            raiz = QtWidgets.QVBoxLayout(self.form)
+            dica = P.Mensagem(
                 "Escolha a linha e o diâmetro: tubos e conexões saem sozinhos em cada nó do traçado "
                 "(joelhos, tês, reduções, cruzetas). Na tabela, mude o diâmetro de um trecho ou ponha um "
                 "registro de esfera pela distância do início do trecho.")
-            dica.setWordWrap(True)
-            lay.addWidget(dica)
-            fl = QtWidgets.QFormLayout()
+            raiz.addWidget(dica)
+            card_l, fl = P.bloco("Linha", "tipo", QtWidgets.QFormLayout)
             self.lb_caminho = QtWidgets.QLabel(obj.Caminho.Label if obj.Caminho else "—")
             bt_sel = QtWidgets.QPushButton("Usar seleção")
             bt_sel.setToolTip("Selecione um Esboço 3D ou esboço na árvore ou na tela e clique aqui")
@@ -678,7 +678,9 @@ if FreeCAD.GuiUp:
             self.cap.setChecked(bool(obj.TamparPontas))
             self.cap.toggled.connect(self._mudou)
             fl.addRow("", self.cap)
-            lay.addLayout(fl)
+            raiz.addWidget(card_l)
+            card_t, lay = P.bloco("Trechos", "comprimento")
+            raiz.addWidget(card_t)
             self.tabela = QtWidgets.QTableWidget(0, 4)
             self.tabela.setHorizontalHeaderLabels(["Trecho", "Comprimento (mm)", "DE", "Registro a (mm)"])
             self.tabela.horizontalHeaderItem(3).setToolTip(
@@ -687,13 +689,17 @@ if FreeCAD.GuiUp:
             self.tabela.verticalHeader().setVisible(False)
             self.tabela.setMinimumHeight(140)
             lay.addWidget(self.tabela)
+            card_m, lay = P.bloco("Lista de materiais", "quantidade")
+            raiz.addWidget(card_m)
             self.res = QtWidgets.QTextBrowser()
+            self.res.setFrameShape(QtWidgets.QFrame.NoFrame)
             self.res.setMinimumHeight(200)
             lay.addWidget(self.res)
             bt_copiar = QtWidgets.QPushButton("Copiar lista de materiais")
             bt_copiar.setToolTip("Copia conexões, tubos e barras para colar numa planilha")
             bt_copiar.clicked.connect(self.copiar)
             lay.addWidget(bt_copiar)
+            P.adotar(self.form)
             self._atualizar()
 
         def _encher_dn(self):

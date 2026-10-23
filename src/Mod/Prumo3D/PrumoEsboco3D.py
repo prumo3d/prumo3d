@@ -692,14 +692,16 @@ if FreeCAD.GuiUp:
             self.form = QtWidgets.QWidget()
             self.form.setWindowTitle("Esboço 3D")
             self.form.setWindowIcon(QtGui.QIcon(PrumoUtil.icone("esboco3d.svg")))
-            lay = QtWidgets.QVBoxLayout(self.form)
-            dica = QtWidgets.QLabel(
+            import PrumoPainel as P
+            raiz = QtWidgets.QVBoxLayout(self.form)
+            dica = P.Mensagem(
                 "Clique em <b>Desenhar</b> e vá clicando na vista: o ponto cai no plano que passa pelo "
                 "último ponto (<b>Tab</b> troca XY → YZ → ZX) e encaixa em vértices e pontas de arestas. "
                 "<b>Esc</b> termina o trecho; o próximo clique começa um ramal. Para medidas exatas, "
                 "digite o próximo ponto abaixo e tecle Enter.")
-            dica.setWordWrap(True)
-            lay.addWidget(dica)
+            raiz.addWidget(dica)
+            card_pts, lay = P.bloco("Pontos", "posicao")
+            raiz.addWidget(card_pts)
             self.tabela = QtWidgets.QTableWidget(0, 3)
             self.tabela.setHorizontalHeaderLabels(["X (mm)", "Y (mm)", "Z (mm)"])
             self.tabela.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -707,8 +709,12 @@ if FreeCAD.GuiUp:
             self.tabela.setMinimumHeight(170)
             self.tabela.cellChanged.connect(self._celula)
             lay.addWidget(self.tabela)
-            caixa = QtWidgets.QGroupBox("Próximo ponto")
+            caixa = QtWidgets.QWidget()
             g = QtWidgets.QGridLayout(caixa)
+            g.setContentsMargins(0, 4, 0, 0)
+            sub = QtWidgets.QLabel("Próximo ponto")
+            sub.setObjectName("PrumoDica")
+            lay.addWidget(sub)
             self.relativo = QtWidgets.QCheckBox("Relativo ao último ponto (Δ)")
             self.relativo.setToolTip("Marcado: os valores são ΔX, ΔY, ΔZ a partir do último ponto")
             self.relativo.setChecked(True)
@@ -746,8 +752,7 @@ if FreeCAD.GuiUp:
                 bl.addWidget(b, k // 2, k % 2)
             lay.addLayout(bl)
             # ---- linhas e restrições
-            gr = QtWidgets.QGroupBox("Linhas e restrições")
-            gl = QtWidgets.QVBoxLayout(gr)
+            gr, gl = P.bloco("Linhas e restrições", "angulo")
             self.auto = QtWidgets.QCheckBox("Restrições automáticas")
             self.auto.setChecked(True)
             self.auto.setToolTip("Linha desenhada ao longo de X, Y ou Z ganha a restrição do eixo; clicar num ponto "
@@ -795,8 +800,8 @@ if FreeCAD.GuiUp:
             self.situacao = QtWidgets.QLabel("")
             self.situacao.setWordWrap(True)
             gl.addWidget(self.situacao)
-            lay.addWidget(gr)
-            fl = QtWidgets.QFormLayout()
+            raiz.addWidget(gr)
+            card_op, fl = P.bloco("Opções", "info", QtWidgets.QFormLayout)
             self.fechado = QtWidgets.QCheckBox("Ligar o último ponto ao primeiro")
             self.fechado.setChecked(bool(obj.Fechado))
             self.fechado.toggled.connect(self._opcoes)
@@ -826,12 +831,13 @@ if FreeCAD.GuiUp:
             self.passo.setToolTip("Os pontos clicados no plano andam de passo em passo a partir do último "
                                   "(0 = livre)")
             fl.addRow("Passo do cursor", self.passo)
-            lay.addLayout(fl)
+            raiz.addWidget(card_op)
             self.estado = QtWidgets.QLabel("")
             self.estado.setWordWrap(True)
-            lay.addWidget(self.estado)
+            raiz.addWidget(self.estado)
             self._encher()
             import PrumoPainel
+            PrumoPainel.adotar(self.form)
             PrumoPainel.estreitar(self.form)
             self._transparencias = {}
             self._focar(True)

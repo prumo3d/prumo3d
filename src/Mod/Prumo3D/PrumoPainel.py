@@ -99,10 +99,10 @@ def _renderizador(svg):
 QSS = """
 #PrumoPainel { background: transparent; }
 #PrumoPainel QLabel { background: transparent; color: #1F2A36; }
-#PrumoMsg { background: #FFF8DC; color: #4D3B00; border: none; border-radius: 8px;
+#PrumoMsg, #PrumoPainel QLabel#PrumoMsg { background: #FFF8DC; color: #4D3B00; border: none; border-radius: 8px;
             padding: 8px 10px; font-size: 9pt; }
-#PrumoMsg[tipo="erro"] { background: #FBE9E5; color: #7A2615; }
-#PrumoMsg[tipo="ok"] { background: #E5F3ED; color: #1E5C46; }
+#PrumoMsg[tipo="erro"], #PrumoPainel QLabel#PrumoMsg[tipo="erro"] { background: #FBE9E5; color: #7A2615; }
+#PrumoMsg[tipo="ok"], #PrumoPainel QLabel#PrumoMsg[tipo="ok"] { background: #E5F3ED; color: #1E5C46; }
 #PrumoSecao { background: #FFFFFF; border: 1px solid #DCE4EC; border-radius: 10px; }
 #PrumoSecaoTopo { background: transparent; border: none; color: #003A70;
                   font-weight: 600; font-size: 9.5pt; text-align: left; padding: 2px 0 2px 0; }
@@ -253,6 +253,35 @@ def titulo_secao(texto, icone_nome=None):
     h.addWidget(lb, 1)
     w.setStyleSheet(PrumoEstilo.tema("border-bottom: 1px solid #DCE4EC;"))
     return w
+
+
+def bloco(titulo, icone_nome=None, layout=None):
+    """Cartão com título para diálogos grandes: devolve (cartão, layout de dentro).
+
+    layout: classe do layout de dentro (QVBoxLayout por padrão; QFormLayout para formulários).
+    """
+    card = QtWidgets.QFrame()
+    card.setObjectName("PrumoSecao")
+    card.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+    v = QtWidgets.QVBoxLayout(card)
+    v.setContentsMargins(12, 10, 12, 12)
+    v.setSpacing(8)
+    topo = QtWidgets.QHBoxLayout()
+    topo.setSpacing(6)
+    if icone_nome:
+        ic = QtWidgets.QLabel()
+        ic.setPixmap(icone(icone_nome).pixmap(18, 18))
+        topo.addWidget(ic)
+    lb = QtWidgets.QLabel(titulo)
+    lb.setObjectName("PrumoBlocoTitulo")
+    lb.setStyleSheet(PrumoEstilo.tema("color: #003A70; font-weight: 600; font-size: 10pt;"))
+    topo.addWidget(lb, 1)
+    v.addLayout(topo)
+    dentro = (layout or QtWidgets.QVBoxLayout)()
+    dentro.setContentsMargins(0, 0, 0, 0)
+    v.addLayout(dentro, 1)
+    card.titulo = lb
+    return card, dentro
 
 
 def numero(valor, minimo=0.0, maximo=5000.0, sufixo=" mm", casas=1):
@@ -647,6 +676,27 @@ def integrar_no_quadro(form):
             return w
         w = w.parentWidget()
     return None
+
+
+class _AoMostrar(QtCore.QObject):
+    def eventFilter(self, obj, ev):
+        if ev.type() == QtCore.QEvent.Show:
+            QtCore.QTimer.singleShot(0, lambda: integrar_no_quadro(obj))
+        return False
+
+
+def adotar(form):
+    """Painel montado à mão (sem Formulario): ganha o estilo dos painéis Prumo e perde o quadro repetido."""
+    form.setObjectName("PrumoPainel")
+    form.setStyleSheet(qss())
+    filtro = _AoMostrar(form)
+    form.installEventFilter(filtro)
+    form._prumo_filtro = filtro
+    lay = form.layout()
+    if lay is not None:
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+    return form
 
 
 # ----------------------------------------------------------------------------------- painel
