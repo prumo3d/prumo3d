@@ -389,7 +389,8 @@ if FreeCAD.GuiUp:
             lay.addWidget(self.tabela)
             caixa = QtWidgets.QGroupBox("Próximo ponto")
             g = QtWidgets.QGridLayout(caixa)
-            self.relativo = QtWidgets.QCheckBox("Relativo ao último ponto (ΔX, ΔY, ΔZ)")
+            self.relativo = QtWidgets.QCheckBox("Relativo ao último ponto (Δ)")
+            self.relativo.setToolTip("Marcado: os valores são ΔX, ΔY, ΔZ a partir do último ponto")
             self.relativo.setChecked(True)
             g.addWidget(self.relativo, 0, 0, 1, 4)
             self.coord = []
@@ -401,14 +402,15 @@ if FreeCAD.GuiUp:
                 s.setPrefix(n + " ")
                 s.setKeyboardTracking(False)
                 s.lineEdit().returnPressed.connect(self.adicionar_digitado)
-                g.addWidget(s, 1, i)
+                s.setMinimumWidth(70)
+                g.addWidget(s, 1 + i // 2, i % 2)
                 self.coord.append(s)
             bt_add = QtWidgets.QPushButton("Adicionar")
             bt_add.setToolTip("Adiciona o ponto (Enter num dos campos faz o mesmo)")
             bt_add.clicked.connect(self.adicionar_digitado)
-            g.addWidget(bt_add, 1, 3)
+            g.addWidget(bt_add, 2, 1)
             lay.addWidget(caixa)
-            bl = QtWidgets.QHBoxLayout()
+            bl = QtWidgets.QGridLayout()
             self.bt_clicar = QtWidgets.QPushButton("Desenhar")
             self.bt_clicar.setCheckable(True)
             self.bt_clicar.setToolTip("Clique na vista para pôr pontos; Tab troca o plano, Esc termina o trecho")
@@ -420,8 +422,8 @@ if FreeCAD.GuiUp:
             bt_rem = QtWidgets.QPushButton("Remover ponto")
             bt_rem.setToolTip("Remove o ponto selecionado na tabela (ou o último)")
             bt_rem.clicked.connect(self.remover)
-            for b in (self.bt_clicar, self.bt_ramal, bt_rem):
-                bl.addWidget(b)
+            for k, b in enumerate((self.bt_clicar, self.bt_ramal, bt_rem)):
+                bl.addWidget(b, k // 2, k % 2)
             lay.addLayout(bl)
             fl = QtWidgets.QFormLayout()
             self.fechado = QtWidgets.QCheckBox("Ligar o último ponto ao primeiro")
@@ -458,6 +460,8 @@ if FreeCAD.GuiUp:
             self.estado.setWordWrap(True)
             lay.addWidget(self.estado)
             self._encher()
+            import PrumoPainel
+            PrumoPainel.estreitar(self.form)
 
         # ---- dados
         def pontos(self):

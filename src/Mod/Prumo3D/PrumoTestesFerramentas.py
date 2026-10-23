@@ -1455,6 +1455,37 @@ class T19VasoPressao(unittest.TestCase):
         finally:
             p.form.deleteLater() if hasattr(p.form, "deleteLater") else None
 
+    def test_unidades_de_pressao(self):
+        import PrumoVaso as V
+        self.assertAlmostEqual(V._unidade("kgf/cm²")[1], 0.0980665, 9)
+        self.assertAlmostEqual(V._unidade("psi")[1] * 145.0377377, 1.0, 6)
+        self.assertEqual(V.fmt_p(1.0, "kgf/cm²"), "10,20 kgf/cm² (1,000 MPa)")
+        self.assertEqual(V.fmt_p(1.0, "psi"), "145,0 psi (1,000 MPa)")
+        v = V.criar(self.doc, 1000, 2000, 1.0, 138.0, 1.0)
+        v.UnidadePressao = "kgf/cm²"
+        self.doc.recompute()
+        self.assertIn("Pressão de projeto: 10,20 kgf/cm² (1,000 MPa)", V.memoria(v))
+        self.assertTrue(any("kgf/cm² (" in l for l in V.tabela_dados(v)))
+        if not FreeCAD.GuiUp:
+            return
+        p = V.PainelVaso()
+        try:
+            p.P_.setValue(1.5)
+            p.unid_p.setCurrentText("psi")
+            self.assertAlmostEqual(p.P_.value(), 217.6, 1)          # 1,5 MPa em psi
+            self.assertAlmostEqual(p.pressao_mpa(), 1.5, 3)
+            p.unid_p.setCurrentText("kgf/cm²")
+            self.assertAlmostEqual(p.P_.value(), 15.30, 2)
+            p.P_.setValue(10.0)                                      # 10 kgf/cm²
+            pr = p.props()
+            self.assertAlmostEqual(pr["PressaoProjeto"], 0.980665, 6)
+            self.assertEqual(pr["UnidadePressao"], "kgf/cm²")
+            p.carregar(v)
+            self.assertEqual(p.unid_p.currentText(), "kgf/cm²")
+            self.assertAlmostEqual(p.pressao_mpa(), 1.0, 3)
+        finally:
+            p.form.deleteLater() if hasattr(p.form, "deleteLater") else None
+
 
 # ======================================================================= fixadores
 class T20Fixadores(unittest.TestCase):
@@ -6082,6 +6113,68 @@ class T49ReguaHistorico(unittest.TestCase):
         finally:
             dock.hide()
 
+    def test_regua_na_arvore(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRegua as R
+        from PySide import QtWidgets
+        corpo, sk, pad, fil = self._corpo()
+        FreeCADGui.ActiveDocument.ActiveView.setActiveObject("pdbody", corpo)
+        mw = FreeCADGui.getMainWindow()
+        for d in mw.findChildren(QtWidgets.QDockWidget):
+            if d.windowTitle() in ("Modelo", "Model"):
+                d.show()
+                d.raise_()
+        for _ in range(5):
+            FreeCADGui.updateGui()
+        tree = R.arvore()
+        self.assertIsNotNone(tree)
+        aberto = False
+        for _ in range(30):
+            FreeCADGui.updateGui()
+            QtWidgets.QApplication.processEvents()
+            try:
+                it = R.item_do_corpo(tree, corpo)
+                if it is not None:
+                    it.setExpanded(True)
+                    aberto = it.isExpanded()
+            except RuntimeError:
+                aberto = False          # a árvore refez os itens: procura de novo
+            if aberto:
+                break
+        if not aberto:
+            tops = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+            info = [(t.text(0), [t.child(j).text(0) for j in range(t.childCount())]) for t in tops]
+            arvs = [(t.isVisible(), t.topLevelItemCount()) for t in mw.findChildren(QtWidgets.QTreeWidget)
+                    if "TreeWidget" in t.metaObject().className()]
+            self.fail("corpo não achado: %s %s %s / %s" % (self.doc.Label, corpo.Label, info, arvs))
+        for _ in range(10):
+            FreeCADGui.updateGui()
+        ctl = R.instalar_na_arvore()
+        ctl.atualizar()
+        vs = R.vaos(tree, corpo)
+        # vão do início (0), depois da extrusão (o esboço fica dentro dela: 2) e depois do chanfro (3)
+        self.assertEqual([p for _y, p in vs], [0, 2, 3])
+        self.assertFalse(ctl.faixa.isHidden())
+        self.assertAlmostEqual(ctl.faixa.geometry().center().y(), vs[-1][0], delta=4)
+        # arrastar a régua até o vão de cima do chanfro recua o modelo
+        ctl.soltar(vs[1][0] + 2)
+        self.assertIs(corpo.Tip, pad)
+        self.assertFalse(ctl.sombra.isHidden())
+        ctl.soltar(vs[0][0])
+        self.assertIsNone(corpo.Tip)
+        ctl.ao_fim()
+        self.assertIs(corpo.Tip, fil)
+        g = FreeCAD.ParamGet(R.PARAM)
+        antes = g.GetBool("ReguaNaArvore", True)
+        try:
+            g.SetBool("ReguaNaArvore", False)
+            ctl.atualizar()
+            self.assertTrue(ctl.faixa.isHidden())
+        finally:
+            g.SetBool("ReguaNaArvore", antes)
+            ctl.atualizar()
+
 
 class T50ConferirEsboco(unittest.TestCase):
     """Conferência do esboço ao sair: pontas quase encostadas, perfil aberto, degeneradas, correção."""
@@ -6289,6 +6382,8 @@ class T51FaixaContextual(unittest.TestCase):
         self.assertIn("Sketcher_CreateLine", dentro)
         self.assertIn("Sketcher_LeaveSketch", dentro)
         self.assertNotIn("Sketcher_NewSketch", dentro)
+        self.assertIn("Sketcher_Translate", dentro)        # padrão linear
+        self.assertIn("Sketcher_Rotate", dentro)           # padrão circular
         self.assertNotIn("Sketcher_ValidateSketch", dentro)
         FreeCADGui.ActiveDocument.resetEdit()
         self.rb.select_tab("esboco", user=True)
@@ -6559,6 +6654,112 @@ class T53Tubulacao(unittest.TestCase):
         pn.accept()
 
 
+class T54ReferenciasAutomaticas(unittest.TestCase):
+    """Geometria externa por padrão: arestas da face de apoio entram ao abrir; as não usadas saem."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteReferencias")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+        self.antes = self.g.GetBool("ReferenciasAutomaticas", True)
+        self.g.SetBool("ReferenciasAutomaticas", True)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.ActiveDocument is not None:
+            try:
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+        self.g.SetBool("ReferenciasAutomaticas", self.antes)
+        fechar(self.doc)
+
+    def _bloco(self):
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        sk = esboco_retangulo(body, 40, 20)
+        pad = body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 10
+        self.doc.recompute()
+        return body, pad
+
+    def _face_de_cima(self, pad):
+        for i, f in enumerate(pad.Shape.Faces):
+            if abs(f.normalAt(0, 0).z - 1) < 1e-6 and abs(f.CenterOfMass.z - 10) < 1e-6:
+                return "Face%d" % (i + 1)
+
+    def test_face_de_apoio(self):
+        import Part
+        import Sketcher
+        import PrumoReferencias as R
+        body, pad = self._bloco()
+        sk2 = body.newObject("Sketcher::SketchObject", "Sobre")
+        sk2.AttachmentSupport = (pad, [self._face_de_cima(pad)])
+        sk2.MapMode = "FlatFace"
+        self.doc.recompute()
+        self.assertEqual(R.ao_entrar(sk2), 4)
+        self.assertEqual(len(R._externas(sk2)), 4)
+        self.assertEqual(R.ao_entrar(sk2), 0)                 # não repete
+        # uma linha presa a uma das referências: só ela fica ao sair
+        g = sk2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(10, 5, 0)))
+        sk2.addConstraint(Sketcher.Constraint("PointOnObject", g, 1, -3))
+        self.doc.recompute()
+        self.assertEqual(R.ao_sair(sk2), 3)
+        self.assertEqual(len(R._externas(sk2)), 1)
+        self.assertEqual(len(sk2.ReferenciasAuto), 1)
+        self.assertEqual(sk2.Constraints[-1].Second, -3)      # a restrição continua na mesma aresta
+        self.doc.recompute()
+        self.assertTrue(sk2.isValid())
+
+    def test_plano_da_origem_pega_arestas_no_plano(self):
+        import PrumoReferencias as R
+        body, pad = self._bloco()
+        sk3 = body.newObject("Sketcher::SketchObject", "NoPlano")
+        sk3.AttachmentSupport = (body.Origin.OriginFeatures[3], [""])       # XY
+        sk3.MapMode = "FlatFace"
+        self.doc.recompute()
+        self.assertEqual(R.ao_entrar(sk3), 4)                 # a base do bloco está em z = 0
+
+    def test_desligado_e_manual_fica(self):
+        import PrumoReferencias as R
+        body, pad = self._bloco()
+        sk2 = body.newObject("Sketcher::SketchObject", "Sobre")
+        sk2.AttachmentSupport = (pad, [self._face_de_cima(pad)])
+        sk2.MapMode = "FlatFace"
+        sk2.addExternal(pad.Name, "Edge1")                     # referência feita à mão
+        self.doc.recompute()
+        self.g.SetBool("ReferenciasAutomaticas", False)
+        self.assertEqual(R.ao_entrar(sk2), 0)
+        self.g.SetBool("ReferenciasAutomaticas", True)
+        R.ao_entrar(sk2)
+        R.ao_sair(sk2)
+        nomes = [s for _o, s in R._externas(sk2)]
+        self.assertEqual(nomes, ["Edge1"])                     # a manual não sai
+
+    def test_ao_editar(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoReferencias as R
+        from PySide import QtWidgets
+        body, pad = self._bloco()
+        sk2 = body.newObject("Sketcher::SketchObject", "Sobre")
+        sk2.AttachmentSupport = (pad, [self._face_de_cima(pad)])
+        sk2.MapMode = "FlatFace"
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(sk2.Name)
+        for _ in range(40):
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            if R._externas(sk2):
+                break
+            import time
+            time.sleep(0.02)
+        self.assertEqual(len(R._externas(sk2)), 4)
+        FreeCADGui.ActiveDocument.resetEdit()
+        for _ in range(5):
+            FreeCADGui.updateGui()
+        self.assertEqual(len(R._externas(sk2)), 0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6569,4 +6770,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao]
+           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas]

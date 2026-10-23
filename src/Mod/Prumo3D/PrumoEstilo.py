@@ -691,11 +691,36 @@ def _in_task_panel(w):
     return False
 
 
+_taskview = {"w": None}
+
+
+def _paineis_de_tarefa(mw):
+    """Os TaskView do FreeCAD (procura entre as poucas áreas de rolagem, não em todos os widgets)."""
+    vivos = []
+    for w in _taskview["w"] or []:
+        try:
+            w.objectName()
+            vivos.append(w)
+        except RuntimeError:
+            pass
+    if not vivos:
+        vivos = [a for a in mw.findChildren(QtWidgets.QScrollArea)
+                 if a.metaObject().className().startswith("Gui::TaskView")]
+        _taskview["w"] = vivos
+    return vivos
+
+
 def fix_task_icons():
+    """Troca os ícones internos dos botões do painel de tarefas. Roda a cada 400 ms: procura só dentro
+    do painel de tarefas visível (procurar na janela inteira, com a faixa cheia de botões, travava)."""
     mw = FreeCADGui.getMainWindow()
     if mw is None:
         return
-    for btn in mw.findChildren(QtWidgets.QToolButton):
+    botoes = []
+    for tv in _paineis_de_tarefa(mw):
+        if tv.isVisible():
+            botoes.extend(tv.findChildren(QtWidgets.QToolButton))
+    for btn in botoes:
         name = btn.objectName()
         if name not in BUTTON_ICONS or btn.property("prumoIcon") or not btn.isVisible():
             continue

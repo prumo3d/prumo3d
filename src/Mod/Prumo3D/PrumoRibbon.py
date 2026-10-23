@@ -106,10 +106,15 @@ TABS = [
         ]),
         ("Modificar", [
             ("Sketcher_CompCurveEdition", L, "Aparar"), ("Sketcher_CompCreateFillets", L, "Arredondar"),
-            ("Sketcher_CompExternal", L, "Externa"),
-            ("Sketcher_Offset", S, "Offset"), ("Sketcher_Symmetry", S, "Espelhar"), ("Sketcher_Translate", S, "Mover / matriz"),
-            ("Sketcher_Rotate", S, "Rotacionar"), ("Sketcher_Scale", S, "Escala"), ("Sketcher_CarbonCopy", S, "Cópia carbono"),
+            ("Sketcher_Offset", S, "Offset"), ("Sketcher_Scale", S, "Escala"), ("Sketcher_CarbonCopy", S, "Cópia carbono"),
             ("Sketcher_RemoveAxesAlignment", S, "Remover alinhamento"),
+        ]),
+        ("Referências", [
+            ("Sketcher_CompExternal", S, "Geometria externa"), ("Prumo_ReferenciasAuto", S, "Referências automáticas"),
+        ]),
+        ("Padrão", [
+            ("Sketcher_Translate", L, "Padrão\nlinear"), ("Sketcher_Rotate", L, "Padrão\ncircular"),
+            ("Sketcher_Symmetry", L, "Espelhar"),
         ]),
         ("Auxiliares", [
             ("Sketcher_SelectConstraints", S, "Selecionar restrições"),
@@ -1386,7 +1391,7 @@ ESBOCO_FORA_DA_EDICAO = {
     "Sketcher_NewSketch", "Prumo_Esboco3D", "Sketcher_EditSketch", "Sketcher_MapSketch", "Sketcher_ReorientSketch",
     "Sketcher_ValidateSketch", "Sketcher_MergeSketches", "Sketcher_MirrorSketch",
 }
-ESBOCO_SO_NA_EDICAO_PAINEL = {"Desenhar", "Restrições", "Modificar", "Auxiliares"}
+ESBOCO_SO_NA_EDICAO_PAINEL = {"Desenhar", "Restrições", "Modificar", "Referências", "Padrão", "Auxiliares"}
 ESBOCO_SO_NA_EDICAO = {"Sketcher_LeaveSketch", "Sketcher_ViewSketch", "Sketcher_ViewSection"}
 
 

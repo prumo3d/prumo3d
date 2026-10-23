@@ -332,7 +332,8 @@ def estreitar(w, minimo_letras=10):
     item (o texto inteiro aparece ao abrir a lista) e textos longos quebram linha."""
     for cb in w.findChildren(QtWidgets.QComboBox):
         cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
-        cb.setMinimumContentsLength(minimo_letras)
+        letras = cb.property("prumo_letras")
+        cb.setMinimumContentsLength(int(letras) if letras else minimo_letras)
         cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, cb.sizePolicy().verticalPolicy())
         try:
             cb.view().setMinimumWidth(cb.view().sizeHintForColumn(0) + 24)
@@ -341,6 +342,35 @@ def estreitar(w, minimo_letras=10):
     for lb in w.findChildren(QtWidgets.QLabel):
         if len(lb.text()) > 40 and not lb.wordWrap() and lb.pixmap() is None:
             lb.setWordWrap(True)
+    # botões e caixas de marcar com texto longo quebram em duas linhas (não seguram a largura do painel)
+    for b in w.findChildren(QtWidgets.QAbstractButton):
+        if not isinstance(b, (QtWidgets.QPushButton, QtWidgets.QCheckBox, QtWidgets.QRadioButton)):
+            continue
+        t = b.text()
+        if len(t) > 30 and "\n" not in t:
+            if not b.toolTip():
+                b.setToolTip(t)
+            b.setText(quebrar(t, 28))
+    # campos numéricos com faixa grande pedem largura de muitos dígitos; 80 px bastam
+    for sp in w.findChildren(QtWidgets.QAbstractSpinBox):
+        if sp.minimumSizeHint().width() > 90 and sp.minimumWidth() == 0:
+            sp.setMinimumWidth(80)
+            sp.setSizePolicy(QtWidgets.QSizePolicy.Expanding, sp.sizePolicy().verticalPolicy())
+
+
+def quebrar(texto, largura=28):
+    """Quebra o texto em linhas de até ~largura letras, nos espaços."""
+    palavras = texto.split(" ")
+    linhas, atual = [], ""
+    for p in palavras:
+        if atual and len(atual) + 1 + len(p) > largura:
+            linhas.append(atual)
+            atual = p
+        else:
+            atual = (atual + " " + p).strip()
+    if atual:
+        linhas.append(atual)
+    return "\n".join(linhas)
 
 
 def caber_na_tela(dlg, margem=0.92):

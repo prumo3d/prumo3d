@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Régua de histórico do Corpo (rollback bar), como no ZW3D e no SolidWorks.
 
-Painel lateral com as operações do Corpo ativo, em ordem, e uma régua que se arrasta entre elas.
+Régua amarela na própria árvore do modelo, logo abaixo da ponta do Corpo ativo; arrasta para cima ou para
+baixo entre as operações (o painel "Histórico do corpo", com a lista, continua disponível).
 A régua define a ponta (Tip) do Corpo: o modelo é mostrado como estava naquele ponto, as operações
 abaixo da régua ficam em cinza e as novas operações entram logo depois dela. Voltar a régua para o
 fim restaura o modelo completo. Cada movimento é uma transação (Desfazer volta a régua).
@@ -11,7 +12,7 @@ A lógica (posições, ponta, visibilidade) fica em funções sem interface, par
 import FreeCAD
 
 PARAM = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
-_estado = {"dock": None}
+_estado = {"dock": None, "arvore": None}
 
 
 # ======================================================================== lógica
@@ -358,6 +359,284 @@ if FreeCAD.GuiUp:
             elif r is a2:
                 self._botao("fim")
 
+    # ==================================================================== régua dentro da árvore
+    def arvore():
+        """A árvore do modelo do FreeCAD (Gui::TreeWidget) visível, ou None."""
+        mw = FreeCADGui.getMainWindow()
+        achou = None
+        for t in mw.findChildren(QtWidgets.QTreeWidget):
+            if t.metaObject().className() == "Gui::TreeWidget":
+                if t.isVisible():
+                    return t
+                achou = achou or t
+        return achou
+
+    def item_do_corpo(tree, corpo):
+        """Item da árvore do Corpo (dentro do item do documento).
+
+        Os itens da árvore do FreeCAD chegam ao Python por item.child(i), e o item filho deixa de valer
+        quando o objeto Python do pai é coletado; por isso a cadeia toda (documento → … → corpo) fica
+        guardada em _estado["cadeia"] enquanto o item é usado."""
+        if tree is None or corpo is None:
+            return None
+        doc_label, alvo = corpo.Document.Label, corpo.Label
+
+        def busca(cadeia, prof):
+            it = cadeia[-1]
+            for i in range(it.childCount()):
+                f = it.child(i)
+                if f.text(0) == alvo and f.childCount():
+                    return cadeia + [f]
+                if prof < 6 and f.childCount():
+                    r = busca(cadeia + [f], prof + 1)
+                    if r is not None:
+                        return r
+            return None
+        for i in range(tree.topLevelItemCount()):
+            top = tree.topLevelItem(i)
+            if top.text(0) == doc_label:
+                cadeia = busca([top], 0)
+                if cadeia is not None:
+                    _estado["cadeia"] = cadeia
+                    return cadeia[-1]
+        return None
+
+    def vaos(tree, corpo):
+        """Lugares onde a régua pode assentar: [(y no viewport, posição da régua)], de cima para baixo.
+        O primeiro vão fica logo depois da Origem (posição 0); cada item do Corpo dá o vão abaixo dele."""
+        it_corpo = item_do_corpo(tree, corpo)
+        if it_corpo is None or not it_corpo.isExpanded():
+            return []
+        ls = itens(corpo)
+        por_label = {}
+        for k, o in enumerate(ls):
+            por_label.setdefault(o.Label, k)
+        res = []
+        topo = None
+        for i in range(it_corpo.childCount()):
+            f = it_corpo.child(i)
+            r = tree.visualItemRect(f)
+            if not r.isValid() or r.height() <= 0:
+                continue
+            k = por_label.get(f.text(0))
+            if k is None:
+                topo = r.bottom() + 1          # Origem (ou outro item fora do histórico): régua no início
+                continue
+            if not res and topo is None:
+                topo = r.top()
+            res.append((r.bottom() + 1, k + 1))
+        if topo is None:
+            return res
+        return [(topo, 0)] + res
+
+    def _mesmo(a, b):
+        if a is None or b is None:
+            return a is b
+        try:
+            import shiboken6 as sb
+        except ImportError:
+            try:
+                import shiboken2 as sb
+            except ImportError:
+                return a is b
+        try:
+            return sb.getCppPointer(a)[0] == sb.getCppPointer(b)[0]
+        except Exception:
+            return False
+
+    class FaixaRegua(QtWidgets.QFrame):
+        """A régua amarela desenhada sobre a árvore; arrasta para cima ou para baixo."""
+
+        def __init__(self, ctl, parent):
+            super().__init__(parent)
+            self.ctl = ctl
+            self.setObjectName("PrumoReguaArvore")
+            self.setFixedHeight(7)
+            self.setCursor(QtCore.Qt.SizeVerCursor)
+            self.setToolTip("Régua de histórico: arraste para cima ou para baixo para recuar o modelo; as "
+                            "novas operações entram no ponto da régua. Duplo clique: modelo completo.")
+            self.setStyleSheet("#PrumoReguaArvore { background: %s; border: 1px solid #C99A00; "
+                               "border-radius: 3px; }" % COR_REGUA)
+            self._arrastando = False
+
+        def mousePressEvent(self, ev):
+            if ev.button() == QtCore.Qt.LeftButton:
+                self._arrastando = True
+                ev.accept()
+
+        def mouseMoveEvent(self, ev):
+            if self._arrastando:
+                y = self.mapToParent(ev.pos()).y()
+                self.ctl.previa(y)
+                ev.accept()
+
+        def mouseReleaseEvent(self, ev):
+            if self._arrastando:
+                self._arrastando = False
+                self.ctl.soltar(self.mapToParent(ev.pos()).y())
+                ev.accept()
+
+        def mouseDoubleClickEvent(self, ev):
+            self.ctl.ao_fim()
+            ev.accept()
+
+        def contextMenuEvent(self, ev):
+            m = QtWidgets.QMenu(self)
+            a1 = m.addAction("Régua no fim (modelo completo)")
+            a2 = m.addAction("Régua no início")
+            r = m.exec_(ev.globalPos())
+            if r is a1:
+                self.ctl.ao_fim()
+            elif r is a2:
+                self.ctl.mover(0)
+
+    class ReguaArvore(QtCore.QObject):
+        """Mantém a régua posicionada na árvore do modelo, abaixo da ponta do Corpo ativo."""
+
+        def __init__(self):
+            super().__init__(FreeCADGui.getMainWindow())
+            self.tree = None
+            self.faixa = None
+            self.sombra = None
+            self._previa = None
+            self.timer = QtCore.QTimer(self)
+            self.timer.setInterval(350)
+            self.timer.timeout.connect(self.atualizar)
+            self.timer.start()
+
+        def ligada(self):
+            return FreeCAD.ParamGet(PARAM).GetBool("ReguaNaArvore", True)
+
+        def _widgets(self, tree):
+            if not _mesmo(self.tree, tree) or self.faixa is None:
+                self._apagar()
+                self.tree = tree
+                vp = tree.viewport()
+                self.sombra = QtWidgets.QWidget(vp)
+                self.sombra.setObjectName("PrumoReguaSombra")
+                self.sombra.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+                self.sombra.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+                self.sombra.setStyleSheet("#PrumoReguaSombra { background: rgba(255, 255, 255, 150); }")
+                self.faixa = FaixaRegua(self, vp)
+
+        def _apagar(self):
+            for w in (self.faixa, self.sombra):
+                try:
+                    if w is not None:
+                        w.hide()
+                        w.deleteLater()
+                except RuntimeError:
+                    pass
+            self.faixa = self.sombra = None
+
+        def esconder(self):
+            for w in (self.faixa, self.sombra):
+                try:
+                    if w is not None and not w.isHidden():
+                        w.hide()
+                except RuntimeError:
+                    pass
+
+        def corpo(self):
+            try:
+                return corpo_ativo()
+            except Exception:
+                return None
+
+        def atualizar(self):
+            if self.faixa is not None and self.faixa._arrastando:
+                return
+            try:
+                tree = arvore()
+                c = self.corpo()
+                if not self.ligada() or tree is None or c is None:
+                    self.esconder()
+                    return
+                self._widgets(tree)
+                vs = vaos(tree, c)
+                if not vs:
+                    self.esconder()
+                    return
+                pos = posicao_da_ponta(c)
+                y = vs[0][0]
+                for yy, p in vs:
+                    if p <= pos:
+                        y = yy
+                self._colocar(y, vs)
+            except RuntimeError:
+                self.faixa = self.sombra = None
+            except Exception as ex:
+                FreeCAD.Console.PrintLog("Prumo: régua na árvore: %s\n" % ex)
+
+        def _colocar(self, y, vs):
+            """Só mexe nos widgets quando a posição muda (o timer passa a cada 350 ms; mexer sempre
+            repintaria a árvore à toa)."""
+            vp = self.tree.viewport()
+            x0 = 18
+            larg = max(40, vp.width() - x0 - 4)
+            g = QtCore.QRect(x0, int(y) - 3, larg, 7)
+            if self.faixa.geometry() != g:
+                self.faixa.setGeometry(g)
+            if self.faixa.isHidden():
+                self.faixa.show()
+                self.faixa.raise_()
+            fim = vs[-1][0]
+            if fim > y + 4:
+                gs = QtCore.QRect(0, int(y) + 4, vp.width(), int(fim - y - 4))
+                if self.sombra.geometry() != gs:
+                    self.sombra.setGeometry(gs)
+                if self.sombra.isHidden():
+                    self.sombra.show()
+                    self.sombra.raise_()
+                    self.faixa.raise_()
+            elif not self.sombra.isHidden():
+                self.sombra.hide()
+
+        def _mais_perto(self, y):
+            c = self.corpo()
+            vs = vaos(self.tree, c) if c is not None else []
+            if not vs:
+                return None, None, vs
+            yy, p = min(vs, key=lambda v: abs(v[0] - y))
+            return yy, p, vs
+
+        def previa(self, y):
+            yy, p, vs = self._mais_perto(y)
+            if yy is not None:
+                self._previa = p
+                self._colocar(yy, vs)
+
+        def soltar(self, y):
+            yy, p, vs = self._mais_perto(y)
+            self._previa = None
+            if p is not None:
+                self.mover(p)
+
+        def mover(self, pos):
+            c = self.corpo()
+            if c is None:
+                return None
+            try:
+                QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+                nova = mover_regua(c, pos)
+            except Exception as ex:
+                FreeCAD.Console.PrintError("Prumo: régua de histórico: %s\n" % ex)
+                nova = None
+            finally:
+                QtWidgets.QApplication.restoreOverrideCursor()
+            self.atualizar()
+            return nova
+
+        def ao_fim(self):
+            c = self.corpo()
+            if c is not None:
+                self.mover(len(itens(c)))
+
+    def instalar_na_arvore():
+        if _estado.get("arvore") is None:
+            _estado["arvore"] = ReguaArvore()
+        return _estado["arvore"]
+
     def mostrar(ativar=True):
         mw = FreeCADGui.getMainWindow()
         dock = _estado["dock"]
@@ -395,10 +674,9 @@ if FreeCAD.GuiUp:
         FreeCAD.ParamGet(PARAM).SetBool("ReguaHistorico", bool(visivel))
 
     def ao_trocar_bancada(nome):
-        """Abre a régua na bancada Peça, se o usuário não a fechou antes."""
+        """A régua vive na árvore do modelo; o painel separado só abre pelo menu de contexto."""
         try:
-            if nome == "PartDesignWorkbench" and FreeCAD.ParamGet(PARAM).GetBool("ReguaHistorico", True):
-                QtCore.QTimer.singleShot(300, lambda: mostrar(True))
+            instalar_na_arvore()
         except Exception:
             pass
 
@@ -406,19 +684,14 @@ if FreeCAD.GuiUp:
         def GetResources(self):
             import PrumoUtil
             return {"Pixmap": PrumoUtil.icone("regua_historico.svg"), "MenuText": "Régua de histórico",
-                    "ToolTip": "Mostra o histórico do corpo com a régua: arraste para recuar o modelo até uma "
-                               "operação e inserir novas operações naquele ponto (como no ZW3D e no SolidWorks)"}
+                    "ToolTip": "Liga ou desliga a régua amarela na árvore do modelo: arraste para cima ou para "
+                               "baixo para recuar o modelo até uma operação e inserir novas operações naquele "
+                               "ponto (como no ZW3D e no SolidWorks)"}
 
         def IsActive(self):
             return FreeCAD.ActiveDocument is not None
 
         def Activated(self):
-            dock = _estado["dock"]
-            try:
-                aberto = dock is not None and dock.isVisible()
-            except RuntimeError:
-                aberto = False
-            if aberto:
-                dock.hide()
-            else:
-                mostrar(True)
+            g = FreeCAD.ParamGet(PARAM)
+            g.SetBool("ReguaNaArvore", not g.GetBool("ReguaNaArvore", True))
+            instalar_na_arvore().atualizar()

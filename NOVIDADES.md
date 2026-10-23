@@ -9,6 +9,32 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+Já está no código e entra na próxima versão.
+
+### Novo
+
+- **Referências automáticas no esboço:** ao abrir um esboço apoiado numa face, todas as arestas dela já
+  entram como geometria externa; num plano da origem, entram as arestas do sólido que estão no plano.
+  Ao concluir, as referências que não foram usadas saem sozinhas. As feitas à mão com Geometria externa
+  ficam. Liga e desliga em Esboço → Referências automáticas.
+- **Pressão do vaso em MPa, kgf/cm² ou psi:** escolha a unidade ao lado do campo; o painel, a memória
+  de cálculo e o desenho mostram a pressão nessa unidade, com a equivalência em MPa (o cálculo continua
+  em MPa).
+
+### Ajustes
+
+- **Régua de histórico na árvore do modelo:** a régua amarela agora fica na própria árvore, logo abaixo
+  da última operação do corpo, e se arrasta para cima ou para baixo. Duplo clique volta ao modelo
+  completo; o botão Régua de histórico liga e desliga.
+- **Padrão linear e padrão circular** do esboço ganharam um grupo próprio, com botões grandes, na aba
+  Esboço durante a edição (antes ficavam pequenos como "Mover / matriz" e "Rotacionar").
+- **Painel de tarefas mais estreito:** listas, botões e campos numéricos não forçam mais o painel a
+  alargar (alguns pediam de 400 a 700 px); textos longos quebram linha. O painel para de "pular" de
+  largura ao abrir um comando.
+- Menos trabalho em segundo plano: a troca de ícones do painel de tarefas procura só dentro dele.
+
 ## 0.3.0 beta — 22/10/2026
 
 ### Novo

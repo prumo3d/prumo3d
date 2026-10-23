@@ -49,6 +49,26 @@ def tipo_tampo(tipo):
         return 0
     raise ValueError("tipo de tampo desconhecido: %s" % tipo)
 MPA_KGF = 10.1971621  # 1 MPa = 10,197 kgf/cm²
+# unidades de pressão: (nome, MPa por unidade, casas). Por definição: 1 kgf/cm² = 98.066,5 Pa;
+# 1 psi = 1 lbf/in² = 4,448 221 615 260 5 N / (0,0254 m)² = 6.894,757 Pa
+UNIDADES_PRESSAO = [("MPa", 1.0, 3), ("kgf/cm²", 0.0980665, 2), ("psi", 0.006894757293168361, 1)]
+
+
+def _unidade(nome):
+    return next((u for u in UNIDADES_PRESSAO if u[0] == nome), UNIDADES_PRESSAO[0])
+
+
+def fmt_p(mpa, unidade="MPa"):
+    """Pressão na unidade escolhida, com a equivalência entre parênteses: '10,20 kgf/cm² (1,000 MPa)'.
+    Em MPa, a equivalência mostrada é em kgf/cm²."""
+    nome, fator, casas = _unidade(unidade)
+    if nome == "MPa":
+        return "%s (%s)" % (fmt(mpa, 3, "MPa"), fmt(mpa * MPA_KGF, 2, "kgf/cm²"))
+    return "%s (%s)" % (fmt(mpa / fator, casas, nome), fmt(mpa, 3, "MPa"))
+
+
+def _unid(v):
+    return getattr(v, "UnidadePressao", "MPa") if "UnidadePressao" in getattr(v, "PropertiesList", []) else "MPa"
 ORIENTACOES = ["Horizontal", "Vertical"]
 SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas"]
 TESTES = ["Hidrostático (UG-99(b))", "Pneumático (UG-100)"]
@@ -394,6 +414,11 @@ class Vaso:
         add("App::PropertyLength", "DiametroInterno", "Projeto", "Diâmetro interno do costado", 1000.0)
         add("App::PropertyLength", "ComprimentoCostado", "Projeto", "Comprimento entre linhas de tangência", 2000.0)
         add("App::PropertyFloat", "PressaoProjeto", "Projeto", "Pressão de projeto (MPa, manométrica)", 1.0)
+        if "UnidadePressao" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyEnumeration", "UnidadePressao", "Projeto",
+                            "Unidade em que as pressões aparecem no painel, na memória e no desenho (o cálculo é em MPa)")
+            obj.UnidadePressao = [u[0] for u in UNIDADES_PRESSAO]
+            obj.UnidadePressao = "MPa"
         add("App::PropertyString", "TemperaturaProjeto", "Projeto", "Temperatura de projeto (texto)", "")
         add("App::PropertyString", "MaterialChapa", "Projeto", "Especificação do material", "")
         add("App::PropertyFloat", "TensaoAdmissivel", "Projeto",
@@ -615,8 +640,8 @@ def memoria(v):
          "Conferir a edição vigente.", ""]
     L.append("Diâmetro interno: %s   Comprimento entre tangentes: %s" % (
         fmt(v.DiametroInterno.Value, 1, "mm"), fmt(v.ComprimentoCostado.Value, 1, "mm")))
-    L.append("Pressão de projeto: %s (%s)   Temperatura: %s" % (
-        fmt(v.PressaoProjeto, 3, "MPa"), fmt(v.PressaoProjeto * MPA_KGF, 2, "kgf/cm²"), v.TemperaturaProjeto or "—"))
+    u = _unid(v)
+    L.append("Pressão de projeto: %s   Temperatura: %s" % (fmt_p(v.PressaoProjeto, u), v.TemperaturaProjeto or "—"))
     L.append("Material: %s   S = %s   E = %s   Corrosão = %s" % (
         v.MaterialChapa or "—", fmt(v.TensaoAdmissivel, 1, "MPa"), fmt(v.EficienciaJunta, 2),
         fmt(v.Corrosao.Value, 2, "mm")))
@@ -635,7 +660,7 @@ def memoria(v):
     tt = v.EspessuraTampo.Value or chapa_acima(v.MinimoTampo)
     L.append("Adotadas: costado %s, tampo %s" % (fmt(tc, 2, "mm"), fmt(tt, 2, "mm")))
     L.append("PMTA (espessura adotada − corrosão): costado %s, tampo %s → vaso %s" % (
-        fmt(v.PMTACostado, 3, "MPa"), fmt(v.PMTATampo, 3, "MPa"), fmt(min(v.PMTACostado, v.PMTATampo), 3, "MPa")))
+        fmt_p(v.PMTACostado, u), fmt_p(v.PMTATampo, u), fmt_p(min(v.PMTACostado, v.PMTATampo), u)))
     L.append("Volume interno: %s   P·V: %s   Massa vazio (aço): %s" % (
         fmt(v.VolumeInterno, 3, "m³"), fmt(v.PressaoProjeto * v.VolumeInterno, 3, "MPa·m³"), fmt(v.MassaVazio, 1, "kg")))
     if "PressaoTeste" in v.PropertiesList and v.PressaoTeste:
@@ -643,7 +668,7 @@ def memoria(v):
         L.append("Teste de pressão (%s): Pt = %s × PMTA × (S teste / S projeto) = %s no topo; %s no ponto "
                  "mais baixo (com a coluna d'água)" % (
                      v.TipoTeste, "1,3" if v.TipoTeste.startswith("Hidro") else "1,1",
-                     fmt(v.PressaoTeste, 3, "MPa"), fmt(v.PressaoTesteFundo, 3, "MPa")))
+                     fmt_p(v.PressaoTeste, u), fmt_p(v.PressaoTesteFundo, u)))
         L.append("  Tensão de membrana no costado durante o teste (vaso novo, sem corrosão): %s%s" % (
             fmt(v.TensaoTeste, 1, "MPa"),
             ("  — limite adotado 0,9·Sy = %s (a checar)" % fmt(v.LimiteTeste, 1, "MPa")) if v.LimiteTeste else ""))
@@ -923,10 +948,9 @@ def tabela_dados(v):
     L = ["DADOS DE PROJETO (ASME VIII-1, pré-dimensionamento)",
          "Diâmetro interno: %s   Comprimento TL-TL: %s" % (fmt(v.DiametroInterno.Value, 0, "mm"),
                                                          fmt(v.ComprimentoCostado.Value, 0, "mm")),
-         "Pressão de projeto: %s (%s)   Temperatura: %s" % (fmt(v.PressaoProjeto, 3, "MPa"),
-                                                          fmt(v.PressaoProjeto * MPA_KGF, 2, "kgf/cm²"),
-                                                          v.TemperaturaProjeto or "—"),
-         "PMTA: %s (%s)" % (fmt(v.PMTA, 3, "MPa"), fmt(v.PMTA * MPA_KGF, 2, "kgf/cm²")),
+         "Pressão de projeto: %s   Temperatura: %s" % (fmt_p(v.PressaoProjeto, _unid(v)),
+                                                     v.TemperaturaProjeto or "—"),
+         "PMTA: %s" % fmt_p(v.PMTA, _unid(v)),
          "Material: %s   S = %s   E = %s   Corrosão = %s" % (v.MaterialChapa or "—",
                                                             fmt(v.TensaoAdmissivel, 1, "MPa"),
                                                             fmt(v.EficienciaJunta, 2), fmt(v.Corrosao.Value, 1, "mm")),
@@ -934,8 +958,7 @@ def tabela_dados(v):
              fmt(tc, 2, "mm"), fmt(v.MinimoCostado, 2, "mm"), v.TipoTampo.split(" (")[0], fmt(tt, 2, "mm"),
              fmt(v.MinimoTampo, 2, "mm")),
          "Volume interno: %s   Massa vazio: %s" % (fmt(v.VolumeInterno, 3, "m³"), fmt(v.MassaVazio, 0, "kg")),
-         "Teste %s: %s no topo (%s)" % (v.TipoTeste.split(" (")[0].lower(), fmt(v.PressaoTeste, 3, "MPa"),
-                                        fmt(v.PressaoTeste * MPA_KGF, 2, "kgf/cm²"))]
+         "Teste %s: %s no topo" % (v.TipoTeste.split(" (")[0].lower(), fmt_p(v.PressaoTeste, _unid(v)))]
     if v.Bocais:
         L.append("BOCAIS: posição; ângulo; tubo; projeção")
         for k, b in enumerate(v.Bocais):
@@ -1026,8 +1049,21 @@ class PainelVaso(P.PainelTarefa):
                           "entre as linhas de tangência dos tampos.", "Comprimento (TL-TL)")
         self.tampo = s1.linha("tipo", P.lista(TAMPOS), "Tipo dos dois tampos.", "Tampos")
         s2 = f.secao("Projeto", "material")
-        self.P_ = s2.linha("quantidade", P.numero(1.0, 0.001, 100.0, " MPa", 3), "Pressão de projeto "
-                           "(manométrica, no topo).", "Pressão")
+        caixa_p = QtWidgets.QWidget()
+        hp = QtWidgets.QHBoxLayout(caixa_p)
+        hp.setContentsMargins(0, 0, 0, 0)
+        self.P_ = P.numero(1.0, 0.001, 100.0, "", 3)
+        self.unid_p = QtWidgets.QComboBox()
+        self.unid_p.setProperty("prumo_letras", 6)
+        for nome, _f, _c in UNIDADES_PRESSAO:
+            self.unid_p.addItem(nome)
+        self.unid_p.setToolTip("Unidade da pressão: MPa, kgf/cm² ou psi (o cálculo é feito em MPa)")
+        self._unid_atual = "MPa"
+        self.unid_p.currentTextChanged.connect(self._trocar_unidade)
+        hp.addWidget(self.P_, 1)
+        hp.addWidget(self.unid_p)
+        s2.linha("quantidade", caixa_p, "Pressão de projeto (manométrica, no topo), em MPa, kgf/cm² ou psi.",
+                 "Pressão")
         self.temp = s2.linha("texto", QtWidgets.QLineEdit(), "Temperatura de projeto (texto, vai para a "
                              "memória e o desenho).", "Temperatura")
         self.temp.setPlaceholderText("ex.: 150 °C")
@@ -1144,9 +1180,25 @@ class PainelVaso(P.PainelTarefa):
             res.append("%s; %s; %s; %s" % (pos, ang, tubo, proj))
         return res
 
+    def _trocar_unidade(self, nova):
+        """Troca a unidade do campo mantendo a mesma pressão."""
+        mpa = self.pressao_mpa()
+        _n, fator, casas = _unidade(nova)
+        self._unid_atual = nova
+        self.P_.blockSignals(True)
+        self.P_.setDecimals(casas)
+        self.P_.setRange(0.001 / fator if casas >= 3 else 10 ** -casas, 100.0 / fator)
+        self.P_.setValue(mpa / fator)
+        self.P_.blockSignals(False)
+        self.P_.valueChanged.emit(self.P_.value())
+
+    def pressao_mpa(self):
+        return self.P_.value() * _unidade(self._unid_atual)[1]
+
     def props(self):
         sy, _su = self._sy_su()
-        return dict(DiametroInterno=self.D.value(), ComprimentoCostado=self.L.value(), PressaoProjeto=self.P_.value(),
+        return dict(DiametroInterno=self.D.value(), ComprimentoCostado=self.L.value(), PressaoProjeto=self.pressao_mpa(),
+                    UnidadePressao=self._unid_atual,
                     TemperaturaProjeto=self.temp.text().strip(), MaterialChapa=self.material.currentData() or "",
                     TensaoAdmissivel=self.S.value(), EficienciaJunta=self.E.currentData(),
                     Corrosao=self.CA.value(), TipoTampo=self.tampo.currentText(),
@@ -1165,6 +1217,10 @@ class PainelVaso(P.PainelTarefa):
         self.L.setValue(obj.ComprimentoCostado.Value)
         self.tampo.setCurrentText(obj.TipoTampo)
         self.P_.setValue(obj.PressaoProjeto)
+        self._unid_atual = "MPa"
+        u = _unid(obj)
+        if u != "MPa":
+            self.unid_p.setCurrentText(u)
         self.temp.setText(obj.TemperaturaProjeto)
         i = self.material.findData(obj.MaterialChapa)
         if i >= 0:
@@ -1199,7 +1255,7 @@ class PainelVaso(P.PainelTarefa):
         if self.S.value() <= 0:
             return "Informe a tensão admissível S (ASME II-D) ou clique em Estimar S."
         try:
-            Calculo(self.D.value(), self.P_.value(), self.S.value(), self.E.currentData(), self.CA.value(),
+            Calculo(self.D.value(), self.pressao_mpa(), self.S.value(), self.E.currentData(), self.CA.value(),
                     self.tampo.currentText())
         except (ValueError, ZeroDivisionError) as ex:
             return str(ex)
@@ -1255,11 +1311,11 @@ class PainelVaso(P.PainelTarefa):
         tc = v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado)
         tt = v.EspessuraTampo.Value or chapa_acima(v.MinimoTampo)
         html = ("<b>Costado</b>: mín. %s → chapa %s<br><b>Tampos</b>: mín. %s → chapa %s<br>"
-                "<b>PMTA</b> %s (%s)<br><b>Teste</b>: %s no topo · %s no fundo<br>"
+                "<b>PMTA</b> %s<br><b>Teste</b>: %s no topo · %s no fundo<br>"
                 "Volume %s · massa vazio %s" % (
                     fmt(v.MinimoCostado, 2, "mm"), fmt(tc, 2, "mm"), fmt(v.MinimoTampo, 2, "mm"), fmt(tt, 2, "mm"),
-                    fmt(v.PMTA, 3, "MPa"), fmt(v.PMTA * MPA_KGF, 2, "kgf/cm²"), fmt(v.PressaoTeste, 3, "MPa"),
-                    fmt(v.PressaoTesteFundo, 3, "MPa"), fmt(v.VolumeInterno, 3, "m³"), fmt(v.MassaVazio, 0, "kg")))
+                    fmt_p(v.PMTA, _unid(v)), fmt_p(v.PressaoTeste, _unid(v)),
+                    fmt_p(v.PressaoTesteFundo, _unid(v)), fmt(v.VolumeInterno, 3, "m³"), fmt(v.MassaVazio, 0, "kg")))
         if v.Avisos:
             html += "".join("<br><span style='color:#B5523F'>⚠ %s</span>" % a for a in v.Avisos)
         self.resultado.setText("<span style='color:%s'>%s</span>" % (cor, html))

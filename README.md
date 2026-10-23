@@ -167,8 +167,9 @@ Todos os recursos
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
   de inferência alinham o cursor na horizontal ou na vertical com pontos existentes.
 
-* **Régua de histórico** Painel com as operações do corpo e uma régua para arrastar: o modelo recua até a
-  operação escolhida e as novas operações entram naquele ponto, como no ZW3D e no SolidWorks.
+* **Régua de histórico** Uma régua amarela na própria árvore do modelo, logo abaixo da última operação do
+  corpo: arraste para cima e o modelo recua até ali (as operações de baixo ficam esmaecidas); as novas
+  operações entram no ponto da régua. Duplo clique volta ao modelo completo.
 
 * **Conferência do esboço** Ao concluir um esboço, o Prumo avisa de pontas quase encostadas, pontas soltas
   num perfil e elementos de tamanho zero, e corrige com um clique (o problema do "esboço aberto").

@@ -657,7 +657,7 @@ if FreeCAD.GuiUp:
             lay.addWidget(dica)
             fl = QtWidgets.QFormLayout()
             self.lb_caminho = QtWidgets.QLabel(obj.Caminho.Label if obj.Caminho else "—")
-            bt_sel = QtWidgets.QPushButton("Usar a seleção")
+            bt_sel = QtWidgets.QPushButton("Usar seleção")
             bt_sel.setToolTip("Selecione um Esboço 3D ou esboço na árvore ou na tela e clique aqui")
             bt_sel.clicked.connect(self.usar_selecao)
             hl = QtWidgets.QHBoxLayout()
@@ -777,6 +777,8 @@ if FreeCAD.GuiUp:
                     self.tabela.setCellWidget(i, 3, ed)
             finally:
                 self._ocupado = False
+            import PrumoPainel
+            PrumoPainel.estreitar(self.form)
             html = ["<b>Conexões</b><br>" + ("<br>".join(self.obj.Conexoes) or "—"),
                     "<b>Tubos</b><br>" + ("<br>".join(self.obj.ListaCorte) or "—")]
             if self.obj.Avisos:

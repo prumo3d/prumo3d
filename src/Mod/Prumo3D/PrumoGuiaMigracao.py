@@ -18,6 +18,10 @@ except ImportError:  # pragma: no cover
 EQUIVALENCIAS = [
     ("Peça", "Esboço", "Sketch", "Esboço", "peca", ["PartDesign_CompSketches", "PartDesign_NewSketch"],
      "Prefira apoiar o esboço nos planos da origem: esboço em face gerada pode quebrar se o modelo mudar."),
+    ("Peça", "Padrão linear de entidades do esboço", "Sketch linear pattern", "Padrão linear", "esboco",
+     ["Sketcher_Translate"], "Dentro do esboço: selecione a geometria e defina cópias e espaçamento no painel."),
+    ("Peça", "Padrão circular de entidades do esboço", "Sketch circular pattern", "Padrão circular", "esboco",
+     ["Sketcher_Rotate"], "Dentro do esboço: selecione a geometria, clique no centro e defina o número de cópias."),
     ("Peça", "Esboço 3D", "3D Sketch", "Esboço 3D", "esboco", ["Prumo_Esboco3D"],
      "Clique na vista: o ponto cai no plano do último ponto; Tab troca o plano (XY, YZ, ZX), Esc termina o "
      "trecho. Serve de esqueleto de estrutura e caminho de tubo."),

@@ -872,7 +872,10 @@ def register_commands():
                                                                                   m.CmdAnaliseEstrutura())),
                              ("PrumoRegua", lambda m: (
                                  FreeCADGui.addCommand("Prumo_ReguaHistorico", m.CmdRegua()),
-                                 FreeCADGui.getMainWindow().workbenchActivated.connect(m.ao_trocar_bancada))),
+                                 FreeCADGui.getMainWindow().workbenchActivated.connect(m.ao_trocar_bancada),
+                                 m.instalar_na_arvore())),
+                             ("PrumoReferencias", lambda m: FreeCADGui.addCommand("Prumo_ReferenciasAuto",
+                                                                                 m.CmdReferenciasAuto())),
                              ("PrumoEsboco3D", lambda m: FreeCADGui.addCommand("Prumo_Esboco3D",
                                                                               m.CmdEsboco3D())),
                              ("PrumoTubulacao", lambda m: FreeCADGui.addCommand("Prumo_Tubulacao",
@@ -1005,6 +1008,16 @@ class _ObservadorEdicao:
     """Ao concluir um esboço, enquadra o modelo inteiro na vista (o Esboço volta a câmera de antes
     da edição, que pode não mostrar um desenho grande)."""
 
+    def slotInEdit(self, vp):
+        try:
+            obj = vp.Object
+        except Exception:
+            return
+        if obj is None or obj.TypeId != "Sketcher::SketchObject":
+            return
+        nome, doc = obj.Name, obj.Document.Name
+        QtCore.QTimer.singleShot(120, lambda: _referencias_ao_entrar(doc, nome))
+
     def slotResetEdit(self, vp):
         try:
             obj = vp.Object
@@ -1012,6 +1025,11 @@ class _ObservadorEdicao:
             return
         if obj is None or obj.TypeId != "Sketcher::SketchObject":
             return
+        try:   # referências automáticas que não foram usadas saem
+            import PrumoReferencias
+            PrumoReferencias.ao_sair(obj)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: referências do esboço: {}\n".format(exc))
         try:   # conferência do esboço (perfil aberto, pontas quase encostadas...)
             import PrumoValidarEsboco
             PrumoValidarEsboco.ao_sair_do_esboco(obj)
@@ -1021,6 +1039,16 @@ class _ObservadorEdicao:
             return
         # depois que o Esboço restaura a câmera
         QtCore.QTimer.singleShot(150, _enquadrar_vista)
+
+
+def _referencias_ao_entrar(doc, nome):
+    try:
+        import PrumoReferencias
+        o = FreeCAD.getDocument(doc).getObject(nome)
+        if o is not None:
+            PrumoReferencias.ao_entrar(o)
+    except Exception as exc:
+        FreeCAD.Console.PrintLog("Prumo: referências automáticas: {}\n".format(exc))
 
 
 def _enquadrar_vista():
