@@ -152,6 +152,14 @@ jobs:
           echo "BUILD_TAG=${BUILD_TAG}" >> "$GITHUB_ENV"
           echo "Rótulo: ${BUILD_TAG}"
 
+      # a versão do pacote vale para a tela de abertura (selo), o título da janela e o Sobre
+      - name: Versão na tela de abertura
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'VERSAO_COMPILADA = "%s"\n' "${BUILD_TAG}" > src/Mod/Prumo3D/PrumoVersaoCompilada.py
+          pixi exec --spec "python=3.11" --spec "pillow" python prumo-build/ferramentas/selo_versao_splash.py "${BUILD_TAG}"
+
       # pasta fixa do ccache; o caminho vai num arquivo na raiz do código, que os roteiros de
       # compilação (build.sh / build.bat) leem
       - name: Pasta do cache de compilação

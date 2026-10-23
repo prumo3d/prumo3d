@@ -53,7 +53,7 @@ EQUIVALENCIAS = [
      ["Prumo_Variantes"], "Parâmetros (P, M, G...) ligados às cotas por expressão."),
     ("Peça", "DriveWorksXpress", "iLogic / Rules", "Modelo com regras", "peca", ["Prumo_Modelo"],
      "Placa com furos, flange, suporte em L, eixo escalonado, com regras de projeto."),
-    ("Peça", "Combinar (subtrair/adicionar)", "Boolean / Combine", "Subtrair, Unir, Interseção", "solidos",
+    ("Peça", "Combinar (subtrair/adicionar)", "Boolean / Combine", "Subtrair, Unir, Interseção", "peca",
      ["Part_Cut", "Part_Fuse", "Part_Common"], "Subtrair: primeiro a peça base, depois a ferramenta."),
     ("Avaliar", "Propriedades de massa", "Mass properties", "Propriedades de massa", "peca", ["Prumo_Massa"], ""),
     ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Std_Measure"], ""),

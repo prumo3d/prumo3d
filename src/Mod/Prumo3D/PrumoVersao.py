@@ -1,8 +1,28 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Versão do Prumo 3D (fonte única: tela de abertura, Sobre, informações do sistema)."""
 
-VERSAO = "0.1"
+# Na compilação do GitHub, o fluxo de publicação grava PrumoVersaoCompilada.py com o rótulo da versão
+# (ex.: "0.3.0-beta"), e é ele que vale: tela de abertura, título da janela e Sobre acompanham cada
+# versão sem editar este arquivo. Sem ele (compilação local), valem os valores abaixo.
+VERSAO = "0.4.0"
 CANAL = "beta"   # "" na versão final
+
+
+def separar(rotulo):
+    """'0.3.0-beta' -> ('0.3.0', 'beta'); 'v1.0.0' -> ('1.0.0', '')."""
+    r = (rotulo or "").strip().lstrip("vV")
+    if "-" in r:
+        v, c = r.split("-", 1)
+        return v, c
+    return r, ""
+
+
+try:
+    from PrumoVersaoCompilada import VERSAO_COMPILADA as _rotulo
+    if _rotulo:
+        VERSAO, CANAL = separar(_rotulo)
+except ImportError:
+    pass
 
 
 def texto():

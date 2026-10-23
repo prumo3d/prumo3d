@@ -2449,13 +2449,20 @@ class T21EnquadrarEsboco(unittest.TestCase):
 class T26Versao(unittest.TestCase):
     def test_texto_e_base(self):
         import PrumoVersao
-        self.assertEqual(PrumoVersao.texto(), "0.1 beta")
+        self.assertEqual(PrumoVersao.texto(), ("%s %s" % (PrumoVersao.VERSAO, PrumoVersao.CANAL)).strip())
+        self.assertRegex(PrumoVersao.VERSAO, r"^\d+\.\d+(\.\d+)?$")
         self.assertRegex(PrumoVersao.base_freecad(), r"^\d+\.\d+(\.\d+)?$")
+
+    def test_versao_do_rotulo_da_compilacao(self):
+        import PrumoVersao as V
+        self.assertEqual(V.separar("0.3.0-beta"), ("0.3.0", "beta"))
+        self.assertEqual(V.separar("v1.0.0"), ("1.0.0", ""))
+        self.assertEqual(V.separar("1.2.0-rc1"), ("1.2.0", "rc1"))
 
     def test_informacoes_do_sistema(self):
         import PrumoVersao
         txt = PrumoVersao.info_sistema()
-        for chave in ("Prumo 3D 0.1 beta", "Base: FreeCAD", "Sistema:", "Python:", "Pasta de dados:"):
+        for chave in ("Prumo 3D " + PrumoVersao.texto(), "Base: FreeCAD", "Sistema:", "Python:", "Pasta de dados:"):
             self.assertIn(chave, txt)
 
     def test_sobre_copia_para_a_area_de_transferencia(self):
@@ -2492,7 +2499,8 @@ class T26Versao(unittest.TestCase):
             self.skipTest("sem interface")
         import PrumoGui
         PrumoGui.apply_window_branding()
-        self.assertIn("0.1 beta", FreeCADGui.getMainWindow().windowTitle())
+        import PrumoVersao
+        self.assertIn(PrumoVersao.texto(), FreeCADGui.getMainWindow().windowTitle())
 
     def test_splash_da_instalacao_tem_prioridade(self):
         import shutil
@@ -3760,7 +3768,7 @@ class T34FluxoDeSelecao(unittest.TestCase):
         rb = PrumoRibbon._state.get("ribbon")
         if rb is None:
             self.skipTest("faixa Prumo não instalada")
-        rb.select_tab("solidos", user=True)
+        rb.select_tab("peca", user=True)
         self._esperar()
         bts = [b for b in rb.findChildren(PrumoRibbon.RibbonButton)
                if any(a.whatsThis() == "Part_Cut" for a in b._actions)]

@@ -217,6 +217,64 @@ bool CmdSketcherCreateLine::isActive()
     return isCommandActive(getActiveGuiDocument());
 }
 
+// Construction line (Prumo 3D) ==========================================
+// A line drawn directly as construction geometry: the creation mode switches to construction while
+// the tool is active and goes back to what it was when the tool ends.
+
+class DrawSketchHandlerConstructionLine: public DrawSketchHandlerLine
+{
+public:
+    DrawSketchHandlerConstructionLine()
+        : previousMode(geometryCreationMode)
+    {
+        setMode(GeometryCreationMode::Construction);
+    }
+    ~DrawSketchHandlerConstructionLine() override
+    {
+        setMode(previousMode);
+    }
+
+private:
+    static void setMode(GeometryCreationMode mode)
+    {
+        geometryCreationMode = mode;
+        Gui::Application::Instance->commandManager().updateCommands(
+            "ToggleConstruction",
+            static_cast<int>(mode)
+        );
+    }
+    GeometryCreationMode previousMode;
+};
+
+DEF_STD_CMD_A(CmdSketcherCreateConstructionLine)
+
+CmdSketcherCreateConstructionLine::CmdSketcherCreateConstructionLine()
+    : Command("Sketcher_CreateConstructionLine")
+{
+    sAppModule = "Sketcher";
+    sGroup = "Sketcher";
+    sMenuText = QT_TR_NOOP("Construction line");
+    sToolTipText = QT_TR_NOOP(
+        "Creates a construction line: reference geometry that guides the sketch and does not "
+        "become part of the profile"
+    );
+    sWhatsThis = "Sketcher_CreateConstructionLine";
+    sStatusTip = sToolTipText;
+    sPixmap = "Sketcher_CreateLine_Constr";
+    eType = ForEdit;
+}
+
+void CmdSketcherCreateConstructionLine::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    ActivateHandler(getActiveGuiDocument(), std::make_unique<DrawSketchHandlerConstructionLine>());
+}
+
+bool CmdSketcherCreateConstructionLine::isActive()
+{
+    return isCommandActive(getActiveGuiDocument());
+}
+
 // Polyline ================================================================
 
 DEF_STD_CMD_AU(CmdSketcherCreatePolyline)
@@ -1921,6 +1979,7 @@ void CreateSketcherCommandsCreateGeo()
     rcCmdMgr.addCommand(new CmdSketcherCreateBSplineByInterpolation());
     rcCmdMgr.addCommand(new CmdSketcherCreatePeriodicBSplineByInterpolation());
     rcCmdMgr.addCommand(new CmdSketcherCreateLine());
+    rcCmdMgr.addCommand(new CmdSketcherCreateConstructionLine());
     rcCmdMgr.addCommand(new CmdSketcherCreatePolyline());
     rcCmdMgr.addCommand(new CmdSketcherCreateRectangle());
     rcCmdMgr.addCommand(new CmdSketcherCreateRectangleCenter());

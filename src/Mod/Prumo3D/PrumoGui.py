@@ -954,7 +954,8 @@ class _ManipuladorMenu:
         # Vista: editor de materiais (a bancada Materiais fica desligada) e o botão da árvore
         return [{"insert": "Prumo_Sobre", "menuItem": "Std_About"}, {"remove": "Std_About"},
                 {"append": "Material_Edit", "menuItem": "Std_DockViewMenu"},
-                {"append": "Prumo_Arvore", "menuItem": "Std_DockViewMenu"}]
+                {"append": "Prumo_Arvore", "menuItem": "Std_DockViewMenu"},
+                {"append": "Prumo_ReguaHistorico", "menuItem": "Std_DockViewMenu"}]
 
 
 # Bancadas que não vêm ligadas no Prumo (o usuário religa em Preferências → Geral → Bancadas).

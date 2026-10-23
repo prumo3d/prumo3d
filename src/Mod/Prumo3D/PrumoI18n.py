@@ -424,6 +424,10 @@ GLOSSARIO = {
     ("CmdPartDesignClone", "Clone"): "Clone",
     ("CmdPartDefeaturing", "Defeaturing"): "Remover detalhes",
     ("CmdSketcherCreateFillet", "Fillet"): "Arredondamento",
+    ("CmdSketcherCreateConstructionLine", "Construction line"): "Linha de construção",
+    ("CmdSketcherCreateConstructionLine",
+     "Creates a construction line: reference geometry that guides the sketch and does not become part of the "
+     "profile"): "Cria uma linha de construção: geometria de referência que guia o esboço e não entra no perfil",
     ("StdCmdToggleTransparency", "Toggle Transparenc&y"): "Alternar &transparência",
     # Menus das bancadas (o FreeCAD traduz os nomes de menu no contexto "Workbench")
     ("Workbench", "&Part"): "&Sólidos",

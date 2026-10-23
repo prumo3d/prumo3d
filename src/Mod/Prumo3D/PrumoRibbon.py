@@ -90,19 +90,17 @@ TABS = [
             ("Sketcher_MirrorSketch", S, "Espelhar esboço"),
         ]),
         ("Desenhar", [
-            ("Sketcher_CreateLine", L, "Linha"), ("Sketcher_CompCreateRectangles", L, "Retângulo"),
+            ("Sketcher_CreateLine|Sketcher_CreateConstructionLine|Sketcher_ToggleConstruction", L, "Linha"), ("Sketcher_CompCreateRectangles", L, "Retângulo"),
             ("Sketcher_CompCreateConic", L, "Círculo"), ("Sketcher_CompCreateArc", L, "Arco"),
             ("Sketcher_CreatePolyline", S, "Linha e arco tangente"), ("Sketcher_CreatePoint", S, "Ponto"),
             ("Sketcher_CompCreateRegularPolygon", S, "Polígono"), ("Sketcher_CompSlot", S, "Rasgo"),
-            ("Sketcher_CompCreateBSpline", S, "Curva B-spline"), ("Sketcher_ToggleConstruction", S, "Construção"),
+            ("Sketcher_CompCreateBSpline", S, "Curva B-spline"), ("Sketcher_ToggleConstruction", S, "Linha ↔ construção"),
         ]),
         ("Restrições", [
             ("Sketcher_CompDimensionTools", L, "Cota"),
-            ("Sketcher_ConstrainCoincidentUnified", S, "Coincidente"), ("Sketcher_CompHorVer", S, "Horiz. / vert."),
-            ("Sketcher_ConstrainParallel", S, "Paralela"), ("Sketcher_ConstrainPerpendicular", S, "Perpendicular"),
-            ("Sketcher_ConstrainTangent", S, "Tangente"), ("Sketcher_ConstrainEqual", S, "Igual"),
-            ("Sketcher_ConstrainSymmetric", S, "Simétrica"), ("Sketcher_ConstrainBlock", S, "Bloquear"),
-            ("Sketcher_CompToggleConstraints", S, "Ativar restrição"),
+            ("Sketcher_ConstrainCoincidentUnified|Sketcher_CompHorVer|Sketcher_ConstrainParallel|"
+             "Sketcher_ConstrainPerpendicular|Sketcher_ConstrainTangent|Sketcher_ConstrainEqual|"
+             "Sketcher_ConstrainSymmetric|Sketcher_ConstrainBlock|Sketcher_CompToggleConstraints", L, "Restrição"),
         ]),
         ("Modificar", [
             ("Sketcher_CompCurveEdition", L, "Aparar"), ("Sketcher_CompCreateFillets", L, "Arredondar"),
@@ -124,23 +122,22 @@ TABS = [
             ("Sketcher_JoinCurves", S, "Unir curvas"),
         ]),
     ]},
-    {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "panels": [
+    {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches", L, "Esboço"),
             ("PartDesign_CompDatums", S, "Referências"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
-            ("Prumo_ReguaHistorico", S, "Régua de histórico"),
         ]),
         ("Adicionar material", [
             ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
             ("PartDesign_AdditiveLoft", S, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
-            ("PartDesign_AdditiveHelix", S, "Hélice"), ("PartDesign_CompPrimitiveAdditive", S, "Primitivas"),
+            ("PartDesign_AdditiveHelix", S, "Hélice"), ("PartDesign_CompPrimitiveAdditive", S, "Sólido"),
         ]),
         ("Remover material", [
             ("PartDesign_Pocket", L, "Cavidade"), ("PartDesign_Hole", L, "Furo"),
             ("PartDesign_Groove", S, "Ranhura"), ("PartDesign_SubtractiveLoft", S, "Loft"),
             ("PartDesign_SubtractivePipe", S, "Varredura"), ("PartDesign_SubtractiveHelix", S, "Hélice"),
-            ("PartDesign_CompPrimitiveSubtractive", S, "Primitivas"),
+            ("PartDesign_CompPrimitiveSubtractive", S, "Sólido"),
         ]),
         ("Acabamento", [
             ("PartDesign_Fillet", L, "Arredondar"), ("PartDesign_Chamfer", L, "Chanfro"),
@@ -149,6 +146,13 @@ TABS = [
         ("Padrões", [
             ("PartDesign_Mirrored", L, "Espelhar"), ("PartDesign_LinearPattern", S, "Padrão linear"),
             ("PartDesign_PolarPattern", S, "Padrão circular"), ("PartDesign_MultiTransform", S, "Multitransformação"),
+        ]),
+        # Sólidos (bancada Part): só o que não tem igual no PartDesign
+        ("Sólidos", [
+            ("Part_Cut", L, "Subtrair"), ("Part_Fuse", S, "Unir"), ("Part_Common", S, "Interseção"),
+            ("Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools", S, "Juntar / dividir"),
+            ("Part_Section|Part_CrossSections|Part_ProjectionOnSurface", S, "Seção / projeção"),
+            ("Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder", S, "Escala / offset"),
         ]),
         ("Ferramentas", [
             ("PartDesign_Boolean", S, "Booleana"), ("Part_CheckGeometry", S, "Verificar geometria"),
@@ -159,30 +163,6 @@ TABS = [
             ("Prumo_Variantes", L, "Variantes\nda peça"), ("Prumo_Modelo", L, "Modelo com\nregras"),
             ("Prumo_Massa", S, "Propriedades de massa"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
-        ]),
-    ]},
-    {"id": "solidos", "label": "Sólidos", "wb": "PartWorkbench", "panels": [
-        ("Primitivas", [
-            ("Part_Box", L, "Caixa"), ("Part_Cylinder", L, "Cilindro"),
-            ("Part_Sphere", S, "Esfera"), ("Part_Cone", S, "Cone"), ("Part_Torus", S, "Toro"),
-            ("Part_Tube", S, "Tubo"), ("Part_Primitives", S, "Mais primitivas"), ("Part_Builder", S, "Construtor"),
-        ]),
-        ("Criar", [
-            ("Part_Extrude", L, "Extrusão"), ("Part_Revolve", L, "Revolução"),
-            ("Part_Loft", S, "Loft"), ("Part_Sweep", S, "Varredura"), ("Part_MakeFace", S, "Face de arames"),
-            ("Part_RuledSurface", S, "Superfície regrada"),
-        ]),
-        ("Modificar", [
-            ("Part_Fillet", L, "Arredondar"), ("Part_Chamfer", L, "Chanfro"),
-            ("Part_Mirror", S, "Espelhar"), ("Part_Scale", S, "Escala"), ("Part_CompOffset", S, "Offset"),
-            ("Part_Thickness", S, "Casca"), ("Part_Section", S, "Seção"), ("Part_CrossSections", S, "Seções transversais"),
-            ("Part_ProjectionOnSurface", S, "Projetar na superfície"),
-        ]),
-        ("Booleanas", [
-            ("Part_Cut", L, "Subtrair"), ("Part_Fuse", L, "Unir"), ("Part_Common", L, "Interseção"),
-            ("Part_Boolean", S, "Booleana"), ("Part_CompJoinFeatures", S, "Juntar formas"),
-            ("Part_CompSplitFeatures", S, "Dividir formas"), ("Part_CompCompoundTools", S, "Compostos"),
-            ("Part_CheckGeometry", S, "Verificar geometria"), ("Part_Defeaturing", S, "Remover detalhes"),
         ]),
     ]},
     {"id": "montagem", "label": "Montagem", "wb": "AssemblyWorkbench", "panels": [
@@ -447,6 +427,24 @@ def _params():
 
 def _clean(text):
     return text.replace("&&", "\x00").replace("&", "").replace("\x00", "&").strip()
+
+
+def _acoes_de(nomes):
+    """Ações de um ou mais comandos ("A|B|C" na faixa vira um botão com menu); de um grupo do FreeCAD
+    entram todas as ações de dentro dele, sem separadores e sem repetir."""
+    if len(nomes) == 1:
+        return _cmd_actions(nomes[0])
+    res, vistos = [], set()
+    for n in nomes:
+        for a in _cmd_actions(n):
+            if not a.text() or a.isSeparator():
+                continue
+            chave = (a.text(), a.whatsThis())
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            res.append(a)
+    return res
 
 
 def _cmd_actions(name):
@@ -967,6 +965,8 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._dynamic = None  # aba gerada para bancadas sem aba própria
         self._edit_prev = None
         self._ctx_edicao = None
+        self._precarregadas = {}
+        self._ignorar_sync = False
         self._building = False
 
         lay = QtWidgets.QVBoxLayout(self)
@@ -1211,13 +1211,15 @@ class PrumoRibbon(QtWidgets.QWidget):
 
     def sync_workbench(self, name=None):
         """Chamado quando a bancada ativa muda."""
+        if getattr(self, "_ignorar_sync", False):
+            return
         try:
             name = name or FreeCADGui.activeWorkbench().name()
         except Exception:
             return
         self._rotulo_bancada(name)
         for t in self._tabs:
-            if t.get("wb") == name:
+            if t.get("wb") == name or name in t.get("wb_extra", ()):
                 self.select_tab(t["id"])
                 return
         if name == "PrumoWorkbench":
@@ -1262,7 +1264,31 @@ class PrumoRibbon(QtWidgets.QWidget):
         self.select_tab("dyn")
 
     # ---- construção do conteúdo
+    def _precarregar(self, tab):
+        """Aba que junta comandos de outra bancada (Peça com os de Sólidos): o FreeCAD só cria as ações
+        desses comandos quando a bancada deles é ativada. Ativa uma vez e volta, na primeira montagem."""
+        extras = tab.get("wb_extra") or ()
+        if not extras or self._precarregadas.get(tab.get("id")):
+            return
+        self._precarregadas[tab.get("id")] = True
+        try:
+            atual = FreeCADGui.activeWorkbench().name()
+        except Exception:
+            atual = None
+        self._ignorar_sync = True
+        try:
+            for wb in extras:
+                try:
+                    FreeCADGui.activateWorkbench(wb)
+                except Exception:
+                    pass
+            if atual:
+                FreeCADGui.activateWorkbench(atual)
+        finally:
+            self._ignorar_sync = False
+
     def build(self, tab):
+        self._precarregar(tab)
         page = QtWidgets.QWidget()
         page.setObjectName("PrumoPage")
         page.setAttribute(QtCore.Qt.WA_StyledBackground, True)
@@ -1281,11 +1307,13 @@ class PrumoRibbon(QtWidgets.QWidget):
             for cmd, size, label in entries:
                 if not cabe_no_contexto(tab, title, cmd, editando):
                     continue
-                acts = _cmd_actions(cmd)
+                nomes = cmd.split("|")
+                acts = _acoes_de(nomes)
                 if not acts:
                     continue
                 btn = RibbonButton(acts, size, label, panel)
-                btn._cmd = cmd      # o tutorial acha o botão pelo nome do comando
+                btn._cmd = nomes[0]     # o tutorial acha o botão pelo nome do comando
+                btn._cmds = nomes
                 panel.add(btn, size)
             if panel.count == 0:
                 panel.deleteLater()

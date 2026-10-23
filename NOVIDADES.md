@@ -23,8 +23,21 @@ Já está no código e entra na próxima versão.
   de cálculo e o desenho mostram a pressão nessa unidade, com a equivalência em MPa (o cálculo continua
   em MPa).
 
+- **Linha de construção:** no menu do botão Linha (aba Esboço) há a **Linha de construção**, uma linha só de
+  referência que guia o desenho e não entra no perfil. Para transformar linhas já desenhadas, selecione e
+  use **Linha ↔ construção** (no mesmo menu ou no grupo Desenhar).
+
 ### Ajustes
 
+- **Peça e Sólidos juntas:** a aba Sólidos saiu; o que ela tinha sem igual na Peça (subtrair, unir,
+  interseção, juntar/dividir formas, seção, projeção, escala, offset) virou o grupo **Sólidos** da aba
+  Peça. As "Primitivas" de adicionar e remover material agora se chamam **Sólido** (caixa, cilindro,
+  esfera… que se funde à peça ou é tirado dela).
+- **Restrições num botão só:** coincidente, horizontal/vertical, paralela, perpendicular, tangente, igual,
+  simétrica, bloquear e ativar/desativar viraram um botão grande com menu, como o da Cota.
+- **Tela de abertura com a versão certa:** o selo da tela de abertura, o título da janela e o Sobre agora
+  mostram a versão do pacote (antes ficavam em 0.1).
+- **Régua de histórico** saiu da faixa da aba Peça: liga e desliga no menu Vista.
 - **Régua de histórico na árvore do modelo:** a régua amarela agora fica na própria árvore, logo abaixo
   da última operação do corpo, e se arrasta para cima ou para baixo. Duplo clique volta ao modelo
   completo; o botão Régua de histórico liga e desliga.
