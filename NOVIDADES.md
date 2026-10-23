@@ -11,6 +11,14 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Novo
+
+- **Extrusão e Cavidade com painel no padrão Prumo:** ao criar ou editar, a aba do comando mostra os
+  cartões Lados (Um lado, Dois lados, Simétrica), Direção 1 e 2 (até onde vai em botões com ícone,
+  medida, afastamento, ângulo de saída, inverter), Perfil e Acabamento, no lugar do formulário do
+  FreeCAD. Quando o modo pede escolher na vista (Até a face, Até a peça), o quadro do FreeCAD aparece
+  embaixo para a escolha; "Formulário completo do FreeCAD" mostra tudo quando quiser.
+
 ### Ajustes
 
 - **Mais telas no padrão novo:** Estrutura soldada, Cantos da estrutura, Propriedades de massa, guia

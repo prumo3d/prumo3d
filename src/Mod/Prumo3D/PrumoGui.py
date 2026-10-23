@@ -1083,6 +1083,12 @@ def _start_guia():
         PrumoPainelEsboco.instalar()
     except Exception as exc:
         FreeCAD.Console.PrintError("Prumo: falha no painel do esboço: {}\n".format(exc))
+    try:
+        import PrumoPainelComando
+
+        PrumoPainelComando.instalar()
+    except Exception as exc:
+        FreeCAD.Console.PrintError("Prumo: falha no painel de comando: {}\n".format(exc))
 
 
 def _verificar_atualizacao():

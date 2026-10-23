@@ -7530,6 +7530,98 @@ class T61PaineisExtrasComoAbas(unittest.TestCase):
         dock.widget().atualizar(force=True)          # chamada antiga, agora pelo cabeçalho
 
 
+class T62PainelDeComando(unittest.TestCase):
+    """Extrusão e Cavidade em edição: cartões no lugar do formulário do FreeCAD, e o OK grava o que se mudou."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        self.doc = novo_doc("PrumoTesteComando")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        self.sk = esboco_retangulo(body)
+        self.pad = body.newObject("PartDesign::Pad", "Pad")
+        self.pad.Profile = self.sk
+        self.pad.Length = 10
+        self.doc.recompute()
+        self.body = body
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def _esp(self, s=0.6):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            time.sleep(0.02)
+
+    def _ok(self):
+        from PySide import QtWidgets
+        mw = FreeCADGui.getMainWindow()
+        for b in mw.findChildren(QtWidgets.QPushButton):
+            if b.isVisible() and b.text().replace("&", "") == "OK":
+                b.click()
+                self._esp(0.6)
+                return True
+        return False
+
+    def test_extrusao_em_cartoes_e_ok_grava(self):
+        FreeCADGui.ActiveDocument.setEdit(self.pad.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "o painel de comando não apareceu")
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD continua aberto")
+        for k in ("lados", "modo1", "comp1", "inverter", "refinar"):
+            self.assertIn(k, p.campos)
+        p.campos["comp1"].setValue(27.5)
+        self._esp(0.3)
+        self.assertAlmostEqual(p.f.numero("lengthEdit"), 27.5, places=6)
+        self.assertTrue(self._ok(), "botão OK não encontrado")
+        self.assertFalse(FreeCADGui.Control.activeDialog())
+        self.assertAlmostEqual(self.pad.Length.Value, 27.5, places=6)
+        self.assertIsNone(self.C.painel())
+
+    def test_modo_com_escolha_mostra_o_formulario(self):
+        FreeCADGui.ActiveDocument.setEdit(self.pad.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        p.campos["lados"].definir("two", silencioso=False)
+        self._esp(0.8)
+        p = self.C.painel()
+        self.assertIn("comp2", p.campos)
+        p.campos["modo1"].definir("UpToFace", silencioso=False)
+        self._esp(0.8)
+        p = self.C.painel()
+        self.assertTrue(p.quadro.isVisible(), "modo 'Até a face' precisa do quadro do FreeCAD para escolher")
+        self.assertNotIn("comp1", p.campos)
+        p.campos["modo1"].definir("Length", silencioso=False)
+        self._esp(0.8)
+        self.assertFalse(self.C.painel().quadro.isVisible())
+
+    def test_cavidade_tem_atraves(self):
+        caixa = self.body.newObject("PartDesign::Pocket", "Pocket")
+        sk2 = esboco_retangulo(self.body, 10, 5)
+        caixa.Profile = sk2
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(caixa.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertIsNotNone(p)
+        self.assertIn("ThroughAll", p.campos["modo1"].botoes)
+        self.assertEqual(p.nome_medida, "Profundidade")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7543,4 +7635,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
            T55PainelLateral, T56PropriedadesEAparencia,
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
-           T60Atualizacao, T61PaineisExtrasComoAbas]
+           T60Atualizacao, T61PaineisExtrasComoAbas,
+           T62PainelDeComando]
