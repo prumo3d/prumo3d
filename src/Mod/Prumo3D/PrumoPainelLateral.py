@@ -25,8 +25,9 @@ PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 ARVORE = "Tree view"
 PROPRIEDADES = "Property view"
 TAREFA = "Tasks"
-ORDEM = (ARVORE, PROPRIEDADES, TAREFA)
-TITULOS = {ARVORE: "Árvore", PROPRIEDADES: "Propriedades", TAREFA: "Comando"}
+APARENCIA = "PrumoAparencia"
+ORDEM = (ARVORE, PROPRIEDADES, APARENCIA, TAREFA)
+TITULOS = {ARVORE: "Árvore", PROPRIEDADES: "Propriedades", APARENCIA: "Aparência", TAREFA: "Comando"}
 LARGURA_TITULO = 18          # caracteres na aba do comando
 
 # Ícones das abas (mesmo traço dos quadros do painel: 24 × 24, linha 1,8)
@@ -35,6 +36,9 @@ _SVG = {
     PROPRIEDADES: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/>'
                   '<circle cx="10" cy="17" r="2"/>',
     TAREFA: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+    APARENCIA: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.6-.9 1.2-1.8-.5-1 .2-2.2 1.3-2.2H17a4 4 0 0 0 4-4'
+               'c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7" r="1.2"/>'
+               '<circle cx="16" cy="8.5" r="1.2"/>',
 }
 
 _estado = {"juntou": False, "ativa": None, "antes": None, "titulo": None, "estilo": None}
@@ -173,7 +177,7 @@ def _sem_titulo(d):
 
 
 def _nomear(ds):
-    for nome in (ARVORE, PROPRIEDADES):
+    for nome in (ARVORE, PROPRIEDADES, APARENCIA):
         d = ds.get(nome)
         if d is not None and d.windowTitle() != TITULOS[nome]:
             d.setWindowTitle(TITULOS[nome])
@@ -183,7 +187,7 @@ def _nomear(ds):
 def _icones_das_abas(bar, ds):
     for i in range(bar.count()):
         txt = bar.tabText(i)
-        for nome in (ARVORE, PROPRIEDADES):
+        for nome in (ARVORE, PROPRIEDADES, APARENCIA):
             if txt == TITULOS[nome]:
                 if bar.tabIcon(i).cacheKey() != _estado.get("ic_" + nome, -1):
                     ic = icone(nome)
@@ -209,23 +213,25 @@ def _estilizar(bar):
 # ---------------------------------------------------------------- arranjo
 def _juntar(mw, ds):
     """Uma vez por sessão: os três painéis em abas, à esquerda, na ordem Árvore | Propriedades | comando."""
-    arv, prop, tar = ds.get(ARVORE), ds.get(PROPRIEDADES), ds.get(TAREFA)
+    arv, prop, apar, tar = ds.get(ARVORE), ds.get(PROPRIEDADES), ds.get(APARENCIA), ds.get(TAREFA)
     if arv is None or prop is None:
         return
-    if any(d is not None and d.isFloating() for d in (arv, prop, tar)):
+    if any(d is not None and d.isFloating() for d in (arv, prop, apar, tar)):
         _estado["juntou"] = True      # o usuário soltou um painel: respeita
         return
     _estado["juntou"] = True
     area = QtCore.Qt.LeftDockWidgetArea
     mw.setTabPosition(area, QtWidgets.QTabWidget.North)
-    for d in (arv, prop, tar):
+    for d in (arv, prop, apar, tar):
         if d is not None and mw.dockWidgetArea(d) != area:
             mw.addDockWidget(area, d)
-    juntos = mw.tabifiedDockWidgets(arv)
-    if prop not in juntos:
-        mw.tabifyDockWidget(arv, prop)
-    if tar is not None and tar not in mw.tabifiedDockWidgets(arv):
-        mw.tabifyDockWidget(prop, tar)
+    anterior = arv
+    for d in (prop, apar, tar):
+        if d is None:
+            continue
+        if d not in mw.tabifiedDockWidgets(arv):
+            mw.tabifyDockWidget(anterior, d)
+        anterior = d
     if arv.isVisible():
         arv.raise_()      # começa pela árvore
 
@@ -255,7 +261,7 @@ def _comando(ds, no_inicio):
         bar = barra_de_abas()
         if bar is not None and bar.currentIndex() >= 0:
             atual = bar.tabText(bar.currentIndex())
-            if atual in (TITULOS[ARVORE], TITULOS[PROPRIEDADES]):
+            if atual in (TITULOS[ARVORE], TITULOS[PROPRIEDADES], TITULOS[APARENCIA]):
                 _estado["antes"] = atual
     if not ativa and not no_inicio and tar.isVisible() and not tar.isFloating():
         tar.hide()        # sem comando não há aba de comando (nem a que o FreeCAD deixa aberta ao montar)
@@ -274,7 +280,7 @@ def _comando(ds, no_inicio):
         if tar.isVisible() and not tar.isFloating():
             tar.hide()
         volta = None
-        for nome in (ARVORE, PROPRIEDADES):
+        for nome in (ARVORE, PROPRIEDADES, APARENCIA):
             d = ds.get(nome)
             if d is not None and _estado.get("antes") == d.windowTitle():
                 volta = d
@@ -294,6 +300,14 @@ def organizar(no_inicio=False):
     ds = docks(mw)
     if ARVORE not in ds or PROPRIEDADES not in ds:
         return False       # o FreeCAD subiu com o painel "Modelo" (preferência mudou nesta sessão)
+    if _params().GetBool("PropriedadesEmCartoes", True):
+        try:
+            _instalar_abas_novas(mw, ds)
+            ds = docks(mw)
+        except Exception as exc:
+            if not _estado.get("aviso_cartoes"):
+                _estado["aviso_cartoes"] = True
+                FreeCAD.Console.PrintWarning("Prumo: propriedades em cartões: {}\n".format(exc))
     _nomear(ds)
     for d in ds.values():
         _sem_titulo(d)
@@ -305,6 +319,81 @@ def organizar(no_inicio=False):
         _estilizar(bar)
         _icones_das_abas(bar, ds)
     return True
+
+
+# ---------------------------------------------------------------- Propriedades em cartões e Aparência
+def inspetor():
+    """O widget da aba Propriedades (PrumoInspetor.Propriedades), se instalado."""
+    d = docks().get(PROPRIEDADES)
+    w = d.widget() if d is not None else None
+    import PrumoInspetor
+    return w if isinstance(w, PrumoInspetor.Propriedades) else None
+
+
+def aparencia():
+    d = docks().get(APARENCIA)
+    w = d.widget() if d is not None else None
+    import PrumoInspetor
+    return w if isinstance(w, PrumoInspetor.Aparencia) else None
+
+
+def _instalar_abas_novas(mw, ds):
+    import PrumoInspetor
+    prop = ds.get(PROPRIEDADES)
+    if prop is not None and not isinstance(prop.widget(), PrumoInspetor.Propriedades):
+        original = prop.widget()          # o PropertyView do FreeCAD vira o "Avançado"
+        novo = PrumoInspetor.Propriedades(avancado=original)
+        prop.setWidget(novo)
+        prop.visibilityChanged.connect(lambda vis: vis and atualizar(forcar=True))
+    if APARENCIA not in ds:
+        d = QtWidgets.QDockWidget(TITULOS[APARENCIA], mw)
+        d.setObjectName(APARENCIA)
+        d.setWindowIcon(icone(APARENCIA))
+        d.setWidget(PrumoInspetor.Aparencia())
+        d.setMinimumWidth(210)
+        mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, d)
+        if prop is not None and not prop.isFloating():
+            mw.tabifyDockWidget(prop, d)
+            tar = ds.get(TAREFA)
+            if tar is not None and not tar.isFloating() and tar.isVisible():
+                mw.tabifyDockWidget(d, tar)    # comando aberto continua por último
+            if prop.isVisible():
+                prop.raise_()
+        d.visibilityChanged.connect(lambda vis: vis and atualizar(forcar=True))
+    if not _estado.get("observando"):
+        _estado["observando"] = True
+        obs = PrumoInspetor.Observador(lambda: atualizar())
+        _estado["observador"] = obs
+        FreeCADGui.Selection.addObserver(obs)
+        FreeCAD.addDocumentObserver(obs)
+        atualizar(forcar=True)
+
+
+def _visivel(d):
+    return d is not None and d.isVisible() and not d.visibleRegion().isEmpty()
+
+
+def atualizar(forcar=False):
+    """Remonta Propriedades e Aparência com a seleção atual (só as que estão à vista)."""
+    import PrumoInspetor
+    sel = PrumoInspetor.selecionados()
+    ds = docks()
+    ins = inspetor()
+    if ins is not None and (forcar or _visivel(ds.get(PROPRIEDADES))):
+        alvo = sel[0] if sel else None
+        if forcar or alvo is not ins.obj or not ins.foco_aqui():
+            ins.montar(alvo, len(sel))
+    ap = aparencia()
+    if ap is not None and (forcar or _visivel(ds.get(APARENCIA))):
+        ap.montar(sel)
+
+
+def abrir_avancado(aba_vista=False):
+    d = mostrar_propriedades()
+    ins = inspetor()
+    if ins is not None:
+        ins.abrir_avancado(aba_vista)
+    return d
 
 
 def mostrar_propriedades():

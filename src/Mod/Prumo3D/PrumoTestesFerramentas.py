@@ -6942,6 +6942,140 @@ class T55PainelLateral(unittest.TestCase):
                 self.assertFalse(r > g + 40 and r > b + 40, "{} ainda avermelhada: {}".format(k, tab[k]))
 
 
+class T56PropriedadesEAparencia(unittest.TestCase):
+    """Abas Propriedades (cartões) e Aparência: montam pela seleção, mudam o modelo, entram no desfazer."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelLateral as P
+        P.organizar()
+        if P.inspetor() is None or P.aparencia() is None:
+            self.skipTest("abas novas não instaladas nesta sessão")
+        self.P = P
+        self.doc = novo_doc("PrumoTesteInspetor")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        self.sk = esboco_retangulo(body)
+        self.pad = body.newObject("PartDesign::Pad", "Pad")
+        self.pad.Profile = self.sk
+        self.pad.Length = 10
+        self.doc.recompute()
+
+    def tearDown(self):
+        FreeCADGui.Selection.clearSelection()
+        fechar(self.doc)
+
+    def _esp(self, s=0.3):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            time.sleep(0.01)
+
+    def _selecionar(self, *objs):
+        FreeCADGui.Selection.clearSelection()
+        for o in objs:
+            FreeCADGui.Selection.addSelection(o)
+        self.P.atualizar(forcar=True)
+        self._esp(0.2)
+        return self.P.inspetor()
+
+    def test_extrusao_em_cartoes(self):
+        self._esp(0.6)                       # o rótulo ganha o nome em português logo depois de criar
+        ins = self._selecionar(self.pad)
+        self.assertIs(ins.obj, self.pad)
+        for p in ("SideType", "Type", "Length", "Reversed", "Refine", "Profile"):
+            self.assertIn(p, ins.campos)
+        self.assertNotIn("Length2", ins.campos, "Direção 2 aparece com um lado só")
+        self.assertEqual(ins.nome.text(), self.pad.Label)
+
+    def test_medida_muda_e_desfaz(self):
+        ins = self._selecionar(self.pad)
+        ins.campos["Length"].setValue(25.0)
+        self._esp()
+        self.assertAlmostEqual(self.pad.Length.Value, 25.0, places=6)
+        self.assertGreater(self.pad.Shape.Volume, 0)
+        self.doc.undo()
+        self.doc.recompute()
+        self.assertAlmostEqual(self.pad.Length.Value, 10.0, places=6)
+
+    def test_escolha_remonta_os_campos(self):
+        ins = self._selecionar(self.pad)
+        ins.campos["SideType"].definir("Two sides", silencioso=False)
+        self._esp()
+        self.assertEqual(self.pad.SideType, "Two sides")
+        self.assertIn("Length2", self.P.inspetor().campos)
+        self.P.inspetor().campos["Type"].definir("UpToLast", silencioso=False)
+        self._esp()
+        self.assertEqual(self.pad.Type, "UpToLast")
+        self.assertNotIn("Length", self.P.inspetor().campos, "Altura continua com 'Até o fim'")
+
+    def test_chave_liga_desliga(self):
+        ins = self._selecionar(self.pad)
+        antes = bool(self.pad.Reversed)
+        ins.campos["Reversed"].click()
+        self._esp()
+        self.assertEqual(bool(self.pad.Reversed), not antes)
+
+    def test_objeto_sem_cartao_pronto_sai_por_grupo(self):
+        caixa = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+        ins = self._selecionar(caixa)
+        for p in ("Length", "Width", "Height"):
+            self.assertIn(p, ins.campos)
+        ins.campos["Height"].setValue(33.0)
+        self._esp()
+        self.assertAlmostEqual(caixa.Height.Value, 33.0, places=6)
+
+    def test_sem_selecao_e_avancado(self):
+        ins = self._selecionar()
+        self.assertIsNone(ins.obj)
+        self.assertFalse(ins.cab.isVisible())
+        ins = self._selecionar(self.sk)
+        if ins.avancado is not None:
+            self.P.abrir_avancado()
+            self._esp(0.1)
+            self.assertTrue(ins.avancado.isVisible() or not ins.isVisible())
+            ins.botao_avancado.setChecked(False)
+            self.assertFalse(ins.avancado.isVisible())
+
+    def test_aparencia(self):
+        import PrumoInspetor as I
+        self._selecionar(self.pad)
+        ap = self.P.aparencia()
+        ap.montar([self.pad])
+        vo = self.pad.ViewObject
+        ap.controles["Transparency"].setValue(40)
+        self._esp(0.1)
+        self.assertEqual(vo.Transparency, 40)
+        modos = vo.getEnumerationsOfProperty("DisplayMode")
+        alvo = "Wireframe" if "Wireframe" in modos else modos[-1]
+        ap.controles["DisplayMode"].definir(alvo, silencioso=False)
+        self.assertEqual(vo.DisplayMode, alvo)
+        ap._pintar(__import__("PySide").QtGui.QColor("#F7BE00"))
+        c = I.cor_de(vo)
+        self.assertAlmostEqual(c[0], 0xF7 / 255.0, places=2)
+        self.assertAlmostEqual(c[2], 0.0, places=2)
+
+    def test_kit_visual(self):
+        import PrumoUI as UI
+        sw = UI.Interruptor(False)
+        sw.click()
+        self.assertTrue(sw.isChecked())
+        seg = UI.Segmentado([("a", "A"), ("b", "B")], "b")
+        self.assertEqual(seg.valor(), "b")
+        n = UI.CampoNumero(12.5, "mm")
+        self.assertIn("mm", n.text())
+        c = UI.Cartao("Teste", "info", chave=True, ligado=False)
+        c.linha("x", UI.Interruptor())
+        self.assertTrue(c.corpo.isHidden())
+        c.chave.click()
+        self.assertFalse(c.corpo.isHidden())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6953,4 +7087,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
-           T55PainelLateral]
+           T55PainelLateral, T56PropriedadesEAparencia]

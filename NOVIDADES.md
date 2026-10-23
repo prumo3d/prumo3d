@@ -18,6 +18,13 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   e o painel volta para a aba em que você estava. Acabaram os painéis Modelo, Tarefas e Dados empilhados
   com título repetido em cima de cada um. (Para voltar ao arranjo do FreeCAD: preferência
   `PainelLateralUnico` em Mod/Prumo3D, vale na próxima abertura.)
+- **Propriedades em cartões:** a peça ou operação selecionada aparece com o nome editável, o botão
+  **Editar** e cartões com o que importa (na Extrusão: Lados, Direção 1, Direção 2, Perfil, Acabamento),
+  com chaves liga/desliga, botões com ícone (Medida, Até a face, Até o fim…) e campos com a unidade.
+  Cada mudança entra no desfazer. A tabela completa do FreeCAD continua em **Avançado**.
+- **Aba Aparência** (no lugar da antiga aba Vista): cor em amostras (ou outra cor), transparência,
+  modo de exibição (Arestas, Sólido, Arame, Pontos), espessura da linha e se dá para selecionar na
+  tela, para tudo o que estiver selecionado.
 
 ### Ajustes
 
