@@ -27,18 +27,16 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.6.0 beta** (23/10/2026)
+**Versão atual: 0.7.0 beta** (23/10/2026)
 
-- **Painel lateral novo, no jeito do SolidWorks:** abas Árvore, Propriedades e Aparência no alto, e a
-  aba do comando só enquanto ele está aberto. Propriedades em cartões com chaves liga/desliga e campos
-  com unidade; a tabela completa do FreeCAD continua em "Avançado".
-- **Aba do esboço:** situação do esboço numa frase, relações que se ajustam ao que está selecionado e
-  lista de restrições com apagar. A barra de cima ficou mais limpa.
-- **Mesmo visual em todo o sistema**, tela inicial com a área Ajuda e **atualização opcional** pelo
-  Ajuda → Sobre.
+- **Painéis dos comandos em cartões:** Extrusão, Cavidade, Furo, Revolução, Ranhura, Arredondar, Chanfro,
+  Padrão linear, Padrão circular e Espelhar, com botões de ícone, chaves liga/desliga e campos com
+  unidade; o formulário do FreeCAD continua a um clique.
+- **Assistentes, tutorial e guia como abas do painel lateral**, e mais telas no padrão novo.
 
-Na 0.5.0: Esboço 3D com restrições e linhas de construção. Na 0.4.0: linha de construção no esboço,
-Peça e Sólidos juntas e régua de histórico na árvore. Na 0.3.0: **Tubulação** de PVC soldável.
+Na 0.6.0: painel lateral novo (Árvore, Propriedades, Aparência), aba do esboço com relações e
+atualização opcional pelo Ajuda → Sobre. Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação**
+de PVC soldável.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
