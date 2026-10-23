@@ -667,6 +667,11 @@ if FreeCAD.GuiUp:
         if ativar:
             dock.show()
             dock.raise_()
+            try:
+                import PrumoPainelLateral
+                PrumoPainelLateral.acomodar(dock)     # vira aba do painel lateral
+            except Exception:
+                pass
         dock.widget().atualizar(force=True)
         return dock
 

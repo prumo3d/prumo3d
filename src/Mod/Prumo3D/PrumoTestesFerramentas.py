@@ -7467,6 +7467,69 @@ class T60Atualizacao(unittest.TestCase):
         self.assertTrue(any(a["nome"].endswith("-installer.exe") for a in info["ativos"]))
 
 
+class T61PaineisExtrasComoAbas(unittest.TestCase):
+    """Assistentes, tutorial, guia de migração e histórico viram abas do painel lateral, com × para fechar."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelLateral as P
+        if not P.ligado() or P.ARVORE not in P.docks():
+            self.skipTest("painel lateral único desligado nesta sessão")
+        self.P = P
+        self.doc = novo_doc("PrumoTesteExtras")
+
+    def tearDown(self):
+        for n in self.P.EXTRAS:
+            d = self.P.docks().get(n)
+            if d is not None:
+                d.close()
+        fechar(self.doc)
+
+    def _esp(self, s=0.6):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            self.P.organizar()
+            time.sleep(0.02)
+
+    def test_tutorial_e_assistente_viram_abas(self):
+        import PrumoTutorial
+        import PrumoAssistenteEstrutura
+        PrumoAssistenteEstrutura.mostrar()
+        PrumoTutorial.mostrar("peca")
+        self._esp()
+        nomes = [n for n, _t in self.P.abas()]
+        self.assertIn("PrumoTutorial", nomes)
+        self.assertIn("PrumoAssistenteEstrutura", nomes)
+        self.assertEqual(self.P.aba_atual(), "PrumoTutorial", "o último aberto deve vir para a frente")
+        d = self.P.docks()["PrumoTutorial"]
+        self.assertEqual(d.titleBarWidget().objectName(), "PrumoSemTitulo")
+        self.assertEqual(d.widget().objectName(), "PrumoComCabecalho")
+        self.assertIsInstance(self.P.conteudo(d), PrumoTutorial.Tutorial)
+        # o que os módulos chamam em dock.widget() continua chegando ao conteúdo
+        self.assertEqual(d.widget().chave, "peca")
+        d.widget().fechar.click()
+        self._esp(0.4)
+        self.assertFalse(d.isVisible())
+        self.assertNotIn("PrumoTutorial", [n for n, _t in self.P.abas()])
+        PrumoTutorial.mostrar("peca")
+        self._esp(0.4)
+        self.assertTrue(d.isVisible())
+        self.assertEqual(self.P.aba_atual(), "PrumoTutorial")
+
+    def test_assistente_continua_funcionando(self):
+        import PrumoFEM
+        dock = PrumoFEM.mostrar()
+        self._esp(0.4)
+        self.assertIn("PrumoAssistenteFEM", [n for n, _t in self.P.abas()])
+        self.assertTrue(dock.isVisible())
+        dock.widget().atualizar(force=True)          # chamada antiga, agora pelo cabeçalho
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7480,4 +7543,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
            T55PainelLateral, T56PropriedadesEAparencia,
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
-           T60Atualizacao]
+           T60Atualizacao, T61PaineisExtrasComoAbas]

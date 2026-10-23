@@ -473,7 +473,9 @@ def prepare():
 
 
 # ---------------------------------------------------------------- barra lateral só no trabalho
-SIDE_DOCKS = ("Model", "Tasks", "Combo View", "Tree view", "Property view", "PrumoAparencia")
+SIDE_DOCKS = ("Model", "Tasks", "Combo View", "Tree view", "Property view", "PrumoAparencia",
+              "PrumoAssistenteEstrutura", "PrumoAssistenteFEM", "PrumoTutorial", "PrumoGuiaMigracao",
+              "PrumoReguaHistorico")
 _side = {"connected": False}
 
 

@@ -27,6 +27,14 @@ PROPRIEDADES = "Property view"
 TAREFA = "Tasks"
 APARENCIA = "PrumoAparencia"
 ORDEM = (ARVORE, PROPRIEDADES, APARENCIA, TAREFA)
+# Painéis do Prumo que viram abas do painel lateral enquanto estão abertos (com × para fechar)
+EXTRAS = {
+    "PrumoAssistenteEstrutura": ("Estrutura", "estrutura"),
+    "PrumoAssistenteFEM": ("Simulação", "simulacao"),
+    "PrumoTutorial": ("Tutorial", "tutorial"),
+    "PrumoGuiaMigracao": ("Migração", "migracao"),
+    "PrumoReguaHistorico": ("Histórico", "historico"),
+}
 TITULOS = {ARVORE: "Árvore", PROPRIEDADES: "Propriedades", APARENCIA: "Aparência", TAREFA: "Comando"}
 LARGURA_TITULO = 18          # caracteres na aba do comando
 
@@ -36,6 +44,11 @@ _SVG = {
     PROPRIEDADES: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/>'
                   '<circle cx="10" cy="17" r="2"/>',
     TAREFA: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+    "estrutura": '<path d="M4 20V6h16v14M12 6v14M2 20h20"/>',
+    "simulacao": '<path d="M3 17c3-6 6-6 9 0s6 6 9 0"/><path d="M3 7h18"/>',
+    "tutorial": '<path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 6v14"/>',
+    "migracao": '<path d="M4 7h12M12 3l4 4-4 4M20 17H8M12 13l-4 4 4 4"/>',
+    "historico": '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4M12 8v4l3 2"/>',
     APARENCIA: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.6-.9 1.2-1.8-.5-1 .2-2.2 1.3-2.2H17a4 4 0 0 0 4-4'
                'c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7" r="1.2"/>'
                '<circle cx="16" cy="8.5" r="1.2"/>',
@@ -86,7 +99,7 @@ def docks(mw=None):
         return {}
     achados = {}
     for d in mw.findChildren(QtWidgets.QDockWidget):
-        if d.objectName() in ORDEM and d.objectName() not in achados:
+        if (d.objectName() in ORDEM or d.objectName() in EXTRAS) and d.objectName() not in achados:
             achados[d.objectName()] = d
     return achados
 
@@ -129,6 +142,8 @@ def dock_da_aba(bar, i, ds=None):
 
 
 def titulo_real(nome):
+    if nome in EXTRAS:
+        return EXTRAS[nome][0]
     return _estado["reais"].get(nome) or TITULOS.get(nome, nome)
 
 
@@ -265,6 +280,11 @@ def _titulos(bar, ds):
 def _icones_das_abas(bar, ds):
     for i in range(bar.count()):
         nome = dock_da_aba(bar, i, ds)
+        if nome in EXTRAS:
+            if bar.tabIcon(i).cacheKey() != _estado.get("ic_" + nome, -1):
+                bar.setTabIcon(i, icone(EXTRAS[nome][1]))
+                _estado["ic_" + nome] = bar.tabIcon(i).cacheKey()
+            continue
         if nome in (ARVORE, PROPRIEDADES, APARENCIA):
             if bar.tabIcon(i).cacheKey() != _estado.get("ic_" + nome, -1):
                 bar.setTabIcon(i, icone(nome))
@@ -273,6 +293,107 @@ def _icones_das_abas(bar, ds):
             if bar.tabIcon(i).cacheKey() != _estado.get("ic_tarefa_key", -1):
                 bar.setTabIcon(i, _estado["ic_tarefa"])
                 _estado["ic_tarefa_key"] = bar.tabIcon(i).cacheKey()
+
+
+class _ComCabecalho(QtWidgets.QWidget):
+    """Cabeçalho + conteúdo original; o que não for do cabeçalho vai para o conteúdo
+    (quem fazia dock.widget().atualizar() continua funcionando)."""
+
+    def __getattr__(self, nome):
+        conteudo = self.__dict__.get("conteudo")
+        if conteudo is None:
+            raise AttributeError(nome)
+        return getattr(conteudo, nome)
+
+
+def _cabecalho(dock, nome):
+    """Faixa no topo do painel extra: ícone, nome e × para fechar (a aba não tem barra de título).
+
+    (Botões dentro da própria aba derrubam o Qt: a barra de abas dos painéis é interna da janela.)"""
+    atual = dock.widget()
+    if atual is None or atual.objectName() == "PrumoComCabecalho":
+        return
+    caixa = _ComCabecalho()
+    caixa.setObjectName("PrumoComCabecalho")
+    v = QtWidgets.QVBoxLayout(caixa)
+    v.setContentsMargins(0, 0, 0, 0)
+    v.setSpacing(0)
+    faixa = QtWidgets.QFrame()
+    faixa.setObjectName("PrumoCabecalhoExtra")
+    faixa.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+    esc = _escuro()
+    faixa.setStyleSheet("#PrumoCabecalhoExtra {{ background: {}; border-bottom: 1px solid {}; }}"
+                        "#PrumoCabecalhoExtra QLabel {{ background: transparent; color: {}; font-weight: 600; }}"
+                        "#PrumoCabecalhoExtra QToolButton {{ border: 0; background: transparent; color: #9AA7B4;"
+                        " font-weight: 700; font-size: 12pt; padding: 0 4px; }}"
+                        "#PrumoCabecalhoExtra QToolButton:hover {{ color: #A33A2B; }}".format(
+                            "#1F252D" if esc else "#FFFFFF", "#2E3742" if esc else "#DCE4EC",
+                            "#E6EEF7" if esc else "#003A70"))
+    h = QtWidgets.QHBoxLayout(faixa)
+    h.setContentsMargins(12, 6, 6, 6)
+    h.setSpacing(8)
+    ic = QtWidgets.QLabel()
+    ic.setPixmap(icone(EXTRAS[nome][1]).pixmap(18, 18))
+    h.addWidget(ic)
+    tt = QtWidgets.QLabel(dock.windowTitle() or EXTRAS[nome][0])
+    tt.setObjectName("PrumoCabecalhoTitulo")
+    h.addWidget(tt, 1)
+    x = QtWidgets.QToolButton()
+    x.setText("×")
+    x.setToolTip("Fechar")
+    x.setCursor(QtCore.Qt.PointingHandCursor)
+    x.clicked.connect(dock.close)
+    h.addWidget(x)
+    v.addWidget(faixa)
+    atual.setParent(caixa)
+    v.addWidget(atual, 1)
+    dock.setWidget(caixa)
+    caixa.fechar = x
+    caixa.conteudo = atual
+
+
+def conteudo(dock):
+    """O widget original de um painel extra (por dentro do cabeçalho, se houver)."""
+    w = dock.widget()
+    return getattr(w, "conteudo", w)
+
+
+def acomodar(dock):
+    """Painel do Prumo (assistente, tutorial, guia, histórico) vira aba do painel lateral, à frente."""
+    if not ligado() or dock is None:
+        return False
+    mw = FreeCADGui.getMainWindow()
+    ds = docks(mw)
+    if ARVORE not in ds or dock.isFloating():
+        return False
+    area = QtCore.Qt.LeftDockWidgetArea
+    if mw.dockWidgetArea(dock) != area:
+        mw.addDockWidget(area, dock)
+    arv = ds[ARVORE]
+    if dock not in mw.tabifiedDockWidgets(arv):
+        ancora = ds.get(APARENCIA) or ds.get(PROPRIEDADES) or arv
+        if ancora.isFloating():
+            ancora = arv
+        mw.tabifyDockWidget(ancora, dock)
+    nome = dock.objectName()
+    if nome in EXTRAS:
+        _cabecalho(dock, nome)
+    _sem_titulo(dock)
+    if dock.minimumWidth() > 300:
+        dock.setMinimumWidth(300)
+    dock.show()
+    dock.raise_()
+    _estado.setdefault("acomodados", set()).add(dock.objectName())
+    return True
+
+
+def _acomodar_extras(ds):
+    for nome in EXTRAS:
+        d = ds.get(nome)
+        if d is None or d.isFloating() or not d.isVisible():
+            continue
+        if d.titleBarWidget() is None or d.titleBarWidget().objectName() != "PrumoSemTitulo":
+            acomodar(d)
 
 
 def _estilizar(bar):
@@ -376,11 +497,15 @@ def organizar(no_inicio=False):
                 _estado["aviso_cartoes"] = True
                 FreeCAD.Console.PrintWarning("Prumo: propriedades em cartões: {}\n".format(exc))
     _nomear(ds)
-    for d in ds.values():
+    for n, d in ds.items():
+        if n in EXTRAS and (d.isFloating() or mw.dockWidgetArea(d) != QtCore.Qt.LeftDockWidgetArea):
+            continue          # solto ou em outro lado: mantém a barra de título para poder mover
         _sem_titulo(d)
     if not _estado["juntou"] and not no_inicio:
         _juntar(mw, ds)
     _comando(ds, no_inicio)
+    if not no_inicio:
+        _acomodar_extras(ds)
     bar = barra_de_abas(mw)
     if bar is not None:
         _estilizar(bar)

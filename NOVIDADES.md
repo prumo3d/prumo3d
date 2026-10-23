@@ -15,6 +15,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 - **Mais telas no padrão novo:** Estrutura soldada, Cantos da estrutura, Propriedades de massa, guia
   "Vem do SolidWorks", Esboço 3D e Tubulação agora em cartões, como o resto do sistema.
+- **Assistentes, tutorial, guia "Vem do SolidWorks" e histórico do corpo viram abas do painel lateral**
+  enquanto estão abertos (antes abriam num painel separado à direita), com um × no topo para fechar.
+- **Cotas na tela** (duplo clique na operação) e **aviso de conferência do esboço** no padrão novo:
+  cartão de cantos arredondados, campos com unidade sem setas, aviso em amarelo.
 - **Avisos dos painéis voltaram a ter o fundo amarelo** (o estilo da letra apagava o fundo da caixa de
   instrução).
 

@@ -133,11 +133,10 @@ if FreeCAD.GuiUp:
     import PrumoEstilo
 
     QSS = """
-    #SwAvisoEsboco { background: #FFFFFF; border: 1px solid #E0A100; border-left: 5px solid #E0A100;
-                     border-radius: 8px; }
+    #SwAvisoEsboco { background: #FFF8DC; border: 1px solid #F0DFA0; border-radius: 10px; }
     #SwAvisoEsboco QLabel { color: #1F2A36; background: transparent; }
     #SwAvisoEsboco QLabel#SwAvisoTit { color: #003A70; font-weight: 700; font-size: 10pt; }
-    #SwAvisoEsboco QPushButton { padding: 4px 10px; }
+    #SwAvisoEsboco QPushButton { padding: 5px 12px; border-radius: 8px; }
     #SwAvisoEsboco QPushButton#SwPrimario { background: #003A70; color: #FFFFFF; border: 1px solid #003A70;
                                             font-weight: 600; }
     """

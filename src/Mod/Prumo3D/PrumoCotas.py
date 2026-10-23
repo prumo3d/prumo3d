@@ -403,17 +403,19 @@ class PainelCotas(QtWidgets.QFrame):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.obj = obj
         self.campos = []
-        self.setStyleSheet("""
-            #PrumoPainelCotas { background: #FFFFFF; border: 1px solid #003A70; border-radius: 6px; }
-            QLabel#titulo { color: #003A70; font-weight: 700; font-size: 11pt; }
-            QLabel#grupo { color: #5B6876; font-weight: 600; margin-top: 4px; }
-            QLabel#aviso { color: #B5523F; }
-            QDoubleSpinBox, QSpinBox { min-width: 110px; padding: 2px 4px; }
-            QPushButton { padding: 3px 10px; }
-            QPushButton#aplicar { background: #003A70; color: white; border-radius: 3px; }
-        """)
+        import PrumoUI as UI
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        # padrão visual Prumo (cartão branco, título azul, campos com unidade sem setas)
+        self.setStyleSheet(UI.qss() + UI.tema("""
+            #PrumoPainelCotas { background: #FFFFFF; border: 1px solid #DCE4EC; border-radius: 10px; }
+            #PrumoPainelCotas QLabel { background: transparent; color: #1F2A36; }
+            #PrumoPainelCotas QLabel#titulo { color: #003A70; font-weight: 700; font-size: 11pt; }
+            #PrumoPainelCotas QLabel#grupo { color: #5B6876; font-weight: 600; font-size: 8.5pt; margin-top: 4px; }
+            #PrumoPainelCotas QLabel#aviso { background: #FBE9E5; color: #7A2615; border-radius: 8px; padding: 6px 8px; }
+        """))
         lay = QtWidgets.QVBoxLayout(self)
-        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(6)
         tipo = obj.TypeId.split("::")[-1]
         titulo = QtWidgets.QLabel("%s — %s" % (TIPOS_OPERACAO.get(tipo, tipo), obj.Label))
         titulo.setObjectName("titulo")
@@ -442,6 +444,10 @@ class PainelCotas(QtWidgets.QFrame):
                     w.setGroupSeparatorShown(False)
                 w.setLocale(QtCore.QLocale(QtCore.QLocale.Portuguese, QtCore.QLocale.Brazil))
                 w.setKeyboardTracking(False)
+                w.setObjectName("PrumoNum")
+                w.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+                w.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+                w.setMinimumWidth(120)
                 if c.bloqueada:
                     w.setEnabled(False)
                     w.setToolTip(c.motivo)
@@ -458,7 +464,7 @@ class PainelCotas(QtWidgets.QFrame):
         editar = QtWidgets.QPushButton("Editar operação")
         editar.clicked.connect(self._editar)
         fechar = QtWidgets.QPushButton("Fechar")
-        fechar.setObjectName("aplicar")
+        fechar.setObjectName("PrumoPrimario")
         fechar.clicked.connect(self.close)
         bot.addWidget(editar)
         bot.addStretch(1)

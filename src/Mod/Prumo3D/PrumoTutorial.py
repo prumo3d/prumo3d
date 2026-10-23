@@ -479,6 +479,11 @@ def mostrar(chave="peca"):
         _estado["dock"] = dock
     dock.show()
     dock.raise_()
+    try:
+        import PrumoPainelLateral
+        PrumoPainelLateral.acomodar(dock)     # vira aba do painel lateral
+    except Exception:
+        pass
     return dock
 
 

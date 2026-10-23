@@ -1985,6 +1985,11 @@ def mostrar():
         _estado["dock"] = dock
     dock.show()
     dock.raise_()
+    try:
+        import PrumoPainelLateral
+        PrumoPainelLateral.acomodar(dock)     # vira aba do painel lateral
+    except Exception:
+        pass
     dock.widget().atualizar(force=True)
     dock.widget()._abrir_proxima()
     return dock
