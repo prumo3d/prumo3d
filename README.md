@@ -27,17 +27,16 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.4.0 beta** (23/10/2026)
+**Versão atual: 0.5.0 beta** (23/10/2026)
 
-- **Esboço mais direto:** linha de construção no menu da Linha, restrições num botão só, padrão linear e
-  circular com botões próprios e referências automáticas (as arestas da face de apoio já entram como
-  geometria externa).
-- **Peça e Sólidos juntas** numa aba só, sem ferramentas repetidas.
-- **Régua de histórico na árvore do modelo**, arrastável.
-- **Vasos:** pressão em MPa, kgf/cm² ou psi.
-- Painel de tarefas mais estreito e tela de abertura com a versão certa.
+- **Esboço 3D com restrições:** linhas ao longo de X, Y e Z restringidas sozinhas, cotas, paralelas,
+  perpendiculares, iguais e linhas de construção tracejadas; o resto do modelo fica transparente na
+  edição. Abre pelo botão Esboço da aba Peça.
+- **Modelo e Tarefas em abas**, sem estourar a largura em notebook; na abertura, só a tela inicial.
+- Instalador do Windows com a marca do Prumo.
 
-Na 0.3.0: **Tubulação** de PVC soldável (Tigre) sobre o traçado do Esboço 3D. Na 0.2.0: **Esboço 3D**.
+Na 0.4.0: linha de construção no esboço, restrições num botão só, Peça e Sólidos juntas, régua de
+histórico na árvore e pressão do vaso em kgf/cm² e psi. Na 0.3.0: **Tubulação** de PVC soldável.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
@@ -163,8 +162,9 @@ Todos os recursos
   corte em barras e itens na lista de materiais.
 
 * **Esboço 3D** Linhas no espaço, ponto a ponto: clique na vista (Tab troca o plano XY, YZ, ZX) ou
-  digite as coordenadas; encaixa em vértices, faz ramais e curvas nos cantos. Vira esqueleto da
-  estrutura soldada ou caminho de tubo e varredura.
+  digite as coordenadas; encaixa em vértices, faz ramais e curvas nos cantos. Restrições ao longo de
+  X/Y/Z, cotas, paralelas, perpendiculares e linhas de construção. Vira esqueleto da estrutura soldada ou
+  caminho de tubo e varredura.
 
 * **Esboço com ímãs e inferência** Ao desenhar, aparecem pontos-ímã nos quadrantes de círculos e arcos, no
   meio das linhas e nas interseções; o cursor é atraído e o ponto já recebe as restrições. Linhas tracejadas
