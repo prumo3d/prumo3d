@@ -18,6 +18,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   medida, afastamento, ângulo de saída, inverter), Perfil e Acabamento, no lugar do formulário do
   FreeCAD. Quando o modo pede escolher na vista (Até a face, Até a peça), o quadro do FreeCAD aparece
   embaixo para a escolha; "Formulário completo do FreeCAD" mostra tudo quando quiser.
+- **Furo com painel no padrão Prumo:** cartões Furo (padrão de rosca, tamanho, diâmetro), Tipo (Passante,
+  Para rosca, Modelada, com a folga), Profundidade (Medida ou Através, ponta cônica), Cabeça (rebaixo,
+  escareado… com diâmetro e profundidade) e Acabamento.
 
 ### Ajustes
 

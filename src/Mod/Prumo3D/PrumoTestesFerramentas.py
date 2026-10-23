@@ -7609,6 +7609,45 @@ class T62PainelDeComando(unittest.TestCase):
         self._esp(0.8)
         self.assertFalse(self.C.painel().quadro.isVisible())
 
+    def _furo(self):
+        import Part
+        s2 = self.body.newObject("Sketcher::SketchObject", "Furos")
+        s2.AttachmentSupport = [(self.body.Origin.OriginFeatures[3], "")]
+        s2.MapMode = "FlatFace"
+        s2.AttachmentOffset = FreeCAD.Placement(FreeCAD.Vector(0, 0, 10), FreeCAD.Rotation())
+        s2.addGeometry(Part.Circle(FreeCAD.Vector(20, 10, 0), FreeCAD.Vector(0, 0, 1), 3))
+        h = self.body.newObject("PartDesign::Hole", "Hole")
+        h.Profile = s2
+        self.doc.recompute()
+        return h
+
+    def test_furo_em_cartoes(self):
+        h = self._furo()
+        FreeCADGui.ActiveDocument.setEdit(h.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertEqual(type(p).__name__, "PainelFuro")
+        self.assertFalse(p.quadro.isVisible())
+        self.assertLess(p.minimumSizeHint().width(), 300, "o painel do furo pede largura demais")
+        self.assertNotIn("tamanho", p.campos)                 # sem rosca: diâmetro livre
+        p.campos["rosca"].setCurrentIndex(1)
+        p.campos["rosca"].activated.emit(1)
+        self._esp(0.8)
+        p = self.C.painel()
+        self.assertIn("tamanho", p.campos)
+        self.assertIn("tipo", p.campos)
+        p.campos["cabeca"].setCurrentIndex(1)
+        p.campos["cabeca"].activated.emit(1)
+        self._esp(0.8)
+        p = self.C.painel()
+        self.assertIn("cab_d", p.campos)
+        p.campos["prof"].setValue(7.5)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(h.Depth.Value, 7.5, places=6)
+        self.assertNotEqual(h.ThreadType, "None")
+        self.assertNotEqual(h.HoleCutType, "None")
+
     def test_cavidade_tem_atraves(self):
         caixa = self.body.newObject("PartDesign::Pocket", "Pocket")
         sk2 = esboco_retangulo(self.body, 10, 5)

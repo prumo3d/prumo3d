@@ -289,7 +289,7 @@ class CampoNumero(QtWidgets.QDoubleSpinBox):
         if unidade:
             self.setSuffix(" " + unidade)
         self.setValue(valor)
-        self.setMinimumWidth(96)
+        self.setMinimumWidth(80)
         self.setMaximumWidth(140)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 

@@ -24,7 +24,9 @@ import PrumoUI as UI
 
 PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 
-TIPOS = ("PartDesign::Pad", "PartDesign::Pocket")
+TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole")
+# campo que identifica o formulário do FreeCAD de cada comando
+MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType"}
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
 MODOS = {
     "PartDesign::Pad": [("Length", "Medida", "medida"), ("UpToLast", "Até o fim", "ate_fim"),
@@ -63,14 +65,14 @@ def _painel_de_tarefas():
     return None
 
 
-def _quadro_do_formulario(panel):
-    """O quadro (TaskBox) do FreeCAD que tem o formulário da extrusão (procura o combo changeMode)."""
+def _quadro_do_formulario(panel, marca="changeMode"):
+    """O quadro (TaskBox) do FreeCAD que tem o formulário do comando (procura o combo pelo nome)."""
     lay = panel.layout()
     for i in range(lay.count()):
         w = lay.itemAt(i).widget()
         if w is None or not shiboken.isValid(w):
             continue
-        if w.findChild(QtWidgets.QComboBox, "changeMode") is not None:
+        if w.findChild(QtWidgets.QComboBox, marca) is not None:
             return w
     return None
 
@@ -97,6 +99,37 @@ class Formulario:
         v = w.property("rawValue")
         return float(v) if v is not None else None
 
+    def espelho(self, nome, traduz=None, largura=190):
+        """Lista nossa que reflete (e comanda) uma lista do formulário do FreeCAD."""
+        fc = self.combo(nome)
+        cb = QtWidgets.QComboBox()
+        cb.setObjectName("PrumoLista")
+        cb.setMaximumWidth(largura)
+        # não exige a largura do maior item (o texto inteiro aparece ao abrir a lista)
+        cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        cb.setMinimumContentsLength(8)
+        cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        if fc is None:
+            return cb
+        for i in range(fc.count()):
+            t = fc.itemText(i)
+            cb.addItem((traduz or {}).get(t, t))
+        cb.setCurrentIndex(fc.currentIndex())
+        cb.activated.connect(lambda i: fc.setCurrentIndex(i))
+        return cb
+
+    def indice(self, nome):
+        c = self.combo(nome)
+        return c.currentIndex() if c is not None else -1
+
+    def texto(self, nome):
+        c = self.combo(nome)
+        return c.currentText() if c is not None else ""
+
+    def visivel(self, nome):
+        w = self.w(nome)
+        return w is not None and w.isVisibleTo(self.q) and w.isEnabled()
+
     def por_numero(self, nome, valor):
         w = self.w(nome, QtWidgets.QAbstractSpinBox)
         if w is None:
@@ -114,7 +147,7 @@ class PainelComando(QtWidgets.QWidget):
         self.obj = obj
         self.f = Formulario(quadro)
         self.quadro = quadro
-        self.modos = MODOS[obj.TypeId]
+        self.modos = MODOS.get(obj.TypeId, [])
         self.nome_medida = "Altura" if obj.TypeId == "PartDesign::Pad" else "Profundidade"
         self.lay = QtWidgets.QVBoxLayout(self)
         self.lay.setContentsMargins(0, 0, 0, 0)
@@ -123,7 +156,7 @@ class PainelComando(QtWidgets.QWidget):
         self.completo.setObjectName("PrumoAvancado")
         self.completo.setCheckable(True)
         self.completo.setText("Formulário completo do FreeCAD")
-        self.completo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.completo.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
         self.completo.toggled.connect(lambda _on: self.mostrar_formulario())
         self.assinatura = None
         self.montar()
@@ -289,6 +322,169 @@ class PainelComando(QtWidgets.QWidget):
         self.montar()
 
 
+ROSCAS_PT = {"None": "Sem rosca (diâmetro livre)", "ISO metric regular": "Métrica ISO grossa",
+             "ISO metric fine": "Métrica ISO fina", "UTS coarse": "UNC (polegada, grossa)",
+             "UTS fine": "UNF (polegada, fina)", "UTS extra fine": "UNEF (polegada, extrafina)",
+             "ANSI pipes": "NPT (tubo, ANSI)", "ISO/BSP pipes": "BSP (tubo, ISO)",
+             "BSW whitworth": "Whitworth BSW", "BSF whitworth fine": "Whitworth BSF fina",
+             "ISO tyre valves": "Válvula de pneu (ISO)"}
+CABECAS_PT = {"None": "Nenhuma (furo reto)", "Counterbore": "Rebaixo", "Countersink": "Escareado",
+              "Counterdrill": "Rebaixo cônico", "Cheesehead (deprecated)": "Cabeça cilíndrica (antigo)",
+              "Countersink socket screw (deprecated)": "Escareado p/ allen (antigo)",
+              "Cap screw (deprecated)": "Cabeça cilíndrica allen (antigo)"}
+TIPOS_FURO = [("Clearance / Passthrough", "Passante", "atraves"), ("Tap drill (to be threaded)", "Para rosca", "furo"),
+              ("Modeled thread", "Modelada", "padrao")]
+FOLGAS_PT = {"Standard": "Normal", "Close": "Justa", "Wide": "Larga"}
+
+
+class PainelFuro(PainelComando):
+    """Furo: rosca e tamanho, tipo (passante, para rosca, modelada), profundidade, cabeça e ponta."""
+
+    def __init__(self, obj, quadro, parent=None):
+        self.modos = []
+        QtWidgets.QWidget.__init__(self, parent)
+        self.setObjectName("PrumoUI")
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        self.setStyleSheet(UI.qss() + UI.tema("#PrumoUI { background: transparent; }"))
+        self.obj = obj
+        self.f = Formulario(quadro)
+        self.quadro = quadro
+        self.nome_medida = "Profundidade"
+        self.lay = QtWidgets.QVBoxLayout(self)
+        self.lay.setContentsMargins(0, 0, 0, 0)
+        self.lay.setSpacing(10)
+        self.completo = QtWidgets.QToolButton()
+        self.completo.setObjectName("PrumoAvancado")
+        self.completo.setCheckable(True)
+        self.completo.setText("Formulário completo do FreeCAD")
+        self.completo.setToolTip("Rosca, folgas, profundidade da rosca e o resto do formulário original")
+        self.completo.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.completo.toggled.connect(lambda _on: self.mostrar_formulario())
+        self.assinatura = None
+        self.montar()
+
+    def estado(self):
+        f = self.f
+        chk = f.check("DrillPointAngled")
+        rev = f.check("Reversed")
+        return {
+            "rosca": f.indice("ThreadType"), "tamanho": f.indice("ThreadSize"), "tipo": f.indice("HoleType"),
+            "folga": f.indice("ThreadFit"), "prof_tipo": f.indice("DepthType"), "cabeca": f.indice("HoleCutType"),
+            "cabeca_txt": f.texto("HoleCutType"), "n_cabeca": f.combo("HoleCutType").count()
+            if f.combo("HoleCutType") else 0, "n_tam": f.combo("ThreadSize").count() if f.combo("ThreadSize") else 0,
+            "diam": f.numero("Diameter"), "prof": f.numero("Depth"),
+            "cab_d": f.numero("HoleCutDiameter"), "cab_p": f.numero("HoleCutDepth"),
+            "ponta": bool(chk.isChecked()) if chk else True, "angulo": f.numero("DrillPointAngle"),
+            "inverter": bool(rev.isChecked()) if rev else False,
+            "diam_ok": f.visivel("Diameter"), "cab_ok": f.visivel("HoleCutDiameter"),
+        }
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        sem_rosca = e["rosca"] <= 0
+
+        c = UI.Cartao("Furo", "furo")
+        cb = f.espelho("ThreadType", ROSCAS_PT)
+        cb.activated.connect(lambda _i: QtCore.QTimer.singleShot(0, self.montar))
+        c.linha("Padrão", cb)
+        self.campos["rosca"] = cb
+        if not sem_rosca:
+            cb = f.espelho("ThreadSize", largura=150)
+            cb.activated.connect(lambda _i: QtCore.QTimer.singleShot(0, self.montar))
+            c.linha("Tamanho", cb)
+            self.campos["tamanho"] = cb
+        if e["diam"] is not None:
+            num = UI.CampoNumero(e["diam"], "mm", minimo=0.0)
+            num.setEnabled(e["diam_ok"])
+            num.valueChanged.connect(lambda v: f.por_numero("Diameter", v))
+            c.linha("Diâmetro", num)
+            self.campos["diam"] = num
+        self.lay.addWidget(c)
+
+        if not sem_rosca and f.combo("HoleType") is not None:
+            c = UI.Cartao("Tipo", "padrao")
+            seg = UI.Segmentado([(str(i), t, ic) for i, (_en, t, ic) in enumerate(TIPOS_FURO)], str(e["tipo"]),
+                                colunas=3)
+            seg.mudou.connect(lambda k: self._indice("HoleType", int(k)))
+            c.widget(seg)
+            self.campos["tipo"] = seg
+            if e["tipo"] == 0 and f.visivel("ThreadFit"):
+                cb = f.espelho("ThreadFit", FOLGAS_PT, largura=150)
+                c.linha("Folga", cb)
+                self.campos["folga"] = cb
+            self.lay.addWidget(c)
+
+        c = UI.Cartao("Profundidade", "seta_baixo")
+        seg = UI.Segmentado([("0", "Medida", "medida"), ("1", "Através", "atraves")], str(max(0, e["prof_tipo"])),
+                            colunas=2)
+        seg.mudou.connect(lambda k: self._indice("DepthType", int(k)))
+        c.widget(seg)
+        self.campos["prof_tipo"] = seg
+        if e["prof_tipo"] == 0 and e["prof"] is not None:
+            num = UI.CampoNumero(e["prof"], "mm", minimo=0.0)
+            num.valueChanged.connect(lambda v: f.por_numero("Depth", v))
+            c.linha("Profundidade", num)
+            self.campos["prof"] = num
+        if f.check("DrillPointAngled") is not None and e["prof_tipo"] == 0:
+            sw = UI.Interruptor(e["ponta"])
+            sw.toggled.connect(lambda on: self._marcar("DrillPointAngled", on))
+            c.linha("Ponta cônica (broca)", sw)
+            self.campos["ponta"] = sw
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Cabeça", "chanfro")
+        cb = f.espelho("HoleCutType", CABECAS_PT)
+        cb.activated.connect(lambda _i: QtCore.QTimer.singleShot(0, self.montar))
+        c.linha("Tipo", cb)
+        self.campos["cabeca"] = cb
+        if e["cabeca"] > 0 and e["cab_d"] is not None:
+            num = UI.CampoNumero(e["cab_d"], "mm", minimo=0.0)
+            num.setEnabled(e["cab_ok"])
+            num.valueChanged.connect(lambda v: f.por_numero("HoleCutDiameter", v))
+            c.linha("Diâmetro da cabeça", num)
+            self.campos["cab_d"] = num
+            if e["cab_p"] is not None and f.visivel("HoleCutDepth"):
+                num = UI.CampoNumero(e["cab_p"], "mm", minimo=0.0)
+                num.valueChanged.connect(lambda v: f.por_numero("HoleCutDepth", v))
+                c.linha("Profundidade da cabeça", num)
+                self.campos["cab_p"] = num
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Acabamento", "acabamento")
+        if f.check("Reversed") is not None:
+            sw = UI.Interruptor(e["inverter"])
+            sw.toggled.connect(lambda on: self._marcar("Reversed", on))
+            c.linha("Inverter o sentido", sw)
+            self.campos["inverter"] = sw
+        sw = UI.Interruptor(bool(getattr(self.obj, "Refine", False)))
+        sw.toggled.connect(self._refinar)
+        c.linha("Unir faces planas (refinar)", sw)
+        self.campos["refinar"] = sw
+        self.lay.addWidget(c)
+
+        self.dica = UI.Dica("")
+        self.lay.addWidget(self.dica)
+        self.lay.addWidget(self.completo)
+        self.mostrar_formulario()
+
+    def _indice(self, nome, i):
+        cb = self.f.combo(nome)
+        if cb is not None and cb.currentIndex() != i:
+            cb.setCurrentIndex(i)
+        QtCore.QTimer.singleShot(0, self.montar)
+
+    def precisa_do_formulario(self):
+        return False
+
+
+CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
+           "PartDesign::Hole": "PainelFuro"}
+
+
 class Encaixe:
     """Põe o PainelComando no topo do painel de tarefas enquanto uma Extrusão/Cavidade está em edição."""
 
@@ -327,13 +523,13 @@ class Encaixe:
         panel = _painel_de_tarefas()
         if panel is None:
             return
-        quadro = _quadro_do_formulario(panel)
+        quadro = _quadro_do_formulario(panel, MARCA[obj.TypeId])
         if quadro is None:
             return
         if not self._vivo() or self.painel.parent() is not panel or self.obj is not obj:
             self._tirar()
             self.obj = obj
-            self.painel = PainelComando(obj, quadro, panel)
+            self.painel = globals()[CLASSES[obj.TypeId]](obj, quadro, panel)
             lay = panel.layout()
             lay.insertWidget(lay.indexOf(quadro), self.painel)
             return
