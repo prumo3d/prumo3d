@@ -25,11 +25,14 @@ import PrumoUI as UI
 PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 
 TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole", "PartDesign::Revolution",
-         "PartDesign::Groove", "PartDesign::Fillet", "PartDesign::Chamfer")
+         "PartDesign::Groove", "PartDesign::Fillet", "PartDesign::Chamfer", "PartDesign::LinearPattern",
+         "PartDesign::PolarPattern", "PartDesign::Mirrored")
 # campo que identifica o formulário do FreeCAD de cada comando
 MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType",
          "PartDesign::Revolution": "revolveAngle", "PartDesign::Groove": "revolveAngle",
-         "PartDesign::Fillet": "filletRadius", "PartDesign::Chamfer": "chamferType"}
+         "PartDesign::Fillet": "filletRadius", "PartDesign::Chamfer": "chamferType",
+         "PartDesign::LinearPattern": "listWidgetFeatures", "PartDesign::PolarPattern": "listWidgetFeatures",
+         "PartDesign::Mirrored": "listWidgetFeatures"}
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
 MODOS = {
     "PartDesign::Pad": [("Length", "Medida", "medida"), ("UpToLast", "Até o fim", "ate_fim"),
@@ -721,10 +724,203 @@ class PainelAcabamentoArestas(_Base):
         return False
 
 
+UINT0 = -2 ** 31     # o UIntSpinBox do FreeCAD guarda o valor deslocado (0 → menor inteiro)
+DIRECOES_PT = {"Base X axis": "Eixo X", "Base Y axis": "Eixo Y", "Base Z axis": "Eixo Z",
+               "Horizontal sketch axis": "Eixo horizontal do esboço", "Vertical sketch axis": "Eixo vertical do esboço",
+               "Normal sketch axis": "Normal ao esboço", "Select reference…": "Escolher…",
+               "Select reference...": "Escolher…", "XY_Plane": "Plano XY", "XZ_Plane": "Plano XZ", "YZ_Plane": "Plano YZ"}
+
+
+def _ativar(cb, i):
+    """Troca a lista do FreeCAD como se fosse o usuário (estes formulários escutam 'activated')."""
+    if cb is None or i < 0:
+        return
+    cb.setCurrentIndex(i)
+    cb.activated.emit(i)
+
+
+class PainelPadrao(_Base):
+    """Padrão linear, Padrão circular e Espelhar: operações a repetir, direção(ões), quantidade e medidas."""
+
+    def _direcoes(self):
+        return [w for w in self.quadro.findChildren(QtWidgets.QWidget)
+                if w.metaObject().className() == "PartGui::PatternParametersWidget"]
+
+    def _dir_estado(self, w):
+        g = w.findChild(QtWidgets.QGroupBox, "groupBox")
+        en = w.findChild(QtWidgets.QCheckBox, "enableCheckbox")
+        oc = w.findChild(QtWidgets.QSpinBox, "spinOccurrences")
+        ext, esp = w.findChild(QtWidgets.QAbstractSpinBox, "spinExtent"), \
+            w.findChild(QtWidgets.QAbstractSpinBox, "spinSpacing")
+        cd, cm = w.findChild(QtWidgets.QComboBox, "comboDirection"), w.findChild(QtWidgets.QComboBox, "comboMode")
+        ativa = g is not None and g.isVisibleTo(self.quadro) and (not g.isCheckable() or g.isChecked())
+        return {"ativa": bool(ativa), "pode": bool(en is not None and en.isVisibleTo(self.quadro)) or bool(ativa),
+                "dir": cd.currentIndex() if cd else -1, "n_dir": cd.count() if cd else 0,
+                "modo": cm.currentIndex() if cm else 0,
+                "ext": float(ext.property("rawValue")) if ext is not None and ext.property("rawValue") is not None
+                else None,
+                "esp": float(esp.property("rawValue")) if esp is not None and esp.property("rawValue") is not None
+                else None,
+                "ext_ok": bool(ext is not None and ext.isVisibleTo(self.quadro)),
+                "esp_ok": bool(esp is not None and esp.isVisibleTo(self.quadro)),
+                "unid": ext.property("unit") if ext is not None else "",
+                "n": (oc.value() - UINT0) if oc is not None else None}
+
+    def estado(self):
+        lw = self.f.w("listWidgetFeatures", QtWidgets.QListWidget)
+        add = self.f.w("buttonAddFeature", QtWidgets.QAbstractButton)
+        rem = self.f.w("buttonRemoveFeature", QtWidgets.QAbstractButton)
+        e = {"ops": tuple(lw.item(i).text() for i in range(lw.count())) if lw is not None else (),
+             "add": bool(add.isChecked()) if add else False, "rem": bool(rem.isChecked()) if rem else False,
+             "plano": self.f.indice("comboPlane"),
+             "n_plano": self.f.combo("comboPlane").count() if self.f.combo("comboPlane") else 0}
+        for i, w in enumerate(self._direcoes()):
+            for k, v in self._dir_estado(w).items():
+                e["d%d_%s" % (i, k)] = v
+        return e
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        circular = self.obj.TypeId == "PartDesign::PolarPattern"
+
+        c = UI.Cartao("Operações a repetir", "padrao")
+        ops = e["ops"]
+        lb = QtWidgets.QLabel(", ".join(ops) if ops else "Nenhuma operação escolhida")
+        lb.setWordWrap(True)
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(6)
+        for chave, nome_fc, txt_on, txt_off in (("add", "buttonAddFeature", "Concluir", "Adicionar"),
+                                                ("rem", "buttonRemoveFeature", "Concluir", "Tirar")):
+            fb = f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            b = QtWidgets.QPushButton(txt_on if e[chave] else txt_off)
+            if e[chave]:
+                b.setObjectName("PrumoPrimario")
+            b.setEnabled(fb.isEnabled())
+            b.clicked.connect(lambda _=False, fb=fb: (fb.toggle(), QtCore.QTimer.singleShot(50, self.montar)))
+            hl.addWidget(b)
+            self.campos[chave] = b
+        hl.addStretch(1)
+        c.widget(linha)
+        self.lay.addWidget(c)
+
+        if self.obj.TypeId == "PartDesign::Mirrored":
+            c = UI.Cartao("Plano de espelho", "simetrica")
+            cb = QtWidgets.QComboBox()
+            cb.setObjectName("PrumoLista")
+            cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            cb.setMinimumContentsLength(8)
+            fc = f.combo("comboPlane")
+            for i in range(fc.count() if fc else 0):
+                cb.addItem(DIRECOES_PT.get(fc.itemText(i), fc.itemText(i)))
+            cb.setCurrentIndex(e["plano"])
+            cb.activated.connect(lambda i: (_ativar(f.combo("comboPlane"), i),
+                                            QtCore.QTimer.singleShot(0, self.montar)))
+            c.linha("Espelhar em", cb)
+            self.campos["plano"] = cb
+            self.lay.addWidget(c)
+
+        for i, w in enumerate(self._direcoes()):
+            self._cartao_direcao(i, w, e, circular)
+
+        self._acabamento()
+        self._fim()
+
+    def _cartao_direcao(self, i, w, e, circular):
+        p = "d%d_" % i
+        titulo = ("Eixo" if circular else "Direção") + (" %d" % (i + 1) if len(self._direcoes()) > 1 else "")
+        segunda = i > 0
+        c = UI.Cartao(titulo, "angulo" if circular else ("seta_cima" if i == 0 else "seta_baixo"),
+                      chave=segunda, ligado=e[p + "ativa"])
+        if segunda:
+            en = w.findChild(QtWidgets.QCheckBox, "enableCheckbox")
+            g = w.findChild(QtWidgets.QGroupBox, "groupBox")
+
+            def alternar(on, en=en, g=g):
+                if on and en is not None:
+                    en.setChecked(True)
+                elif not on and g is not None and g.isCheckable():
+                    g.setChecked(False)
+                QtCore.QTimer.singleShot(50, self.montar)
+            c.chave.toggled.connect(alternar)
+            self.campos[p + "ativa"] = c.chave
+        if not segunda or e[p + "ativa"]:
+            cd = w.findChild(QtWidgets.QComboBox, "comboDirection")
+            cb = QtWidgets.QComboBox()
+            cb.setObjectName("PrumoLista")
+            cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            cb.setMinimumContentsLength(8)
+            for k in range(cd.count() if cd else 0):
+                cb.addItem(DIRECOES_PT.get(cd.itemText(k), cd.itemText(k)))
+            cb.setCurrentIndex(e[p + "dir"])
+            cb.activated.connect(lambda k, cd=cd: (_ativar(cd, k), QtCore.QTimer.singleShot(0, self.montar)))
+            c.linha("Em torno de" if circular else "Ao longo de", cb)
+            self.campos[p + "dir"] = cb
+            cm = w.findChild(QtWidgets.QComboBox, "comboMode")
+            seg = UI.Segmentado([("0", "Ângulo total" if circular else "Comprimento total", "medida"),
+                                 ("1", "Entre cópias", "padrao")], str(e[p + "modo"]), colunas=2)
+            seg.mudou.connect(lambda k, cm=cm: (_ativar(cm, int(k)), QtCore.QTimer.singleShot(0, self.montar)))
+            c.widget(seg)
+            self.campos[p + "modo"] = seg
+            unid = "°" if circular else "mm"
+            if e[p + "ext_ok"] and e[p + "ext"] is not None:
+                num = UI.CampoNumero(e[p + "ext"], unid, minimo=0.0)
+                ext = w.findChild(QtWidgets.QAbstractSpinBox, "spinExtent")
+                num.valueChanged.connect(lambda v, ext=ext: ext.setProperty("rawValue", float(v)))
+                c.linha("Ângulo total" if circular else "Comprimento total", num)
+                self.campos[p + "ext"] = num
+            if e[p + "esp_ok"] and e[p + "esp"] is not None:
+                num = UI.CampoNumero(e[p + "esp"], unid, minimo=0.0)
+                esp = w.findChild(QtWidgets.QAbstractSpinBox, "spinSpacing")
+                num.valueChanged.connect(lambda v, esp=esp: esp.setProperty("rawValue", float(v)))
+                c.linha("Entre cópias", num)
+                self.campos[p + "esp"] = num
+            if e[p + "n"] is not None:
+                oc = w.findChild(QtWidgets.QSpinBox, "spinOccurrences")
+                n = QtWidgets.QSpinBox()
+                n.setObjectName("PrumoNum")
+                n.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+                n.setRange(1, 10000)
+                n.setKeyboardTracking(False)
+                n.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+                n.setMaximumWidth(120)
+                n.setValue(int(e[p + "n"]))
+                n.valueChanged.connect(lambda v, oc=oc: oc.setValue(int(v) + UINT0))
+                c.linha("Quantidade (com o original)", n)
+                self.campos[p + "n"] = n
+            rv = w.findChild(QtWidgets.QAbstractButton, "PushButtonReverse")
+            if rv is not None:
+                b = QtWidgets.QPushButton("Inverter o sentido")
+                b.clicked.connect(lambda _=False, rv=rv: rv.click())
+                c.widget(b)
+        self.lay.addWidget(c)
+
+    def dica_extra(self):
+        e = self.estado()
+        if e["add"]:
+            return "Clique na árvore ou na vista nas operações que quer repetir; depois, \"Concluir\"."
+        if e["rem"]:
+            return "Clique nas operações que quer tirar do padrão; depois, \"Concluir\"."
+        return ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
-           "PartDesign::Chamfer": "PainelAcabamentoArestas"}
+           "PartDesign::Chamfer": "PainelAcabamentoArestas", "PartDesign::LinearPattern": "PainelPadrao",
+           "PartDesign::PolarPattern": "PainelPadrao", "PartDesign::Mirrored": "PainelPadrao"}
 
 
 class Encaixe:

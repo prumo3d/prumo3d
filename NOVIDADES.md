@@ -24,6 +24,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Revolução e Ranhura** (eixo, até onde gira, ângulos, simétrico, inverter) e **Arredondar e Chanfro**
   (arestas escolhidas com "Escolher arestas na vista", todas as arestas, raio ou o tipo de chanfro com
   distâncias e ângulo) também com painel em cartões.
+- **Padrão linear, Padrão circular e Espelhar** com painel em cartões: operações a repetir (Adicionar,
+  Tirar), direção ou eixo, comprimento/ângulo total ou distância entre cópias, quantidade, inverter e a
+  segunda direção ligada por chave; no Espelhar, o plano de espelho.
 
 ### Ajustes
 

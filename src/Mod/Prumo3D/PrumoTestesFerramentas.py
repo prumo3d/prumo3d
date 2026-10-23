@@ -7705,6 +7705,50 @@ class T62PainelDeComando(unittest.TestCase):
         self.assertEqual(c.ChamferType, "Two distances")
         self.assertAlmostEqual(c.Size2.Value, 2.0, places=6)
 
+    def test_padroes_e_espelhar(self):
+        lp = self.body.newObject("PartDesign::LinearPattern", "LinearPattern")
+        lp.Originals = [self.pad]
+        lp.Direction = (self.sk, ["H_Axis"])
+        lp.Length = 100
+        lp.Occurrences = 2
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(lp.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertEqual(type(p).__name__, "PainelPadrao")
+        self.assertFalse(p.quadro.isVisible())
+        self.assertIn("d0_n", p.campos)
+        self.assertEqual(len(p.estado()["ops"]), 1, "a operação a repetir não aparece no cartão")
+        p.campos["d0_n"].setValue(4)
+        self._esp(0.3)
+        p.campos["d0_ext"].setValue(120.0)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        self.assertEqual(lp.Occurrences, 4)
+        self.assertAlmostEqual(lp.Length.Value, 120.0, places=6)
+        pp = self.body.newObject("PartDesign::PolarPattern", "PolarPattern")
+        pp.Originals = [self.pad]
+        pp.Axis = (self.sk, ["V_Axis"])
+        pp.Occurrences = 3
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(pp.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertEqual(type(p).__name__, "PainelPadrao")
+        p.campos["d0_n"].setValue(6)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertEqual(pp.Occurrences, 6)
+        mi = self.body.newObject("PartDesign::Mirrored", "Mirrored")
+        mi.Originals = [self.pad]
+        mi.MirrorPlane = (self.sk, ["V_Axis"])
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(mi.Name)
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertIn("plano", p.campos)
+        self.assertTrue(self._ok())
+
     def test_cavidade_tem_atraves(self):
         caixa = self.body.newObject("PartDesign::Pocket", "Pocket")
         sk2 = esboco_retangulo(self.body, 10, 5)
