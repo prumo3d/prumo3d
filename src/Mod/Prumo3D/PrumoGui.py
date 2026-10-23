@@ -1085,6 +1085,15 @@ def _start_guia():
         FreeCAD.Console.PrintError("Prumo: falha no painel do esboço: {}\n".format(exc))
 
 
+def _verificar_atualizacao():
+    """Aviso de versão nova (opcional, uma vez por dia, desligável em Ajuda → Sobre)."""
+    try:
+        import PrumoAtualizar
+        PrumoAtualizar.verificar_ao_abrir()
+    except Exception as exc:
+        FreeCAD.Console.PrintLog("Prumo: verificação de atualização: {}\n".format(exc))
+
+
 def _start_inicio():
     try:
         import PrumoInicio
@@ -1217,6 +1226,7 @@ def startup():
     QtCore.QTimer.singleShot(900, _start_guia)
     QtCore.QTimer.singleShot(1300, _start_inicio)
     QtCore.QTimer.singleShot(1500, apply_modo_distribuicao)
+    QtCore.QTimer.singleShot(15000, _verificar_atualizacao)
     QtCore.QTimer.singleShot(4000, apply_modo_distribuicao)   # depois que o FreeCAD restaura os painéis
     # Executa depois que a janela principal termina de montar.
     QtCore.QTimer.singleShot(0, apply_window_branding)

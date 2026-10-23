@@ -7306,6 +7306,134 @@ class T59PadraoVisualNosPaineis(unittest.TestCase):
             fechar(doc)
 
 
+class T60Atualizacao(unittest.TestCase):
+    """Atualização opcional pela página de versões: comparação, escolha, download conferido, avisos."""
+
+    def setUp(self):
+        import PrumoAtualizar as A
+        self.A = A
+        self.g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+        self.antes = (self.g.GetBool("VerificarAtualizacoes", True), self.g.GetFloat("UltimaVerificacao", 0.0),
+                      self.g.GetString("PularVersao", ""))
+
+    def tearDown(self):
+        self.g.SetBool("VerificarAtualizacoes", self.antes[0])
+        self.g.SetFloat("UltimaVerificacao", self.antes[1])
+        self.g.SetString("PularVersao", self.antes[2])
+
+    def test_comparacao_de_versoes(self):
+        A = self.A
+        self.assertTrue(A.mais_nova("v0.6.0-beta", "0.5.0-beta"))
+        self.assertTrue(A.mais_nova("0.6.0", "0.6.0-beta"))
+        self.assertTrue(A.mais_nova("1.0.0", "0.10.0"))
+        self.assertTrue(A.mais_nova("0.10.0-beta", "0.9.1-beta"))
+        self.assertFalse(A.mais_nova("0.5.0-beta", "0.5.0-beta"))
+
+    def _lista(self):
+        def r(tag, pre=True, draft=False):
+            return {"tag_name": tag, "prerelease": pre, "draft": draft, "html_url": "https://x/" + tag,
+                    "body": "## Prumo 3D\n\n### Novo\n\n- coisa nova\n\n## Downloads\n\nlixo",
+                    "assets": [{"name": "Prumo3D_%s-Windows-x86_64-py311-installer.exe" % tag[1:], "size": 10,
+                                "browser_download_url": "https://x/a.exe", "digest": "sha256:00"},
+                               {"name": "Prumo3D_%s-Linux-x86_64-py311.AppImage" % tag[1:], "size": 20,
+                                "browser_download_url": "https://x/a.AppImage", "digest": ""}]}
+        return [r("v0.7.0-beta", draft=True), r("v0.6.0-beta"), r("v0.5.1", pre=False), r("v0.5.0-beta")]
+
+    def test_escolhe_a_mais_nova(self):
+        A = self.A
+        info = A.escolher(self._lista())
+        self.assertEqual(info["tag"], "v0.6.0-beta")           # rascunho fica de fora
+        self.assertEqual(info["texto"], "0.6.0 beta")
+        self.assertEqual(A.escolher(self._lista(), aceitar_beta=False)["tag"], "v0.5.1")
+        self.assertTrue(A.tem_novidade(info, "0.5.0-beta"))
+        self.assertFalse(A.tem_novidade(info, "0.6.0-beta"))
+        self.assertTrue(A.ativo_do_sistema(info, "instalador")["nome"].endswith("-installer.exe"))
+        self.assertTrue(A.ativo_do_sistema(info, "appimage")["nome"].endswith(".AppImage"))
+        self.assertIsNone(A.ativo_do_sistema(info, "manual"))
+        self.assertIn("coisa nova", A._resumo_notas(info["notas"]))
+        self.assertNotIn("lixo", A._resumo_notas(info["notas"]))
+
+    def test_download_conferido(self):
+        import hashlib
+        import tempfile
+        A = self.A
+        pasta = tempfile.mkdtemp()
+        origem = os.path.join(pasta, "origem.bin")
+        dados = os.urandom(700 * 1024)
+        with open(origem, "wb") as f:
+            f.write(dados)
+        url = "file:///" + origem.replace("\\", "/").lstrip("/")
+        dig = "sha256:" + hashlib.sha256(dados).hexdigest()
+        vistos = []
+        destino = os.path.join(pasta, "novo.exe")
+        A.baixar(url, destino, dig, progresso=lambda f, t: vistos.append(f))
+        with open(destino, "rb") as f:
+            self.assertEqual(f.read(), dados)
+        self.assertGreater(len(vistos), 1)
+        ruim = os.path.join(pasta, "ruim.exe")
+        with self.assertRaises(ValueError):
+            A.baixar(url, ruim, "sha256:" + "0" * 64)
+        self.assertFalse(os.path.exists(ruim) or os.path.exists(ruim + ".parte"))
+        with self.assertRaises(InterruptedError):
+            A.baixar(url, os.path.join(pasta, "c.exe"), cancelado=lambda: True)
+
+    def test_verificacao_automatica_respeita_preferencias(self):
+        import time
+        A = self.A
+        original = A.compilada
+        try:
+            A.compilada = lambda: True
+            self.g.SetBool("VerificarAtualizacoes", True)
+            self.g.SetFloat("UltimaVerificacao", time.time() - 2 * A.INTERVALO)
+            self.assertTrue(A.deve_verificar_ao_abrir())
+            self.g.SetFloat("UltimaVerificacao", time.time() - 60)
+            self.assertFalse(A.deve_verificar_ao_abrir(), "verificou duas vezes no mesmo dia")
+            self.g.SetFloat("UltimaVerificacao", 0.0)
+            self.g.SetBool("VerificarAtualizacoes", False)
+            self.assertFalse(A.deve_verificar_ao_abrir(), "verificou com a opção desligada")
+            A.compilada = lambda: False
+            self.g.SetBool("VerificarAtualizacoes", True)
+            self.assertFalse(A.deve_verificar_ao_abrir(), "compilação própria não deve consultar")
+        finally:
+            A.compilada = original
+
+    def test_aviso_nao_obriga(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        A = self.A
+        info = A.escolher(self._lista())
+        av = A.AvisoAtualizacao(info, automatico=True)
+        self.assertIsNotNone(av.pular)
+        self.assertEqual(av.depois.text(), "Agora não")
+        self.assertEqual(av.atualizar.text(), "Atualizar agora")
+        av.pular.click()
+        self.assertEqual(self.g.GetString("PularVersao", ""), "v0.6.0-beta")
+        self.assertIsNone(A.AvisoAtualizacao(info, automatico=False).pular)
+
+    def test_sobre_tem_botao_e_chave(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoSobre
+        d = PrumoSobre.SobreDialog("0.6.0 beta", "FreeCAD 1.1")
+        try:
+            self.assertEqual(d.bt_atualizar.text(), "Verificar atualizações")
+            d.auto.setChecked(False)
+            self.assertFalse(self.g.GetBool("VerificarAtualizacoes", True))
+            d.auto.setChecked(True)
+            self.assertTrue(self.g.GetBool("VerificarAtualizacoes", False))
+        finally:
+            d.deleteLater()
+
+    def test_consulta_real(self):
+        try:
+            info = self.A.consultar(timeout=10)
+        except Exception as exc:
+            self.skipTest("sem acesso à página de versões: {}".format(exc))
+        self.assertIsNotNone(info)
+        self.assertTrue(info["tag"].startswith("v"))
+        self.assertTrue(any(a["nome"].endswith("-installer.exe") for a in info["ativos"]))
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7318,4 +7446,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T47MolasTracaoModos, T48AssistenteEstrutura,
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
            T55PainelLateral, T56PropriedadesEAparencia,
-           T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis]
+           T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
+           T60Atualizacao]

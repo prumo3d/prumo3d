@@ -27,16 +27,18 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.5.0 beta** (23/10/2026)
+**Versão atual: 0.6.0 beta** (23/10/2026)
 
-- **Esboço 3D com restrições:** linhas ao longo de X, Y e Z restringidas sozinhas, cotas, paralelas,
-  perpendiculares, iguais e linhas de construção tracejadas; o resto do modelo fica transparente na
-  edição. Abre pelo botão Esboço da aba Peça.
-- **Modelo e Tarefas em abas**, sem estourar a largura em notebook; na abertura, só a tela inicial.
-- Instalador do Windows com a marca do Prumo.
+- **Painel lateral novo, no jeito do SolidWorks:** abas Árvore, Propriedades e Aparência no alto, e a
+  aba do comando só enquanto ele está aberto. Propriedades em cartões com chaves liga/desliga e campos
+  com unidade; a tabela completa do FreeCAD continua em "Avançado".
+- **Aba do esboço:** situação do esboço numa frase, relações que se ajustam ao que está selecionado e
+  lista de restrições com apagar. A barra de cima ficou mais limpa.
+- **Mesmo visual em todo o sistema**, tela inicial com a área Ajuda e **atualização opcional** pelo
+  Ajuda → Sobre.
 
-Na 0.4.0: linha de construção no esboço, restrições num botão só, Peça e Sólidos juntas, régua de
-histórico na árvore e pressão do vaso em kgf/cm² e psi. Na 0.3.0: **Tubulação** de PVC soldável.
+Na 0.5.0: Esboço 3D com restrições e linhas de construção. Na 0.4.0: linha de construção no esboço,
+Peça e Sólidos juntas e régua de histórico na árvore. Na 0.3.0: **Tubulação** de PVC soldável.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 

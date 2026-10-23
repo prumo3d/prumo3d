@@ -9,7 +9,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
-## Em desenvolvimento
+## 0.6.0 beta — 23/10/2026
 
 ### Novo
 
@@ -32,6 +32,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   cotas existentes e × para apagar; **Auxiliares**. As listas do FreeCAD continuam em "Lista completa".
 - **Abas compactas:** com o painel estreito, só a aba aberta mostra o nome; as outras ficam com o ícone
   (o nome aparece ao parar o mouse em cima).
+- **Atualização pelo próprio Prumo, sem obrigação:** em **Ajuda → Sobre**, o botão **Verificar
+  atualizações** e a chave **Verificar ao abrir** (no máximo uma vez por dia). Com versão nova, aparece
+  um aviso com "Atualizar agora", "Agora não" e "Pular esta versão". Ao atualizar no Windows, o Prumo
+  baixa o instalador, confere o SHA-256 publicado, fecha (perguntando se quer salvar) e abre o
+  instalador; no Linux, baixa o AppImage novo na mesma pasta. A consulta só lê a lista de versões
+  públicas; nenhum dado é enviado. Primeira versão com o aviso: vale a partir da próxima atualização.
 
 ### Ajustes
 

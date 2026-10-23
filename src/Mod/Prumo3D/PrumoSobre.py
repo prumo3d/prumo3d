@@ -103,6 +103,34 @@ class SobreDialog(QtWidgets.QDialog):
         wrap.addWidget(card)
         v.addLayout(wrap)
 
+        # atualizações: nunca obrigatórias
+        upd = QtWidgets.QFrame()
+        upd.setObjectName("SwSobreCard")
+        ul = QtWidgets.QGridLayout(upd)
+        ul.setContentsMargins(18, 12, 18, 12)
+        ul.setHorizontalSpacing(12)
+        ut = QtWidgets.QLabel("Atualizações")
+        ut.setObjectName("SwSobreEmpresa")
+        ul.addWidget(ut, 0, 0)
+        self.bt_atualizar = QtWidgets.QPushButton("Verificar atualizações")
+        self.bt_atualizar.setToolTip("Consulta a página de versões do projeto. Só atualiza se você concordar.")
+        self.bt_atualizar.clicked.connect(self.verificar)
+        ul.addWidget(self.bt_atualizar, 0, 1, QtCore.Qt.AlignRight)
+        self.auto = QtWidgets.QCheckBox("Verificar ao abrir (no máximo uma vez por dia)")
+        try:
+            import FreeCAD
+            self.auto.setChecked(FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+                                 .GetBool("VerificarAtualizacoes", True))
+        except Exception:
+            self.auto.setChecked(True)
+        self.auto.toggled.connect(self._auto)
+        ul.addWidget(self.auto, 1, 0, 1, 2)
+        ul.setColumnStretch(0, 1)
+        uw = QtWidgets.QHBoxLayout()
+        uw.setContentsMargins(20, 0, 20, 0)
+        uw.addWidget(upd)
+        v.addLayout(uw)
+
         legal = QtWidgets.QLabel(
             "Software livre sob licença LGPL-2.1-or-later, baseado no FreeCAD (freecad.org). "
             "O Prumo 3D não é um projeto oficial do FreeCAD.")
@@ -128,6 +156,22 @@ class SobreDialog(QtWidgets.QDialog):
         bw.addWidget(bb)
         v.addLayout(bw)
 
+
+    def verificar(self):
+        import PrumoAtualizar
+        self.bt_atualizar.setText("Consultando…")
+        self.bt_atualizar.setEnabled(False)
+
+        def volta():
+            self.bt_atualizar.setText("Verificar atualizações")
+            self.bt_atualizar.setEnabled(True)
+        self._verificacao = PrumoAtualizar.verificar_agora(self)
+        QtCore.QTimer.singleShot(1500, volta)
+        return self._verificacao
+
+    def _auto(self, on):
+        import FreeCAD
+        FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D").SetBool("VerificarAtualizacoes", bool(on))
 
     def licencas(self):
         try:
