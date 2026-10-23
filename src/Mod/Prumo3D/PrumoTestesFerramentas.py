@@ -6880,7 +6880,10 @@ class T55PainelLateral(unittest.TestCase):
     def _abas(self):
         bar = self.P.barra_de_abas()
         self.assertIsNotNone(bar, "sem a barra de abas do painel")
-        return bar, [bar.tabText(i) for i in range(bar.count())]
+        return bar, [t for _n, t in self.P.abas()]
+
+    def _atual(self):
+        return self.P.titulo_real(self.P.aba_atual())
 
     def test_init_liga_arvore_e_propriedades(self):
         dw = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/DockWindows")
@@ -6917,15 +6920,38 @@ class T55PainelLateral(unittest.TestCase):
         self._assentar()
         bar, abas = self._abas()
         self.assertTrue(tar.isVisible())
-        self.assertEqual(tar.windowTitle(), sk.Label)
+        self.assertEqual(self.P.titulo_real(self.P.TAREFA), sk.Label)
         self.assertIn(sk.Label, abas)
-        self.assertEqual(bar.tabText(bar.currentIndex()), sk.Label, "a aba do comando não veio para a frente")
+        self.assertEqual(self._atual(), sk.Label, "a aba do comando não veio para a frente")
         FreeCADGui.ActiveDocument.resetEdit()
         self._assentar()
         bar, abas = self._abas()
         self.assertFalse(tar.isVisible(), "a aba do comando ficou depois de concluir")
         self.assertNotIn(sk.Label, abas)
-        self.assertEqual(bar.tabText(bar.currentIndex()), "Propriedades", "não voltou para a aba de antes")
+        self.assertEqual(self._atual(), "Propriedades", "não voltou para a aba de antes")
+
+    def test_abas_compactas_quando_falta_espaco(self):
+        from PySide import QtWidgets
+        self._assentar()
+        bar = self.P.barra_de_abas()
+        ds = self.P.docks()
+        mw = FreeCADGui.getMainWindow()
+        arv = ds[self.P.ARVORE]
+        larg = arv.width()
+        try:
+            mw.resizeDocks([arv], [230], __import__("PySide").QtCore.Qt.Horizontal)
+            self._assentar(0.5)
+            if not self.P._estado["compacto"]:
+                self.skipTest("a janela não deixou estreitar o painel")
+            atual = self.P.aba_atual()
+            for n, d in ds.items():
+                if d.isVisible() and n != atual:
+                    self.assertEqual(d.windowTitle(), "", n)
+                    self.assertEqual(d.toggleViewAction().text(), self.P.titulo_real(n))
+            self.assertEqual(ds[atual].windowTitle(), self.P.titulo_real(atual))
+        finally:
+            mw.resizeDocks([arv], [max(larg, 360)], __import__("PySide").QtCore.Qt.Horizontal)
+            self._assentar(0.3)
 
     def test_titulo_curto(self):
         self.assertEqual(self.P._curto("Esboço002"), "Esboço002")
@@ -7076,6 +7102,123 @@ class T56PropriedadesEAparencia(unittest.TestCase):
         self.assertFalse(c.corpo.isHidden())
 
 
+class T57PainelDoEsboco(unittest.TestCase):
+    """Aba do esboço: situação, relações pela seleção, lista com apagar; faixa Esboço mais enxuta."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteEsbocoPainel")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.body = self.doc.addObject("PartDesign::Body", "Body")
+        self.sk = esboco_retangulo(self.body)
+        self.doc.recompute()
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.ActiveDocument is not None:
+            try:
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+            FreeCADGui.Selection.clearSelection()
+        fechar(self.doc)
+
+    def _esp(self, s=0.5):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            time.sleep(0.02)
+
+    def test_regras_das_relacoes(self):
+        import PrumoPainelEsboco as E
+        sel = lambda l=0, c=0, p=0: {"linhas": [0] * l, "curvas": [0] * c, "pontos": ["Vertex1"] * p}  # noqa
+        self.assertEqual(E.relacoes_possiveis(sel()), set())
+        duas = E.relacoes_possiveis(sel(l=2))
+        self.assertTrue({"paralela", "perpendicular", "igual", "colinear"} <= duas)
+        self.assertNotIn("tangente", duas)
+        self.assertIn("tangente", E.relacoes_possiveis(sel(l=1, c=1)))
+        self.assertIn("coincidente", E.relacoes_possiveis(sel(p=2)))
+        self.assertIn("horizontal", E.relacoes_possiveis(sel(p=2)))
+        self.assertNotIn("paralela", E.relacoes_possiveis(sel(c=2)))
+        self.assertIn("igual", E.relacoes_possiveis(sel(c=2)))
+
+    def test_textos(self):
+        import PrumoPainelEsboco as E
+        txts = [E.texto_restricao(self.sk, c) for _i, c in E.restricoes_visiveis(self.sk)]
+        self.assertTrue(any(t.startswith("Coincidente · Linha 1") for t in txts), txts)
+        self.assertTrue(any("mm" in t for t in txts), txts)
+        self.assertEqual(E.situacao(self.sk), ("Totalmente definido", "ok"))
+
+    def test_painel_na_edicao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelEsboco as E
+        E.instalar()
+        FreeCADGui.ActiveDocument.setEdit(self.sk.Name)
+        self._esp(1.0)
+        p = E.painel()
+        self.assertIsNotNone(p, "o painel do esboço não entrou na aba do comando")
+        self.assertEqual(p.situacao.text(), "Totalmente definido")
+        panel = E._painel_de_tarefas()
+        quadros = E._quadros(panel)
+        self.assertGreaterEqual(len(quadros), 2)
+        self.assertTrue(all(not w.isVisible() for w, _a in quadros), "quadros do FreeCAD continuam abertos")
+        # duas linhas: paralela ativa, tangente apagada
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.sk.Name, "Edge1")
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.sk.Name, "Edge3")
+        self._esp(0.5)
+        self.assertTrue(p.botoes["paralela"].isEnabled())
+        self.assertFalse(p.botoes["tangente"].isEnabled())
+        self.assertIn("Linha 1", p.chips.text())
+        # apagar uma restrição pela lista e desfazer
+        n = len(self.sk.Constraints)
+        FreeCADGui.Selection.clearSelection()
+        p._apagar(len(self.sk.Constraints) - 1)
+        self.assertEqual(len(self.sk.Constraints), n - 1)
+        self.assertNotEqual(p.situacao.text(), "Totalmente definido")
+        self.doc.undo()
+        self.doc.recompute()
+        self.assertEqual(len(self.sk.Constraints), n)
+        # lista completa do FreeCAD
+        p.completa.setChecked(True)
+        self._esp(0.4)
+        self.assertTrue(any(w.isVisible() for w, _a in E._quadros(panel)))
+        p.completa.setChecked(False)
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(0.6)
+        self.assertIsNone(E.painel(), "o painel ficou depois de sair do esboço")
+
+    def test_faixa_do_esboco_enxuta(self):
+        import PrumoRibbon
+        tab = [t for t in PrumoRibbon.TABS if t["id"] == "esboco"][0]
+        nomes = [p[0] for p in tab["panels"]]
+        self.assertNotIn("Auxiliares", nomes)
+        self.assertNotIn("Restrições", nomes)
+        specs = [b[0] for p in tab["panels"] for b in p[1]]
+        self.assertIn("Sketcher_CompDimensionTools", specs)
+        self.assertFalse(any("Sketcher_ConstrainParallel" in sp for sp in specs))
+        self.assertEqual(sum("Sketcher_ToggleConstruction" in sp for sp in specs), 1)
+
+    def test_aviso_compacto(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoGuia
+        f = PrumoGuia.GuiaFrame()
+        dispensou = []
+        f.set_compacto(["Este esboço está preso a uma face. Se a operação mudar, perde a referência."],
+                       lambda: dispensou.append(1))
+        self.assertIn("Por quê?", f.alert.text())
+        self.assertNotIn("perde a referência", f.alert.text())
+        f._por_que("mais")
+        self.assertIn("perde a referência", f.alert.text())
+        f.toggle.click()
+        self.assertEqual(dispensou, [1])
+        f.set_content("Extrusão", None, "texto")
+        self.assertTrue(f.title.isVisibleTo(f))
+        f.deleteLater()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7087,4 +7230,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
-           T55PainelLateral, T56PropriedadesEAparencia]
+           T55PainelLateral, T56PropriedadesEAparencia,
+           T57PainelDoEsboco]

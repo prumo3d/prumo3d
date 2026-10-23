@@ -252,11 +252,75 @@ class GuiaFrame(QtWidgets.QFrame):
         self._apply_collapsed()
         self._render()
 
+    def set_compacto(self, msgs, ao_dispensar=None):
+        """Só o aviso, numa linha: "⚠ Preso a uma face do modelo. Por quê?" e × para dispensar."""
+        self._msgs = list(msgs)
+        self._aberto = False
+        self._ao_dispensar = ao_dispensar
+        for w in (self.title, self.image, self.legend, self.text):
+            w.setVisible(False)
+        self._svg = None
+        self.toggle.setVisible(True)
+        self.toggle.setText("×")
+        self.toggle.setToolTip("Dispensar este aviso")
+        try:
+            self.toggle.clicked.disconnect()
+        except Exception:
+            pass
+        self.toggle.clicked.connect(self._dispensar)
+        self.alert.setTextFormat(QtCore.Qt.RichText)
+        try:
+            self.alert.linkActivated.disconnect()
+        except Exception:
+            pass
+        self.alert.linkActivated.connect(self._por_que)
+        self._mostrar_compacto()
+
+    @staticmethod
+    def _primeira_frase(m):
+        m = m.strip()
+        for sep in (". ", "; "):
+            if sep in m:
+                return m.split(sep, 1)[0] + "."
+        return m
+
+    def _mostrar_compacto(self):
+        if not self._msgs:
+            self.alert.setVisible(False)
+            return
+        if self._aberto:
+            corpo = "<br><br>".join(self._msgs)
+            link = " <a href='menos' style='color:#003A70;font-weight:600'>Menos</a>"
+        else:
+            corpo = self._primeira_frase(self._msgs[0])
+            link = " <a href='mais' style='color:#003A70;font-weight:600'>Por quê?</a>"
+        self.alert.setText("⚠&nbsp; " + corpo + link)
+        self.alert.setVisible(True)
+
+    def _por_que(self, _href):
+        self._aberto = not self._aberto
+        self._mostrar_compacto()
+
+    def _dispensar(self):
+        if callable(getattr(self, "_ao_dispensar", None)):
+            self._ao_dispensar()
+        self.hide()
+
     def set_alerts(self, msgs):
         self.alert.setText("\n\n".join("⚠  " + m for m in msgs))
         self.alert.setVisible(bool(msgs))
 
     def set_content(self, title, g, text):
+        if getattr(self, "_msgs", None) is not None:      # vinha do modo compacto: volta ao normal
+            self._msgs = None
+            try:
+                self.toggle.clicked.disconnect()
+            except Exception:
+                pass
+            self.toggle.clicked.connect(self._toggle)
+            self.toggle.setToolTip("Mostrar / ocultar o desenho")
+            self.title.setVisible(True)
+            self.alert.setTextFormat(QtCore.Qt.PlainText)
         self.title.setText(("Como funciona · " if g is not None else "Boa prática · ") + title)
         self.text.setText(text)
         self.text.setVisible(bool(text))
@@ -326,6 +390,8 @@ class Guia:
             self.frame.deleteLater()
         self.frame, self.key = None, None
 
+    dispensados = set()
+
     def _task_panel(self):
         mw = FreeCADGui.getMainWindow()
         for w in mw.findChildren(QtWidgets.QWidget):
@@ -352,7 +418,11 @@ class Guia:
         obj = vp.Object if vp is not None else None
         info = describe(obj) if obj is not None else None
         warn = alerts(obj) if obj is not None else []
-        if info is None and warn:
+        so_aviso = info is None and bool(warn)
+        if so_aviso:
+            if (obj.Name, tuple(warn)) in Guia.dispensados:
+                self._drop()
+                return
             info = (("alerta", obj.TypeId), obj.Label, None, "")
         if info is None:
             self._drop()
@@ -376,8 +446,12 @@ class Guia:
             self.key = None
         if key != self.key:
             self.key = key
-            self.frame.set_content(title, g, text)
-            self.frame.set_alerts(warn)
+            if so_aviso:
+                nome = (obj.Name, tuple(warn))
+                self.frame.set_compacto(warn, lambda n=nome: Guia.dispensados.add(n))
+            else:
+                self.frame.set_content(title, g, text)
+                self.frame.set_alerts(warn)
 
 
 _guia = {"obj": None}

@@ -25,10 +25,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Aba Aparência** (no lugar da antiga aba Vista): cor em amostras (ou outra cor), transparência,
   modo de exibição (Arestas, Sólido, Arame, Pontos), espessura da linha e se dá para selecionar na
   tela, para tudo o que estiver selecionado.
+- **Aba do esboço no estilo do SolidWorks:** a situação numa frase ("Totalmente definido", "Faltam 2
+  medidas para ficar definido", "Restrições em conflito"); **Relações** com o que está selecionado e os
+  botões Horizontal, Vertical, Paralela, Perpendicular, Igual, Colinear, Tangente, Coincidente, Fixar,
+  Simétrica e Cotar (só ficam ativos os que servem para a seleção); **Neste esboço** com as relações e
+  cotas existentes e × para apagar; **Auxiliares**. As listas do FreeCAD continuam em "Lista completa".
+- **Abas compactas:** com o painel estreito, só a aba aberta mostra o nome; as outras ficam com o ícone
+  (o nome aparece ao parar o mouse em cima).
 
 ### Ajustes
 
 - **Cotas do esboço em azul**, no tom do sistema (antes vermelhas); o vermelho fica só para erro.
+- **Barra de cima da aba Esboço mais limpa:** o botão Restrição e o grupo Auxiliares foram para o painel
+  lateral; Validar, Reorientar, Mesclar e Espelhar esboço ficaram num menu "Mais"; saiu o "Linha ↔
+  construção" repetido (continua no menu do botão Linha).
+- **Aviso de boa prática do esboço numa linha**, com "Por quê?" para ler o resto e × para dispensar.
 
 ## 0.5.0 beta — 23/10/2026
 

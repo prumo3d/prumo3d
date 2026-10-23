@@ -84,23 +84,22 @@ TABS = [
             ("Sketcher_NewSketch|Prumo_Esboco3D", L, "Novo\nesboço"),
             ("Sketcher_EditSketch", L, "Editar\nesboço"),
             ("Sketcher_LeaveSketch", L, "Concluir\nesboço"),
-            ("Sketcher_MapSketch", S, "Anexar"), ("Sketcher_ReorientSketch", S, "Reorientar"),
             ("Sketcher_ViewSketch", S, "Vista normal"), ("Sketcher_ViewSection", S, "Vista em corte"),
-            ("Sketcher_ValidateSketch", S, "Validar"), ("Sketcher_MergeSketches", S, "Mesclar"),
-            ("Sketcher_MirrorSketch", S, "Espelhar esboço"),
+            ("Sketcher_MapSketch", S, "Anexar"),
+            # usados de vez em quando: num menu só
+            ("Sketcher_ValidateSketch|Sketcher_ReorientSketch|Sketcher_MergeSketches|Sketcher_MirrorSketch", S,
+             "Mais"),
         ]),
         ("Desenhar", [
             ("Sketcher_CreateLine|Sketcher_CreateConstructionLine|Sketcher_ToggleConstruction", L, "Linha"), ("Sketcher_CompCreateRectangles", L, "Retângulo"),
             ("Sketcher_CompCreateConic", L, "Círculo"), ("Sketcher_CompCreateArc", L, "Arco"),
             ("Sketcher_CreatePolyline", S, "Linha e arco tangente"), ("Sketcher_CreatePoint", S, "Ponto"),
             ("Sketcher_CompCreateRegularPolygon", S, "Polígono"), ("Sketcher_CompSlot", S, "Rasgo"),
-            ("Sketcher_CompCreateBSpline", S, "Curva B-spline"), ("Sketcher_ToggleConstruction", S, "Linha ↔ construção"),
+            ("Sketcher_CompCreateBSpline", S, "Curva B-spline"),
         ]),
-        ("Restrições", [
+        # as relações (paralela, perpendicular, igual…) ficam no painel lateral, aba do esboço
+        ("Cotar", [
             ("Sketcher_CompDimensionTools", L, "Cota"),
-            ("Sketcher_ConstrainCoincidentUnified|Sketcher_CompHorVer|Sketcher_ConstrainParallel|"
-             "Sketcher_ConstrainPerpendicular|Sketcher_ConstrainTangent|Sketcher_ConstrainEqual|"
-             "Sketcher_ConstrainSymmetric|Sketcher_ConstrainBlock|Sketcher_CompToggleConstraints", L, "Restrição"),
         ]),
         ("Modificar", [
             ("Sketcher_CompCurveEdition", L, "Aparar"), ("Sketcher_CompCreateFillets", L, "Arredondar"),
@@ -114,13 +113,7 @@ TABS = [
             ("Sketcher_Translate", L, "Padrão\nlinear"), ("Sketcher_Rotate", L, "Padrão\ncircular"),
             ("Sketcher_Symmetry", L, "Espelhar"),
         ]),
-        ("Auxiliares", [
-            ("Sketcher_SelectConstraints", S, "Selecionar restrições"),
-            ("Sketcher_SelectElementsAssociatedWithConstraints", S, "Selecionar geometria"),
-            ("Sketcher_RestoreInternalAlignmentGeometry", S, "Geometria interna"),
-            ("Sketcher_SwitchVirtualSpace", S, "Espaço virtual"), ("Sketcher_ArcOverlay", S, "Auxiliar de arcos"),
-            ("Sketcher_JoinCurves", S, "Unir curvas"),
-        ]),
+        # Auxiliares: no painel lateral, aba do esboço
     ]},
     {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [

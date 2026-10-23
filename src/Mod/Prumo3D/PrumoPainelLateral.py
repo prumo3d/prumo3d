@@ -41,7 +41,8 @@ _SVG = {
                '<circle cx="16" cy="8.5" r="1.2"/>',
 }
 
-_estado = {"juntou": False, "ativa": None, "antes": None, "titulo": None, "estilo": None}
+_estado = {"juntou": False, "ativa": None, "antes": None, "titulo": None, "estilo": None, "reais": {},
+          "compacto": None}
 
 
 def _params():
@@ -90,18 +91,65 @@ def docks(mw=None):
     return achados
 
 
+def _ptr(w):
+    try:
+        import shiboken6 as shiboken
+    except ImportError:  # pragma: no cover
+        import shiboken2 as shiboken
+    return shiboken.getCppPointer(w)[0]
+
+
+def _mapa(ds):
+    """{endereço do painel: nome} (o Qt guarda o endereço do painel em cada aba)."""
+    return {_ptr(d): n for n, d in ds.items()}
+
+
 def barra_de_abas(mw=None):
     """A barra de abas (QTabBar da janela principal) que tem a aba Árvore."""
     mw = mw or FreeCADGui.getMainWindow()
     if mw is None:
         return None
+    ds = docks(mw)
+    arv = ds.get(ARVORE)
+    if arv is None:
+        return None
+    alvo = _ptr(arv)
     for bar in mw.findChildren(QtWidgets.QTabBar):
         if bar.parent() is not mw:
             continue
         for i in range(bar.count()):
-            if bar.tabText(i) == TITULOS[ARVORE]:
+            if bar.tabData(i) == alvo:
                 return bar
     return None
+
+
+def dock_da_aba(bar, i, ds=None):
+    """Nome do painel (ARVORE, PROPRIEDADES…) da aba i."""
+    return _mapa(ds or docks()).get(bar.tabData(i))
+
+
+def titulo_real(nome):
+    return _estado["reais"].get(nome) or TITULOS.get(nome, nome)
+
+
+def abas():
+    """[(painel, título)] na ordem das abas (título completo, mesmo quando a aba mostra só o ícone)."""
+    bar = barra_de_abas()
+    if bar is None:
+        return []
+    ds = docks()
+    out = []
+    for i in range(bar.count()):
+        n = dock_da_aba(bar, i, ds)
+        out.append((n, titulo_real(n) if n else bar.tabText(i)))
+    return out
+
+
+def aba_atual():
+    bar = barra_de_abas()
+    if bar is None or bar.currentIndex() < 0:
+        return None
+    return dock_da_aba(bar, bar.currentIndex())
 
 
 # ---------------------------------------------------------------- título da aba do comando
@@ -152,7 +200,7 @@ def estilo_abas():
     return (
         "QTabBar {{ background: {fundo}; border: 0; border-bottom: 1px solid {linha}; }}"
         "QTabBar::tab, QTabBar::tab:top {{ background: transparent; color: {texto}; border: 0;"
-        " border-bottom: 3px solid transparent; padding: 7px 12px 5px 10px; margin: 0; min-width: 40px;"
+        " border-bottom: 3px solid transparent; padding: 7px 10px 5px 8px; margin: 0; min-width: 22px;"
         " font-weight: 500; }}"
         "QTabBar::tab:selected, QTabBar::tab:top:selected {{ color: {ativo}; border-bottom: 3px solid #F7BE00;"
         " background: transparent; font-weight: 600; }}"
@@ -179,22 +227,46 @@ def _sem_titulo(d):
 def _nomear(ds):
     for nome in (ARVORE, PROPRIEDADES, APARENCIA):
         d = ds.get(nome)
-        if d is not None and d.windowTitle() != TITULOS[nome]:
-            d.setWindowTitle(TITULOS[nome])
+        if d is not None and _estado["reais"].get(nome) != TITULOS[nome]:
+            _estado["reais"][nome] = TITULOS[nome]
             d.setWindowIcon(icone(nome))
+
+
+def _titulos(bar, ds):
+    """Com espaço, todas as abas com ícone e nome; sem espaço, só a aba aberta mostra o nome
+    (as outras ficam só com o ícone; o nome aparece ao parar o mouse em cima)."""
+    fm = bar.fontMetrics()
+    visiveis = []
+    for i in range(bar.count()):
+        n = dock_da_aba(bar, i, ds)
+        if n:
+            visiveis.append(n)
+    largura = max(bar.width(), ds[ARVORE].width() if ARVORE in ds else 0)
+    precisa = sum(fm.horizontalAdvance(titulo_real(n)) + 18 + 34 for n in visiveis) * 1.08
+    compacto = _params().GetBool("AbasCompactas", True) and precisa > largura
+    _estado["compacto"] = compacto
+    atual = aba_atual()
+    for n, d in ds.items():
+        quer = titulo_real(n) if (not compacto or n == atual) else ""
+        if d.windowTitle() != quer:
+            d.setWindowTitle(quer)
+        act = d.toggleViewAction()
+        if act is not None and act.text() != titulo_real(n):
+            act.setText(titulo_real(n))       # o menu Vista → Painéis continua com o nome
+    for i in range(bar.count()):
+        n = dock_da_aba(bar, i, ds)
+        if n and bar.tabToolTip(i) != titulo_real(n):
+            bar.setTabToolTip(i, titulo_real(n))
 
 
 def _icones_das_abas(bar, ds):
     for i in range(bar.count()):
-        txt = bar.tabText(i)
-        for nome in (ARVORE, PROPRIEDADES, APARENCIA):
-            if txt == TITULOS[nome]:
-                if bar.tabIcon(i).cacheKey() != _estado.get("ic_" + nome, -1):
-                    ic = icone(nome)
-                    bar.setTabIcon(i, ic)
-                    _estado["ic_" + nome] = bar.tabIcon(i).cacheKey()
-        tar = ds.get(TAREFA)
-        if tar is not None and txt == tar.windowTitle() and _estado.get("ic_tarefa") is not None:
+        nome = dock_da_aba(bar, i, ds)
+        if nome in (ARVORE, PROPRIEDADES, APARENCIA):
+            if bar.tabIcon(i).cacheKey() != _estado.get("ic_" + nome, -1):
+                bar.setTabIcon(i, icone(nome))
+                _estado["ic_" + nome] = bar.tabIcon(i).cacheKey()
+        elif nome == TAREFA and _estado.get("ic_tarefa") is not None:
             if bar.tabIcon(i).cacheKey() != _estado.get("ic_tarefa_key", -1):
                 bar.setTabIcon(i, _estado["ic_tarefa"])
                 _estado["ic_tarefa_key"] = bar.tabIcon(i).cacheKey()
@@ -247,8 +319,7 @@ def _comando(ds, no_inicio):
         ativa = False
     if ativa:
         titulo, ic = titulo_do_comando(tar)
-        if titulo != tar.windowTitle():
-            tar.setWindowTitle(titulo)
+        _estado["reais"][TAREFA] = titulo
         if ic is None or ic.isNull():
             ic = icone(TAREFA)
         if titulo != _estado["titulo"]:
@@ -258,11 +329,9 @@ def _comando(ds, no_inicio):
     if not ativa and not no_inicio:
         # lembra a aba em uso antes do comando (o FreeCAD já troca de aba ao abrir o comando,
         # antes desta função ver a mudança)
-        bar = barra_de_abas()
-        if bar is not None and bar.currentIndex() >= 0:
-            atual = bar.tabText(bar.currentIndex())
-            if atual in (TITULOS[ARVORE], TITULOS[PROPRIEDADES], TITULOS[APARENCIA]):
-                _estado["antes"] = atual
+        atual = aba_atual()
+        if atual in (ARVORE, PROPRIEDADES, APARENCIA):
+            _estado["antes"] = atual
     if not ativa and not no_inicio and tar.isVisible() and not tar.isFloating():
         tar.hide()        # sem comando não há aba de comando (nem a que o FreeCAD deixa aberta ao montar)
     if ativa == _estado["ativa"]:
@@ -279,15 +348,10 @@ def _comando(ds, no_inicio):
         _estado["ic_tarefa"] = None
         if tar.isVisible() and not tar.isFloating():
             tar.hide()
-        volta = None
-        for nome in (ARVORE, PROPRIEDADES, APARENCIA):
-            d = ds.get(nome)
-            if d is not None and _estado.get("antes") == d.windowTitle():
-                volta = d
-        volta = volta or ds.get(ARVORE)
+        volta = ds.get(_estado.get("antes")) or ds.get(ARVORE)
         if volta is not None and volta.isVisible():
             volta.raise_()
-        tar.setWindowTitle(TITULOS[TAREFA])
+        _estado["reais"][TAREFA] = TITULOS[TAREFA]
 
 
 def organizar(no_inicio=False):
@@ -317,8 +381,22 @@ def organizar(no_inicio=False):
     bar = barra_de_abas(mw)
     if bar is not None:
         _estilizar(bar)
+        _titulos(bar, ds)
         _icones_das_abas(bar, ds)
+        if not _estado.get("ligou_troca"):
+            _estado["ligou_troca"] = True
+            # troca de aba: o nome passa para a aba aberta na hora (sem esperar o próximo ciclo)
+            bar.currentChanged.connect(lambda _i: _titulos_agora())
     return True
+
+
+def _titulos_agora():
+    try:
+        bar = barra_de_abas()
+        if bar is not None:
+            _titulos(bar, docks())
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------- Propriedades em cartões e Aparência

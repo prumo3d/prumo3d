@@ -1077,6 +1077,12 @@ def _start_guia():
         PrumoGuia.install()
     except Exception as exc:
         FreeCAD.Console.PrintError("Prumo: falha no guia ilustrado: {}\n".format(exc))
+    try:
+        import PrumoPainelEsboco
+
+        PrumoPainelEsboco.instalar()
+    except Exception as exc:
+        FreeCAD.Console.PrintError("Prumo: falha no painel do esboço: {}\n".format(exc))
 
 
 def _start_inicio():
