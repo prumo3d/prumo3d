@@ -226,11 +226,21 @@ def estilo_abas():
     ).format(fundo=fundo, texto=texto, ativo=ativo, hover=hover, linha=linha)
 
 
+def _barra_titulo(d):
+    """A barra de título do painel, ou None. (O PySide às vezes devolve um objeto de outro tipo no mesmo
+    endereço de um widget já apagado; aí se trata como sem barra.)"""
+    try:
+        w = d.titleBarWidget()
+    except Exception:
+        return None
+    return w if isinstance(w, QtWidgets.QWidget) else None
+
+
 def _sem_titulo(d):
     """Tira a barra de título do painel (a aba já diz o que ele é)."""
     if not _params().GetBool("PainelSemTitulo", True):
         return
-    atual = d.titleBarWidget()
+    atual = _barra_titulo(d)
     if atual is not None and atual.objectName() == "PrumoSemTitulo":
         return
     vazio = QtWidgets.QWidget(d)
@@ -311,7 +321,7 @@ def _cabecalho(dock, nome):
 
     (Botões dentro da própria aba derrubam o Qt: a barra de abas dos painéis é interna da janela.)"""
     atual = dock.widget()
-    if atual is None or atual.objectName() == "PrumoComCabecalho":
+    if not isinstance(atual, QtWidgets.QWidget) or atual.objectName() == "PrumoComCabecalho":
         return
     caixa = _ComCabecalho()
     caixa.setObjectName("PrumoComCabecalho")
@@ -392,7 +402,8 @@ def _acomodar_extras(ds):
         d = ds.get(nome)
         if d is None or d.isFloating() or not d.isVisible():
             continue
-        if d.titleBarWidget() is None or d.titleBarWidget().objectName() != "PrumoSemTitulo":
+        tb = _barra_titulo(d)
+        if tb is None or tb.objectName() != "PrumoSemTitulo":
             acomodar(d)
 
 

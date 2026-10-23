@@ -21,6 +21,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Furo com painel no padrão Prumo:** cartões Furo (padrão de rosca, tamanho, diâmetro), Tipo (Passante,
   Para rosca, Modelada, com a folga), Profundidade (Medida ou Através, ponta cônica), Cabeça (rebaixo,
   escareado… com diâmetro e profundidade) e Acabamento.
+- **Revolução e Ranhura** (eixo, até onde gira, ângulos, simétrico, inverter) e **Arredondar e Chanfro**
+  (arestas escolhidas com "Escolher arestas na vista", todas as arestas, raio ou o tipo de chanfro com
+  distâncias e ângulo) também com painel em cartões.
 
 ### Ajustes
 

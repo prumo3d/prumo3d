@@ -24,9 +24,12 @@ import PrumoUI as UI
 
 PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 
-TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole")
+TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole", "PartDesign::Revolution",
+         "PartDesign::Groove", "PartDesign::Fillet", "PartDesign::Chamfer")
 # campo que identifica o formulário do FreeCAD de cada comando
-MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType"}
+MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType",
+         "PartDesign::Revolution": "revolveAngle", "PartDesign::Groove": "revolveAngle",
+         "PartDesign::Fillet": "filletRadius", "PartDesign::Chamfer": "chamferType"}
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
 MODOS = {
     "PartDesign::Pad": [("Length", "Medida", "medida"), ("UpToLast", "Até o fim", "ate_fim"),
@@ -72,7 +75,7 @@ def _quadro_do_formulario(panel, marca="changeMode"):
         w = lay.itemAt(i).widget()
         if w is None or not shiboken.isValid(w):
             continue
-        if w.findChild(QtWidgets.QComboBox, marca) is not None:
+        if w.findChild(QtWidgets.QWidget, marca) is not None:
             return w
     return None
 
@@ -304,7 +307,10 @@ class PainelComando(QtWidgets.QWidget):
             self.dica.mostrar("Escolha a face (ou a peça) na vista: o quadro do FreeCAD abaixo mostra o que foi "
                               "escolhido.")
         else:
-            self.dica.mostrar("")
+            self.dica.mostrar(self.dica_extra())
+
+    def dica_extra(self):
+        return ""
 
     def atualizar(self):
         """Mudou algo no formulário do FreeCAD (ou pelo desfazer): remonta, se não estiver digitando."""
@@ -481,8 +487,244 @@ class PainelFuro(PainelComando):
         return False
 
 
+class _Base(PainelComando):
+    """Começo comum dos painéis (sem os modos da extrusão)."""
+
+    texto_completo = "Formulário completo do FreeCAD"
+
+    def __init__(self, obj, quadro, parent=None):
+        self.modos = []
+        QtWidgets.QWidget.__init__(self, parent)
+        self.setObjectName("PrumoUI")
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        self.setStyleSheet(UI.qss() + UI.tema("#PrumoUI { background: transparent; }"))
+        self.obj = obj
+        self.f = Formulario(quadro)
+        self.quadro = quadro
+        self.nome_medida = ""
+        self.lay = QtWidgets.QVBoxLayout(self)
+        self.lay.setContentsMargins(0, 0, 0, 0)
+        self.lay.setSpacing(10)
+        self.completo = QtWidgets.QToolButton()
+        self.completo.setObjectName("PrumoAvancado")
+        self.completo.setCheckable(True)
+        self.completo.setText(self.texto_completo)
+        self.completo.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.completo.toggled.connect(lambda _on: self.mostrar_formulario())
+        self.assinatura = None
+        self.montar()
+
+    def _indice(self, nome, i):
+        cb = self.f.combo(nome)
+        if cb is not None and cb.currentIndex() != i:
+            cb.setCurrentIndex(i)
+        QtCore.QTimer.singleShot(0, self.montar)
+
+    def _fim(self):
+        self.dica = UI.Dica("")
+        self.lay.addWidget(self.dica)
+        self.lay.addWidget(self.completo)
+        self.mostrar_formulario()
+
+    def _acabamento(self, extra=None):
+        c = UI.Cartao("Acabamento", "acabamento")
+        for rot, w in (extra or []):
+            c.linha(rot, w)
+        sw = UI.Interruptor(bool(getattr(self.obj, "Refine", False)))
+        sw.toggled.connect(self._refinar)
+        c.linha("Unir faces planas (refinar)", sw)
+        self.campos["refinar"] = sw
+        self.lay.addWidget(c)
+
+
+# Revolução / Ranhura: modos por posição na lista do FreeCAD
+MODOS_REV = {
+    "PartDesign::Revolution": [("Ângulo", "angulo"), ("Até o fim", "ate_fim"), ("Até a 1ª", "ate_primeira"),
+                               ("Até a face", "ate_face"), ("Dois ângulos", "dois_lados")],
+    "PartDesign::Groove": [("Ângulo", "angulo"), ("Através", "atraves"), ("Até a 1ª", "ate_primeira"),
+                           ("Até a face", "ate_face"), ("Dois ângulos", "dois_lados")],
+}
+
+
+class PainelRevolucao(_Base):
+    """Revolução e Ranhura: eixo, até onde gira, ângulo(s), simétrico, inverter."""
+
+    def estado(self):
+        f = self.f
+        return {"modo": f.indice("changeMode"), "n": f.combo("changeMode").count() if f.combo("changeMode") else 0,
+                "eixo": f.indice("axis"), "n_eixo": f.combo("axis").count() if f.combo("axis") else 0,
+                "a1": f.numero("revolveAngle"), "a2": f.numero("revolveAngle2"),
+                "meio": bool(f.check("checkBoxMidplane").isChecked()) if f.check("checkBoxMidplane") else False,
+                "inv": bool(f.check("checkBoxReversed").isChecked()) if f.check("checkBoxReversed") else False,
+                "a2_ok": f.visivel("revolveAngle2"), "a1_ok": f.visivel("revolveAngle")}
+
+    def precisa_do_formulario(self):
+        cb = self.f.combo("changeMode")
+        return cb is not None and "face" in cb.currentText().lower()
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Eixo", "fixacao")
+        cb = f.espelho("axis", {"Base X axis": "Eixo X", "Base Y axis": "Eixo Y", "Base Z axis": "Eixo Z",
+                                "Horizontal sketch axis": "Eixo horizontal do esboço",
+                                "Vertical sketch axis": "Eixo vertical do esboço", "Select reference…": "Escolher…",
+                                "Select reference...": "Escolher…"})
+        cb.activated.connect(lambda _i: QtCore.QTimer.singleShot(0, self.montar))
+        c.linha("Gira em torno de", cb)
+        self.campos["eixo"] = cb
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Até onde gira", "angulo")
+        rot = MODOS_REV.get(self.obj.TypeId, [])
+        fc = f.combo("changeMode")
+        ops = []
+        for i in range(fc.count() if fc else 0):
+            t, ic = rot[i] if i < len(rot) else (fc.itemText(i), None)
+            ops.append((str(i), t, ic))
+        seg = UI.Segmentado(ops, str(e["modo"]), colunas=3)
+        seg.mudou.connect(lambda k: self._indice("changeMode", int(k)))
+        c.widget(seg)
+        self.campos["modo"] = seg
+        if e["a1"] is not None and e["a1_ok"]:
+            num = UI.CampoNumero(e["a1"], "°")
+            num.valueChanged.connect(lambda v: f.por_numero("revolveAngle", v))
+            c.linha("Ângulo", num)
+            self.campos["a1"] = num
+        if e["a2"] is not None and e["a2_ok"]:
+            num = UI.CampoNumero(e["a2"], "°")
+            num.valueChanged.connect(lambda v: f.por_numero("revolveAngle2", v))
+            c.linha("Ângulo 2", num)
+            self.campos["a2"] = num
+        if f.check("checkBoxMidplane") is not None and f.visivel("checkBoxMidplane"):
+            sw = UI.Interruptor(e["meio"])
+            sw.toggled.connect(lambda on: self._marcar("checkBoxMidplane", on))
+            c.linha("Simétrico ao esboço", sw)
+            self.campos["meio"] = sw
+        if f.check("checkBoxReversed") is not None:
+            sw = UI.Interruptor(e["inv"])
+            sw.setEnabled(f.check("checkBoxReversed").isEnabled())
+            sw.toggled.connect(lambda on: self._marcar("checkBoxReversed", on))
+            c.linha("Inverter", sw)
+            self.campos["inv"] = sw
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
+TIPOS_CHANFRO = [("Distância igual", "chanfro"), ("Duas distâncias", "dois_lados"), ("Distância e ângulo", "angulo")]
+
+
+class PainelAcabamentoArestas(_Base):
+    """Arredondar e Chanfro: arestas escolhidas (lista) e as medidas."""
+
+    def _refs(self):
+        lw = self.f.w("listWidgetReferences", QtWidgets.QListWidget)
+        return [lw.item(i).text() for i in range(lw.count())] if lw is not None else []
+
+    def estado(self):
+        f = self.f
+        bt = f.w("buttonRefSel", QtWidgets.QToolButton)
+        todas = f.check("checkBoxUseAllEdges")
+        flip = f.w("flipDirection", QtWidgets.QAbstractButton)
+        return {"refs": tuple(self._refs()), "sel": bool(bt.isChecked()) if bt else False,
+                "todas": bool(todas.isChecked()) if todas else False,
+                "raio": f.numero("filletRadius"), "tipo": f.indice("chamferType"),
+                "d1": f.numero("chamferSize"), "d2": f.numero("chamferSize2"), "ang": f.numero("chamferAngle"),
+                "flip": bool(flip.isChecked()) if flip else False, "flip_ok": bool(flip.isEnabled()) if flip else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        arred = self.obj.TypeId == "PartDesign::Fillet"
+
+        c = UI.Cartao("Arestas", "selecao")
+        n = len(e["refs"])
+        resumo = QtWidgets.QLabel(("Todas as arestas da peça" if e["todas"] else
+                                   ("{} escolhida{}: ".format(n, "s" if n != 1 else "") +
+                                    ", ".join(e["refs"][:6]) + ("…" if n > 6 else "")) if n else
+                                   "Nenhuma aresta escolhida"))
+        resumo.setWordWrap(True)
+        resumo.setObjectName("PrumoSub")
+        c.widget(resumo)
+        bt = f.w("buttonRefSel", QtWidgets.QToolButton)
+        if bt is not None:
+            b = QtWidgets.QPushButton("Concluir a escolha" if e["sel"] else "Escolher arestas na vista")
+            b.setObjectName("PrumoPrimario" if e["sel"] else "")
+            b.setEnabled(bt.isEnabled())
+            b.clicked.connect(lambda: (bt.click(), QtCore.QTimer.singleShot(50, self.montar)))
+            c.widget(b)
+            self.campos["escolher"] = b
+        if f.check("checkBoxUseAllEdges") is not None:
+            sw = UI.Interruptor(e["todas"])
+            sw.toggled.connect(lambda on: (self._marcar("checkBoxUseAllEdges", on),
+                                           QtCore.QTimer.singleShot(0, self.montar)))
+            c.linha("Todas as arestas", sw)
+            self.campos["todas"] = sw
+        if e["sel"]:
+            self.dicas_escolha = True
+        self.lay.addWidget(c)
+
+        if arred:
+            c = UI.Cartao("Arredondamento", "raio")
+            num = UI.CampoNumero(e["raio"] or 0.0, "mm", minimo=0.0)
+            num.valueChanged.connect(lambda v: f.por_numero("filletRadius", v))
+            c.linha("Raio", num)
+            self.campos["raio"] = num
+            self.lay.addWidget(c)
+        else:
+            c = UI.Cartao("Chanfro", "chanfro")
+            seg = UI.Segmentado([(str(i), t, ic) for i, (t, ic) in enumerate(TIPOS_CHANFRO)], str(max(0, e["tipo"])),
+                                colunas=3)
+            seg.mudou.connect(lambda k: self._indice("chamferType", int(k)))
+            c.widget(seg)
+            self.campos["tipo"] = seg
+            num = UI.CampoNumero(e["d1"] or 0.0, "mm", minimo=0.0)
+            num.valueChanged.connect(lambda v: f.por_numero("chamferSize", v))
+            c.linha("Distância", num)
+            self.campos["d1"] = num
+            if e["tipo"] == 1 and e["d2"] is not None:
+                num = UI.CampoNumero(e["d2"], "mm", minimo=0.0)
+                num.valueChanged.connect(lambda v: f.por_numero("chamferSize2", v))
+                c.linha("Distância 2", num)
+                self.campos["d2"] = num
+            if e["tipo"] == 2 and e["ang"] is not None:
+                num = UI.CampoNumero(e["ang"], "°", minimo=0.0)
+                num.valueChanged.connect(lambda v: f.por_numero("chamferAngle", v))
+                c.linha("Ângulo", num)
+                self.campos["ang"] = num
+            if e["tipo"] in (1, 2):
+                sw = UI.Interruptor(e["flip"])
+                sw.setEnabled(e["flip_ok"])
+                fl = f.w("flipDirection", QtWidgets.QAbstractButton)
+                sw.toggled.connect(lambda on: fl is not None and fl.isChecked() != on and fl.click())
+                c.linha("Inverter o lado", sw)
+                self.campos["flip"] = sw
+            self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+    def dica_extra(self):
+        bt = self.f.w("buttonRefSel", QtWidgets.QToolButton)
+        if bt is not None and bt.isChecked():
+            return ("Clique nas arestas na vista: cada clique põe ou tira uma aresta. Depois, "
+                    "\"Concluir a escolha\".")
+        return ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
-           "PartDesign::Hole": "PainelFuro"}
+           "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
+           "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
+           "PartDesign::Chamfer": "PainelAcabamentoArestas"}
 
 
 class Encaixe:
