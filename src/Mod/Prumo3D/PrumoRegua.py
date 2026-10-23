@@ -655,7 +655,7 @@ if FreeCAD.GuiUp:
             mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
             modelo = None
             for d in mw.findChildren(QtWidgets.QDockWidget):
-                if d.windowTitle() in ("Modelo", "Model", "Combo View", "Vista combinada"):
+                if d.windowTitle() in ("Modelo", "Model", "Combo View", "Vista combinada", "Árvore"):
                     modelo = d
                     break
             if modelo is not None and not modelo.isFloating():

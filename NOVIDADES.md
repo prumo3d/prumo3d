@@ -9,6 +9,20 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novo
+
+- **Painel lateral único, com as abas no alto:** **Árvore**, **Propriedades** e, só enquanto um comando
+  está aberto, a aba dele (ex.: "Esboço002", "Extrusão"). Ao concluir ou cancelar, a aba do comando some
+  e o painel volta para a aba em que você estava. Acabaram os painéis Modelo, Tarefas e Dados empilhados
+  com título repetido em cima de cada um. (Para voltar ao arranjo do FreeCAD: preferência
+  `PainelLateralUnico` em Mod/Prumo3D, vale na próxima abertura.)
+
+### Ajustes
+
+- **Cotas do esboço em azul**, no tom do sistema (antes vermelhas); o vermelho fica só para erro.
+
 ## 0.5.0 beta — 23/10/2026
 
 ### Novo

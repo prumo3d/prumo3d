@@ -6846,6 +6846,102 @@ class T54ReferenciasAutomaticas(unittest.TestCase):
         self.assertEqual(len(R._externas(sk2)), 0)
 
 
+class T55PainelLateral(unittest.TestCase):
+    """Painel lateral único: Árvore | Propriedades | comando, abas no alto, aba do comando só enquanto ele dura."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelLateral as P
+        if not P.ligado() or P.ARVORE not in P.docks():
+            self.skipTest("painel lateral único desligado nesta sessão")
+        self.P = P
+        self.doc = novo_doc("PrumoTestePainel")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCADGui.ActiveDocument is not None:
+            try:
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+        fechar(self.doc)
+
+    def _assentar(self, s=0.6):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            self.P.organizar()
+            time.sleep(0.02)
+
+    def _abas(self):
+        bar = self.P.barra_de_abas()
+        self.assertIsNotNone(bar, "sem a barra de abas do painel")
+        return bar, [bar.tabText(i) for i in range(bar.count())]
+
+    def test_init_liga_arvore_e_propriedades(self):
+        dw = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/DockWindows")
+        self.assertTrue(dw.GetGroup("TreeView").GetBool("Enabled", False))
+        self.assertTrue(dw.GetGroup("PropertyView").GetBool("Enabled", False))
+        self.assertFalse(dw.GetGroup("ComboView").GetBool("Enabled", True))
+        nomes = {d.objectName() for d in FreeCADGui.getMainWindow().findChildren(
+            __import__("PySide").QtWidgets.QDockWidget)}
+        self.assertNotIn("Model", nomes, "o painel Modelo do FreeCAD não deveria existir")
+
+    def test_abas_no_alto_sem_titulo(self):
+        from PySide import QtCore
+        self._assentar()
+        bar, abas = self._abas()
+        self.assertEqual(abas[:2], ["Árvore", "Propriedades"])
+        mw = FreeCADGui.getMainWindow()
+        self.assertEqual(mw.tabPosition(QtCore.Qt.LeftDockWidgetArea), __import__("PySide").QtWidgets.QTabWidget.North)
+        for nome, d in self.P.docks().items():
+            tb = d.titleBarWidget()
+            self.assertTrue(tb is not None and tb.objectName() == "PrumoSemTitulo", nome)
+        self.assertIn("#F7BE00", bar.styleSheet())
+        self.assertFalse(bar.tabIcon(0).isNull(), "aba Árvore sem ícone")
+
+    def test_aba_do_comando_entra_e_sai(self):
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        sk = esboco_retangulo(body)
+        self.doc.recompute()
+        self._assentar()
+        tar = self.P.docks()[self.P.TAREFA]
+        self.assertFalse(tar.isVisible(), "aba do comando aberta sem comando")
+        self.P.docks()[self.P.PROPRIEDADES].raise_()
+        self._assentar(0.3)
+        FreeCADGui.ActiveDocument.setEdit(sk.Name)
+        self._assentar()
+        bar, abas = self._abas()
+        self.assertTrue(tar.isVisible())
+        self.assertEqual(tar.windowTitle(), sk.Label)
+        self.assertIn(sk.Label, abas)
+        self.assertEqual(bar.tabText(bar.currentIndex()), sk.Label, "a aba do comando não veio para a frente")
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._assentar()
+        bar, abas = self._abas()
+        self.assertFalse(tar.isVisible(), "a aba do comando ficou depois de concluir")
+        self.assertNotIn(sk.Label, abas)
+        self.assertEqual(bar.tabText(bar.currentIndex()), "Propriedades", "não voltou para a aba de antes")
+
+    def test_titulo_curto(self):
+        self.assertEqual(self.P._curto("Esboço002"), "Esboço002")
+        longo = self.P._curto("Parâmetros da extrusão com dois lados")
+        self.assertLessEqual(len(longo), self.P.LARGURA_TITULO)
+        self.assertTrue(longo.endswith("…"))
+
+    def test_cotas_sem_vermelho(self):
+        import PrumoEstilo as E
+        for tab in (E.VIEW_COLORS, E.VIEW_COLORS_ESC):
+            for k in ("ConstrainedDimColor", "ConstrainedIcoColor"):
+                c = tab[k].lstrip("#")
+                r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+                self.assertFalse(r > g + 40 and r > b + 40, "{} ainda avermelhada: {}".format(k, tab[k]))
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -6856,4 +6952,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T39Montagem, T40ModelosComRegras, T41GuiaMigracao, T42SimulacaoEstrutura,
            T43DetalheLigacao, T44RotulasCargasSecoes, T45BancadaVasos, T46NBR2024,
            T47MolasTracaoModos, T48AssistenteEstrutura,
-           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas]
+           T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
+           T55PainelLateral]

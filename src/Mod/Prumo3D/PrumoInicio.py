@@ -464,7 +464,7 @@ def prepare():
 
 
 # ---------------------------------------------------------------- barra lateral só no trabalho
-SIDE_DOCKS = ("Model", "Tasks", "Combo View")
+SIDE_DOCKS = ("Model", "Tasks", "Combo View", "Tree view", "Property view")
 _side = {"connected": False}
 
 
@@ -523,6 +523,14 @@ def _poll_side():
     if area is None:
         return
     _on_subwindow(area.currentSubWindow())
+    try:
+        import PrumoPainelLateral
+        if PrumoPainelLateral.organizar(no_inicio=bool(_side.get("no_inicio"))):
+            return
+    except Exception as exc:
+        if not _side.get("aviso_painel"):
+            _side["aviso_painel"] = True
+            FreeCAD.Console.PrintWarning("Prumo: painel lateral: {}\n".format(exc))
     _organizar_lateral()
 
 
