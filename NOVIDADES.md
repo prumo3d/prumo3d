@@ -9,6 +9,34 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+Já está no código e entra na próxima versão.
+
+### Novo
+
+- **Esboço 3D com restrições, cotas e linhas de construção**, no jeito do SolidWorks:
+  - linha desenhada ao longo de X, Y ou Z ganha a restrição do eixo sozinha (aparece "X", "Y" ou "Z" ao
+    lado dela); o ramal que começa num ponto do esboço fica preso nele;
+  - na lista "Linhas e restrições" (ou clicando na linha na vista): **Cotar** o comprimento, **Ao longo de
+    X/Y/Z**, **Paralelas**, **Perpendiculares**, **Iguais** e **Construção**; o esboço se ajusta na hora e
+    avisa quando as restrições entram em conflito;
+  - **linhas de construção** tracejadas: servem de referência para restrições e cotas, mas não entram na
+    forma (a estrutura soldada e a tubulação não usam);
+  - durante a edição, o resto do modelo fica transparente e os eixos X, Y e Z aparecem no ponto de partida.
+- **Esboço 3D no Novo esboço:** fica no menu do botão Esboço da aba Peça (e no Novo esboço da aba
+  Esboço); saiu da aba Estruturas.
+
+### Ajustes
+
+- **Modelo e Tarefas em abas no mesmo lugar**, e não mais lado a lado: em notebook os dois juntos
+  pediam mais largura que a tela (o aviso "Unable to set geometry"). A aba Tarefas vem para a frente
+  quando um comando abre e a Modelo volta quando ele fecha.
+- **Na abertura, só a tela inicial:** Modelo e Tarefas começam fechados, também na primeira vez depois de
+  instalar; aparecem ao abrir ou criar um arquivo.
+- **Instalador do Windows com a marca do Prumo** (imagem lateral, cabeçalho e ícone), sem o logo do
+  FreeCAD.
+
 ## 0.4.0 beta — 23/10/2026
 
 ### Novo

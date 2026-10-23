@@ -22,7 +22,7 @@ EQUIVALENCIAS = [
      ["Sketcher_Translate"], "Dentro do esboço: selecione a geometria e defina cópias e espaçamento no painel."),
     ("Peça", "Padrão circular de entidades do esboço", "Sketch circular pattern", "Padrão circular", "esboco",
      ["Sketcher_Rotate"], "Dentro do esboço: selecione a geometria, clique no centro e defina o número de cópias."),
-    ("Peça", "Esboço 3D", "3D Sketch", "Esboço 3D", "esboco", ["Prumo_Esboco3D"],
+    ("Peça", "Esboço 3D", "3D Sketch", "Esboço 3D", "peca", ["Prumo_Esboco3D"],
      "Clique na vista: o ponto cai no plano do último ponto; Tab troca o plano (XY, YZ, ZX), Esc termina o "
      "trecho. Serve de esqueleto de estrutura e caminho de tubo."),
     ("Peça", "Ressalto/Base extrudado", "Extrude / Extrusion", "Extrusão", "peca", ["PartDesign_Pad"],
@@ -58,7 +58,7 @@ EQUIVALENCIAS = [
     ("Avaliar", "Propriedades de massa", "Mass properties", "Propriedades de massa", "peca", ["Prumo_Massa"], ""),
     ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Std_Measure"], ""),
     ("Estruturas", "Routing (tubulação)", "Piping / Pipe Routing", "Tubulação", "estruturas", ["Prumo_Tubulacao"],
-     "Desenhe o traçado com o Esboço 3D; joelhos, tês e reduções saem do catálogo (PVC soldável Tigre)."),
+     "Desenhe o traçado com o Esboço 3D (Peça → Esboço → Esboço 3D); joelhos, tês e reduções saem do catálogo (PVC soldável Tigre)."),
     ("Estruturas", "Membro estrutural", "Frame generator / Structure", "Estrutura soldada", "estruturas",
      ["Prumo_Estrutura"], "Perfis brasileiros (W, U, L, tubos, metalon) sobre as linhas de um esboço."),
     ("Estruturas", "Perfil personalizado (biblioteca de perfis)", "Custom profile", "Seção personalizada",

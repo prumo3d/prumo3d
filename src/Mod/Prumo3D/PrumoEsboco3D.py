@@ -96,23 +96,175 @@ def arestas_do_trecho(pts, fechado=False, raio=0.0):
     return ed
 
 
-def forma(pontos, quebras=(), fechado=False, raio=0.0):
-    """Forma do esboço: um fio por trecho (Compound se houver mais de um)."""
+def segmentos(pontos, quebras=(), fechado=False):
+    """Segmentos do esboço como pares de índices de pontos [(i, j)], na ordem: o segmento k liga dois
+    pontos seguidos do mesmo trecho (as restrições e a construção usam esse k)."""
+    n = len(pontos)
+    cortes = sorted({int(i) for i in quebras if 0 < int(i) < n})
+    res = []
+    ini = 0
+    for c in cortes + [n]:
+        for i in range(ini, c - 1):
+            res.append((i, i + 1))
+        ini = c
+    if fechado and not cortes and n >= 3:
+        res.append((n - 1, 0))
+    return res
+
+
+def forma(pontos, quebras=(), fechado=False, raio=0.0, construcao=()):
+    """Forma do esboço: um fio por sequência de segmentos normais (Compound se houver mais de um).
+    Os segmentos de construção ficam de fora (são só referência: aparecem tracejados na tela)."""
     import Part
-    ts = trechos(pontos, quebras)
-    fios = []
-    for t in ts:
-        ed = arestas_do_trecho(t, fechado and len(ts) == 1, raio)
-        if ed:
-            try:
-                fios.append(Part.Wire(ed))
-            except Exception:
-                fios.append(Part.Compound(ed))
+    pts = [FreeCAD.Vector(p) for p in pontos]
+    segs = segmentos(pts, quebras, fechado)
+    constr = {int(k) for k in construcao}
+    if not constr:
+        ts = trechos(pts, quebras)
+        fios = []
+        for t in ts:
+            ed = arestas_do_trecho(t, fechado and len(ts) == 1, raio)
+            if ed:
+                try:
+                    fios.append(Part.Wire(ed))
+                except Exception:
+                    fios.append(Part.Compound(ed))
+    else:
+        # sequências de segmentos normais seguidos viram polilinhas
+        corridas = []
+        atual = []
+        for k, (i, j) in enumerate(segs):
+            if k in constr or (pts[j] - pts[i]).Length < TOL:
+                if atual:
+                    corridas.append(atual)
+                atual = []
+                continue
+            if atual and atual[-1] != i:
+                corridas.append(atual)
+                atual = []
+            if not atual:
+                atual = [i]
+            atual.append(j)
+        if atual:
+            corridas.append(atual)
+        fios = []
+        for c in corridas:
+            fechar = len(c) > 3 and c[0] == c[-1]
+            cp = [pts[i] for i in (c[:-1] if fechar else c)]
+            ed = arestas_do_trecho(cp, fechar, raio)
+            if ed:
+                try:
+                    fios.append(Part.Wire(ed))
+                except Exception:
+                    fios.append(Part.Compound(ed))
     if not fios:
         return Part.Shape()
     if len(fios) == 1:
         return fios[0]
     return Part.Compound(fios)
+
+
+# ------------------------------------------------------------------------ restrições
+# Texto de cada restrição (propriedade Restricoes): "tipo:arg1:arg2...". Segmentos pelo índice k de
+# segmentos(); pontos pelo índice na lista de pontos.
+#   eixo:k:X|Y|Z          segmento ao longo do eixo (como "Ao longo de X" do SolidWorks)
+#   comprimento:k:mm      cota do segmento
+#   paralela:k1:k2 · perpendicular:k1:k2 · igual:k1:k2
+#   fixo:i                ponto preso onde está
+#   coincidente:i:j       dois pontos no mesmo lugar (ramal que sai de um ponto existente)
+TIPOS_RESTRICAO = ("eixo", "comprimento", "paralela", "perpendicular", "igual", "fixo", "coincidente")
+EIXOS = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
+TOL_EIXO = 1.0          # graus: segmento desenhado mais perto que isso de um eixo ganha "eixo"
+
+
+def ler_restricoes(textos):
+    res = []
+    for t in textos:
+        partes = [x.strip() for x in str(t).split(":")]
+        if not partes or partes[0] not in TIPOS_RESTRICAO:
+            continue
+        res.append(partes)
+    return res
+
+
+def eixo_de(d, tol=TOL_EIXO):
+    """'X', 'Y' ou 'Z' se o vetor d está a menos de tol graus de um eixo; senão None."""
+    d = FreeCAD.Vector(d)
+    if d.Length < TOL:
+        return None
+    u = d * (1.0 / d.Length)
+    for nome, e in EIXOS.items():
+        if abs(abs(u.dot(FreeCAD.Vector(*e))) - 1.0) < 1.0 - math.cos(math.radians(tol)):
+            return nome
+    return None
+
+
+def resolver(pontos, segs, restricoes, ancora=0, fixos_extra=()):
+    """Ajusta os pontos para cumprir as restrições (mínimos quadrados, mexendo o mínimo possível).
+    Retorna (pontos, ok, maior_erro). O ponto 'ancora' fica parado."""
+    import numpy as np
+    pts = [FreeCAD.Vector(p) for p in pontos]
+    n = len(pts)
+    rs = ler_restricoes(restricoes)
+    if n == 0 or not rs:
+        return pts, True, 0.0
+    try:
+        from scipy.optimize import least_squares
+    except ImportError:
+        return pts, False, float("inf")
+    x0 = np.array([c for p in pts for c in (p.x, p.y, p.z)], dtype=float)
+    escala = max(1.0, float(np.ptp(x0.reshape(-1, 3), axis=0).max()) if n > 1 else 1.0)
+    fixos = {ancora} | {int(r[1]) for r in rs if r[0] == "fixo" and r[1].isdigit()} | set(fixos_extra)
+
+    def P(x, i):
+        return x[3 * i:3 * i + 3]
+
+    def seg(x, k):
+        i, j = segs[k]
+        return P(x, j) - P(x, i)
+
+    def resid(x):
+        r = []
+        for t in rs:
+            try:
+                if t[0] == "eixo":
+                    d = seg(x, int(t[1]))
+                    e = np.array(EIXOS[t[2].upper()])
+                    r.extend(list(d - e * d.dot(e)))
+                elif t[0] == "comprimento":
+                    r.append(np.linalg.norm(seg(x, int(t[1]))) - float(t[2].replace(",", ".")))
+                elif t[0] in ("paralela", "perpendicular", "igual"):
+                    d1, d2 = seg(x, int(t[1])), seg(x, int(t[2]))
+                    n1, n2 = np.linalg.norm(d1), np.linalg.norm(d2)
+                    if t[0] == "igual":
+                        r.append(n1 - n2)
+                    elif n1 > 1e-9 and n2 > 1e-9:
+                        if t[0] == "paralela":
+                            r.extend(list(np.cross(d1, d2) / (n1 * n2) * escala))
+                        else:
+                            r.append(d1.dot(d2) / (n1 * n2) * escala)
+                elif t[0] == "coincidente":
+                    r.extend(list(P(x, int(t[1])) - P(x, int(t[2]))))
+            except (IndexError, ValueError, KeyError):
+                continue
+        for i in fixos:
+            if 0 <= i < n:
+                r.extend(list((P(x, i) - P(x0, i)) * 100.0))
+        if reg[0]:
+            r.extend(list((x - x0) * reg[0]))   # mexe o mínimo nos pontos livres
+        return np.array(r, dtype=float)
+
+    # 1º: com um peso pequeno que segura os pontos livres perto de onde estavam (sem pulos);
+    # 2º: sem esse peso, partindo daí, para cumprir as restrições com precisão
+    reg = [1e-3]
+    sol = least_squares(resid, x0, method="trf", xtol=1e-12, ftol=1e-12, gtol=1e-12, max_nfev=400)
+    reg[0] = 0.0
+    sol = least_squares(resid, sol.x, method="trf", xtol=1e-14, ftol=1e-14, gtol=1e-14, max_nfev=400)
+    x = sol.x
+    r = resid(x)
+    erro = float(np.max(np.abs(r))) if len(r) else 0.0
+    novos = [FreeCAD.Vector(pts[i]) if i in fixos else FreeCAD.Vector(*P(x, i)) for i in range(n)]
+    return novos, erro < 1e-4 * escala, erro
 
 
 # ------------------------------------------------------------------------ desenho no espaço
@@ -170,6 +322,11 @@ class Esboco3D:
         add("App::PropertyBool", "Fechado", "Liga o último ponto ao primeiro (só com um trecho)", False)
         add("App::PropertyLength", "RaioCurva", "Raio das curvas nos cantos (0 = cantos vivos)", 0.0)
         add("App::PropertyLength", "Comprimento", "Comprimento total das linhas", 0.0, ro=True)
+        add("App::PropertyIntegerList", "Construcao", "Segmentos de construção (só referência; não entram na forma)")
+        add("App::PropertyStringList", "Restricoes",
+            "Restrições: eixo:k:X, comprimento:k:mm, paralela:k1:k2, perpendicular:k1:k2, igual:k1:k2, fixo:i, "
+            "coincidente:i:j (k = segmento, i = ponto)")
+        add("App::PropertyString", "Situacao", "Situação das restrições", "", ro=True)
 
     def onDocumentRestored(self, obj):
         obj.Proxy = self
@@ -177,7 +334,7 @@ class Esboco3D:
 
     def execute(self, obj):
         pl = obj.Placement
-        s = forma(obj.Pontos, obj.Quebras, obj.Fechado, float(obj.RaioCurva))
+        s = forma(obj.Pontos, obj.Quebras, obj.Fechado, float(obj.RaioCurva), getattr(obj, "Construcao", []))
         obj.Shape = s
         obj.Placement = pl
         comp = sum(e.Length for e in s.Edges) if not s.isNull() else 0.0
@@ -206,6 +363,31 @@ def criar(doc=None, pontos=(), quebras=(), fechado=False, raio=0.0, nome="Esboco
     return obj
 
 
+def aplicar_restricoes(obj, ancora=None):
+    """Resolve as restrições e grava os pontos. Retorna (ok, erro)."""
+    pts = list(obj.Pontos)
+    segs = segmentos(pts, obj.Quebras, obj.Fechado)
+    rs = list(getattr(obj, "Restricoes", []) or [])
+    if not rs:
+        if "Situacao" in obj.PropertiesList and obj.Situacao:
+            obj.Situacao = ""
+        return True, 0.0
+    novos, ok, erro = resolver(pts, segs, rs, ancora=0 if ancora is None else ancora)
+    if any((a - b).Length > 1e-9 for a, b in zip(novos, pts)):
+        obj.Pontos = novos
+    txt = "%d restrição(ões) cumpridas" % len(rs) if ok else \
+        "Restrições em conflito: confira cotas e eixos (erro de %s mm)" % ("%.3g" % erro).replace(".", ",")
+    if obj.Situacao != txt:
+        obj.Situacao = txt
+    return ok, erro
+
+
+def forma_obj(obj, raio=None):
+    """Forma das linhas normais (sem construção), com o raio pedido (None = o do objeto)."""
+    r = float(obj.RaioCurva) if raio is None else raio
+    return forma(obj.Pontos, obj.Quebras, obj.Fechado, r, getattr(obj, "Construcao", []))
+
+
 def e_esboco3d(obj):
     return obj is not None and isinstance(getattr(obj, "Proxy", None), Esboco3D)
 
@@ -230,6 +412,117 @@ if FreeCAD.GuiUp:
 
         def attach(self, vobj):
             self.Object = vobj.Object
+            self.selecionados = set()
+            self.editando = False
+            self._sobre = None
+            try:
+                from pivy import coin
+                self._sobre = coin.SoSeparator()
+                vobj.RootNode.addChild(self._sobre)
+            except Exception:
+                self._sobre = None
+            self.desenhar_sobreposicao()
+
+        def updateData(self, obj, prop):
+            if prop in ("Pontos", "Quebras", "Construcao", "Restricoes", "Fechado"):
+                self.desenhar_sobreposicao()
+
+        def destacar(self, segs, editando=None):
+            self.selecionados = set(segs)
+            if editando is not None:
+                self.editando = editando
+            self.desenhar_sobreposicao()
+
+        def desenhar_sobreposicao(self):
+            """Linhas de construção tracejadas, segmentos selecionados, rótulos das restrições e, na
+            edição, os eixos X/Y/Z no ponto de partida."""
+            if getattr(self, "_sobre", None) is None:
+                return
+            from pivy import coin
+            raiz = self._sobre
+            raiz.removeAllChildren()
+            obj = getattr(self, "Object", None)
+            if obj is None or "Pontos" not in obj.PropertiesList:
+                return
+            pts = [FreeCAD.Vector(p) for p in obj.Pontos]
+            segs = segmentos(pts, obj.Quebras, obj.Fechado)
+            pick = coin.SoPickStyle()
+            pick.style = coin.SoPickStyle.UNPICKABLE
+            raiz.addChild(pick)
+
+            def linhas(lista, cor, larg, padrao=0xFFFF):
+                if not lista:
+                    return
+                sep = coin.SoSeparator()
+                est = coin.SoDrawStyle()
+                est.lineWidth = larg
+                est.linePattern = padrao
+                c = coin.SoBaseColor()
+                c.rgb = cor
+                co = coin.SoCoordinate3()
+                vals = []
+                for a, b in lista:
+                    vals.extend([(a.x, a.y, a.z), (b.x, b.y, b.z)])
+                co.point.setValues(0, len(vals), vals)
+                ls = coin.SoLineSet()
+                ls.numVertices.setValues(0, len(lista), [2] * len(lista))
+                for n in (est, c, co, ls):
+                    sep.addChild(n)
+                raiz.addChild(sep)
+
+            def texto(p, txt, cor=(0.0, 0.227, 0.439)):
+                sep = coin.SoSeparator()
+                t = coin.SoTranslation()
+                t.translation = (p.x, p.y, p.z)
+                c = coin.SoBaseColor()
+                c.rgb = cor
+                f = coin.SoFont()
+                f.name = "Arial:Bold"
+                f.size = 14
+                tx = coin.SoText2()
+                tx.string = txt
+                for n in (t, c, f, tx):
+                    sep.addChild(n)
+                raiz.addChild(sep)
+
+            constr = {int(k) for k in getattr(obj, "Construcao", [])}
+            linhas([(pts[i], pts[j]) for k, (i, j) in enumerate(segs) if k in constr],
+                   (0.85, 0.45, 0.0), 2, 0xF0F0)
+            linhas([(pts[i], pts[j]) for k, (i, j) in enumerate(segs) if k in self.selecionados],
+                   (0.969, 0.745, 0.0), 6)
+            # rótulos das restrições (no meio do segmento, um pouco ao lado)
+            rot = {}
+            grupos = {"paralela": "//", "perpendicular": "_|_", "igual": "="}
+            n_rel = 0
+            for t in ler_restricoes(getattr(obj, "Restricoes", [])):
+                try:
+                    if t[0] == "eixo":
+                        rot.setdefault(int(t[1]), []).append(t[2].upper())
+                    elif t[0] == "comprimento":
+                        v = float(t[2].replace(",", "."))
+                        rot.setdefault(int(t[1]), []).append(("%g" % round(v, 2)).replace(".", ","))
+                    elif t[0] in grupos:
+                        n_rel += 1
+                        for k in (int(t[1]), int(t[2])):
+                            rot.setdefault(k, []).append("%s%d" % (grupos[t[0]], n_rel))
+                except (IndexError, ValueError):
+                    continue
+            for k, lst in rot.items():
+                if 0 <= k < len(segs):
+                    i, j = segs[k]
+                    texto((pts[i] + pts[j]) * 0.5, "  " + " ".join(lst))
+            if self.editando and pts:
+                o = pts[0]
+                tam = 60.0
+                if len(pts) > 1:
+                    bb = FreeCAD.BoundBox()
+                    for p in pts:
+                        bb.add(p)
+                    tam = max(40.0, bb.DiagonalLength * 0.12)
+                for nome, cor in (("X", (0.85, 0.15, 0.15)), ("Y", (0.1, 0.6, 0.2)), ("Z", (0.15, 0.35, 0.9))):
+                    e = FreeCAD.Vector(*EIXOS[nome]) * tam
+                    linhas([(o, o + e)], cor, 2)
+                    texto(o + e, nome, cor)
 
         def getIcon(self):
             return PrumoUtil.icone("esboco3d.svg")
@@ -352,6 +645,33 @@ if FreeCAD.GuiUp:
                 self.painel.terminar_trecho()
             return True
 
+    class _ObsSelecao:
+        """Clicar numa linha do esboço na vista seleciona a linha na lista do painel."""
+
+        def __init__(self, painel):
+            self.painel = painel
+
+        def addSelection(self, doc, obj, sub, pnt):
+            pn = self.painel
+            if obj != pn.obj.Name or not sub or not sub.startswith("Edge"):
+                return
+            try:
+                e = pn.obj.Shape.getElement(sub)
+                meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+                meio = pn.obj.Placement.inverse().multVec(meio) if not pn.obj.Placement.isIdentity() else meio
+            except Exception:
+                return
+            pts = pn.obj.Pontos
+            melhor, dmin = None, None
+            for k, (i, j) in enumerate(pn.segs()):
+                a, b = FreeCAD.Vector(pts[i]), FreeCAD.Vector(pts[j])
+                d = (meio - (a + b) * 0.5).Length
+                if dmin is None or d < dmin:
+                    melhor, dmin = k, d
+            if melhor is not None:
+                somar = bool(QtWidgets.QApplication.keyboardModifiers() & QtCore.Qt.ControlModifier)
+                pn.selecionar_segmentos([melhor], somar=somar)
+
     class PainelEsboco3D:
         """Pontos em tabela; próximo ponto absoluto ou relativo ao anterior; clique no modelo."""
 
@@ -425,6 +745,57 @@ if FreeCAD.GuiUp:
             for k, b in enumerate((self.bt_clicar, self.bt_ramal, bt_rem)):
                 bl.addWidget(b, k // 2, k % 2)
             lay.addLayout(bl)
+            # ---- linhas e restrições
+            gr = QtWidgets.QGroupBox("Linhas e restrições")
+            gl = QtWidgets.QVBoxLayout(gr)
+            self.auto = QtWidgets.QCheckBox("Restrições automáticas")
+            self.auto.setChecked(True)
+            self.auto.setToolTip("Linha desenhada ao longo de X, Y ou Z ganha a restrição do eixo; clicar num ponto "
+                                 "do próprio esboço prende o ramal nele")
+            gl.addWidget(self.auto)
+            self.lista = QtWidgets.QListWidget()
+            self.lista.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+            self.lista.setMinimumHeight(110)
+            self.lista.setToolTip("Linhas do esboço: selecione uma ou duas (Ctrl) — ou clique nelas na vista — e "
+                                  "use os botões abaixo")
+            self.lista.itemSelectionChanged.connect(self._sel_lista)
+            gl.addWidget(self.lista)
+            gb = QtWidgets.QGridLayout()
+            self.bt_constr = QtWidgets.QPushButton("Construção")
+            self.bt_constr.setToolTip("Linha só de referência (tracejada): não entra na forma, mas serve para "
+                                      "restrições e cotas")
+            self.bt_constr.clicked.connect(self.alternar_construcao)
+            gb.addWidget(self.bt_constr, 0, 0, 1, 3)
+            for c, eixo in enumerate("XYZ"):
+                b = QtWidgets.QPushButton("Ao longo\nde " + eixo)
+                b.setToolTip("A linha selecionada fica paralela ao eixo %s" % eixo)
+                b.clicked.connect(lambda _c=False, e=eixo: self.restringir_eixo(e))
+                gb.addWidget(b, 1, c)
+            self.cota = QtWidgets.QDoubleSpinBox()
+            self.cota.setRange(0.01, 1e7)
+            self.cota.setDecimals(2)
+            self.cota.setSuffix(" mm")
+            self.cota.setValue(100.0)
+            self.cota.lineEdit().returnPressed.connect(self.cotar)
+            gb.addWidget(self.cota, 2, 0, 1, 2)
+            bt_cota = QtWidgets.QPushButton("Cotar")
+            bt_cota.setToolTip("Fixa o comprimento da linha selecionada")
+            bt_cota.clicked.connect(self.cotar)
+            gb.addWidget(bt_cota, 2, 2)
+            for c, (tipo, txt) in enumerate((("paralela", "Paralelas"), ("perpendicular", "Perpend."),
+                                             ("igual", "Iguais"))):
+                b = QtWidgets.QPushButton(txt)
+                b.setToolTip("Duas linhas selecionadas (Ctrl + clique): %s" % txt.lower())
+                b.clicked.connect(lambda _c=False, t=tipo: self.relacionar(t))
+                gb.addWidget(b, 3, c)
+            bt_tirar = QtWidgets.QPushButton("Tirar restrições da seleção")
+            bt_tirar.clicked.connect(self.tirar_restricoes)
+            gb.addWidget(bt_tirar, 4, 0, 1, 3)
+            gl.addLayout(gb)
+            self.situacao = QtWidgets.QLabel("")
+            self.situacao.setWordWrap(True)
+            gl.addWidget(self.situacao)
+            lay.addWidget(gr)
             fl = QtWidgets.QFormLayout()
             self.fechado = QtWidgets.QCheckBox("Ligar o último ponto ao primeiro")
             self.fechado.setChecked(bool(obj.Fechado))
@@ -462,6 +833,11 @@ if FreeCAD.GuiUp:
             self._encher()
             import PrumoPainel
             PrumoPainel.estreitar(self.form)
+            self._transparencias = {}
+            self._focar(True)
+            self._obs = _ObsSelecao(self)
+            FreeCADGui.Selection.addObserver(self._obs)
+            self._destacar_selecao()
 
         # ---- dados
         def pontos(self):
@@ -471,8 +847,158 @@ if FreeCAD.GuiUp:
             self.obj.Pontos = pts
             if quebras is not None:
                 self.obj.Quebras = sorted({q for q in quebras if 0 < q < len(pts)})
+            aplicar_restricoes(self.obj)
             self.doc.recompute()
             self._encher()
+
+        def segs(self):
+            return segmentos(self.obj.Pontos, self.obj.Quebras, self.obj.Fechado)
+
+        def _restricoes_mudaram(self, rs, constr=None):
+            self.obj.Restricoes = rs
+            if constr is not None:
+                self.obj.Construcao = sorted(set(constr))
+            aplicar_restricoes(self.obj)
+            self.doc.recompute()
+            self._encher()
+
+        # ---- linhas e restrições
+        def selecionados(self):
+            return sorted({self.lista.row(it) for it in self.lista.selectedItems()})
+
+        def _encher_lista(self):
+            pts = self.pontos()
+            segs = self.segs()
+            constr = set(self.obj.Construcao)
+            rot = {}
+            for t in ler_restricoes(self.obj.Restricoes):
+                if t[0] == "eixo":
+                    rot.setdefault(int(t[1]), []).append(t[2].upper())
+                elif t[0] == "comprimento":
+                    rot.setdefault(int(t[1]), []).append("cota")
+                elif t[0] in ("paralela", "perpendicular", "igual"):
+                    nome = {"paralela": "paralela", "perpendicular": "perpend.", "igual": "igual"}[t[0]]
+                    for k in (int(t[1]), int(t[2])):
+                        rot.setdefault(k, []).append(nome)
+            sel = set(self.selecionados())
+            self.lista.blockSignals(True)
+            try:
+                self.lista.clear()
+                for k, (i, j) in enumerate(segs):
+                    L = (pts[j] - pts[i]).Length
+                    txt = "%d: P%d→P%d  %s mm" % (k + 1, i + 1, j + 1, PrumoUtil.fmt(L, 1))
+                    extra = rot.get(k, [])
+                    if k in constr:
+                        extra = ["construção"] + extra
+                    if extra:
+                        txt += "  [" + ", ".join(extra) + "]"
+                    it = QtWidgets.QListWidgetItem(txt)
+                    if k in constr:
+                        it.setForeground(QtGui.QBrush(QtGui.QColor("#B35C00")))
+                    self.lista.addItem(it)
+                    if k in sel:
+                        it.setSelected(True)
+            finally:
+                self.lista.blockSignals(False)
+            self.situacao.setText(self.obj.Situacao or "Sem restrições: as linhas ficam onde foram desenhadas.")
+
+        def _sel_lista(self):
+            self._destacar_selecao()
+            ks = self.selecionados()
+            if len(ks) == 1:
+                i, j = self.segs()[ks[0]]
+                self.cota.blockSignals(True)
+                self.cota.setValue(max(0.01, (self.obj.Pontos[j] - self.obj.Pontos[i]).Length))
+                self.cota.blockSignals(False)
+
+        def _destacar_selecao(self):
+            try:
+                self.obj.ViewObject.Proxy.destacar(self.selecionados(), editando=True)
+            except Exception:
+                pass
+
+        def selecionar_segmentos(self, ks, somar=False):
+            if not somar:
+                self.lista.clearSelection()
+            for k in ks:
+                it = self.lista.item(k)
+                if it is not None:
+                    it.setSelected(True)
+
+        def alternar_construcao(self):
+            ks = self.selecionados()
+            if not ks:
+                return
+            constr = set(self.obj.Construcao)
+            if all(k in constr for k in ks):
+                constr -= set(ks)
+            else:
+                constr |= set(ks)
+            self._restricoes_mudaram(list(self.obj.Restricoes), constr)
+
+        def restringir_eixo(self, eixo):
+            ks = self.selecionados()
+            if not ks:
+                return
+            rs = [r for r in self.obj.Restricoes
+                  if not (r.startswith("eixo:") and int(r.split(":")[1]) in ks)]
+            rs += ["eixo:%d:%s" % (k, eixo) for k in ks]
+            self._restricoes_mudaram(rs)
+
+        def cotar(self):
+            ks = self.selecionados()
+            if not ks:
+                return
+            v = self.cota.value()
+            rs = [r for r in self.obj.Restricoes
+                  if not (r.startswith("comprimento:") and int(r.split(":")[1]) in ks)]
+            rs += ["comprimento:%d:%g" % (k, v) for k in ks]
+            self._restricoes_mudaram(rs)
+
+        def relacionar(self, tipo):
+            ks = self.selecionados()
+            if len(ks) != 2:
+                self.situacao.setText("Selecione duas linhas (Ctrl + clique na lista ou na vista).")
+                return
+            rs = list(self.obj.Restricoes) + ["%s:%d:%d" % (tipo, ks[0], ks[1])]
+            self._restricoes_mudaram(rs)
+
+        def tirar_restricoes(self):
+            ks = set(self.selecionados())
+            if not ks:
+                return
+            rs = []
+            for r in self.obj.Restricoes:
+                t = r.split(":")
+                if t[0] in ("eixo", "comprimento") and int(t[1]) in ks:
+                    continue
+                if t[0] in ("paralela", "perpendicular", "igual") and (int(t[1]) in ks or int(t[2]) in ks):
+                    continue
+                rs.append(r)
+            self._restricoes_mudaram(rs)
+
+        def _focar(self, ligar):
+            """Na edição, o resto do modelo fica transparente: o esboço não se perde no meio das peças."""
+            if ligar:
+                for o in self.doc.Objects:
+                    vo = getattr(o, "ViewObject", None)
+                    if o is self.obj or vo is None or "Transparency" not in vo.PropertiesList:
+                        continue
+                    try:
+                        if vo.Visibility and vo.Transparency < 75:
+                            self._transparencias[o.Name] = vo.Transparency
+                            vo.Transparency = 75
+                    except Exception:
+                        pass
+            else:
+                for nome, t in self._transparencias.items():
+                    o = self.doc.getObject(nome)
+                    if o is not None and getattr(o, "ViewObject", None) is not None:
+                        try:
+                            o.ViewObject.Transparency = t
+                        except Exception:
+                            pass
+                self._transparencias = {}
 
         def _encher(self):
             self._ocupado = True
@@ -487,13 +1013,16 @@ if FreeCAD.GuiUp:
                         trecho += 1
                     rot.append(("▶ " if i in quebras else "") + str(i + 1))
                     for j, v in enumerate((p.x, p.y, p.z)):
-                        it = QtWidgets.QTableWidgetItem(("%.2f" % v).replace(".", ","))
+                        it = QtWidgets.QTableWidgetItem(("%.2f" % (round(v, 2) + 0.0)).replace(".", ","))
                         self.tabela.setItem(i, j, it)
                 self.tabela.setVerticalHeaderLabels(rot)
                 if pts:
                     self.tabela.scrollToBottom()
             finally:
                 self._ocupado = False
+            if hasattr(self, "lista"):
+                self._encher_lista()
+                self._destacar_selecao()
             self._mostrar_estado()
 
         def _ramal(self, v):
@@ -521,13 +1050,30 @@ if FreeCAD.GuiUp:
             self.doc.recompute()
             self._encher()
 
-        def adicionar(self, p_local):
+        def adicionar(self, p_local, coincide=None):
+            """Põe um ponto. Com as restrições automáticas: a linha nova ao longo de um eixo ganha a
+            restrição do eixo; o primeiro ponto de um ramal clicado sobre um ponto do esboço fica preso
+            nele (coincidente)."""
             pts = self.pontos()
             quebras = list(self.obj.Quebras)
-            if self._ramal_pendente and pts:
+            novo_trecho = self._ramal_pendente and bool(pts)
+            if novo_trecho:
                 quebras.append(len(pts))
                 self.bt_ramal.setChecked(False)
-            pts.append(FreeCAD.Vector(p_local))
+            p = FreeCAD.Vector(p_local)
+            pts.append(p)
+            rs = list(self.obj.Restricoes)
+            if getattr(self, "auto", None) is not None and self.auto.isChecked():
+                n = len(pts) - 1
+                if coincide is not None and 0 <= coincide < n:
+                    if novo_trecho or n == 0:
+                        rs.append("coincidente:%d:%d" % (n, coincide))
+                if not novo_trecho and n > 0:
+                    e = eixo_de(p - pts[n - 1])
+                    if e:
+                        k = len(segmentos(pts, quebras, False)) - 1
+                        rs.append("eixo:%d:%s" % (k, e))
+            self.obj.Restricoes = rs
             self._gravar(pts, quebras)
 
         def adicionar_digitado(self):
@@ -548,8 +1094,43 @@ if FreeCAD.GuiUp:
                 return
             linhas = sorted({i.row() for i in self.tabela.selectedIndexes()})
             i = linhas[-1] if linhas else len(pts) - 1
+            antigos = self.segs()
             del pts[i]
             quebras = [q - 1 if q > i else q for q in self.obj.Quebras if q != i]
+            novos = segmentos(pts, quebras, self.obj.Fechado)
+            # renumera restrições e construção: segmentos pelos pontos que ligam, pontos pelo índice
+            ren = {}
+            for k, (a, b) in enumerate(antigos):
+                if i in (a, b):
+                    continue
+                par = (a - (a > i), b - (b > i))
+                if par in novos:
+                    ren[k] = novos.index(par)
+
+            def pt(x):
+                x = int(x)
+                return None if x == i else x - (x > i)
+            rs = []
+            for r in self.obj.Restricoes:
+                t = r.split(":")
+                try:
+                    if t[0] in ("eixo", "comprimento"):
+                        if int(t[1]) in ren:
+                            rs.append(":".join([t[0], str(ren[int(t[1])])] + t[2:]))
+                    elif t[0] in ("paralela", "perpendicular", "igual"):
+                        if int(t[1]) in ren and int(t[2]) in ren:
+                            rs.append("%s:%d:%d" % (t[0], ren[int(t[1])], ren[int(t[2])]))
+                    elif t[0] == "fixo":
+                        if pt(t[1]) is not None:
+                            rs.append("fixo:%d" % pt(t[1]))
+                    elif t[0] == "coincidente":
+                        a, b = pt(t[1]), pt(t[2])
+                        if a is not None and b is not None:
+                            rs.append("coincidente:%d:%d" % (a, b))
+                except (IndexError, ValueError):
+                    continue
+            self.obj.Restricoes = rs
+            self.obj.Construcao = sorted(ren[k] for k in self.obj.Construcao if k in ren)
             self._gravar(pts, quebras)
 
         # ---- desenhar na vista: plano pelo último ponto (Tab troca), encaixe em vértices
@@ -628,9 +1209,17 @@ if FreeCAD.GuiUp:
                 info = self._vista.getObjectInfo(pos)
             except Exception:
                 info = None
+            self._idx_encaixe = None
             if info and (info.get("Component", "") or "").startswith(("Vertex", "Edge")):
                 p, tipo = _ponto_clicado(info)
                 if tipo in ("vértice", "ponta da aresta"):
+                    if info.get("Object") == self.obj.Name:
+                        # ponto do próprio esboço: o ramal fica preso nele
+                        loc = self.obj.Placement.inverse().multVec(p)
+                        dist = [(q - loc).Length for q in self.obj.Pontos]
+                        if dist and min(dist) < 1e-3:
+                            self._idx_encaixe = dist.index(min(dist))
+                            return p, "ponto P%d do esboço" % (self._idx_encaixe + 1)
                     return p, tipo
             base = self._base_global()
             p0, d = self._raio_da_vista(pos)
@@ -659,7 +1248,7 @@ if FreeCAD.GuiUp:
             if p is None:
                 self.estado.setText(tipo)
                 return
-            self.adicionar(self.obj.Placement.inverse().multVec(p))
+            self.adicionar(self.obj.Placement.inverse().multVec(p), coincide=getattr(self, "_idx_encaixe", None))
             self._mover(ev)
 
         def _mostrar_estado(self):
@@ -689,15 +1278,27 @@ if FreeCAD.GuiUp:
         def getStandardButtons(self):
             return QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
 
-        def accept(self):
+        def _sair(self):
             self._desligar_clique()
+            try:
+                FreeCADGui.Selection.removeObserver(self._obs)
+            except Exception:
+                pass
+            self._focar(False)
+            try:
+                self.obj.ViewObject.Proxy.destacar([], editando=False)
+            except Exception:
+                pass
+
+        def accept(self):
+            self._sair()
             self.doc.commitTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()
             return True
 
         def reject(self):
-            self._desligar_clique()
+            self._sair()
             self.doc.abortTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()

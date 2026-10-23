@@ -38,7 +38,7 @@ def segmentos_do_caminho(caminho):
     except Exception:
         e3d = False
     if e3d:
-        forma = PrumoEsboco3D.forma(caminho.Pontos, caminho.Quebras, caminho.Fechado, 0.0)
+        forma = PrumoEsboco3D.forma_obj(caminho, 0.0)          # sem as linhas de construção
         pl = caminho.getGlobalPlacement() if hasattr(caminho, "getGlobalPlacement") else caminho.Placement
         forma.Placement = pl
         if float(caminho.RaioCurva) > 0:
@@ -825,7 +825,7 @@ if FreeCAD.GuiUp:
                 QtWidgets.QMessageBox.information(
                     FreeCADGui.getMainWindow(), "Tubulação",
                     "Selecione o traçado da tubulação (um Esboço 3D ou um esboço com linhas retas) e chame "
-                    "Tubulação de novo.\n\nPara desenhar o traçado no espaço, use Esboço 3D.")
+                    "Tubulação de novo.\n\nPara desenhar o traçado no espaço, use Peça → Esboço → Esboço 3D.")
                 return None
             doc = caminho.Document
             doc.openTransaction("Tubulação")

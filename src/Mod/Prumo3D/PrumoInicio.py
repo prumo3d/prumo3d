@@ -523,6 +523,72 @@ def _poll_side():
     if area is None:
         return
     _on_subwindow(area.currentSubWindow())
+    _organizar_lateral()
+
+
+# ---------------------------------------------------------------- Modelo e Tarefas numa coluna só
+# O FreeCAD 1.1 abre Modelo e Tarefas como dois painéis lado a lado. Em notebook isso pede mais largura
+# do que a tela tem (a janela tenta crescer e o Windows recusa: "Unable to set geometry"). Aqui os dois
+# ficam em abas no mesmo lugar; a aba Tarefas vem para a frente quando um comando abre o painel de
+# tarefas e a Modelo volta quando ele fecha.
+_lat = {"tarefa": False}
+
+
+def _docks_laterais(mw):
+    ds = {d.objectName(): d for d in mw.findChildren(QtWidgets.QDockWidget)}
+    return ds.get("Model") or ds.get("Combo View"), ds.get("Tasks")
+
+
+def _organizar_lateral():
+    if not _params().GetBool("ModeloETarefasEmAbas", True):
+        return
+    mw = FreeCADGui.getMainWindow()
+    if mw is None:
+        return
+    modelo, tarefas = _docks_laterais(mw)
+    if modelo is None or tarefas is None or modelo is tarefas:
+        return
+    if not _lat.get("juntou") and not modelo.isFloating() and not tarefas.isFloating():
+        _lat["juntou"] = True          # uma vez por sessão: se o usuário separar depois, fica separado
+        juntos = tarefas in mw.tabifiedDockWidgets(modelo)
+        if not juntos:
+            area = mw.dockWidgetArea(modelo)
+            if mw.dockWidgetArea(tarefas) != area:
+                mw.addDockWidget(area, tarefas)
+            mw.tabifyDockWidget(modelo, tarefas)
+    try:
+        ativa = bool(FreeCADGui.Control.activeDialog())
+    except Exception:
+        ativa = False
+    if ativa == _lat["tarefa"]:
+        return
+    _lat["tarefa"] = ativa
+    if _side.get("no_inicio"):
+        return
+    if ativa:
+        if not tarefas.isVisible():
+            tarefas.show()
+        tarefas.raise_()
+    elif modelo.isVisible():
+        modelo.raise_()
+
+
+def esconder_laterais_na_abertura():
+    """Antes da tela inicial aparecer: Modelo e Tarefas começam fechados (também na primeira abertura
+    depois de instalar, quando o FreeCAD ainda não tem o layout gravado)."""
+    if not _params().GetBool("OcultarLateralNoInicio", True) or FreeCAD.listDocuments():
+        return
+    mw = FreeCADGui.getMainWindow()
+    if mw is None:
+        return
+    nomes = []
+    for d in mw.findChildren(QtWidgets.QDockWidget):
+        if d.objectName() in SIDE_DOCKS and d.isVisible():
+            d.hide()
+            nomes.append(d.objectName())
+    if nomes:
+        _set_hidden_names(_hidden_names() + nomes)
+    _side["no_inicio"] = True
 
 
 def _connect_side():
@@ -547,6 +613,7 @@ def _safe(fn, *a):
 def startup():
     """Na abertura: mostra a tela inicial Prumo quando não há documento aberto."""
     _connect_side()
+    _safe(esconder_laterais_na_abertura)
     if not _params().GetBool("TelaInicial", True):
         return
     if not FreeCAD.listDocuments():

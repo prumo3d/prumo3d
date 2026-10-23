@@ -81,7 +81,7 @@ TABS = [
     ]},
     {"id": "esboco", "label": "Esboço", "wb": "SketcherWorkbench", "contexto": "esboco", "panels": [
         ("Esboço", [
-            ("Sketcher_NewSketch", L, "Novo\nesboço"), ("Prumo_Esboco3D", L, "Esboço\n3D"),
+            ("Sketcher_NewSketch|Prumo_Esboco3D", L, "Novo\nesboço"),
             ("Sketcher_EditSketch", L, "Editar\nesboço"),
             ("Sketcher_LeaveSketch", L, "Concluir\nesboço"),
             ("Sketcher_MapSketch", S, "Anexar"), ("Sketcher_ReorientSketch", S, "Reorientar"),
@@ -124,7 +124,7 @@ TABS = [
     ]},
     {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [
-            ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches", L, "Esboço"),
+            ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
             ("PartDesign_CompDatums", S, "Referências"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
         ]),
@@ -229,10 +229,9 @@ TABS = [
             ("Prumo_Cantos", L, "Cantos"),
             ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
             ("Prumo_SecaoPersonalizada", S, "Seção personalizada"),
-            ("Prumo_Esboco3D", S, "Esboço 3D"),
         ]),
         ("Tubulação", [
-            ("Prumo_Tubulacao", L, "Tubulação"), ("Prumo_Esboco3D", S, "Traçado 3D"),
+            ("Prumo_Tubulacao", L, "Tubulação"),
         ]),
         ("Reforços e ligações", [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
@@ -1440,6 +1439,7 @@ def cabe_no_contexto(tab, painel, cmd, editando):
     """O botão aparece no contexto atual? Só a aba marcada com "contexto" é filtrada."""
     if tab.get("contexto") != "esboco" or not faixa_contextual():
         return True
+    cmd = cmd.split("|")[0]
     if editando:
         return cmd not in ESBOCO_FORA_DA_EDICAO
     return painel not in ESBOCO_SO_NA_EDICAO_PAINEL and cmd not in ESBOCO_SO_NA_EDICAO

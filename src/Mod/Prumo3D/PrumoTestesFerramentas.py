@@ -6517,6 +6517,84 @@ class T52Esboco3D(unittest.TestCase):
         pn.accept()
         self.assertIsNotNone(self.doc.getObject(o.Name))
 
+    def test_restricoes_resolvem(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        # linha torta que vira "ao longo de X" com 500 mm; a segunda fica perpendicular a ela e com 300 mm
+        o = E.criar(self.doc, [V(0, 0, 0), V(480, 30, 10), V(500, 280, 0)])
+        o.Restricoes = ["eixo:0:X", "comprimento:0:500", "perpendicular:0:1", "comprimento:1:300", "eixo:1:Z"]
+        ok, erro = E.aplicar_restricoes(o)
+        self.doc.recompute()
+        self.assertTrue(ok, erro)
+        p = o.Pontos
+        self.assertAlmostEqual((p[1] - p[0]).Length, 500, 3)
+        self.assertAlmostEqual(p[1].y, 0, 4)
+        self.assertAlmostEqual(p[1].z, 0, 4)
+        self.assertAlmostEqual((p[2] - p[1]).Length, 300, 3)
+        self.assertAlmostEqual(abs(p[2].z - p[1].z), 300, 3)
+        self.assertEqual((p[0].x, p[0].y, p[0].z), (0, 0, 0))            # o primeiro ponto não sai do lugar
+        self.assertIn("cumpridas", o.Situacao)
+        o.Restricoes = list(o.Restricoes) + ["comprimento:0:700"]          # conflito com a cota de 500
+        ok, _e = E.aplicar_restricoes(o)
+        self.assertFalse(ok)
+        self.assertIn("conflito", o.Situacao)
+
+    def test_construcao_fica_fora_da_forma(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        o = E.criar(self.doc, [V(0, 0, 0), V(1000, 0, 0), V(1000, 500, 0), V(0, 500, 0)])
+        self.assertEqual(len(o.Shape.Edges), 3)
+        o.Construcao = [1]
+        self.doc.recompute()
+        self.assertEqual(len(o.Shape.Edges), 2)
+        self.assertAlmostEqual(float(o.Comprimento), 2000, 6)
+        import PrumoEstrutura
+        self.assertEqual(len(PrumoEstrutura.arestas(o)), 2)               # a estrutura não usa a construção
+
+    def test_painel_restricoes_automaticas_e_botoes(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        pn.adicionar(V(0, 0, 0))
+        pn.adicionar(V(800, 0, 0))                 # ao longo de X
+        pn.adicionar(V(800, 0, 600))               # ao longo de Z
+        pn.adicionar(V(1300, 200, 600))            # torta: sem eixo
+        self.assertIn("eixo:0:X", o.Restricoes)
+        self.assertIn("eixo:1:Z", o.Restricoes)
+        self.assertEqual(len([r for r in o.Restricoes if r.startswith("eixo")]), 2)
+        self.assertEqual(pn.lista.count(), 3)
+        # ramal que sai do ponto P2 (clicado sobre ele): fica preso
+        pn.bt_ramal.setChecked(True)
+        pn.adicionar(V(800, 0, 0), coincide=1)
+        pn.adicionar(V(800, 400, 0))
+        self.assertIn("coincidente:4:1", o.Restricoes)
+        # cota na primeira linha: o ramal acompanha o ponto P2
+        pn.selecionar_segmentos([0])
+        pn.cota.setValue(1000)
+        pn.cotar()
+        self.assertAlmostEqual(o.Pontos[1].x, 1000, 3)
+        self.assertAlmostEqual(o.Pontos[4].x, 1000, 3)
+        # linha de construção
+        pn.selecionar_segmentos([2])
+        pn.alternar_construcao()
+        self.assertEqual(list(o.Construcao), [2])
+        self.assertIn("construção", pn.lista.item(2).text())
+        # paralelas: a linha torta fica paralela ao ramal (Y)
+        pn.selecionar_segmentos([2, 3])
+        pn.relacionar("paralela")
+        a, b = o.Pontos[2], o.Pontos[3]
+        self.assertAlmostEqual(b.x - a.x, 0, 3)
+        self.assertAlmostEqual(b.z - a.z, 0, 3)
+        # remover um ponto renumera as restrições
+        pn.tabela.clearSelection()
+        pn.remover()                                # tira o último (ponta do ramal)
+        self.assertFalse(any(r.startswith("paralela") for r in o.Restricoes))
+        self.assertIn("coincidente:4:1", o.Restricoes)
+        pn.accept()
+
     def test_cancelar_desfaz(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
