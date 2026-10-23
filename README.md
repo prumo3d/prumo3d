@@ -27,14 +27,17 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.3.0 beta** (22/10/2026)
+**Versão atual: 0.4.0 beta** (23/10/2026)
 
-- **Tubulação:** tubos e conexões de PVC soldável (Tigre, 20 a 110 mm) montados sozinhos sobre o traçado
-  do Esboço 3D: joelhos, tês, reduções, cruzetas, caps e registros de esfera, tubo cortado na medida,
-  barras de 6 m e itens na lista de materiais.
+- **Esboço mais direto:** linha de construção no menu da Linha, restrições num botão só, padrão linear e
+  circular com botões próprios e referências automáticas (as arestas da face de apoio já entram como
+  geometria externa).
+- **Peça e Sólidos juntas** numa aba só, sem ferramentas repetidas.
+- **Régua de histórico na árvore do modelo**, arrastável.
+- **Vasos:** pressão em MPa, kgf/cm² ou psi.
+- Painel de tarefas mais estreito e tela de abertura com a versão certa.
 
-Na 0.2.0: **Esboço 3D**, com linhas no espaço clicando na vista (Tab troca o plano), ramais e curvas nos
-cantos. Na 0.1.1: faixa contextual na aba Esboço e conferência do esboço ao sair.
+Na 0.3.0: **Tubulação** de PVC soldável (Tigre) sobre o traçado do Esboço 3D. Na 0.2.0: **Esboço 3D**.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
