@@ -97,14 +97,15 @@ def _renderizador(svg):
 
 # ----------------------------------------------------------------------------------- estilo
 QSS = """
-#PrumoPainel { background: #FFFFFF; }
+#PrumoPainel { background: transparent; }
 #PrumoPainel QLabel { background: transparent; color: #1F2A36; }
-#PrumoMsg { background: #FFF6D6; color: #4D3B00; border-left: 3px solid #E0A100; border-radius: 4px;
-            padding: 7px 9px; font-size: 9pt; }
-#PrumoMsg[tipo="erro"] { background: #FBE9E5; color: #7A2615; border-left-color: #B5523F; }
-#PrumoMsg[tipo="ok"] { background: #E5F3ED; color: #1E5C46; border-left-color: #2E8B6A; }
-#PrumoSecaoTopo { background: transparent; border: none; border-bottom: 1px solid #DCE4EC; color: #003A70;
-                  font-weight: 600; font-size: 9.5pt; text-align: left; padding: 6px 2px 5px 2px; }
+#PrumoMsg { background: #FFF8DC; color: #4D3B00; border: none; border-radius: 8px;
+            padding: 8px 10px; font-size: 9pt; }
+#PrumoMsg[tipo="erro"] { background: #FBE9E5; color: #7A2615; }
+#PrumoMsg[tipo="ok"] { background: #E5F3ED; color: #1E5C46; }
+#PrumoSecao { background: #FFFFFF; border: 1px solid #DCE4EC; border-radius: 10px; }
+#PrumoSecaoTopo { background: transparent; border: none; color: #003A70;
+                  font-weight: 600; font-size: 9.5pt; text-align: left; padding: 2px 0 2px 0; }
 #PrumoSecaoTopo:hover { color: #0B4F8F; }
 #PrumoDica { color: #66727F; font-size: 8pt; }
 #PrumoCaixaSel { background: #FFFFFF; border: 1px solid #C9D5E2; border-left: 4px solid #E7A6C8;
@@ -112,8 +113,8 @@ QSS = """
 #PrumoCaixaSel[ativa="true"] { border-color: #7FA3C9; border-left: 4px solid #D9468F; background: #FBFDFF; }
 #PrumoCaixaSel QListWidget { border: none; background: transparent; }
 #PrumoCaixaSel QListWidget::item:selected { background: #D6E6F7; color: #1F2A36; }
-#PrumoOpcao { border: 1px solid #C9D5E2; border-radius: 6px; padding: 5px 8px; background: #FFFFFF; }
-#PrumoOpcao:checked { border: 2px solid #003A70; background: #EAF1F8; }
+#PrumoOpcao { border: 1px solid #DCE4EC; border-radius: 8px; padding: 5px 6px; background: #FFFFFF; color: #3B4A59; }
+#PrumoOpcao:checked { border: 1px solid #003A70; background: #E6EEF7; color: #003A70; font-weight: 600; }
 #PrumoOpcao:hover { border-color: #7FA3C9; }
 """
 
@@ -148,9 +149,11 @@ class Secao(QtWidgets.QWidget):
 
     def __init__(self, titulo, icone_nome=None, aberta=True, parent=None):
         super().__init__(parent)
+        self.setObjectName("PrumoSecao")          # cartão (padrão visual desde a 0.6)
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         lay = QtWidgets.QVBoxLayout(self)
-        lay.setContentsMargins(0, 4, 0, 2)
-        lay.setSpacing(4)
+        lay.setContentsMargins(12, 8, 12, 10)
+        lay.setSpacing(6)
         self.topo = QtWidgets.QToolButton()
         self.topo.setObjectName("PrumoSecaoTopo")
         self.topo.setText(titulo)
@@ -586,12 +589,16 @@ class Formulario(QtWidgets.QWidget):
             except Exception:
                 pass
         self.lay = QtWidgets.QVBoxLayout(self)
-        self.lay.setContentsMargins(6, 6, 6, 6)
-        self.lay.setSpacing(6)
+        self.lay.setContentsMargins(0, 0, 0, 0)
+        self.lay.setSpacing(10)
         self.mensagem = Mensagem(ajuda)
         self.lay.addWidget(self.mensagem)
         self.caixas = []
         self._fim = QtWidgets.QWidget()
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        integrar_no_quadro(self)
 
     def secao(self, titulo, icone_nome=None, aberta=True):
         s = Secao(titulo, icone_nome, aberta)
@@ -618,6 +625,28 @@ class Formulario(QtWidgets.QWidget):
             if c.ativa:
                 return c
         return self.caixas[0] if self.caixas else None
+
+
+def integrar_no_quadro(form):
+    """O FreeCAD põe cada painel num quadro com título; o painel Prumo já tem cartões e a aba já diz
+    o nome do comando: o quadro fica sem moldura e sem cabeçalho."""
+    w = form.parentWidget()
+    while w is not None:
+        if w.metaObject().className() in ("QSint::ActionGroup", "Gui::TaskView::TaskBox"):
+            if w.property("prumo") is not True:
+                w.setProperty("prumo", True)
+                for f in w.findChildren(QtWidgets.QFrame):
+                    if f.property("class") == "header" and f.parentWidget() is w:
+                        f.hide()
+                w.style().unpolish(w)
+                w.style().polish(w)
+                for f in w.findChildren(QtWidgets.QFrame):
+                    if f.property("class") == "content":
+                        f.style().unpolish(f)
+                        f.style().polish(f)
+            return w
+        w = w.parentWidget()
+    return None
 
 
 # ----------------------------------------------------------------------------------- painel

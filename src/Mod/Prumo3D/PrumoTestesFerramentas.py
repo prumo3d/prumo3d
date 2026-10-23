@@ -6939,6 +6939,8 @@ class T55PainelLateral(unittest.TestCase):
         arv = ds[self.P.ARVORE]
         larg = arv.width()
         try:
+            for d in ds.values():
+                d.setMaximumWidth(230)          # força o painel estreito
             mw.resizeDocks([arv], [230], __import__("PySide").QtCore.Qt.Horizontal)
             self._assentar(0.5)
             if not self.P._estado["compacto"]:
@@ -6950,6 +6952,8 @@ class T55PainelLateral(unittest.TestCase):
                     self.assertEqual(d.toggleViewAction().text(), self.P.titulo_real(n))
             self.assertEqual(ds[atual].windowTitle(), self.P.titulo_real(atual))
         finally:
+            for d in ds.values():
+                d.setMaximumWidth(16777215)
             mw.resizeDocks([arv], [max(larg, 360)], __import__("PySide").QtCore.Qt.Horizontal)
             self._assentar(0.3)
 
@@ -7242,6 +7246,66 @@ class T58TelaInicialAjuda(unittest.TestCase):
             w.deleteLater()
 
 
+class T59PadraoVisualNosPaineis(unittest.TestCase):
+    """Padrão visual em todo o sistema: chaves liga/desliga, cartões, painéis Prumo sem quadro repetido."""
+
+    def test_estilo_global(self):
+        import PrumoEstilo as E
+        css = E._qss_claro()
+        self.assertIn("sw_on.svg", css)
+        self.assertRegex(css, r"QCheckBox::indicator \{ width: 32px; height: 18px; \}")
+        self.assertIn("QAbstractItemView::indicator:checked", css)      # tabelas continuam com caixa
+        self.assertNotIn("border-bottom: 2px solid #F7BE00", css.split("painel de tarefas")[-1])
+        self.assertEqual(E.R_CARD, 10)
+        for nome in ("sw_on.svg", "sw_off.svg", "sw_on_d.svg", "sw_off_d.svg", "sw_mid.svg"):
+            self.assertIn(nome, E.UI_FILES)
+            self.assertIn("<svg", E.UI_FILES[nome]())
+
+    def test_secao_e_mensagem_no_padrao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainel as P
+        f = P.Formulario("Teste", None, "Dica do momento")
+        sec = f.secao("Bloco", "info")
+        self.assertEqual(sec.objectName(), "PrumoSecao")
+        self.assertIn("#PrumoSecao", P.qss())
+        self.assertNotIn("border-left: 3px", P.qss())
+        f.deleteLater()
+
+    def test_painel_prumo_sem_quadro_repetido(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        import PrumoFixadores
+        import PrumoPainelLateral as L
+        doc = novo_doc("PrumoTesteVisualPainel")
+        try:
+            painel = PrumoFixadores.PainelFixador()
+            FreeCADGui.Control.showDialog(painel)
+            t = time.time()
+            while time.time() - t < 1.0:
+                QtWidgets.QApplication.processEvents()
+                FreeCADGui.updateGui()
+                L.organizar()
+                time.sleep(0.02)
+            quadro = None
+            w = painel.form.parentWidget()
+            while w is not None and quadro is None:
+                if w.property("prumo") is True:
+                    quadro = w
+                w = w.parentWidget()
+            self.assertIsNotNone(quadro, "o quadro do FreeCAD não foi integrado ao painel Prumo")
+            cab = [f for f in quadro.findChildren(QtWidgets.QFrame) if f.property("class") == "header"
+                   and f.parentWidget() is quadro]
+            self.assertTrue(all(not f.isVisible() for f in cab))
+            if L.ligado() and L.TAREFA in L.docks():
+                self.assertEqual(L.titulo_real(L.TAREFA), PrumoFixadores.PainelFixador.titulo)
+        finally:
+            FreeCADGui.Control.closeDialog()
+            fechar(doc)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7254,4 +7318,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T47MolasTracaoModos, T48AssistenteEstrutura,
            T49ReguaHistorico, T50ConferirEsboco, T51FaixaContextual, T52Esboco3D, T53Tubulacao, T54ReferenciasAutomaticas,
            T55PainelLateral, T56PropriedadesEAparencia,
-           T57PainelDoEsboco, T58TelaInicialAjuda]
+           T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis]

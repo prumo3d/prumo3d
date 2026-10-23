@@ -46,8 +46,8 @@ VISUAL_VERSAO = 3
 PECA = "#9EBDCA"        # cor padrão das peças (azul acinzentado)
 ARESTA = "#1E2A38"      # arestas das peças
 
-R_CARD = 8
-R_CTRL = 6
+R_CARD = 10
+R_CTRL = 8
 
 # ---------------------------------------------------------------- tema escuro
 # Todo o estilo é escrito nas cores claras; no tema escuro cada cor passa por
@@ -162,6 +162,22 @@ def _cb(state, disabled=False, hover=False):
     return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">%s</svg>' % body
 
 
+def _sw(state, disabled=False, hover=False):
+    """Chave liga/desliga (32 × 18) no lugar da caixa de marcar."""
+    if state == "on":
+        trilho = "#B7C3CF" if disabled else NAVY
+        x = 21
+    elif state == "mid":
+        trilho = "#B7C3CF" if disabled else "#7FA3C9"
+        x = 16
+    else:
+        trilho = "#DCE4EC" if disabled else ("#AFC0D1" if hover else "#C9D3DD")
+        x = 11
+    return ('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18" viewBox="0 0 32 18">'
+            '<rect x="0.5" y="0.5" width="31" height="17" rx="8.5" fill="%s"/>'
+            '<circle cx="%d" cy="9" r="7" fill="#FFFFFF"/></svg>' % (trilho, x))
+
+
 def _rb(on, disabled=False):
     ring = BORDER_INPUT if disabled else ("#8EA3B8" if not on else NAVY)
     dot = '<circle cx="8" cy="8" r="3.6" fill="%s"/>' % ("#B7C3CF" if disabled else NAVY) if on else ""
@@ -182,6 +198,12 @@ UI_FILES = {
     "cb_on.svg": lambda: _cb("on"),
     "cb_on_d.svg": lambda: _cb("on", True),
     "cb_mid.svg": lambda: _cb("mid"),
+    "sw_off.svg": lambda: _sw("off"),
+    "sw_off_h.svg": lambda: _sw("off", hover=True),
+    "sw_off_d.svg": lambda: _sw("off", True),
+    "sw_on.svg": lambda: _sw("on"),
+    "sw_on_d.svg": lambda: _sw("on", True),
+    "sw_mid.svg": lambda: _sw("mid"),
     "rb_off.svg": lambda: _rb(False),
     "rb_on.svg": lambda: _rb(True),
     "rb_off_d.svg": lambda: _rb(False, True),
@@ -594,13 +616,19 @@ QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top left; le
 
 /* caixas de seleção e opções */
 QCheckBox, QRadioButton {{ color: {INK}; spacing: 7px; }}
-QCheckBox::indicator, QAbstractItemView::indicator, QGroupBox::indicator {{ width: 16px; height: 16px; }}
-QCheckBox::indicator:unchecked, QAbstractItemView::indicator:unchecked, QGroupBox::indicator:unchecked {{ image: url({cb_off}); }}
-QCheckBox::indicator:unchecked:hover, QGroupBox::indicator:unchecked:hover {{ image: url({cb_off_h}); }}
-QCheckBox::indicator:checked, QAbstractItemView::indicator:checked, QGroupBox::indicator:checked {{ image: url({cb_on}); }}
-QCheckBox::indicator:indeterminate, QAbstractItemView::indicator:indeterminate {{ image: url({cb_mid}); }}
-QCheckBox::indicator:unchecked:disabled {{ image: url({cb_off_d}); }}
-QCheckBox::indicator:checked:disabled {{ image: url({cb_on_d}); }}
+/* nas listas e tabelas continua a caixa de marcar; nos formulários e painéis, chave liga/desliga */
+QAbstractItemView::indicator, QGroupBox::indicator {{ width: 16px; height: 16px; }}
+QAbstractItemView::indicator:unchecked, QGroupBox::indicator:unchecked {{ image: url({cb_off}); }}
+QGroupBox::indicator:unchecked:hover {{ image: url({cb_off_h}); }}
+QAbstractItemView::indicator:checked, QGroupBox::indicator:checked {{ image: url({cb_on}); }}
+QAbstractItemView::indicator:indeterminate {{ image: url({cb_mid}); }}
+QCheckBox::indicator {{ width: 32px; height: 18px; }}
+QCheckBox::indicator:unchecked {{ image: url({sw_off}); }}
+QCheckBox::indicator:unchecked:hover {{ image: url({sw_off_h}); }}
+QCheckBox::indicator:checked {{ image: url({sw_on}); }}
+QCheckBox::indicator:indeterminate {{ image: url({sw_mid}); }}
+QCheckBox::indicator:unchecked:disabled {{ image: url({sw_off_d}); }}
+QCheckBox::indicator:checked:disabled {{ image: url({sw_on_d}); }}
 QRadioButton::indicator {{ width: 16px; height: 16px; }}
 QRadioButton::indicator:unchecked {{ image: url({rb_off}); }}
 QRadioButton::indicator:checked {{ image: url({rb_on}); }}
@@ -625,7 +653,7 @@ Gui--TaskView--TaskView, Gui--TaskView--TaskView QScrollArea, Gui--TaskView--Tas
 Gui--TaskView--TaskPanel QSint--ActionPanel, QFrame[class="panel"] {{ background: transparent; }}
 QSint--ActionGroup {{ background: transparent; border: none; }}
 QSint--ActionGroup QFrame[class="header"] {{
-    background: {SURFACE}; border: 1px solid {BORDER}; border-bottom: 2px solid {YEL};
+    background: {SURFACE}; border: 1px solid {BORDER}; border-bottom: none;
     border-top-left-radius: {R_CARD}px; border-top-right-radius: {R_CARD}px;
     border-bottom-left-radius: 0; border-bottom-right-radius: 0; }}
 QSint--ActionGroup QToolButton[class="header"] {{ color: {NAVY}; font-weight: 600; background: transparent;
@@ -646,13 +674,15 @@ QSint--ActionGroup QFrame[class="content"] QToolButton {{
     padding: 3px 4px; min-height: 18px; }}
 QSint--ActionGroup QFrame[class="content"] QToolButton:hover {{ background: {HOVER}; border-color: #7FA3C9; }}
 QSint--ActionGroup QFrame[class="content"] QToolButton:pressed {{ background: {PRESSED}; }}
-QSint--ActionGroup QFrame[class="content"] QToolButton:checked {{ background: {YEL_SOFT}; border-color: #E0A100; }}
+QSint--ActionGroup QFrame[class="content"] QToolButton:checked {{ background: #E6EEF7; border-color: {NAVY}; }}
 QSint--ActionGroup QFrame[class="content"] QToolButton:disabled {{ background: {APP_BG}; color: {MUTED}; border-color: #E1E7EE; }}
 QSint--ActionGroup QToolButton::menu-button {{ border: none; border-left: 1px solid #D5DEE8; width: 18px;
     border-top-right-radius: {R_CTRL}px; border-bottom-right-radius: {R_CTRL}px; background: transparent; }}
 QSint--ActionGroup QFrame[class="content"] > QWidget > QPushButton {{ padding: 4px 10px; border-radius: {R_CTRL}px; }}
 Gui--TaskView--TaskView QPushButton {{ padding: 5px 16px; }}
 QSint--ActionGroup QGroupBox {{ background: #FAFBFD; }}
+/* quadro que só embrulha um painel Prumo: sem moldura nem cabeçalho (os cartões do painel bastam) */
+QSint--ActionGroup[prumo="true"] QFrame[class="content"] {{ background: transparent; border: none; }}
 """.format(
         APP_BG=APP_BG, SURFACE=SURFACE, BORDER=BORDER, BORDER_INPUT=BORDER_INPUT, NAVY=NAVY, NAVY_HOVER=NAVY_HOVER,
         YEL=YEL, YEL_SOFT=YEL_SOFT, SEL=SEL, SEL_BORDA=SEL_BORDA, INK=INK, INK_2=INK_2, MUTED=MUTED, HOVER=HOVER, PRESSED=PRESSED,
@@ -660,6 +690,8 @@ QSint--ActionGroup QGroupBox {{ background: #FAFBFD; }}
         cb_off=u("cb_off.svg"), cb_off_h=u("cb_off_h.svg"), cb_off_d=u("cb_off_d.svg"), cb_on=u("cb_on.svg"),
         cb_on_d=u("cb_on_d.svg"), cb_mid=u("cb_mid.svg"), rb_off=u("rb_off.svg"), rb_on=u("rb_on.svg"),
         rb_off_d=u("rb_off_d.svg"), rb_on_d=u("rb_on_d.svg"),
+        sw_off=u("sw_off.svg"), sw_off_h=u("sw_off_h.svg"), sw_off_d=u("sw_off_d.svg"), sw_on=u("sw_on.svg"),
+        sw_on_d=u("sw_on_d.svg"), sw_mid=u("sw_mid.svg"),
         up=u("chev_up.svg"), up_h=u("chev_up_h.svg"), down=u("chev_down.svg"), down_h=u("chev_down_h.svg"),
         right=u("chev_right.svg"))
 

@@ -39,6 +39,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Barra de cima da aba Esboço mais limpa:** o botão Restrição e o grupo Auxiliares foram para o painel
   lateral; Validar, Reorientar, Mesclar e Espelhar esboço ficaram num menu "Mais"; saiu o "Linha ↔
   construção" repetido (continua no menu do botão Linha).
+- **Mesmo visual em todo o sistema:** caixas de marcar viraram chaves liga/desliga (nas listas e
+  tabelas continua a caixa); os quadros dos comandos do FreeCAD e as seções dos painéis Prumo viraram
+  cartões brancos de cantos arredondados; botões de opção marcados em azul claro; avisos sem a barra
+  lateral. Nos painéis Prumo saiu o quadro com título repetido (a aba já diz o nome do comando).
 - **Tela inicial com a área Ajuda**, logo abaixo de Novo projeto: tutorial da primeira peça, tutorial da
   estrutura soldada e "Vem do SolidWorks ou do ZW3D?", em cartões com ícone como os demais.
 - **Painéis laterais não abrem mais junto com a tela inicial** quando o FreeCAD restaura o arranjo

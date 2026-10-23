@@ -156,8 +156,11 @@ def aba_atual():
 def _cabecalhos_da_tarefa(dock):
     """(texto, ícone) dos cabeçalhos dos quadros do painel de tarefas, na ordem em que aparecem."""
     saida = []
+    for w in dock.findChildren(QtWidgets.QWidget, "PrumoPainel"):
+        if w.isVisibleTo(dock) and w.windowTitle():
+            saida.append((w.windowTitle(), w.windowIcon()))       # painel Prumo: o título dele
     for b in dock.findChildren(QtWidgets.QToolButton):
-        if b.property("class") == "header" and b.text():
+        if b.property("class") == "header" and b.text() and b.isVisibleTo(dock):
             saida.append((b.text(), b.icon()))
     return saida
 
