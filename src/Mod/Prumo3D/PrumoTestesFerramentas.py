@@ -7772,8 +7772,7 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
     NAO_RODAR = {"Prumo_AplicarTema", "Prumo_TemaEscuro", "Prumo_TemaIcones", "Prumo_Testes",
                  "Prumo_RemoverSplash", "Prumo_ModoDistribuicao", "Prumo_BarrasClassicas", "Std_Print",
                  "Std_PrintPdf", "Std_DlgPreferences", "Std_DlgMacroExecute", "Std_Open", "Std_Import",
-                 "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio",
-                 "TechDraw_FillTemplateFields"}
+                 "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio"}
 
     def setUp(self):
         if not FreeCAD.GuiUp:
@@ -7814,9 +7813,13 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
     def _fechar_janelas(self):
         from PySide import QtWidgets
         w = QtWidgets.QApplication.activeModalWidget()
-        if w is not None:
+        alvos = [w] if w is not None else []
+        # diálogos abertos com show() antes de exec_() nem sempre viram o "modal ativo"
+        alvos += [d for d in QtWidgets.QApplication.topLevelWidgets()
+                  if isinstance(d, QtWidgets.QDialog) and d.isVisible() and d.isModal() and d is not w]
+        for d in alvos:
             try:
-                w.reject() if hasattr(w, "reject") else w.close()
+                d.reject() if hasattr(d, "reject") else d.close()
             except Exception:
                 pass
 

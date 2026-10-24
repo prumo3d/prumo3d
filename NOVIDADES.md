@@ -18,6 +18,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   "O esboço não fecha" ou "Restrições em conflito: Tangente · Linha 3 / Círculo 2…", põe as restrições
   com problema no topo da lista (⚠) e oferece "Apagar a restrição mais recente do conflito".
 - **Esboço 3D:** depois de fechar o painel sem OK/Cancelar, qualquer clique de seleção dava erro.
+- **Desenho → Preencher campos da folha:** o botão dava erro interno (`false` em vez de `False`) e
+  não mostrava quando estava disponível.
 
 ### Testes
 
