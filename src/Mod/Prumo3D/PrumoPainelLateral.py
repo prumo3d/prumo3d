@@ -171,6 +171,10 @@ def aba_atual():
 def _cabecalhos_da_tarefa(dock):
     """(texto, ícone) dos cabeçalhos dos quadros do painel de tarefas, na ordem em que aparecem."""
     saida = []
+    for w in dock.findChildren(QtWidgets.QWidget, "PrumoUI"):
+        t = w.property("prumo_titulo")
+        if t and w.isVisibleTo(dock):
+            saida.append((str(t), w.windowIcon()))        # painel em cartões que dá o próprio nome
     for w in dock.findChildren(QtWidgets.QWidget, "PrumoPainel"):
         if w.isVisibleTo(dock) and w.windowTitle():
             saida.append((w.windowTitle(), w.windowIcon()))       # painel Prumo: o título dele
@@ -184,6 +188,11 @@ def _cabecalhos_da_tarefa(dock):
 
 def titulo_do_comando(dock=None):
     """Nome curto do que está aberto no painel de tarefas e o ícone dele."""
+    if dock is not None:
+        for w in dock.findChildren(QtWidgets.QWidget, "PrumoUI"):
+            t = w.property("prumo_titulo")
+            if t and w.isVisibleTo(dock):
+                return _curto(str(t)), None
     try:
         gdoc = FreeCADGui.ActiveDocument
         vp = gdoc.getInEdit() if gdoc else None

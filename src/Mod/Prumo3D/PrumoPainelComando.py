@@ -526,6 +526,8 @@ class _Base(PainelComando):
         self.completo.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
         self.completo.toggled.connect(lambda _on: self.mostrar_formulario())
         self.assinatura = None
+        if getattr(self, "TITULO", ""):
+            self.setProperty("prumo_titulo", self.TITULO)     # nome da aba do comando no painel lateral
         self.montar()
 
     def _indice(self, nome, i):
@@ -2585,6 +2587,7 @@ class PainelJunta(_Base):
     outras peças aparecem enquanto escolhe."""
 
     QSS_EXTRA = PainelVistas.QSS_EXTRA
+    TITULO = "Junta"
     MEDIDAS = (("angleSpinbox", "angleLabel", "°"), ("distanceSpinbox", "distanceLabel", "mm"),
                ("distanceSpinbox2", "distanceLabel2", "mm"), ("offsetSpinbox", "offsetLabel", "mm"),
                ("rotationSpinbox", "rotationLabel", "°"))

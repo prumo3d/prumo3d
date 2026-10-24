@@ -28,6 +28,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   (eixo X/Y/Z ou aresta, centro, ângulo), Espelhar (plano XY/XZ/YZ ou face, ponto), Escala (igual nos 3
   eixos ou um por eixo) e Arredondar/Chanfrar arestas (forma, Todas/Nenhuma, constante ou variável). Em
   todos, as formas da operação aparecem como interruptores.
+- **Montagem → juntas em cartões:** os 13 tipos numa grade com nomes em português (Fixa, Rotação,
+  Cilíndrica, Deslizante, Esférica, Distância…), o que foi escolhido na vista, só as medidas do tipo
+  escolhido, "Inverter o sentido", os limites (distância e ângulo mínimo/máximo) e como as outras peças
+  aparecem enquanto escolhe. A aba do comando se chama "Junta".
 
 ### Testes
 
@@ -37,6 +41,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   os dois painéis (medidas e fixação).
 - Sólidos: extrusão de 25 mm, revolução de 90°, espelho no plano XZ, escala 2× e arredondar/chanfrar as
   12 arestas de uma caixa, pelos cartões.
+- Junta da montagem: trocar o tipo na grade muda a junta e as medidas mostradas.
 
 ## 0.8.1 beta — 24/10/2026
 

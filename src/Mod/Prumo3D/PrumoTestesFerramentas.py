@@ -8934,6 +8934,62 @@ class T70SolidosEmCartoes(unittest.TestCase):
         self.assertAlmostEqual(float(sc[0].UniformScale), 2.0, places=4)
 
 
+class T71JuntaDaMontagem(unittest.TestCase):
+    """Montagem → junta em cartões: o tipo escolhido na grade muda a junta e mostra só as medidas e os
+    limites daquele tipo; a aba do comando se chama "Junta"."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        FreeCADGui.activateWorkbench("AssemblyWorkbench")
+        self._esp(0.5)
+        self.doc = novo_doc("PrumoTesteMontagem")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        asm = self.doc.addObject("Assembly::AssemblyObject", "Assembly")
+        b1 = self.doc.addObject("Part::Box", "Caixa1")
+        b2 = self.doc.addObject("Part::Box", "Caixa2")
+        b2.Placement.Base = FreeCAD.Vector(30, 0, 0)
+        asm.addObject(b1)
+        asm.addObject(b2)
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(asm)
+        self._esp(0.8)
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+            FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def test_tipo_muda_as_medidas(self):
+        import PrumoPainelLateral as L
+        FreeCADGui.runCommand("Assembly_CreateJointDistance", 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "o painel da junta não apareceu")
+        self.assertEqual(type(p).__name__, "PainelJunta")
+        self.assertFalse(p.quadro.isVisible())
+        self.assertEqual(textos_com_problema(p), [])
+        self.assertTrue(p.campos["tipo5"].isChecked(), "Distância devia vir marcada")
+        self.assertIn("distanceSpinbox", p.campos)
+        p.campos["tipo1"].click()          # Rotação
+        self._esp(0.8)
+        p = self.C.painel()
+        self.assertEqual(p.f.indice("jointType"), 1)
+        self.assertNotIn("distanceSpinbox", p.campos)
+        self.assertIn("limitCheckbox3", p.campos, "rotação tem limite de ângulo")
+        dock = FreeCADGui.getMainWindow().findChild(__import__("PySide").QtWidgets.QDockWidget, "Tasks")
+        self.assertEqual(L.titulo_do_comando(dock)[0], "Junta")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8950,4 +9006,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T60Atualizacao, T61PaineisExtrasComoAbas,
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
-           T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes]
+           T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
+           T71JuntaDaMontagem]
