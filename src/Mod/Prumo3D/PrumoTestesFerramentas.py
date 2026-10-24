@@ -7695,14 +7695,46 @@ class T62PainelDeComando(unittest.TestCase):
             time.sleep(0.02)
 
     def _ok(self):
+        import time
         from PySide import QtWidgets
         mw = FreeCADGui.getMainWindow()
+        # a Fixação pode estar escolhendo referência na vista: sai desse modo (como o usuário faria)
+        try:
+            import PrumoPainelComando as C
+            fx = C.painel_fixacao()
+            if fx is not None:
+                for k, b in list(fx.campos.items()):
+                    if k.startswith("ref") and "Escolhendo" in b.text():
+                        b.click()
+                        self._esp(0.3)
+        except Exception:
+            pass
+        t = time.time()
+        while time.time() - t < 3.0:
+            for b in mw.findChildren(QtWidgets.QPushButton):
+                if b.isVisible() and b.isEnabled() and b.text().replace("&", "") == "OK" and \
+                        b.parentWidget() is not None and isinstance(b.parentWidget(), QtWidgets.QDialogButtonBox):
+                    b.click()
+                    self._esp(0.6)
+                    return True
+            self._esp(0.2)
+        vis = [b.text() for b in mw.findChildren(QtWidgets.QPushButton) if b.isVisible()][:15]
+        oks = []
         for b in mw.findChildren(QtWidgets.QPushButton):
-            if b.isVisible() and b.text().replace("&", "") == "OK":
-                b.click()
-                self._esp(0.6)
-                return True
-        return False
+            if b.text().replace("&", "") in ("OK", "Cancelar", "Cancel"):
+                cad = []
+                w = b
+                while w is not None and len(cad) < 8:
+                    cad.append("%s:%s%s" % (type(w).__name__, w.objectName(), "" if w.isVisibleTo(w.parentWidget() or w) else "(oculto)"))
+                    w = w.parentWidget()
+                oks.append("%s vis=%s en=%s geo=%s <- %s" % (b.text(), b.isVisible(), b.isEnabled(), b.geometry().getRect(), " / ".join(cad)))
+        vis.append(" || ".join(oks))
+        for bb in mw.findChildren(QtWidgets.QDialogButtonBox):
+            vis.append("BOX vis=%s: %s" % (bb.isVisible(), [type(x).__name__ for x in bb.buttons()]))
+        modais = [w.windowTitle() for w in QtWidgets.QApplication.topLevelWidgets()
+                  if isinstance(w, QtWidgets.QDialog) and w.isVisible()]
+        raise AssertionError("botão OK não encontrado; diálogo de tarefa=%s; botões visíveis=%s; janelas=%s"
+                             % (FreeCADGui.Control.activeDialog(), vis, modais))
 
     def test_extrusao_em_cartoes_e_ok_grava(self):
         FreeCADGui.ActiveDocument.setEdit(self.pad.Name)
@@ -8458,6 +8490,23 @@ class T64TextosNasTelas(unittest.TestCase):
 class T65MaisPaineisDeComando(unittest.TestCase):
     """Ângulo de saída, Casca, Hélice, Loft e Varredura em cartões; o OK grava o que se mudou no cartão."""
 
+
+    def test_widgets_do_layout_em_ordem_sem_itens(self):
+        from PySide import QtWidgets
+        import PrumoUI
+        w = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout(w)
+        a, b, c = QtWidgets.QLabel("a"), QtWidgets.QLabel("b"), QtWidgets.QLabel("c")
+        lay.addWidget(a)
+        lay.addStretch(1)
+        lay.addWidget(b)
+        lay.insertWidget(0, c)
+        solto = QtWidgets.QLabel("fora", w)   # filho que não está no layout
+        par = PrumoUI.widgets_do_layout(lay)
+        self.assertEqual([x.text() for _i, x in par], ["c", "a", "b"])
+        self.assertEqual([i for i, _x in par], [0, 1, 3])
+        self.assertNotIn(solto, [x for _i, x in par])
+        w.deleteLater()
     def setUp(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
@@ -8599,10 +8648,24 @@ class T65MaisPaineisDeComando(unittest.TestCase):
     def test_varredura(self):
         obj, p = self._abrir("AdditivePipe", "PainelVarredura")
         self.assertIn("Perfil", p.campos["perfil"].text())
+        ori = self.C.painel_secundario("PainelOrientacaoPipe")
+        sec = self.C.painel_secundario("PainelSecoesPipe")
+        self.assertIsNotNone(ori, "a orientação da seção devia estar em cartões")
+        self.assertIsNotNone(sec, "a transformação da seção devia estar em cartões")
+        self.assertFalse(ori.quadro.isVisible())
+        self.assertFalse(sec.quadro.isVisible())
+        self.assertEqual(textos_com_problema(ori), [])
+        ori.campos["modo"].definir("2", silencioso=False)      # Frenet
+        sec.campos["modo"].definir("1", silencioso=False)      # várias seções
+        self._esp(0.6)
+        self.assertEqual(self.C.painel_secundario("PainelSecoesPipe").f.indice("comboBoxScaling"), 1)
+        self.assertIn("secoes", self.C.painel_secundario("PainelSecoesPipe").campos)
+        p = self.C.painel()
         p.campos["trans"].definir("1", silencioso=False)
         self._esp(0.5)
         self.assertTrue(self._ok())
         self.assertEqual(obj.Transition, "Right corner")
+        self.assertEqual(obj.Mode, "Frenet")
 
 
 class T66PainelDeVistas(unittest.TestCase):
@@ -8814,8 +8877,42 @@ class T68CotaBalaoHachura(unittest.TestCase):
         p = self._editar(hat, "PainelHachura")
         p.campos["escala"].setValue(2.5)
         self._esp(0.4)
+        cb = p.campos["padrao"]
+        i = cb.findText("Madeira")
+        self.assertGreaterEqual(i, 0, [cb.itemText(k) for k in range(cb.count())])
+        cb.setCurrentIndex(i)
+        cb.activated.emit(i)
+        self._esp(0.5)
+        p = self.C.painel()
+        self.assertEqual(p.campos["padrao"].currentText(), "Madeira")
+        from PySide import QtGui
+        p.definir_cor(p.f.w("ccColor", self.C.QtWidgets.QWidget), QtGui.QColor("#FF0000"))
+        self._esp(0.4)
         self.assertTrue(self._ok())
         self.assertAlmostEqual(float(hat.ViewObject.HatchScale), 2.5, places=4)
+        self.assertTrue(hat.HatchPattern.replace("\\", "/").endswith("wood.svg"), hat.HatchPattern)
+        cor = hat.ViewObject.HatchColor
+        self.assertAlmostEqual(cor[0], 1.0, places=2)
+        self.assertAlmostEqual(cor[1], 0.0, places=2)
+
+    def test_texto_formatado(self):
+        page = self.doc.findObjects(Type="TechDraw::DrawPage")[0]
+        an = self.doc.addObject("TechDraw::DrawRichAnno", "Nota")
+        page.addView(an)
+        an.AnnoText = "<p>antes</p>"
+        self.doc.recompute()
+        self._esp(0.8)
+        p = self._editar(an, "PainelTextoFormatado")
+        self.assertIn("antes", p.campos["texto"].toPlainText())
+        p.campos["texto"].setPlainText("Nota 1: rebarbar cantos")
+        p.campos["moldura"].setChecked(True)
+        self._esp(0.5)
+        p = self.C.painel()
+        self.assertIn("estilo", p.campos, "com moldura, o estilo da linha aparece")
+        self.assertIn("rebarbar", p.campos["texto"].toPlainText())
+        self.assertTrue(self._ok())
+        self.assertIn("Nota 1: rebarbar cantos", an.AnnoText)
+        self.assertTrue(an.ShowFrame)
 
 
 class T69Fixacao(unittest.TestCase):
@@ -9073,6 +9170,40 @@ class T71JuntaDaMontagem(unittest.TestCase):
         dock = FreeCADGui.getMainWindow().findChild(__import__("PySide").QtWidgets.QDockWidget, "Tasks")
         self.assertEqual(L.titulo_do_comando(dock)[0], "Junta")
 
+    def test_inserir_peca_pelos_cartoes(self):
+        from PySide import QtCore
+        peca = self.doc.addObject("Part::Cylinder", "Eixo")
+        self.doc.recompute()
+        fechador = QtCore.QTimer()
+        fechador.setInterval(300)
+        fechador.timeout.connect(lambda: T63FerramentasDePontaAPonta._fechar_janelas(self))
+        fechador.start()
+        try:
+            FreeCADGui.runCommand("Assembly_InsertLink", 0)
+            self._esp(1.5)
+            p = self.C.painel()
+            self.assertIsNotNone(p, "o painel de inserir não apareceu")
+            self.assertEqual(type(p).__name__, "PainelInserirPecas")
+            self.assertFalse(p.quadro.isVisible())
+            self.assertEqual(textos_com_problema(p), [])
+            p.campos["filtro"].setText("Eix")
+            self._esp(0.8)
+            p = self.C.painel()
+            nomes = [v for k, v in p.campos.items() if k.startswith("nome")]
+            self.assertEqual(nomes, ["Eixo"], "o filtro devia deixar só o Eixo: %s" % nomes)
+            self.assertTrue(p.campos["filtro"].hasFocus() or not FreeCADGui.getMainWindow().isActiveWindow())
+            p.campos["peca0"].click()
+            self._esp(1.0)
+            p = self.C.painel()
+            self.assertIn("(1)", p.campos["peca0"].text(), "o botão devia contar a inserção")
+            self.assertTrue(T62PainelDeComando._ok(self))
+        finally:
+            fechador.stop()
+        asm = self.doc.getObject("Assembly")
+        links = [o for o in asm.Group if o.TypeId == "App::Link"]
+        self.assertEqual(len(links), 1)
+        self.assertIs(links[0].LinkedObject, peca)
+
 
 class T72SimulacaoEmCartoes(unittest.TestCase):
     """Simulação: material, fixação, força, pressão e malha em cartões. Força e pressão aparecem em N e MPa
@@ -9163,6 +9294,66 @@ class T72SimulacaoEmCartoes(unittest.TestCase):
         FreeCADGui.Control.closeDialog()    # OK rodaria o Gmsh; aqui só o cartão importa
         self._esp(0.5)
 
+    def test_deslocamento_imposto_em_z(self):
+        import ObjectsFem
+        cx = self.doc.getObject("Caixa")
+        d = ObjectsFem.makeConstraintDisplacement(self.doc, "Desloc")
+        d.References = [(cx, "Face1")]
+        self.doc.recompute()
+        p = self._editar(d, "PainelDeslocamentoFem")
+        self.assertNotIn("spinzDisplacement", p.campos, "eixo livre não mostra valor")
+        p.campos["DisplacementZGB"].setChecked(True)
+        self._esp(0.4)
+        p = self.C.painel()
+        self.assertIn("spinzDisplacement", p.campos)
+        p.campos["spinzDisplacement"].setValue(0.5)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertFalse(d.zFree)
+        self.assertTrue(d.xFree)
+        self.assertAlmostEqual(d.zDisplacement.getValueAs("mm").Value, 0.5, places=6)
+
+    def test_mola_em_n_por_mm(self):
+        import ObjectsFem
+        cx = self.doc.getObject("Caixa")
+        m = ObjectsFem.makeConstraintSpring(self.doc, "Mola")
+        m.References = [(cx, "Face1")]
+        self.doc.recompute()
+        p = self._editar(m, "PainelMolaFem")
+        p.campos["normal"].setValue(2.0)
+        p.campos["tangente"].setValue(0.5)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(m.NormalStiffness.getValueAs("N/mm").Value, 2.0, places=6)
+        self.assertAlmostEqual(m.TangentialStiffness.getValueAs("N/mm").Value, 0.5, places=6)
+
+    def test_onde_vale_do_material(self):
+        cx = self.doc.getObject("Caixa")
+        self._editar(self.mat, "PainelMaterialFem")
+        self._esp(0.6)
+        ov = self.C.painel_secundario("PainelOndeVale")
+        self.assertIsNotNone(ov, "o quadro Onde vale devia ganhar cartões")
+        self.assertFalse(ov.quadro.isVisible(), "o seletor do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(ov), [])
+        self.assertIn("modo", ov.campos, "material aceita sólido inteiro ou faces")
+        ov.campos["modo"].definir("sol", silencioso=False)
+        self._esp(0.3)
+        ov = self.C.painel_secundario("PainelOndeVale")
+        ov.campos["adicionar"].click()
+        self._esp(0.4)
+        ov = self.C.painel_secundario("PainelOndeVale")
+        self.assertEqual(ov.campos["adicionar"].text(), "Parar de escolher")
+        FreeCADGui.Selection.addSelection(cx, "Face1")
+        self._esp(0.6)
+        ov = self.C.painel_secundario("PainelOndeVale")
+        self.assertIn("tirar0", ov.campos, "o sólido escolhido devia aparecer")
+        ov.campos["adicionar"].click()
+        self._esp(0.4)
+        ov = self.C.painel_secundario("PainelOndeVale")
+        self.assertEqual(ov.campos["adicionar"].text(), "Adicionar na vista")
+        self.assertTrue(self._ok())
+        self.assertEqual([(o.Name, list(sub)) for o, sub in self.mat.References], [("Caixa", ["Solid1"])])
+
     def test_unidade_interna(self):
         """Confere a conversão que os cartões usam (se o FreeCAD mudar a unidade interna, o teste avisa)."""
         q = FreeCAD.Units.Quantity("250 N")
@@ -9217,6 +9408,124 @@ class T73Preferencias(unittest.TestCase):
         self.assertIn("Prumo_Preferencias", cmds)
 
 
+class T74MaisSolidosEmCartoes(unittest.TestCase):
+    """Sólidos (Part): deslocamento, espessura, transição (loft) e varredura em cartões, gravando pelo OK."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+    setUp = T70SolidosEmCartoes.setUp
+    tearDown = T70SolidosEmCartoes.tearDown
+    _novo = T70SolidosEmCartoes._novo
+
+    def _so_painel(self, cmd, classe, sel=None, sub=None):
+        FreeCADGui.Selection.clearSelection()
+        if sel is not None:
+            if sub:
+                FreeCADGui.Selection.addSelection(sel, sub)
+            else:
+                FreeCADGui.Selection.addSelection(sel)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        return p
+
+    def test_deslocamento_3d(self):
+        p = self._so_painel("Part_Offset", "PainelOffsetPart", self.caixa)
+        self.assertNotIn("faces", p.campos, "deslocamento não tem escolha de faces")
+        p.campos["valor"].setValue(2.0)
+        self._esp(0.3)
+        p.campos["junta"].definir("2", silencioso=False)     # canto vivo
+        self._esp(0.5)
+        self.assertTrue(self._ok())
+        ob = self._novo("Part::Offset")
+        self.assertEqual(len(ob), 1)
+        self.assertAlmostEqual(float(ob[0].Value), 2.0, places=4)
+        self.assertEqual(ob[0].Join, "Intersection")
+
+    def test_espessura_com_face_aberta(self):
+        p = self._so_painel("Part_Thickness", "PainelOffsetPart", self.caixa, "Face6")
+        self.assertIn("faces", p.campos)
+        p.campos["valor"].setValue(-1.5)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        ob = self._novo("Part::Thickness")
+        self.assertEqual(len(ob), 1)
+        self.assertAlmostEqual(float(ob[0].Value), -1.5, places=4)
+
+    def _circulos(self):
+        c1 = self.doc.addObject("Part::Circle", "Base")
+        c1.Radius = 10
+        c2 = self.doc.addObject("Part::Circle", "Topo")
+        c2.Radius = 5
+        c2.Placement.Base = FreeCAD.Vector(0, 0, 30)
+        self.doc.recompute()
+        return c1, c2
+
+    def test_transicao_entre_dois_circulos(self):
+        self._circulos()
+        p = self._so_painel("Part_Loft", "PainelLoftPart")
+        nomes = [k for k in p.campos if k.startswith("disp")]
+        self.assertGreaterEqual(len(nomes), 2, p.campos.keys())
+        for nome in ("Base", "Topo"):
+            p = self.C.painel()
+            alvo = None
+            disp = p.f.w("availableTreeWidget", self.C.QtWidgets.QTreeWidget)
+            for i in range(disp.topLevelItemCount()):
+                if disp.topLevelItem(i).text(0).startswith(nome):
+                    alvo = "disp%d" % i
+            self.assertIsNotNone(alvo, nome)
+            p.campos[alvo].click()
+            self._esp(0.5)
+        p = self.C.painel()
+        self.assertIn("sel1_removeButton", p.campos, "os dois perfis deviam estar na ordem")
+        self.assertFalse(p.campos["sel0_upButton"].isEnabled(), "o primeiro não sobe")
+        p.campos["solido"].setChecked(True)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        ob = self._novo("Part::Loft")
+        self.assertEqual(len(ob), 1)
+        self.assertEqual([o.Name for o in ob[0].Sections], ["Base", "Topo"])
+        self.assertTrue(ob[0].Solid)
+        self.assertGreater(ob[0].Shape.Volume, 0)
+
+    def test_varredura_com_caminho_escolhido(self):
+        c1, _c2 = self._circulos()
+        self.doc.removeObject("Topo")
+        lin = self.doc.addObject("Part::Line", "Guia")
+        lin.X1, lin.Y1, lin.Z1, lin.X2, lin.Y2, lin.Z2 = 0, 0, 0, 0, 0, 40
+        self.doc.recompute()
+        p = self._so_painel("Part_Sweep", "PainelVarreduraPart")
+        disp = p.f.w("availableTreeWidget", self.C.QtWidgets.QTreeWidget)
+        idx = [i for i in range(disp.topLevelItemCount()) if disp.topLevelItem(i).text(0).startswith("Base")]
+        self.assertTrue(idx)
+        p.campos["disp%d" % idx[0]].click()
+        self._esp(0.5)
+        p = self.C.painel()
+        p.campos["caminho"].click()
+        self._esp(0.5)
+        p = self.C.painel()
+        self.assertEqual(p.campos["caminho"].text(), "Concluir o caminho")
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(lin, "Edge1")
+        self._esp(0.3)
+        p.campos["caminho"].click()
+        self._esp(0.6)
+        p = self.C.painel()
+        self.assertEqual(p.campos["caminho"].text(), "Escolher caminho na vista")
+        p.campos["solido"].setChecked(True)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        ob = self._novo("Part::Sweep")
+        self.assertEqual(len(ob), 1)
+        self.assertEqual(ob[0].Spine[0].Name, "Guia")
+        self.assertAlmostEqual(ob[0].Shape.Volume, 3.141592653589793 * 100 * 40, delta=1.0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -9234,4 +9543,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
-           T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias]
+           T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes]

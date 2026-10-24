@@ -22,11 +22,38 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   "+ Espelhar", "+ Padrão linear", "+ Padrão circular", "+ Escala", Editar, Excluir, Subir e Descer (antes
   só pelo menu do botão direito). Ao editar uma transformação, o quadro dela aparece com "Concluir esta
   transformação".
+- **Varredura: orientação e seções em cartões.** Os quadros "Orientação da seção" (padrão, fixa, Frenet,
+  auxiliar, binormal) e "Transformação da seção" (constante, várias seções, …) ganharam cartões próprios,
+  como o resto do painel.
+- **Sólidos em cartões:** deslocamento 3D/2D e espessura (faces abertas, distância, modo e cantos),
+  transição (loft) e varredura (perfis em ordem com Usar/↑/↓/✕, caminho escolhido na vista, sólido e
+  Frenet).
+- **Desenho:** texto formatado (texto, editor completo, largura e moldura) em cartões; a hachura ganhou a
+  escolha do padrão pelo nome (Madeira, Concreto, Aço…), outro arquivo SVG e a cor.
+- **Simulação:** deslocamento imposto (por eixo: livre ou com valor; 0 trava), mola (rigidez normal e
+  tangencial em N/mm) e o quadro "Onde vale" (material, espessura de casca, seção de viga…) em cartões,
+  com Adicionar na vista e ✕ para tirar.
+- **Montagem → Inserir componente em cartões:** procurar pelo nome, peças de cada documento com
+  "Inserir" (o botão conta quantas já entraram), abrir outro arquivo e as opções.
+
+### Correções
+
+- Às vezes o Prumo deixava de "enxergar" o botão OK (ou outro botão) do painel de tarefa logo depois de
+  fechar outra tarefa: um resto de leitura antiga do layout era confundido com o botão novo no mesmo
+  lugar da memória. A leitura dos quadros do painel, da faixa e do guia foi trocada por uma que não deixa
+  esse resto.
 
 ### Testes
 
 - Preferências: abre pelo comando, grava na hora, unidades com nomes em português.
 - Multitransformação: adicionar um padrão linear pelos cartões, concluir e gravar.
+- Varredura: orientação Frenet e várias seções pelos cartões.
+- Leitura dos quadros de um layout em ordem, sem guardar itens do layout.
+- Sólidos: deslocamento com canto vivo, espessura com face aberta, transição entre dois círculos e
+  varredura com caminho escolhido (volume conferido: π·10²·40 mm³).
+- Desenho: hachura com padrão Madeira e cor vermelha; texto formatado com moldura.
+- Simulação: deslocamento imposto em Z, mola em N/mm, Onde vale do material (sólido inteiro).
+- Montagem: inserir peça filtrando pelo nome; o link entra na montagem.
 
 ## 0.9.1 beta — 24/10/2026
 

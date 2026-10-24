@@ -436,8 +436,8 @@ class Guia:
             self._drop()
             lay = panel.layout()
             idx = 0
-            for i in range(lay.count()):
-                w = lay.itemAt(i).widget()
+            import PrumoUI
+            for i, w in PrumoUI.widgets_do_layout(lay):
                 if w is not None and w.isVisible():
                     idx = i
                     break

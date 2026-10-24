@@ -856,10 +856,8 @@ class RibbonPanel(QtWidgets.QFrame):
         """(natural, compacta): largura com os nomes dos botões pequenos e só com os ícones."""
         nat = comp = 0
         n = 0
-        for i in range(self.row.count()):
-            w = self.row.itemAt(i).widget()
-            if w is None:
-                continue
+        import PrumoUI
+        for _i, w in PrumoUI.widgets_do_layout(self.row):
             n += 1
             if isinstance(w, RibbonButton):
                 lw = w.largura_do_texto()

@@ -37,6 +37,26 @@ VERDE = "#1E7A4C"
 VERMELHO = "#A33A2B"
 
 
+def widgets_do_layout(lay):
+    """[(posição, widget)] de um layout, em ordem, sem pedir os QLayoutItem ao PySide.
+
+    lay.itemAt(i) cria um invólucro Python para o item; o item não é QObject, então o PySide não
+    fica sabendo quando o Qt o apaga, e um objeto novo no mesmo endereço (o botão OK da próxima
+    tarefa, por exemplo) passa a vir como QWidgetItem — some de findChildren(QPushButton)."""
+    if lay is None:
+        return []
+    pai = lay.parentWidget()
+    if pai is None:
+        return []
+    par = []
+    for w in pai.findChildren(QtWidgets.QWidget, "", QtCore.Qt.FindDirectChildrenOnly):
+        i = lay.indexOf(w)
+        if i >= 0:
+            par.append((i, w))
+    par.sort(key=lambda p: p[0])
+    return par
+
+
 def tema(texto):
     """Passa um trecho de CSS/SVG pelo tema escuro, quando ligado."""
     if PrumoEstilo is None:

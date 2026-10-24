@@ -11,6 +11,8 @@ escolha na vista (até a face, até a peça), o formulário do FreeCAD reaparece
 escolha; "Formulário completo" mostra tudo a qualquer momento.
 """
 
+import os
+import re
 import FreeCAD
 import FreeCADGui
 from PySide import QtCore, QtWidgets
@@ -85,8 +87,7 @@ def _painel_de_tarefas():
 def _quadro_do_formulario(panel, marca="changeMode"):
     """O quadro (TaskBox) do FreeCAD que tem o formulário do comando (procura o combo pelo nome)."""
     lay = panel.layout()
-    for i in range(lay.count()):
-        w = lay.itemAt(i).widget()
+    for _i, w in UI.widgets_do_layout(lay):
         if w is None or not shiboken.isValid(w):
             continue
         if w.findChild(QtWidgets.QWidget, marca) is not None:
@@ -2001,8 +2002,72 @@ class PainelBalao(_Base):
         return False
 
 
+def _botao_cor(painel, cartao, rotulo, fc, chave):
+    """Botão de cor ligado a um Gui::ColorButton do formulário (propriedade "color" + sinal changed)."""
+    from PySide import QtGui
+    if fc is None:
+        return None
+    cor = fc.property("color")
+    b = QtWidgets.QPushButton()
+    b.setObjectName("PrumoCor")
+    b.setMinimumWidth(80)
+    b.setToolTip("Clique para trocar a cor")
+
+    def pintar(c):
+        c = QtGui.QColor(c) if c is not None else QtGui.QColor("black")
+        b.setText(c.name().upper())
+        b.setStyleSheet("QPushButton#PrumoCor { border-left: 14px solid %s; }" % c.name())
+    pintar(cor)
+
+    def trocar():
+        c = QtWidgets.QColorDialog.getColor(QtGui.QColor(fc.property("color")), painel, rotulo)
+        if c.isValid():
+            painel.definir_cor(fc, c)
+            pintar(c)
+    b.clicked.connect(trocar)
+    cartao.linha(rotulo, b)
+    painel.campos[chave] = b
+    return b
+
+
+def _padroes_hachura():
+    """Padrões SVG que vêm com o TechDraw: [(nome legível, caminho)]."""
+    import glob
+    pasta = os.path.join(FreeCAD.getResourceDir(), "Mod", "TechDraw", "Patterns")
+    out = []
+    for c in sorted(glob.glob(os.path.join(pasta, "*.svg"))):
+        nome = os.path.splitext(os.path.basename(c))[0]
+        out.append((NOMES_PADRAO.get(nome, nome.replace("_", " ").capitalize()), c))
+    return out
+
+
+NOMES_PADRAO = {"aluminium": "Alumínio", "brick01": "Tijolo", "concrete": "Concreto", "cross": "Cruzado",
+                "cuprous": "Cobre", "diagonal1": "Diagonal", "diagonal2": "Diagonal invertida", "earth": "Terra",
+                "general_steel": "Aço (geral)", "glass": "Vidro", "hatch45L": "45° à esquerda",
+                "hatch45R": "45° à direita", "hbone": "Espinha de peixe", "line": "Linhas", "plus": "Cruzes",
+                "simple": "Simples", "solid": "Cheio", "square": "Quadriculado", "steel": "Aço",
+                "titanium": "Titânio", "wood": "Madeira", "woodgrain": "Veio de madeira", "zinc": "Zinco"}
+
+
 class PainelHachura(_Base):
-    """Desenho → hachura de face: escala, rotação e deslocamento (o padrão continua no formulário completo)."""
+    """Desenho → hachura de face: padrão (arquivo), cor, escala, rotação e deslocamento."""
+
+    def definir_cor(self, fc, c):
+        fc.setProperty("color", c)
+        QtCore.QMetaObject.invokeMethod(fc, "changed")
+
+    def _arquivo(self):
+        fc = self.f.w("fcFile", QtWidgets.QWidget)
+        le = fc.findChild(QtWidgets.QLineEdit) if fc is not None else None
+        return fc, le
+
+    def definir_arquivo(self, caminho):
+        _fc, le = self._arquivo()
+        if le is None:
+            return
+        le.setText(caminho)
+        le.editingFinished.emit()
+        QtCore.QTimer.singleShot(0, self.montar)
 
     def estado(self):
         f = self.f
@@ -2010,14 +2075,45 @@ class PainelHachura(_Base):
         for n in ("dsbRotation", "dsbOffsetX", "dsbOffsetY"):
             w = f.w(n, QtWidgets.QDoubleSpinBox)
             vals.append(round(w.value(), 6) if w else None)
-        return {"escala": f.numero("sbScale"), "vals": tuple(vals)}
+        _fc, le = self._arquivo()
+        cc = f.w("ccColor", QtWidgets.QWidget)
+        cor = cc.property("color") if cc is not None else None
+        return {"escala": f.numero("sbScale"), "vals": tuple(vals), "arq": le.text() if le else "",
+                "cor": cor.name() if cor is not None else ""}
 
     def montar(self):
         e = self.estado()
         self.assinatura = tuple(sorted(e.items()))
         self._limpar()
         self.campos = {}
-        c = UI.Cartao("Hachura", "padrao")
+        c = UI.Cartao("Padrão", "padrao")
+        cb = QtWidgets.QComboBox()
+        cb.setObjectName("PrumoLista")
+        cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        cb.setMinimumContentsLength(8)
+        cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        atual = os.path.normcase(os.path.abspath(e["arq"])) if e["arq"] else ""
+        idx = -1
+        for nome, cam in _padroes_hachura():
+            cb.addItem(nome, cam)
+            if os.path.normcase(os.path.abspath(cam)) == atual:
+                idx = cb.count() - 1
+        if idx < 0 and e["arq"]:
+            cb.addItem(os.path.basename(e["arq"]), e["arq"])
+            idx = cb.count() - 1
+        cb.setCurrentIndex(max(idx, 0))
+        cb.activated.connect(lambda i, cb=cb: self.definir_arquivo(cb.itemData(i)))
+        c.linha("Desenho", cb)
+        self.campos["padrao"] = cb
+        fc, _le = self._arquivo()
+        bt = fc.findChild(QtWidgets.QPushButton) if fc is not None else None
+        if bt is not None:
+            b = QtWidgets.QPushButton("Outro arquivo (SVG)…")
+            b.clicked.connect(lambda _=False, bt=bt: (bt.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.widget(b)
+        _botao_cor(self, c, "Cor", self.f.w("ccColor", QtWidgets.QWidget), "cor")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Tamanho e giro", "medida")
         self._num("sbScale", "Escala do padrão", "", c, minimo=0.0001, chave="escala")
         _num_simples(self, "dsbRotation", "Rotação", "°", c, chave="rotacao")
         self.lay.addWidget(c)
@@ -2027,8 +2123,78 @@ class PainelHachura(_Base):
         self.lay.addWidget(c)
         self._fim()
 
+    def precisa_do_formulario(self):
+        return False
+
+
+ESTILOS_LINHA = {"NoLine": "Sem linha", "Continuous": "Contínua", "Dash": "Tracejada", "Dot": "Pontilhada",
+                 "DashDot": "Traço e ponto", "DashDotDot": "Traço e dois pontos"}
+
+
+class PainelTextoFormatado(_Base):
+    """Desenho → texto formatado (RichAnno): o texto, largura máxima e moldura."""
+
+    definir_cor = PainelHachura.definir_cor
+
+    def estado(self):
+        f = self.f
+        te = f.w("teAnnoText", QtWidgets.QTextEdit)
+        sf = f.check("cbShowFrame")
+        return {"txt": te.toPlainText() if te else "", "larg": f.numero("dsbMaxWidth"),
+                "moldura": bool(sf.isChecked()) if sf else False, "estilo": f.indice("cFrameStyle"),
+                "esp": f.numero("dsbWidth")}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        te = f.w("teAnnoText", QtWidgets.QTextEdit)
+        c = UI.Cartao("Texto", "texto")
+        if te is not None:
+            ed = QtWidgets.QTextEdit()
+            ed.setObjectName("PrumoTextoLongo")
+            ed.setAcceptRichText(True)
+            ed.setHtml(te.toHtml())
+            ed.setPlaceholderText("Escreva o texto aqui (ou use o editor completo para negrito, tamanhos…)")
+            ed.setMinimumHeight(90)
+            ed.setMaximumHeight(160)
+            ed.setEnabled(te.isEnabled())
+
+            def passar(ed=ed, te=te):
+                if ed.toHtml() != te.toHtml():
+                    te.blockSignals(True)
+                    te.setHtml(ed.toHtml())
+                    te.blockSignals(False)
+            ed.textChanged.connect(passar)
+            c.widget(ed)
+            self.campos["texto"] = ed
+        pe = f.w("pbEditor", QtWidgets.QAbstractButton)
+        if pe is not None:
+            b = QtWidgets.QPushButton("Editor completo (negrito, cores, tamanhos)…")
+            b.setEnabled(pe.isEnabled())
+            b.clicked.connect(lambda _=False, pe=pe: (pe.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.widget(b)
+            self.campos["editor"] = b
+        self._num("dsbMaxWidth", "Largura máxima", "mm", c, chave="largura")
+        dica = QtWidgets.QLabel("-1 = largura automática")
+        dica.setObjectName("PrumoSub")
+        c.widget(dica)
+        self.lay.addWidget(c)
+        c = UI.Cartao("Moldura", "exibicao_arestas")
+        self._chave("cbShowFrame", "Mostrar moldura", c, "moldura")
+        if e["moldura"]:
+            cb = f.espelho("cFrameStyle", ESTILOS_LINHA, largura=200)
+            c.linha("Linha", cb)
+            self.campos["estilo"] = cb
+            self._num("dsbWidth", "Espessura", "mm", c, minimo=0.0, chave="espessura")
+            _botao_cor(self, c, "Cor", f.w("cpFrameColor", QtWidgets.QWidget), "cor")
+        self.lay.addWidget(c)
+        self._fim()
+
     def dica_extra(self):
-        return "O desenho do padrão (arquivo e cor) fica no formulário completo do FreeCAD."
+        return ""
 
     def precisa_do_formulario(self):
         return False
@@ -2041,9 +2207,12 @@ AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadiu
            "spinLenFwd": "PainelExtrusaoPart", "selectLine": "PainelRevolucaoPart",
            "referenceLineEdit": "PainelEspelharPart", "rbUniform": "PainelEscalaPart",
            "filletStartRadius": "PainelArestasPart", "advancedOffsetCheckbox": "PainelJunta",
+           "partList": "PainelInserirPecas",
            "TaskFemConstraintFixed": "PainelFixacaoFem", "TaskFemConstraintForce": "PainelForcaFem",
-           "TaskFemConstraintPressure": "PainelPressaoFem", "FemMaterial": "PainelMaterialFem",
-           "GmshMesh": "PainelMalhaGmsh"}
+           "TaskFemConstraintPressure": "PainelPressaoFem",
+           "TaskFemConstraintDisplacement": "PainelDeslocamentoFem", "TaskFemConstraintSpring": "PainelMolaFem", "FemMaterial": "PainelMaterialFem",
+           "GmshMesh": "PainelMalhaGmsh", "teAnnoText": "PainelTextoFormatado", "spinOffset": "PainelOffsetPart",
+           "checkRuledSurface": "PainelLoftPart", "buttonPath": "PainelVarreduraPart"}
 
 
 # ----------------------------------------------------------------------------------- Fixação (anexar)
@@ -2180,12 +2349,18 @@ class PainelFixacao(_Base):
 
 
 class EncaixeFixacao:
-    """Põe o PainelFixacao acima do quadro "Fixação" do FreeCAD sempre que ele aparece no painel de tarefas
-    (independe do painel principal: nas primitivas os dois aparecem juntos)."""
+    """Põe um painel em cartões acima de um quadro SECUNDÁRIO do FreeCAD sempre que ele aparece no painel de
+    tarefas, independente do painel principal (ex.: "Fixação" nas primitivas; orientação e seções da
+    Varredura). Por padrão, o quadro Fixação."""
 
     MARCA = "listOfModes"
+    CLASSE = "PainelFixacao"
 
-    def __init__(self):
+    def __init__(self, marca=None, classe=None):
+        if marca:
+            self.MARCA = marca
+        if classe:
+            self.CLASSE = classe
         self.painel = None
         self.t = QtCore.QTimer(FreeCADGui.getMainWindow())
         self.t.setInterval(300)
@@ -2212,6 +2387,11 @@ class EncaixeFixacao:
 
     def _passo(self):
         panel = _painel_de_tarefas() if ligado() else None
+        if panel is not None and self.MARCA == "PrumoGeoSel":
+            # o seletor de geometria do FEM (Python) não tem nome de objeto: marca as instâncias
+            for w in panel.findChildren(QtWidgets.QWidget):
+                if type(w).__name__ == "GeometryElementsSelection" and w.objectName() != "PrumoGeoSel":
+                    w.setObjectName("PrumoGeoSel")
         quadro = _quadro_do_formulario(panel, self.MARCA) if panel is not None else None
         if quadro is None:
             if self.painel is not None:
@@ -2219,7 +2399,7 @@ class EncaixeFixacao:
             return
         if not self._vivo() or self.painel.parent() is not panel or self.painel.quadro is not quadro:
             self._tirar()
-            self.painel = PainelFixacao(None, quadro, panel)
+            self.painel = globals()[self.CLASSE](None, quadro, panel)
             lay = panel.layout()
             lay.insertWidget(lay.indexOf(quadro), self.painel)
             return
@@ -2589,6 +2769,328 @@ class PainelArestasPart(_Base):
 
 
 # ----------------------------------------------------------------------------------- Montagem
+MODOS_OFFSET = [("0", "Casca", "solido"), ("1", "Tubo", "atraves"), ("2", "Frente e verso", "dois_lados")]
+JUNCOES_PART = [("0", "Arredondada", "raio"), ("1", "Tangente", "angulo"), ("2", "Canto vivo", "chanfro")]
+
+
+class PainelOffsetPart(_Base):
+    """Sólidos → Deslocamento 3D/2D e Espessura (o mesmo formulário do FreeCAD; a espessura tem faces)."""
+
+    def _espessura(self):
+        fb = self.f.w("facesButton", QtWidgets.QAbstractButton)
+        return fb is not None and fb.isVisibleTo(self.quadro)
+
+    def estado(self):
+        f = self.f
+        lb = f.w("labelFaces", QtWidgets.QLabel)
+        fb = f.w("facesButton", QtWidgets.QAbstractButton)
+        return {"val": f.numero("spinOffset"), "modo": f.indice("modeType"), "junta": f.indice("joinType"),
+                "n_modos": f.combo("modeType").count() if f.combo("modeType") else 0,
+                "faces": lb.text() if lb else "", "esc": bool(fb and fb.isChecked()),
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("intersection", "selfIntersection", "fillOffset", "updateView"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        esp = self._espessura()
+        if esp:
+            c = UI.Cartao("Faces abertas", "selecao")
+            lb = QtWidgets.QLabel(e["faces"] or "Escolha na vista as faces que ficam abertas.")
+            lb.setWordWrap(True)
+            lb.setObjectName("PrumoSub")
+            c.widget(lb)
+            fb = f.w("facesButton", QtWidgets.QAbstractButton)
+            b = QtWidgets.QPushButton("Concluir a escolha" if e["esc"] else "Escolher faces na vista")
+            if e["esc"]:
+                b.setObjectName("PrumoPrimario")
+            b.setEnabled(fb.isEnabled())
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(50, self.montar)))
+            c.widget(b)
+            self.campos["faces"] = b
+            self.lay.addWidget(c)
+        c = UI.Cartao("Espessura" if esp else "Deslocamento", "medida")
+        self._num("spinOffset", "Espessura" if esp else "Distância", "mm", c, chave="valor")
+        dica = QtWidgets.QLabel("Valor negativo: para dentro." if esp else "Valor negativo: para dentro da forma.")
+        dica.setObjectName("PrumoSub")
+        c.widget(dica)
+        self.lay.addWidget(c)
+        c = UI.Cartao("Como é feito", "acabamento")
+        modos = MODOS_OFFSET[:max(1, e["n_modos"])] if e["n_modos"] else MODOS_OFFSET
+        if len(modos) > 1:
+            seg = UI.Segmentado(modos, str(max(0, e["modo"])), colunas=len(modos))
+            seg.mudou.connect(lambda k: (_ativar(self.f.combo("modeType"), int(k)),
+                                         QtCore.QTimer.singleShot(0, self.montar)))
+            c.widget(seg)
+            self.campos["modo"] = seg
+        sub = QtWidgets.QLabel("Cantos")
+        sub.setObjectName("PrumoSub")
+        c.widget(sub)
+        seg = UI.Segmentado(JUNCOES_PART, str(max(0, e["junta"])), colunas=3)
+        seg.mudou.connect(lambda k: (_ativar(self.f.combo("joinType"), int(k)),
+                                     QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["junta"] = seg
+        self._chave("intersection", "Permitir interseções", c, "inter")
+        self._chave("selfIntersection", "Permitir autointerseção", c, "auto")
+        self._chave("fillOffset", "Preencher (sólido entre a forma e o deslocamento)", c, "preencher")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Vista", "olho")
+        self._chave("updateView", "Atualizar a vista enquanto edita", c, "atualizar")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        return "Clique nas faces na vista; depois, \"Concluir a escolha\"." if self.estado()["esc"] else ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
+def _seletor_acao(painel, titulo, icone, vazio):
+    """Cartões para o Gui::ActionSelector do FreeCAD: o que está disponível e o que entra, em ordem."""
+    f = painel.f
+    disp = f.w("availableTreeWidget", QtWidgets.QTreeWidget)
+    sel = f.w("selectedTreeWidget", QtWidgets.QTreeWidget)
+    if disp is None or sel is None:
+        return
+
+    def acao(arvore, it, botao):
+        arvore.setCurrentItem(it)
+        b = f.w(botao, QtWidgets.QAbstractButton)
+        if b is not None:
+            b.setEnabled(True)
+            b.click()
+        QtCore.QTimer.singleShot(0, painel.montar)
+
+    c = UI.Cartao(titulo, icone)
+    if sel.topLevelItemCount() == 0:
+        lb = QtWidgets.QLabel(vazio)
+        lb.setObjectName("PrumoSub")
+        lb.setWordWrap(True)
+        c.widget(lb)
+    for i in range(sel.topLevelItemCount()):
+        it = sel.topLevelItem(i)
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for txt, dica, botao, pode in (("↑", "Subir", "upButton", i > 0),
+                                       ("↓", "Descer", "downButton", i < sel.topLevelItemCount() - 1),
+                                       ("✕", "Tirar", "removeButton", True)):
+            tb = QtWidgets.QToolButton()
+            tb.setText(txt)
+            tb.setToolTip(dica)
+            tb.setAccessibleName(dica)
+            tb.setEnabled(pode)
+            tb.clicked.connect(lambda _=False, it=it, botao=botao: acao(sel, it, botao))
+            hl.addWidget(tb)
+            painel.campos["sel%d_%s" % (i, botao)] = tb
+        c.linha("{}. {}".format(i + 1, it.text(0)), linha)
+    painel.lay.addWidget(c)
+    c = UI.Cartao("Disponíveis", "solido")
+    if disp.topLevelItemCount() == 0:
+        lb = QtWidgets.QLabel("Nada mais para acrescentar.")
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+    for i in range(min(disp.topLevelItemCount(), 15)):
+        it = disp.topLevelItem(i)
+        b = QtWidgets.QPushButton("Usar")
+        b.clicked.connect(lambda _=False, it=it: acao(disp, it, "addButton"))
+        c.linha(it.text(0), b)
+        painel.campos["disp%d" % i] = b
+    painel.lay.addWidget(c)
+
+
+def _estado_seletor(f):
+    out = []
+    for n in ("availableTreeWidget", "selectedTreeWidget"):
+        t = f.w(n, QtWidgets.QTreeWidget)
+        out.append(tuple(t.topLevelItem(i).text(0) for i in range(t.topLevelItemCount())) if t else ())
+    return tuple(out)
+
+
+class PainelLoftPart(_Base):
+    """Sólidos → Transição (loft): perfis em ordem, sólido, superfície regrada e fechada."""
+
+    def estado(self):
+        f = self.f
+        return {"lst": _estado_seletor(f),
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("checkSolid", "checkRuledSurface", "checkClosed"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        _seletor_acao(self, "Perfis, na ordem", "padrao", "Escolha pelo menos dois perfis em \"Disponíveis\".")
+        c = UI.Cartao("Resultado", "acabamento")
+        self._chave("checkSolid", "Criar sólido", c, "solido")
+        self._chave("checkRuledSurface", "Superfície regrada (faces retas entre perfis)", c, "regrada")
+        self._chave("checkClosed", "Fechar (último perfil liga no primeiro)", c, "fechada")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelVarreduraPart(_Base):
+    """Sólidos → Varredura: perfis em ordem, caminho (arestas na vista), sólido e Frenet."""
+
+    def estado(self):
+        f = self.f
+        bp = f.w("buttonPath", QtWidgets.QAbstractButton)
+        lb = f.w("labelPath", QtWidgets.QLabel)
+        return {"lst": _estado_seletor(f), "esc": bool(bp and bp.isChecked()), "cam": lb.text() if lb else "",
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("checkSolid", "checkFrenet"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        _seletor_acao(self, "Perfis, na ordem", "padrao", "Escolha o perfil em \"Disponíveis\".")
+        c = UI.Cartao("Caminho", "seta_cima")
+        lb = QtWidgets.QLabel(e["cam"] or "Clique em \"Escolher caminho\", marque as arestas na vista e conclua.")
+        lb.setWordWrap(True)
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+        bp = f.w("buttonPath", QtWidgets.QAbstractButton)
+        if bp is not None:
+            b = QtWidgets.QPushButton("Concluir o caminho" if e["esc"] else "Escolher caminho na vista")
+            if e["esc"]:
+                b.setObjectName("PrumoPrimario")
+            b.clicked.connect(lambda _=False, bp=bp: (bp.click(), QtCore.QTimer.singleShot(50, self.montar)))
+            c.widget(b)
+            self.campos["caminho"] = b
+        self.lay.addWidget(c)
+        c = UI.Cartao("Resultado", "acabamento")
+        self._chave("checkSolid", "Criar sólido", c, "solido")
+        self._chave("checkFrenet", "Frenet (seção acompanha a torção do caminho)", c, "frenet")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        return "Clique nas arestas do caminho na vista; depois, \"Concluir o caminho\"." if self.estado()["esc"] else ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelInserirPecas(_Base):
+    """Montagem → Inserir componente: procurar, peças de cada documento aberto com "Inserir" e as opções."""
+
+    TITULO = "Inserir componente"
+
+    def _itens(self):
+        """[(nível, item, é peça)] da lista do FreeCAD, na ordem, sem os escondidos pelo filtro."""
+        tree = self.f.w("partList", QtWidgets.QTreeWidget)
+        out = []
+        if tree is None:
+            return out
+
+        def andar(it, nivel):
+            if it.isHidden():
+                return
+            out.append((nivel, it, it.data(0, QtCore.Qt.UserRole) is not None))
+            for i in range(it.childCount()):
+                andar(it.child(i), nivel + 1)
+        for i in range(tree.topLevelItemCount()):
+            andar(tree.topLevelItem(i), 0)
+        return out
+
+    def estado(self):
+        f = self.f
+        le = f.w("filterPartList", QtWidgets.QLineEdit)
+        return {"itens": tuple((n, it.text(0), peca) for n, it, peca in self._itens()),
+                "filtro": le.text() if le else "",
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("CheckBox_ShowOnlyParts", "CheckBox_RigidSubAsm"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Procurar", "selecao")
+        fl = f.w("filterPartList", QtWidgets.QLineEdit)
+        if fl is not None:
+            le = QtWidgets.QLineEdit(fl.text())
+            le.setObjectName("PrumoTexto")
+            le.setPlaceholderText("Parte do nome…")
+            le.setClearButtonEnabled(True)
+            le.textChanged.connect(lambda t, fl=fl: (fl.setText(t), setattr(self, "_digitando", True),
+                                                     QtCore.QTimer.singleShot(250, self.atualizar)))
+            c.widget(le)
+            self.campos["filtro"] = le
+            if getattr(self, "_digitando", False):     # a lista refeita não tira o cursor de quem digita
+                le.setFocus()
+                le.setCursorPosition(len(le.text()))
+        ab = f.w("openFileButton", QtWidgets.QAbstractButton)
+        if ab is not None:
+            b = QtWidgets.QPushButton("Abrir outro arquivo…")
+            b.clicked.connect(lambda _=False, ab=ab: (ab.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.widget(b)
+            self.campos["abrir"] = b
+        self.lay.addWidget(c)
+        tree = f.w("partList", QtWidgets.QTreeWidget)
+        cartao = None
+        n_pecas = 0
+        for nivel, it, peca in self._itens():
+            if nivel == 0:
+                if cartao is not None:
+                    self.lay.addWidget(cartao)
+                cartao = UI.Cartao(it.text(0), "corpo")
+                continue
+            if cartao is None:
+                continue
+            m = re.search(r"\s*:\s*(\d+) inserted$", it.text(0))
+            nome = it.text(0)[:m.start()] if m else it.text(0)
+            rot = ("    " * (nivel - 1)) + nome
+            if not peca:
+                lb = QtWidgets.QLabel(rot)
+                lb.setObjectName("PrumoSub")
+                cartao.widget(lb)
+                continue
+            b = QtWidgets.QPushButton("Inserir" + (" ({})".format(m.group(1)) if m else ""))
+            b.setToolTip("Insere uma cópia ligada (link) desta peça na montagem" +
+                         ("; já inserida {} vez(es)".format(m.group(1)) if m else ""))
+            b.clicked.connect(lambda _=False, it=it: (tree.itemClicked.emit(it, 0),
+                                                      QtCore.QTimer.singleShot(80, self.montar)))
+            cartao.linha(rot, b)
+            self.campos["peca%d" % n_pecas] = b
+            self.campos["nome%d" % n_pecas] = nome
+            n_pecas += 1
+        if cartao is not None:
+            self.lay.addWidget(cartao)
+        if n_pecas == 0:
+            c = UI.Cartao("Peças", "corpo")
+            lb = QtWidgets.QLabel("Nenhuma peça encontrada. Abra o arquivo da peça ou crie uma no documento.")
+            lb.setWordWrap(True)
+            lb.setObjectName("PrumoSub")
+            c.widget(lb)
+            self.lay.addWidget(c)
+        c = UI.Cartao("Opções", "acabamento")
+        self._chave("CheckBox_ShowOnlyParts", "Mostrar só peças (Part), sem sólidos soltos", c, "so_pecas")
+        self._chave("CheckBox_RigidSubAsm", "Subconjuntos entram rígidos", c, "rigido")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        return "Cada clique em \"Inserir\" põe mais uma; a primeira peça pode ficar fixa (aterrada)."
+
+    def precisa_do_formulario(self):
+        return False
+
+
 TIPOS_JUNTA = [("Fixed", "Fixa"), ("Revolute", "Rotação"), ("Cylindrical", "Cilíndrica"), ("Slider", "Deslizante"),
                ("Ball", "Esférica"), ("Distance", "Distância"), ("Parallel", "Paralela"),
                ("Perpendicular", "Perpendicular"), ("Angle", "Ângulo"), ("RackPinion", "Cremalheira"),
@@ -2812,6 +3314,176 @@ class PainelPressaoFem(_PainelRestricaoFem):
         c = UI.Cartao("Pressão", "seta_baixo")
         self._num_un("if_pressure", "Valor", "MPa", c, minimo=0.0, casas=4, chave="pressao")
         self._chave("checkBoxReverse", "Inverter (puxando a face)", c, "inverter")
+        self.lay.addWidget(c)
+        self._fim()
+
+
+class PainelOndeVale(_Base):
+    """Simulação → quadro "Onde vale" (seletor de geometria das tarefas do FEM feitas em Python: material,
+    espessura de casca, seção de viga…): itens escolhidos, Adicionar na vista, tirar um a um."""
+
+    TIPOS_PT = {"Solid": "sólidos", "Face": "faces", "Edge": "arestas", "Vertex": "vértices"}
+
+    def _sel(self):
+        return self.quadro.findChild(QtWidgets.QWidget, "PrumoGeoSel")
+
+    def estado(self):
+        w = self._sel()
+        if w is None:
+            return {"ok": False}
+        return {"ok": True, "itens": tuple(w.get_allitems_text()), "esc": w.sel_server is not None,
+                "solido": bool(getattr(w, "selection_mode_solid", False))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        w = self._sel()
+        if w is None:
+            self._fim()
+            return
+        tipos = ", ".join(self.TIPOS_PT.get(t, t) for t in w.sel_elem_types)
+        c = UI.Cartao("Onde vale", "selecao")
+        if not e["itens"]:
+            lb = QtWidgets.QLabel("Vale para tudo que sobrar (nenhum item escolhido)." if w.showHintEmptyList
+                                  else "Nada escolhido ainda.")
+            lb.setWordWrap(True)
+            lb.setObjectName("PrumoSub")
+            c.widget(lb)
+        for i, txt in enumerate(e["itens"][:20]):
+            tb = QtWidgets.QToolButton()
+            tb.setText("✕")
+            tb.setToolTip("Tirar")
+            tb.setAccessibleName("Tirar " + txt)
+            tb.clicked.connect(lambda _=False, i=i: self._tirar_item(i))
+            c.linha(txt.replace(":", " · "), tb)
+            self.campos["tirar%d" % i] = tb
+        b = QtWidgets.QPushButton("Parar de escolher" if e["esc"] else "Adicionar na vista")
+        if e["esc"]:
+            b.setObjectName("PrumoPrimario")
+        b.setToolTip("Pode escolher: " + tipos)
+        b.clicked.connect(self._alternar)
+        c.widget(b)
+        self.campos["adicionar"] = b
+        if "Solid" in w.sel_elem_types and len(w.sel_elem_types) > 1:
+            seg = UI.Segmentado([("std", "Faces e arestas", "selecao"), ("sol", "Sólido inteiro", "solido")],
+                                "sol" if e["solido"] else "std", colunas=2)
+            seg.mudou.connect(lambda k: ((w.rb_solid if k == "sol" else w.rb_standard).setChecked(True),
+                                         QtCore.QTimer.singleShot(0, self.montar)))
+            c.widget(seg)
+            self.campos["modo"] = seg
+        self.lay.addWidget(c)
+        self._fim()
+
+    def _tirar_item(self, i):
+        w = self._sel()
+        if w is None or i >= w.list_References.count():
+            return
+        w.list_References.setCurrentRow(i)
+        w.remove_selected_reference()
+        QtCore.QTimer.singleShot(0, self.montar)
+
+    def _alternar(self):
+        w = self._sel()
+        if w is None:
+            return
+        if w.sel_server is not None:
+            try:
+                FreeCADGui.Selection.removeObserver(w.sel_server)
+            except Exception:
+                pass
+            w.sel_server = None
+            w.setback_listobj_visibility()
+        else:
+            w.pushButton_Add.click()
+        QtCore.QTimer.singleShot(0, self.montar)
+
+    def dica_extra(self):
+        e = self.estado()
+        return "Clique na vista nos itens que entram; depois, \"Parar de escolher\"." if e.get("esc") else ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
+EIXOS_DESLOC = [("DisplacementXGB", "spinxDisplacement", "Deslocamento em X", "mm"),
+                ("DisplacementYGB", "spinyDisplacement", "Deslocamento em Y", "mm"),
+                ("DisplacementZGB", "spinzDisplacement", "Deslocamento em Z", "mm"),
+                ("RotationXGB", "spinxRotation", "Giro em torno de X", "°"),
+                ("RotationYGB", "spinyRotation", "Giro em torno de Y", "°"),
+                ("RotationZGB", "spinzRotation", "Giro em torno de Z", "°")]
+
+
+class PainelDeslocamentoFem(_PainelRestricaoFem):
+    """Simulação → Deslocamento imposto: faces e, por eixo, livre ou com valor (0 = travado nesse eixo)."""
+
+    TITULO = "Deslocamento imposto"
+    TITULO_ESCOLHA = "Faces com deslocamento imposto"
+
+    def estado(self):
+        f = self.f
+        e = _PainelRestricaoFem.estado(self)
+        eixos = []
+        for gb, sb, _r, _u in EIXOS_DESLOC:
+            g = f.w(gb, QtWidgets.QGroupBox)
+            eixos.append((bool(g.isChecked()) if g else False, f.numero(sb)))
+        e["eixos"] = tuple(eixos)
+        return e
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        self._cartao_escolha()
+        for titulo, icone, faixa in (("Deslocamento", "seta_cima", EIXOS_DESLOC[:3]),
+                                     ("Giro (cascas e vigas)", "angulo", EIXOS_DESLOC[3:])):
+            c = UI.Cartao(titulo, icone)
+            for gb, sb, rot, unid in faixa:
+                g = f.w(gb, QtWidgets.QGroupBox)
+                if g is None:
+                    continue
+                sw = UI.Interruptor(g.isChecked())
+                sw.setToolTip("Ligado: o valor abaixo é imposto (0 trava). Desligado: livre nesse eixo.")
+                sw.toggled.connect(lambda on, g=g: (g.setChecked(bool(on)), QtCore.QTimer.singleShot(0, self.montar)))
+                c.linha(rot, sw)
+                self.campos[gb] = sw
+                if g.isChecked():
+                    self._num(sb, "  valor", unid, c, chave=sb)
+            self.lay.addWidget(c)
+        dica = QtWidgets.QLabel("Desligado = livre. Ligado com 0 = travado nesse eixo.")
+        dica.setObjectName("PrumoSub")
+        dica.setWordWrap(True)
+        self.lay.addWidget(dica)
+        self._fim()
+
+
+RIGIDEZ_MOLA = {"Normal Stiffness": "Rigidez normal", "Tangential Stiffness": "Rigidez tangencial"}
+
+
+class PainelMolaFem(_PainelRestricaoFem):
+    """Simulação → Mola (apoio elástico): faces e rigidez normal e tangencial."""
+
+    TITULO = "Mola"
+    TITULO_ESCOLHA = "Faces apoiadas na mola"
+
+    def estado(self):
+        f = self.f
+        e = _PainelRestricaoFem.estado(self)
+        e.update({"n": f.numero("qsb_norm"), "t": f.numero("qsb_tan")})
+        return e
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._cartao_escolha()
+        c = UI.Cartao("Rigidez", "medida")
+        self._num_un("qsb_norm", "Normal à face", "N/mm", c, minimo=0.0, casas=3, chave="normal")
+        self._num_un("qsb_tan", "Tangente à face", "N/mm", c, minimo=0.0, casas=3, chave="tangente")
         self.lay.addWidget(c)
         self._fim()
 
@@ -3057,6 +3729,98 @@ class PainelMultiTransform(_Base):
         return bool(ok is not None and ok.isVisibleTo(self.quadro))
 
 
+MODOS_ORIENTACAO = [("0", "Padrão", "seta_cima"), ("1", "Fixo", "fixacao"), ("2", "Frenet", "angulo"),
+                    ("3", "Curva auxiliar", "perfil"), ("4", "Direção dada", "medida")]
+DICA_ORIENTACAO = {0: "O perfil acompanha o caminho (o mais comum).",
+                   1: "O perfil não gira ao longo do caminho.",
+                   2: "O perfil segue a curvatura do caminho (bom para hélices e molas).",
+                   3: "Uma segunda curva guia como o perfil gira.",
+                   4: "O perfil mantém uma direção fixa (X, Y, Z)."}
+
+
+class PainelOrientacaoPipe(_Escolhas):
+    """Varredura → quadro "Orientação da seção" em cartões."""
+
+    BOTOES = ("buttonProfileBase", "buttonRefAdd", "buttonRefRemove")
+
+    def estado(self):
+        f = self.f
+        pb = f.w("profileBaseEdit", QtWidgets.QLineEdit)
+        vals = []
+        for n in ("doubleSpinBoxX", "doubleSpinBoxY", "doubleSpinBoxZ"):
+            w = f.w(n, QtWidgets.QDoubleSpinBox)
+            vals.append(round(w.value(), 6) if w else None)
+        return {"modo": f.indice("comboBoxMode"), "aux": pb.text() if pb else "", "refs": self._lista(),
+                "esc": self._escolhendo(*self.BOTOES), "vals": tuple(vals),
+                "curv": bool(f.check("curvilinear").isChecked()) if f.check("curvilinear") else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Orientação do perfil", "angulo")
+        seg = UI.Segmentado(MODOS_ORIENTACAO, str(max(0, e["modo"])), colunas=3)
+        seg.mudou.connect(lambda k: self._indice("comboBoxMode", int(k)))
+        c.widget(seg)
+        self.campos["modo"] = seg
+        lb = QtWidgets.QLabel(DICA_ORIENTACAO.get(e["modo"], ""))
+        lb.setObjectName("PrumoSub")
+        lb.setWordWrap(True)
+        c.widget(lb)
+        self.lay.addWidget(c)
+        if e["modo"] == 3:
+            itens = ([e["aux"]] if e["aux"] else []) + list(e["refs"])
+            self._selecao("Curva auxiliar", "perfil", itens, "Nenhuma curva escolhida",
+                          [("buttonProfileBase", "Escolher curva", "Escolhendo…"), ("buttonRefAdd", "Mais arestas",
+                                                                                   "Concluir"),
+                           ("buttonRefRemove", "Tirar", "Concluir")], "aux")
+            c = UI.Cartao("Curva auxiliar", "acabamento")
+            self._chave("curvilinear", "Curvilínea equivalente", c, "curv")
+            self.lay.addWidget(c)
+        if e["modo"] == 4:
+            c = UI.Cartao("Direção", "medida")
+            for n, rot in (("doubleSpinBoxX", "X"), ("doubleSpinBoxY", "Y"), ("doubleSpinBoxZ", "Z")):
+                _num_simples(self, n, rot, "", c, casas=3)
+            self.lay.addWidget(c)
+        self._fim()
+
+
+class PainelSecoesPipe(_Escolhas):
+    """Varredura → quadro "Transformação da seção" em cartões: perfil constante ou várias seções."""
+
+    BOTOES = ("buttonRefAdd", "buttonRefRemove")
+
+    def estado(self):
+        return {"modo": self.f.indice("comboBoxScaling"), "refs": self._lista(),
+                "esc": self._escolhendo(*self.BOTOES)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        c = UI.Cartao("Seção ao longo do caminho", "perfil")
+        seg = UI.Segmentado([("0", "Constante", "medida"), ("1", "Várias seções", "padrao")],
+                            str(max(0, e["modo"])), colunas=2)
+        seg.mudou.connect(lambda k: self._indice("comboBoxScaling", int(k)))
+        c.widget(seg)
+        self.campos["modo"] = seg
+        self.lay.addWidget(c)
+        if e["modo"] == 1:
+            self._selecao("Seções (na ordem do caminho)", "lista", list(e["refs"]),
+                          "Nenhuma seção: adicione esboços ao longo do caminho",
+                          [("buttonRefAdd", "Adicionar", "Concluir"), ("buttonRefRemove", "Tirar", "Concluir")],
+                          "secoes")
+        self._fim()
+
+
+# quadros secundários (aparecem junto do painel principal): marca → classe
+SECUNDARIOS = [("comboBoxMode", "PainelOrientacaoPipe"), ("comboBoxScaling", "PainelSecoesPipe"),
+               ("PrumoGeoSel", "PainelOndeVale")]
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
@@ -3147,7 +3911,18 @@ def instalar():
     if _estado.get("fixacao") is None:
         _estado["fixacao"] = EncaixeFixacao()
     _estado["fixacao"].iniciar()
+    if not _estado.get("extras"):
+        _estado["extras"] = [EncaixeFixacao(m, c) for m, c in SECUNDARIOS]
+    for e in _estado["extras"]:
+        e.iniciar()
     return _estado["encaixe"]
+
+
+def painel_secundario(classe):
+    for e in _estado.get("extras") or []:
+        if e.CLASSE == classe and e._vivo():
+            return e.painel
+    return None
 
 
 def painel_fixacao():

@@ -707,8 +707,7 @@ def _quadros(panel):
     """[(quadro, nome da classe do conteúdo)] dos quadros do FreeCAD no painel de tarefas."""
     out = []
     lay = panel.layout()
-    for i in range(lay.count()):
-        w = lay.itemAt(i).widget()
+    for _i, w in UI.widgets_do_layout(lay):
         if w is None or not shiboken.isValid(w):
             continue
         nomes = {w.metaObject().className()} | {c.metaObject().className() for c in w.findChildren(QtWidgets.QWidget)}
@@ -779,8 +778,7 @@ class Encaixe:
             lay = panel.layout()
             # logo abaixo do quadro da ferramenta ativa (parâmetros do círculo, da linha…)
             pos = 0
-            for i in range(lay.count()):
-                w = lay.itemAt(i).widget()
+            for i, w in UI.widgets_do_layout(lay):
                 if w is not None and "TaskSketcherTool" in w.metaObject().className():
                     pos = i + 1
                     break

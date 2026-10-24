@@ -821,7 +821,8 @@ class T09Interface(unittest.TestCase):
         rb = self._faixa()
         linha = rb.findChild(QtWidgets.QWidget, "PrumoTabRow")
         lay = linha.layout()
-        nomes = [lay.itemAt(i).widget().objectName() for i in range(lay.count()) if lay.itemAt(i).widget()]
+        import PrumoUI
+        nomes = [w.objectName() for _i, w in PrumoUI.widgets_do_layout(lay)]
         self.assertEqual(nomes[:2], ["PrumoBrand", "PrumoWbBtn"], nomes)
 
     def test_menu_de_bancadas_lista_bancadas(self):
