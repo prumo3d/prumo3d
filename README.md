@@ -27,7 +27,7 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.8.1 beta** (24/10/2026)
+**Versão atual: 0.9.0 beta** (24/10/2026)
 
 - **Painéis dos comandos em cartões:** Extrusão, Cavidade, Furo, Revolução, Ranhura, Arredondar, Chanfro,
   Padrão linear, Padrão circular e Espelhar, com botões de ícone, chaves liga/desliga e campos com
