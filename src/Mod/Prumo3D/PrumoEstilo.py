@@ -330,8 +330,8 @@ VIEW_COLORS = {
     "FullyConstraintInternalAlignmentColor": "#A6D4C3",
     "FullyConstrainedColor": "#2E8B6A",
     "InvalidSketchColor": "#B5523F",
-    # cotas e ícones de restrição no azul do sistema (o vermelho ficou só para erro)
-    "ConstrainedDimColor": "#1F4E79",
+    # cotas em cinza escuro (o azul se confundia com as linhas do desenho; o vermelho ficou só para erro)
+    "ConstrainedDimColor": "#4F5A66",
     "ConstrainedIcoColor": "#3B6EA5",
     "NonDrivingConstrDimColor": "#4D7FAD",
     "ExprBasedConstrDimColor": "#D97A00",
@@ -352,7 +352,7 @@ NAVICUBE = {
     "int": {"InactiveOpacity": 75, "FontWeight": 63},
     "float": {"BorderWidth": 1.4, "FontZoom": 0.3},
 }
-VIEW_COLORS_VERSION = 5
+VIEW_COLORS_VERSION = 6
 
 # Tema escuro: o que muda em relação às cores acima (linhas azul-marinho somem no fundo escuro)
 VIEW_COLORS_ESC = {
@@ -362,7 +362,7 @@ VIEW_COLORS_ESC = {
     "ConstructionColor": "#7FA8D6", "InternalAlignedGeoColor": "#5F7F9F",
     "FullyConstraintElementColor": "#5CC79C", "FullyConstrainedColor": "#5CC79C",
     "FullyConstraintConstructionElementColor": "#3F8F70", "FullyConstraintInternalAlignmentColor": "#3A6B5A",
-    "InvalidSketchColor": "#E07A64", "ConstrainedDimColor": "#E6ECF2", "ConstrainedIcoColor": "#8CBCEB",
+    "InvalidSketchColor": "#E07A64", "ConstrainedDimColor": "#AEB8C3", "ConstrainedIcoColor": "#8CBCEB",
     "NonDrivingConstrDimColor": "#7FA8D6", "ExprBasedConstrDimColor": "#F2A33A",
     "DeactivatedConstrDimColor": "#6B7785", "ExternalColor": "#B98BE0", "ExternalDefiningColor": "#9A6CC9",
     "CursorTextColor": "#E3ECF5", "InformationColor": "#E6ECF2",

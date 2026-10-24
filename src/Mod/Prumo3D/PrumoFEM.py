@@ -933,6 +933,7 @@ class Etapa(QtWidgets.QFrame):
         while self.msgs.count():
             w = self.msgs.takeAt(0).widget()
             if w is not None:
+                w.hide()          # some já; o apagar de fato fica para o próximo ciclo
                 w.deleteLater()
         for nivel, texto in mensagens:
             lb = QtWidgets.QLabel(texto)
@@ -1622,6 +1623,7 @@ class Assistente(QtWidgets.QWidget):
         while self.box_pend.count():
             w = self.box_pend.takeAt(0).widget()
             if w is not None:
+                w.hide()          # some já; o apagar de fato fica para o próximo ciclo
                 w.deleteLater()
         nomes = {k: t for k, t, _s in ETAPAS}
         if not r["_bloqueios"]:

@@ -7002,6 +7002,12 @@ class T55PainelLateral(unittest.TestCase):
                 c = tab[k].lstrip("#")
                 r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
                 self.assertFalse(r > g + 40 and r > b + 40, "{} ainda avermelhada: {}".format(k, tab[k]))
+        # a cota não pode ter a cor das linhas do desenho: precisa ser um cinza (sem puxar para o azul)
+        for tab, linha in ((E.VIEW_COLORS, "EditedEdgeColor"), (E.VIEW_COLORS_ESC, "EditedEdgeColor")):
+            cota = tab["ConstrainedDimColor"].lstrip("#")
+            r, g, b = int(cota[0:2], 16), int(cota[2:4], 16), int(cota[4:6], 16)
+            self.assertLess(max(r, g, b) - min(r, g, b), 40, "cota devia ser cinza: " + tab["ConstrainedDimColor"])
+            self.assertNotEqual(tab["ConstrainedDimColor"].upper(), tab[linha].upper())
 
 
 class T56PropriedadesEAparencia(unittest.TestCase):
@@ -8010,42 +8016,89 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             self._limpar_tela()
             fechar(doc)
 
-    def test_conflito_no_esboco_aparece_e_se_resolve(self):
+    def _circulos_e_linha(self, nome):
+        """Esboço em edição com dois círculos de raio e posição fixos (o painel já viu o esboço fechado)."""
         import Part
         import Sketcher
         import PrumoPainelEsboco as E
         E.instalar()
-        doc, body, sk, pad = self._cena("PrumoTesteConflito")
+        doc, body, sk, pad = self._cena(nome)
+        s2 = body.newObject("Sketcher::SketchObject", "Circulos")
+        s2.AttachmentSupport = [(body.Origin.OriginFeatures[3], "")]
+        s2.MapMode = "FlatFace"
+        doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(s2.Name)
+        self._esp(0.8)
+        V = FreeCAD.Vector
+        s2.addGeometry(Part.Circle(V(0, 0, 0), V(0, 0, 1), 10))
+        s2.addConstraint(Sketcher.Constraint("Coincident", 0, 3, -1, 1))
+        s2.addConstraint(Sketcher.Constraint("Radius", 0, 10))
+        s2.addGeometry(Part.Circle(V(60, 0, 0), V(0, 0, 1), 5))
+        s2.addConstraint(Sketcher.Constraint("PointOnObject", 1, 3, -1))
+        s2.addConstraint(Sketcher.Constraint("Radius", 1, 5))
+        s2.addConstraint(Sketcher.Constraint("DistanceX", -1, 1, 1, 3, 60))
+        doc.recompute()
+        self._esp(0.8)
+        return doc, s2
+
+    def test_linha_com_relacoes_automaticas_que_nao_cabem(self):
+        """Como desenhar uma linha de um círculo ao outro: as restrições automáticas (tangente nos dois e
+        horizontal) não fecham. O painel retira as automáticas que sobram e o esboço continua resolvido."""
+        import Part
+        import Sketcher
+        import PrumoPainelEsboco as E
+        doc, s2 = self._circulos_e_linha("PrumoTesteConflitoAuto")
         try:
-            s2 = body.newObject("Sketcher::SketchObject", "Circulos")
-            s2.AttachmentSupport = [(body.Origin.OriginFeatures[3], "")]
-            s2.MapMode = "FlatFace"
+            n0 = len(s2.Constraints)
+            self.assertEqual(E.resolve(s2), 0)
+            doc.openTransaction("Linha")
+            g = s2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 10, 0), FreeCAD.Vector(60, 5, 0)))
+            s2.addConstraint([Sketcher.Constraint("Tangent", g, 1, 0), Sketcher.Constraint("Tangent", g, 2, 1),
+                              Sketcher.Constraint("Horizontal", g)])
+            doc.commitTransaction()
+            self.assertNotEqual(E.resolve(s2), 0, "a cena devia nascer em conflito")
+            self._esp(1.0)
+            p = E.painel()
+            self.assertIsNotNone(p)
+            self.assertEqual(E.resolve(s2), 0, "o esboço ficou sem solução")
+            self.assertEqual(E.problemas(s2), set())
+            self.assertGreaterEqual(len(s2.Constraints), n0, "apagou restrição antiga")
+            self.assertLess(len(s2.Constraints), n0 + 3, "não retirou nenhuma automática")
+            texto = p.situacao.text().lower()
+            self.assertIn("retirada", texto)
+            self.assertNotIn("conflito", texto)
+            self.assertIsNotNone(FreeCADGui.ActiveDocument.getInEdit(), "o esboço saiu da edição")
+        finally:
+            self._limpar_tela()
+            fechar(doc)
+
+    def test_conflito_posto_a_mao_aparece_e_se_resolve(self):
+        """Restrição posta pelo usuário (sem geometria nova) que entra em conflito: o painel avisa e o botão
+        apaga a mais recente; nada é retirado sozinho."""
+        import Part
+        import Sketcher
+        import PrumoPainelEsboco as E
+        doc, s2 = self._circulos_e_linha("PrumoTesteConflito")
+        try:
+            g = s2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 10, 0), FreeCAD.Vector(60, 5, 0)))
+            s2.addConstraint(Sketcher.Constraint("Tangent", g, 1, 0))
+            s2.addConstraint(Sketcher.Constraint("Tangent", g, 2, 1))
             doc.recompute()
-            FreeCADGui.ActiveDocument.setEdit(s2.Name)
             self._esp(0.8)
-            # dois círculos de raio fixo e uma linha tangente aos dois, horizontal: não fecha (conflito)
-            s2.addGeometry(Part.Circle(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 0, 1), 10))
-            s2.addConstraint(Sketcher.Constraint("Coincident", 0, 3, -1, 1))
-            s2.addConstraint(Sketcher.Constraint("Radius", 0, 10))
-            s2.addGeometry(Part.Circle(FreeCAD.Vector(60, 0, 0), FreeCAD.Vector(0, 0, 1), 5))
-            s2.addConstraint(Sketcher.Constraint("PointOnObject", 1, 3, -1))
-            s2.addConstraint(Sketcher.Constraint("Radius", 1, 5))
-            s2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 10, 0), FreeCAD.Vector(60, 5, 0)))
-            s2.addConstraint(Sketcher.Constraint("Tangent", 2, 1, 0))
-            s2.addConstraint(Sketcher.Constraint("Tangent", 2, 2, 1))
-            s2.addConstraint(Sketcher.Constraint("Horizontal", 2))
-            s2.solve()
+            self.assertEqual(E.resolve(s2), 0)
+            n = len(s2.Constraints)
+            s2.addConstraint(Sketcher.Constraint("Horizontal", g))
             self._esp(0.8)
             p = E.painel()
             self.assertIsNotNone(p)
+            self.assertEqual(len(s2.Constraints), n + 1, "a restrição do usuário não pode sumir sozinha")
             texto = p.situacao.text().lower()
             self.assertTrue("conflito" in texto or "não fecha" in texto, "situação não avisou: " + texto)
             self.assertNotIn("totalmente definido", texto)
             self.assertTrue(p.resolver.isVisible())
-            n = len(s2.Constraints)
             p.resolver.click()
             self._esp(0.6)
-            self.assertEqual(len(s2.Constraints), n - 1)
+            self.assertEqual(len(s2.Constraints), n)
             self.assertEqual(E.problemas(s2), set(), "o conflito continuou depois de apagar a mais recente")
             self.assertEqual(E.resolve(s2), 0, "o esboço continuou sem solução")
             self.assertIsNotNone(FreeCADGui.ActiveDocument.getInEdit(), "o esboço saiu da edição")
@@ -8084,7 +8137,7 @@ def operacao_em_edicao(tipo, nome_doc="PrumoTesteOperacao"):
     FreeCAD.setActiveDocument(doc.Name)
     body = doc.addObject("PartDesign::Body", "Body")
     planos = {o.Role: o for o in body.Origin.OriginFeatures}
-    if tipo in ("Draft", "Thickness") or tipo.startswith("Subtractive"):
+    if tipo in ("Draft", "Thickness", "Boolean") or tipo.startswith("Subtractive"):
         sk = esboco_retangulo(body)
         pad = body.newObject("PartDesign::Pad", "Pad")
         pad.Profile = sk
@@ -8122,6 +8175,18 @@ def operacao_em_edicao(tipo, nome_doc="PrumoTesteOperacao"):
         obj = body.newObject("PartDesign::" + tipo, "Varredura")
         obj.Profile = perfil
         obj.Spine = (cam, ["Edge1"])
+    elif tipo == "Boolean":
+        outro = doc.addObject("PartDesign::Body", "Outro")
+        sk2 = esboco_retangulo(outro, 10.0, 10.0, "Sketch2")
+        p2 = outro.newObject("PartDesign::Pad", "Pad2")
+        p2.Profile = sk2
+        p2.Length = 30
+        doc.recompute()
+        obj = body.newObject("PartDesign::Boolean", "Boolean")
+        obj.addObject(outro)
+        obj.Type = "Cut"
+    elif tipo.startswith(("Additive", "Subtractive")):
+        obj = body.newObject("PartDesign::" + tipo, "Primitiva")
     else:
         raise ValueError(tipo)
     doc.recompute()
@@ -8273,6 +8338,10 @@ class T65MaisPaineisDeComando(unittest.TestCase):
         self.assertEqual(type(p).__name__, classe)
         self.assertEqual(textos_com_problema(p), [], tipo)
         self.assertFalse(p.quadro.isVisible(), "%s: o formulário do FreeCAD devia ficar escondido" % tipo)
+        import re
+        from PySide import QtWidgets
+        internos = [l.text() for l in p.findChildren(QtWidgets.QLabel) if re.match(r"^[a-z]+[A-Z]\w*$", l.text())]
+        self.assertEqual(internos, [], "%s: rótulo com nome interno do FreeCAD" % tipo)
         return obj, p
 
     def test_angulo_de_saida(self):
@@ -8316,6 +8385,37 @@ class T65MaisPaineisDeComando(unittest.TestCase):
         self._esp(0.3)
         self.assertTrue(self._ok())
         self.assertTrue(obj.Ruled)
+
+    def test_primitivas(self):
+        esperado = {"AdditiveBox": ("boxLength", "Length"), "AdditiveCylinder": ("cylinderRadius", "Radius"),
+                    "AdditiveSphere": ("sphereRadius", "Radius"), "AdditiveCone": ("coneHeight", "Height"),
+                    "AdditiveTorus": ("torusRadius2", "Radius2"), "AdditivePrism": ("prismHeight", "Height"),
+                    "AdditiveEllipsoid": ("ellipsoidRadius1", "Radius1"), "AdditiveWedge": (None, None),
+                    "SubtractiveBox": ("boxHeight", "Height")}
+        for tipo, (campo, prop) in esperado.items():
+            obj, p = self._abrir(tipo, "PainelPrimitiva")
+            self.assertTrue(p.campos, "%s: nenhum campo de medida" % tipo)
+            if campo:
+                self.assertIn(campo, p.campos, tipo)
+                p.campos[campo].setValue(7.0)
+                self._esp(0.3)
+                self.assertTrue(self._ok(), tipo)
+                self.assertAlmostEqual(getattr(obj, prop).Value, 7.0, places=3, msg=tipo)
+            fechar(self.doc)
+            self.doc = None
+        obj, p = self._abrir("AdditivePrism", "PainelPrimitiva")
+        p.campos["prismPolygon"].setValue(8)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertEqual(obj.Polygon, 8)
+
+    def test_booleana(self):
+        obj, p = self._abrir("Boolean", "PainelBooleana")
+        self.assertIn("Outro", p.campos["corpos"].text())
+        p.campos["tipo"].definir("0", silencioso=False)
+        self._esp(0.5)
+        self.assertTrue(self._ok())
+        self.assertEqual(obj.Type, "Fuse")
 
     def test_varredura(self):
         obj, p = self._abrir("AdditivePipe", "PainelVarredura")

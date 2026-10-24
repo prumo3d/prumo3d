@@ -262,6 +262,40 @@ def situacao(sk, codigo=None):
     return "", "info"
 
 
+def retirar_automaticas_em_conflito(sk, base_restricoes, base_geometria):
+    """Desenhou geometria nova e as restrições automáticas que vieram junto (tangente, horizontal…) não
+    cabem no desenho: apaga as novas que estão no conflito, da mais recente para a mais antiga, até o
+    esboço fechar. Só mexe no que entrou depois de base_restricoes, e só se entrou geometria nova.
+    Devolve a lista de textos das restrições retiradas (vazia se não mexeu)."""
+    if len(sk.Geometry) <= base_geometria or len(sk.Constraints) <= base_restricoes:
+        return []
+    retiradas = []
+    for _ in range(len(sk.Constraints) - base_restricoes):
+        codigo = resolve(sk)
+        if codigo >= 0 and not problemas(sk):
+            break
+        ruins = sorted(i for i in problemas(sk) if i >= base_restricoes)
+        if not ruins:
+            if codigo >= 0 or problemas(sk):
+                break             # o problema é de restrição antiga: fica com o usuário (botão do painel)
+            ruins = [len(sk.Constraints) - 1]    # sem lista do resolvedor: a mais recente
+        i = ruins[-1]
+        if i < base_restricoes:
+            break
+        try:
+            retiradas.append(texto_restricao(sk, sk.Constraints[i]))
+            sk.delConstraint(i)
+        except Exception:
+            break
+    if retiradas:
+        resolve(sk)
+        try:
+            sk.Document.recompute()
+        except Exception:
+            pass
+    return retiradas
+
+
 # ----------------------------------------------------------------------------------- painel
 class PainelEsboco(QtWidgets.QWidget):
     def __init__(self, sk, parent=None):
@@ -285,6 +319,9 @@ class PainelEsboco(QtWidgets.QWidget):
             "QListWidget#PrumoLista::item:selected { background: #E6EEF7; color: #003A70; }"))
         self.sk = sk
         self.assinatura = None
+        self.base = None          # (restrições, geometria) da última vez que o esboço fechou
+        self.aviso_retiradas = []
+        self.aviso_assin = None
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
@@ -419,9 +456,29 @@ class PainelEsboco(QtWidgets.QWidget):
             return
         if assin == self.assinatura and not forcar:
             return
+        if self.aviso_retiradas and self.aviso_assin is not None and assin != self.aviso_assin:
+            self.aviso_retiradas = []         # o usuário mexeu de novo: o aviso já cumpriu o papel
         self.assinatura = assin
         self.codigo = resolve(sk)
+        if (self.codigo < 0 or problemas(sk)) and self.base is not None and \
+                _params().GetBool("RetirarAutomaticasEmConflito", True):
+            tiradas = retirar_automaticas_em_conflito(sk, *self.base)
+            if tiradas:
+                self.aviso_retiradas = tiradas
+                self.aviso_assin = None
+                return self.atualizar(True)
+        if self.aviso_retiradas and self.aviso_assin is None:
+            self.aviso_assin = assin
+        if self.codigo == 0 and not problemas(sk):
+            self.base = (len(sk.Constraints), len(sk.Geometry))
         texto, tipo = situacao(sk, self.codigo)
+        if self.aviso_retiradas and tipo != "erro":
+            n = len(self.aviso_retiradas)
+            texto = ("Relaç{} automática{} retirada{} porque não cabia{} no desenho: {}. Desfazer (Ctrl+Z) volta."
+                     .format("ões" if n > 1 else "ão", "s" if n > 1 else "", "s" if n > 1 else "",
+                             "m" if n > 1 else "", "; ".join(self.aviso_retiradas)) +
+                     ("\n" + texto if texto else ""))
+            tipo = "info"
         self.situacao.setText(texto)
         self.situacao.setProperty("tipo", tipo)
         self.situacao.style().unpolish(self.situacao)

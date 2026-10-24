@@ -28,7 +28,9 @@ TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole", "PartDesig
          "PartDesign::Groove", "PartDesign::Fillet", "PartDesign::Chamfer", "PartDesign::LinearPattern",
          "PartDesign::PolarPattern", "PartDesign::Mirrored", "PartDesign::Draft", "PartDesign::Thickness",
          "PartDesign::AdditiveHelix", "PartDesign::SubtractiveHelix", "PartDesign::AdditiveLoft",
-         "PartDesign::SubtractiveLoft", "PartDesign::AdditivePipe", "PartDesign::SubtractivePipe")
+         "PartDesign::SubtractiveLoft", "PartDesign::AdditivePipe", "PartDesign::SubtractivePipe",
+         "PartDesign::Boolean") + tuple("PartDesign::%s%s" % (a, b) for b in ("Box", "Cylinder", "Sphere", "Cone",
+                                       "Ellipsoid", "Torus", "Prism", "Wedge") for a in ("Additive", "Subtractive"))
 # campo que identifica o formulário do FreeCAD de cada comando
 MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType",
          "PartDesign::Revolution": "revolveAngle", "PartDesign::Groove": "revolveAngle",
@@ -38,7 +40,9 @@ MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "P
          "PartDesign::Thickness": "joinComboBox", "PartDesign::AdditiveHelix": "inputMode",
          "PartDesign::SubtractiveHelix": "inputMode", "PartDesign::AdditiveLoft": "checkBoxRuled",
          "PartDesign::SubtractiveLoft": "checkBoxRuled", "PartDesign::AdditivePipe": "comboBoxTransition",
-         "PartDesign::SubtractivePipe": "comboBoxTransition"}
+         "PartDesign::SubtractivePipe": "comboBoxTransition", "PartDesign::Boolean": "comboType"}
+MARCA.update({t: "PartDesignGui__DlgPrimitives" for t in TIPOS if t.startswith(("PartDesign::Additive", "PartDesign::Subtractive"))
+              and t.endswith(("Box", "Cylinder", "Sphere", "Cone", "Ellipsoid", "Torus", "Prism", "Wedge"))})
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
 MODOS = {
     "PartDesign::Pad": [("Length", "Medida", "medida"), ("UpToLast", "Até o fim", "ate_fim"),
@@ -993,6 +997,8 @@ class PainelPadrao(_Base):
 
 
 DICA_ESCOLHA = {
+    "buttonBodyAdd": "Clique nos corpos (na árvore ou na vista) que entram na operação; depois, \"Concluir\".",
+    "buttonBodyRemove": "Clique nos corpos que quer tirar; depois, \"Concluir\".",
     "buttonRefSel": "Clique nas faces na vista: cada clique põe ou tira uma face. Depois, \"Concluir\".",
     "buttonPlane": "Clique na face ou no plano que fica parado (plano neutro).",
     "buttonLine": "Clique na aresta ou no eixo que dá a direção de saída do molde.",
@@ -1242,6 +1248,172 @@ class PainelVarredura(_Escolhas):
         self._fim()
 
 
+PRIMITIVAS = {
+    "Box": ("Cubo", [("boxLength", "Comprimento"), ("boxWidth", "Largura"), ("boxHeight", "Altura")]),
+    "Cylinder": ("Cilindro", [("cylinderRadius", "Raio"), ("cylinderHeight", "Altura"), ("cylinderAngle", "Ângulo")]),
+    "Sphere": ("Esfera", [("sphereRadius", "Raio")]),
+    "Cone": ("Cone", [("coneRadius1", "Raio da base"), ("coneRadius2", "Raio do topo"), ("coneHeight", "Altura"),
+                      ("coneAngle", "Ângulo")]),
+    "Ellipsoid": ("Elipsoide", [("ellipsoidRadius1", "Raio 1"), ("ellipsoidRadius2", "Raio 2"),
+                                ("ellipsoidRadius3", "Raio 3")]),
+    "Torus": ("Toro", [("torusRadius1", "Raio do anel"), ("torusRadius2", "Raio do tubo")]),
+    "Prism": ("Prisma", [("prismPolygon", "Lados"), ("prismCircumradius", "Raio circunscrito"),
+                         ("prismHeight", "Altura")]),
+    "Wedge": ("Cunha", []),
+}
+
+
+def nome_do_campo(objn):
+    """Nome em português de um campo de medida das primitivas (ex.: cylinderXSkew → Inclinação em X)."""
+    import re
+    m = re.match(r"^[a-z]+([XY])Skew$", objn)
+    if m:
+        return "Inclinação em " + m.group(1)
+    m = re.match(r"^[a-z]+Angle(\d)$", objn)
+    if m:
+        return {"1": "Ângulo inicial", "2": "Ângulo final", "3": "Ângulo de giro"}.get(m.group(1), "Ângulo")
+    m = re.match(r"^wedge(X2|Z2|X|Y|Z)(min|max)$", objn)
+    if m:
+        return "%s %s" % (m.group(1), "mínimo" if m.group(2) == "min" else "máximo")
+    return None
+
+
+def _rotulo_na_grade(w):
+    """Texto do rótulo ao lado de um campo, numa grade do formulário do FreeCAD."""
+    nome = nome_do_campo(w.objectName())
+    if nome:
+        return nome
+    pai = w.parentWidget()
+    lay = pai.layout() if pai is not None else None
+    if isinstance(lay, QtWidgets.QGridLayout):
+        i = lay.indexOf(w)
+        if i >= 0:
+            r, c, _rs, _cs = lay.getItemPosition(i)
+            for cc in range(c - 1, -1, -1):
+                it = lay.itemAtPosition(r, cc)
+                if it is not None and isinstance(it.widget(), QtWidgets.QLabel):
+                    return it.widget().text().rstrip(":")
+    for lb in pai.findChildren(QtWidgets.QLabel) if pai is not None else []:
+        if lb.buddy() is w:
+            return lb.text().rstrip(":")
+    return w.objectName()
+
+
+class PainelPrimitiva(_Base):
+    """Primitivas de Peça (cubo, cilindro, esfera… aditivos e subtrativos): as medidas em cartão.
+    A posição (fixação) continua no quadro do FreeCAD logo abaixo."""
+
+    def _tipo(self):
+        t = self.obj.TypeId.split("::")[1]
+        return t.replace("Additive", "").replace("Subtractive", "")
+
+    def _pagina(self):
+        st = self.f.w("widgetStack", QtWidgets.QStackedWidget) or self.q_pilha()
+        return st.currentWidget() if st is not None else None
+
+    def q_pilha(self):
+        pilhas = self.quadro.findChildren(QtWidgets.QStackedWidget) if self.quadro is not None else []
+        return pilhas[0] if pilhas else None
+
+    def _campos(self):
+        pg = self._pagina()
+        if pg is None:
+            return []
+        return [w for w in pg.findChildren(QtWidgets.QAbstractSpinBox) if w.isVisibleTo(pg)]
+
+    def estado(self):
+        vals = []
+        for w in self._campos():
+            v = w.property("rawValue") if w.property("rawValue") is not None else w.value()
+            vals.append((w.objectName(), round(float(v), 9)))
+        return {"tipo": self._tipo(), "vals": tuple(vals)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        nome, principais = PRIMITIVAS.get(e["tipo"], (e["tipo"], []))
+        campos = {w.objectName(): w for w in self._campos()}
+        c = UI.Cartao("Medidas · " + nome, "medida")
+        usados = set()
+        for objn, rot in principais:
+            if objn in campos:
+                self._campo(c, campos[objn], rot)
+                usados.add(objn)
+        resto = [w for n, w in campos.items() if n not in usados]
+        if not principais:
+            for w in resto:
+                self._campo(c, w, _rotulo_na_grade(w))
+            resto = []
+        self.lay.addWidget(c)
+        if resto:
+            c = UI.Cartao("Mais medidas", "angulo")
+            for w in resto:
+                self._campo(c, w, _rotulo_na_grade(w))
+            self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+    def _campo(self, cartao, w, rotulo):
+        nome = w.objectName()
+        if isinstance(w, QtWidgets.QSpinBox):
+            n = QtWidgets.QSpinBox()
+            n.setObjectName("PrumoNum")
+            n.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            n.setRange(w.minimum(), w.maximum())
+            n.setKeyboardTracking(False)
+            n.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            n.setMaximumWidth(120)
+            n.setValue(w.value())
+            n.valueChanged.connect(lambda v, w=w: w.setValue(int(v)))
+            cartao.linha(rotulo, n)
+            self.campos[nome] = n
+            return
+        v = w.property("rawValue")
+        if v is None:
+            return
+        unid = "°" if "angle" in nome.lower() or "skew" in nome.lower() else "mm"
+        num = UI.CampoNumero(float(v), unid)
+        num.valueChanged.connect(lambda x, w=w: w.setProperty("rawValue", float(x)))
+        cartao.linha(rotulo, num)
+        self.campos[nome] = num
+
+    def precisa_do_formulario(self):
+        return False
+
+
+TIPOS_BOOLEANA = [("0", "Unir", "solido"), ("1", "Cortar", "atraves"), ("2", "Interseção", "dois_lados")]
+
+
+class PainelBooleana(_Escolhas):
+    """Booleana de Peça: corpos que entram e o tipo (unir, cortar, interseção)."""
+
+    BOTOES = ("buttonBodyAdd", "buttonBodyRemove")
+
+    def estado(self):
+        return {"corpos": self._lista("listWidgetBodies"), "tipo": self.f.indice("comboType"),
+                "esc": self._escolhendo(*self.BOTOES)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._selecao("Corpos", "corpo", list(e["corpos"]), "Nenhum corpo escolhido",
+                      [("buttonBodyAdd", "Adicionar", "Concluir"), ("buttonBodyRemove", "Tirar", "Concluir")],
+                      "corpos")
+        c = UI.Cartao("Operação", "solido")
+        seg = UI.Segmentado(TIPOS_BOOLEANA, str(max(0, e["tipo"])), colunas=3)
+        seg.mudou.connect(lambda k: (_ativar(self.f.combo("comboType"), int(k)),
+                                     QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["tipo"] = seg
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
@@ -1250,7 +1422,9 @@ CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComa
            "PartDesign::Draft": "PainelAngulo", "PartDesign::Thickness": "PainelCasca",
            "PartDesign::AdditiveHelix": "PainelHelice", "PartDesign::SubtractiveHelix": "PainelHelice",
            "PartDesign::AdditiveLoft": "PainelLoft", "PartDesign::SubtractiveLoft": "PainelLoft",
-           "PartDesign::AdditivePipe": "PainelVarredura", "PartDesign::SubtractivePipe": "PainelVarredura"}
+           "PartDesign::AdditivePipe": "PainelVarredura", "PartDesign::SubtractivePipe": "PainelVarredura",
+           "PartDesign::Boolean": "PainelBooleana"}
+CLASSES.update({t: "PainelPrimitiva" for t in MARCA if MARCA[t] == "PartDesignGui__DlgPrimitives"})
 
 
 class Encaixe:

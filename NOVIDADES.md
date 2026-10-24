@@ -17,10 +17,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   (aditivos e subtrativos) ganharam o mesmo painel de cartões da Extrusão e do Furo: o que foi escolhido
   na vista, as medidas, interruptores e botões no lugar das listas. O formulário completo do FreeCAD
   continua a um clique.
+- **Primitivas e Booleana em cartões:** cubo, cilindro, esfera, cone, elipsoide, toro, prisma e cunha
+  (aditivos e subtrativos) mostram as medidas em cartão; a Booleana mostra os corpos e Unir / Cortar /
+  Interseção.
 - Títulos de quadros que ainda apareciam em inglês na Hélice, no Loft e na Varredura foram traduzidos.
+- **Cotas do esboço em cinza escuro:** o azul das cotas se confundia com as linhas do desenho.
 
 ### Correções
 
+- **Linha ligando dois círculos quebrava o esboço:** ao desenhar, o FreeCAD põe relações automáticas
+  (tangente, vertical, horizontal) que às vezes não cabem juntas. Agora o Prumo retira na hora as
+  automáticas que não cabem e avisa quais foram; o esboço continua resolvido. Relações postas à mão
+  nunca saem sozinhas: o painel avisa o conflito e oferece apagar a mais recente.
 - **Assistentes de estruturas e de simulação:** quando o resumo de uma etapa ocupava duas linhas (ex.:
   "Resultados"), o texto ficava cortado por cima do título.
 
