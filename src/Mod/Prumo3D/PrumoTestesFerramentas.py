@@ -8105,6 +8105,17 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             self._limpar_tela()
             fechar(doc)
 
+    def _painel_do_esboco(self, E, limite=3.0):
+        """O painel do esboço pode estar sendo remontado (ex.: logo depois de retirar restrições): espera."""
+        import time
+        t = time.time()
+        p = E.painel()
+        while p is None and time.time() - t < limite:
+            self._esp(0.2)
+            p = E.painel()
+        self.assertIsNotNone(p, "o painel do esboço não voltou; em edição: %s" % FreeCADGui.ActiveDocument.getInEdit())
+        return p
+
     def _circulos_e_linha(self, nome):
         """Esboço em edição com dois círculos de raio e posição fixos (o painel já viu o esboço fechado)."""
         import Part
@@ -8147,8 +8158,7 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             doc.commitTransaction()
             self.assertNotEqual(E.resolve(s2), 0, "a cena devia nascer em conflito")
             self._esp(1.0)
-            p = E.painel()
-            self.assertIsNotNone(p)
+            p = self._painel_do_esboco(E)
             self.assertEqual(E.resolve(s2), 0, "o esboço ficou sem solução")
             self.assertEqual(E.problemas(s2), set())
             self.assertGreaterEqual(len(s2.Constraints), n0, "apagou restrição antiga")
@@ -8178,8 +8188,7 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             n = len(s2.Constraints)
             s2.addConstraint(Sketcher.Constraint("Horizontal", g))
             self._esp(0.8)
-            p = E.painel()
-            self.assertIsNotNone(p)
+            p = self._painel_do_esboco(E)
             self.assertEqual(len(s2.Constraints), n + 1, "a restrição do usuário não pode sumir sozinha")
             texto = p.situacao.text().lower()
             self.assertTrue("conflito" in texto or "não fecha" in texto, "situação não avisou: " + texto)
