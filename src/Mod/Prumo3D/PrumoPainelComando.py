@@ -2020,7 +2020,7 @@ AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadiu
            "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura",
            "spinLenFwd": "PainelExtrusaoPart", "selectLine": "PainelRevolucaoPart",
            "referenceLineEdit": "PainelEspelharPart", "rbUniform": "PainelEscalaPart",
-           "filletStartRadius": "PainelArestasPart"}
+           "filletStartRadius": "PainelArestasPart", "advancedOffsetCheckbox": "PainelJunta"}
 
 
 # ----------------------------------------------------------------------------------- Fixação (anexar)
@@ -2559,6 +2559,129 @@ class PainelArestasPart(_Base):
         if e["tipo"] == 1:
             self._num("filletEndRadius", medida + " no fim", "mm", c, minimo=0.0, chave="r2")
         self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+# ----------------------------------------------------------------------------------- Montagem
+TIPOS_JUNTA = [("Fixed", "Fixa"), ("Revolute", "Rotação"), ("Cylindrical", "Cilíndrica"), ("Slider", "Deslizante"),
+               ("Ball", "Esférica"), ("Distance", "Distância"), ("Parallel", "Paralela"),
+               ("Perpendicular", "Perpendicular"), ("Angle", "Ângulo"), ("RackPinion", "Cremalheira"),
+               ("Screw", "Parafuso"), ("Gears", "Engrenagens"), ("Belt", "Correia")]
+DICA_JUNTA = {"Fixed": "As duas peças ficam presas uma na outra", "Revolute": "Gira em torno de um eixo",
+              "Cylindrical": "Gira e desliza no mesmo eixo", "Slider": "Desliza ao longo de uma direção",
+              "Ball": "Gira em qualquer direção em torno de um ponto", "Distance": "Mantém uma distância",
+              "Parallel": "Mantém as direções paralelas", "Perpendicular": "Mantém as direções a 90°",
+              "Angle": "Mantém um ângulo", "RackPinion": "Engrenagem com cremalheira",
+              "Screw": "Gira e avança pelo passo da rosca", "Gears": "Duas engrenagens",
+              "Belt": "Duas polias com correia"}
+ISOLAR = ["Transparentes", "Só arestas", "Escondidas", "Desativado"]
+
+
+class PainelJunta(_Base):
+    """Montagem → criar ou editar junta: tipo, o que foi escolhido, medidas, inverter, limites e como as
+    outras peças aparecem enquanto escolhe."""
+
+    QSS_EXTRA = PainelVistas.QSS_EXTRA
+    MEDIDAS = (("angleSpinbox", "angleLabel", "°"), ("distanceSpinbox", "distanceLabel", "mm"),
+               ("distanceSpinbox2", "distanceLabel2", "mm"), ("offsetSpinbox", "offsetLabel", "mm"),
+               ("rotationSpinbox", "rotationLabel", "°"))
+    LIMITES = (("limitCheckbox1", "limitLenMinSpinbox", "Distância mínima", "mm"),
+               ("limitCheckbox2", "limitLenMaxSpinbox", "Distância máxima", "mm"),
+               ("limitCheckbox3", "limitRotMinSpinbox", "Ângulo mínimo", "°"),
+               ("limitCheckbox4", "limitRotMaxSpinbox", "Ângulo máximo", "°"))
+
+    def estado(self):
+        f = self.f
+        lw = f.w("featureList", QtWidgets.QListWidget)
+        return {"tipo": f.indice("jointType"), "tipo_vis": f.visivel("jointType"),
+                "itens": tuple(lw.item(i).text() for i in range(lw.count())) if lw else (),
+                "vis": tuple(f.visivel(n) for n, _l, _u in self.MEDIDAS),
+                "nums": tuple(f.numero(n) for n, _l, _u in self.MEDIDAS),
+                "lim": tuple((f.visivel(c), bool(f.check(c).isChecked()) if f.check(c) else False)
+                             for c, _s, _r, _u in self.LIMITES),
+                "isolar": f.indice("isolateType")}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        if e["tipo_vis"]:
+            c = UI.Cartao("Tipo de junta", "vinculo")
+            grade = QtWidgets.QWidget()
+            g = QtWidgets.QGridLayout(grade)
+            g.setContentsMargins(0, 0, 0, 0)
+            g.setSpacing(4)
+            for col in range(3):
+                g.setColumnStretch(col, 1)
+            fc = f.combo("jointType")
+            for i, (chave, nome) in enumerate(TIPOS_JUNTA):
+                if fc is None or i >= fc.count():
+                    break
+                b = QtWidgets.QToolButton()
+                b.setObjectName("PrumoVista")
+                b.setCheckable(True)
+                b.setChecked(i == e["tipo"])
+                b.setText(nome)
+                b.setToolTip(DICA_JUNTA.get(chave, nome))
+                b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+                b.setMinimumHeight(30)
+                b.clicked.connect(lambda _=False, i=i: self._indice("jointType", i))
+                g.addWidget(b, i // 3, i % 3)
+                self.campos["tipo%d" % i] = b
+            c.widget(grade)
+            self.lay.addWidget(c)
+
+        c = UI.Cartao("Escolhido na vista", "selecao")
+        n = len(e["itens"])
+        lb = QtWidgets.QLabel(("\n".join(e["itens"][:4]) + ("\n…" if n > 4 else "")) if n else
+                              "Nada ainda: clique em uma face, aresta ou ponto de cada peça.")
+        lb.setObjectName("PrumoSub")
+        lb.setWordWrap(True)
+        c.widget(lb)
+        self.campos["escolhido"] = lb
+        iso = f.combo("isolateType")
+        if iso is not None and iso.isVisibleTo(self.quadro):
+            cb = QtWidgets.QComboBox()
+            cb.setObjectName("PrumoLista")
+            for i in range(iso.count()):
+                cb.addItem(ISOLAR[i] if i < len(ISOLAR) else iso.itemText(i))
+            cb.setCurrentIndex(e["isolar"])
+            cb.activated.connect(lambda i, iso=iso: iso.setCurrentIndex(i))
+            c.linha("Outras peças enquanto escolhe", cb)
+            self.campos["isolar"] = cb
+        self.lay.addWidget(c)
+
+        if any(e["vis"]) or f.visivel("PushButtonReverse"):
+            c = UI.Cartao("Medidas", "medida")
+            for nome, rot, unid in self.MEDIDAS:
+                lab = f.w(rot, QtWidgets.QLabel)
+                self._num(nome, (lab.text().rstrip(":") if lab is not None else nome), unid, c)
+            rv = f.w("PushButtonReverse", QtWidgets.QAbstractButton)
+            if rv is not None and rv.isVisibleTo(self.quadro):
+                b = QtWidgets.QPushButton("Inverter o sentido")
+                b.clicked.connect(lambda _=False, rv=rv: rv.click())
+                c.widget(b)
+                self.campos["inverter"] = b
+            self.lay.addWidget(c)
+
+        if any(vis for vis, _on in e["lim"]):
+            c = UI.Cartao("Limites", "seta_cima")
+            for (cx, sb, rot, unid), (vis, on) in zip(self.LIMITES, e["lim"]):
+                if not vis:
+                    continue
+                cb = f.check(cx)
+                sw = UI.Interruptor(on)
+                sw.toggled.connect(lambda v, cb=cb: (cb.setChecked(bool(v)), QtCore.QTimer.singleShot(50, self.montar)))
+                c.linha(rot, sw)
+                self.campos[cx] = sw
+                if on:
+                    self._num(sb, "  valor", unid, c)
+            self.lay.addWidget(c)
         self._fim()
 
     def precisa_do_formulario(self):

@@ -8199,8 +8199,14 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
 def textos_com_problema(raiz):
     """Rótulos visíveis com texto cortado (quebra de linha sem altura) ou sobrepostos a outro rótulo."""
     from PySide import QtCore, QtWidgets
+    # o painel pode ter acabado de ser remontado: deixa o Qt posicionar tudo antes de medir
+    for _ in range(3):
+        if raiz.layout() is not None:
+            raiz.layout().activate()
+        QtWidgets.QApplication.processEvents()
     out = []
-    labs = [l for l in raiz.findChildren(QtWidgets.QLabel) if l.isVisible() and l.text().strip()]
+    labs = [l for l in raiz.findChildren(QtWidgets.QLabel)
+            if l.isVisible() and l.text().strip() and l.width() > 0 and l.height() > 0]
     for l in labs:
         if l.wordWrap() and l.hasHeightForWidth():
             precisa = l.heightForWidth(l.width())
