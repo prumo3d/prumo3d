@@ -32,6 +32,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   Cilíndrica, Deslizante, Esférica, Distância…), o que foi escolhido na vista, só as medidas do tipo
   escolhido, "Inverter o sentido", os limites (distância e ângulo mínimo/máximo) e como as outras peças
   aparecem enquanto escolhe. A aba do comando se chama "Junta".
+- **Simulação em cartões:** Material (o escolhido e densidade, E e ν na unidade usual), Fixação (faces
+  presas), Força (valor em N, direção, inverter), Pressão (valor em MPa, inverter) e Gerar malha (tipo,
+  tamanhos e ordem). O quadro "Onde vale" do FEM, que estava em inglês, foi traduzido.
 
 ### Testes
 
@@ -42,6 +45,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - Sólidos: extrusão de 25 mm, revolução de 90°, espelho no plano XZ, escala 2× e arredondar/chanfrar as
   12 arestas de uma caixa, pelos cartões.
 - Junta da montagem: trocar o tipo na grade muda a junta e as medidas mostradas.
+- Simulação: força de 250 N e pressão de 0,5 MPa pelos cartões ficam gravadas certo (o FreeCAD guarda
+  internamente em mN e kPa).
 
 ## 0.8.1 beta — 24/10/2026
 

@@ -8999,6 +8999,102 @@ class T71JuntaDaMontagem(unittest.TestCase):
         self.assertEqual(L.titulo_do_comando(dock)[0], "Junta")
 
 
+class T72SimulacaoEmCartoes(unittest.TestCase):
+    """Simulação: material, fixação, força, pressão e malha em cartões. Força e pressão aparecem em N e MPa
+    (o FreeCAD guarda em mN e kPa) e o OK grava o valor certo."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import ObjectsFem
+        from PySide import QtCore
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        FreeCADGui.activateWorkbench("FemWorkbench")
+        self._esp(0.5)
+        self.doc = novo_doc("PrumoTesteSimulacao")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        cx = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+        an = ObjectsFem.makeAnalysis(self.doc, "Estudo")
+        self.mat = ObjectsFem.makeMaterialSolid(self.doc, "Material")
+        self.fixa = ObjectsFem.makeConstraintFixed(self.doc, "Fixa")
+        self.fixa.References = [(cx, "Face1")]
+        self.forca = ObjectsFem.makeConstraintForce(self.doc, "Forca")
+        self.forca.References = [(cx, "Face2")]
+        self.pressao = ObjectsFem.makeConstraintPressure(self.doc, "Pressao")
+        self.pressao.References = [(cx, "Face6")]
+        self.malha = ObjectsFem.makeMeshGmsh(self.doc, "Malha")
+        self.malha.Shape = cx
+        for o in (self.mat, self.fixa, self.forca, self.pressao, self.malha):
+            an.addObject(o)
+        self.doc.recompute()
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def _editar(self, obj, classe):
+        FreeCADGui.ActiveDocument.setEdit(obj.Name)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % classe)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertFalse(p.quadro.isVisible())
+        self.assertEqual(textos_com_problema(p), [])
+        return p
+
+    def test_forca_em_newton(self):
+        p = self._editar(self.forca, "PainelForcaFem")
+        self.assertIn("Face2", p.campos["refs"].text())
+        p.campos["forca"].setValue(250.0)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(self.forca.Force.getValueAs("N").Value, 250.0, places=4)
+
+    def test_pressao_em_mpa(self):
+        p = self._editar(self.pressao, "PainelPressaoFem")
+        p.campos["pressao"].setValue(0.5)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(self.pressao.Pressure.getValueAs("MPa").Value, 0.5, places=6)
+
+    def test_fixacao_material_e_malha(self):
+        p = self._editar(self.fixa, "PainelFixacaoFem")
+        self.assertIn("Face1", p.campos["refs"].text())
+        self.assertTrue(self._ok())
+        self._esp(0.5)
+        p = self._editar(self.mat, "PainelMaterialFem")
+        self.assertIn("qsb_young_modulus", p.campos)
+        self.assertTrue(self._ok())
+        self._esp(0.5)
+        p = self._editar(self.malha, "PainelMalhaGmsh")
+        p.campos["max"].setValue(4.0)
+        self._esp(0.3)
+        FreeCADGui.Control.closeDialog()    # OK rodaria o Gmsh; aqui só o cartão importa
+        self._esp(0.5)
+
+    def test_unidade_interna(self):
+        """Confere a conversão que os cartões usam (se o FreeCAD mudar a unidade interna, o teste avisa)."""
+        q = FreeCAD.Units.Quantity("250 N")
+        self.assertAlmostEqual(FreeCAD.Units.Quantity(q.Value, q.Unit).getValueAs("N").Value, 250.0)
+        self.assertAlmostEqual(FreeCAD.Units.Quantity("1 MPa").Value, 1000.0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -9016,4 +9112,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
-           T71JuntaDaMontagem]
+           T71JuntaDaMontagem, T72SimulacaoEmCartoes]

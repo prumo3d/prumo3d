@@ -609,13 +609,30 @@ class _Base(PainelComando):
         self.campos[chave or nome] = num
         return num
 
+    def _num_un(self, nome, rotulo, unidade, cartao, minimo=None, casas=2, chave=None):
+        """Como _num, mas convertendo da unidade interna do FreeCAD (força em mN, pressão em kPa…) para a
+        unidade mostrada (N, MPa…). Só lengths e ângulos já vêm na unidade certa no rawValue."""
+        w = self.f.w(nome, QtWidgets.QAbstractSpinBox)
+        raw = self.f.numero(nome)
+        if w is None or raw is None or not w.isVisibleTo(self.quadro):
+            return None
+        un = FreeCAD.Units.Quantity("1 " + unidade).Unit
+        v = FreeCAD.Units.Quantity(raw, un).getValueAs(unidade).Value
+        num = UI.CampoNumero(v, unidade, casas=casas) if minimo is None else \
+            UI.CampoNumero(v, unidade, casas=casas, minimo=minimo)
+        num.valueChanged.connect(
+            lambda x, n=nome, u=unidade: self.f.por_numero(n, FreeCAD.Units.Quantity("%r %s" % (float(x), u)).Value))
+        cartao.linha(rotulo, num)
+        self.campos[chave or nome] = num
+        return num
+
     def _acabamento(self, extra=None):
-        if not extra and "Refine" not in self.obj.PropertiesList:
+        if not extra and self.obj is not None and "Refine" not in self.obj.PropertiesList:
             return
         c = UI.Cartao("Acabamento", "acabamento")
         for rot, w in (extra or []):
             c.linha(rot, w)
-        if "Refine" in self.obj.PropertiesList:
+        if self.obj is not None and "Refine" in self.obj.PropertiesList:
             sw = UI.Interruptor(bool(getattr(self.obj, "Refine", False)))
             sw.toggled.connect(self._refinar)
             c.linha("Unir faces planas (refinar)", sw)
@@ -2022,7 +2039,10 @@ AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadiu
            "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura",
            "spinLenFwd": "PainelExtrusaoPart", "selectLine": "PainelRevolucaoPart",
            "referenceLineEdit": "PainelEspelharPart", "rbUniform": "PainelEscalaPart",
-           "filletStartRadius": "PainelArestasPart", "advancedOffsetCheckbox": "PainelJunta"}
+           "filletStartRadius": "PainelArestasPart", "advancedOffsetCheckbox": "PainelJunta",
+           "TaskFemConstraintFixed": "PainelFixacaoFem", "TaskFemConstraintForce": "PainelForcaFem",
+           "TaskFemConstraintPressure": "PainelPressaoFem", "FemMaterial": "PainelMaterialFem",
+           "GmshMesh": "PainelMalhaGmsh"}
 
 
 # ----------------------------------------------------------------------------------- Fixação (anexar)
@@ -2686,6 +2706,229 @@ class PainelJunta(_Base):
                     self._num(sb, "  valor", unid, c)
             self.lay.addWidget(c)
         self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+# ----------------------------------------------------------------------------------- Simulação (FEM)
+DICA_ESCOLHA.update({
+    "btnAdd": "Clique nas faces (ou arestas) na vista; depois, \"Concluir\".",
+    "btnRemove": "Clique nas que quer tirar; depois, \"Concluir\".",
+})
+
+
+class _PainelRestricaoFem(_Escolhas):
+    """Começo comum das restrições do FEM: o que foi escolhido na vista, com Adicionar / Tirar."""
+
+    BOTOES = ("btnAdd", "btnRemove")
+    LISTA = "lw_references"
+    TITULO_ESCOLHA = "Onde"
+    VAZIO = "Nada escolhido: clique em Adicionar e depois nas faces"
+
+    def _cartao_escolha(self):
+        self._selecao(self.TITULO_ESCOLHA, "selecao", list(self._lista(self.LISTA)), self.VAZIO,
+                      [("btnAdd", "Adicionar", "Concluir"), ("btnRemove", "Tirar", "Concluir")], "refs")
+
+    def estado(self):
+        return {"refs": self._lista(self.LISTA), "esc": self._escolhendo(*self.BOTOES)}
+
+
+class PainelFixacaoFem(_PainelRestricaoFem):
+    """Simulação → Fixação: as faces presas."""
+
+    TITULO = "Fixação"
+    TITULO_ESCOLHA = "Faces presas"
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._cartao_escolha()
+        self._fim()
+
+
+class PainelForcaFem(_PainelRestricaoFem):
+    """Simulação → Força: onde, quanto e para onde."""
+
+    TITULO = "Força"
+    LISTA = "listReferences"
+    TITULO_ESCOLHA = "Onde a força atua"
+
+    def estado(self):
+        f = self.f
+        le = f.w("lineDirection", QtWidgets.QLineEdit)
+        e = _PainelRestricaoFem.estado(self)
+        e.update({"forca": f.numero("spinForce"), "dir": le.text() if le else "",
+                  "inv": bool(f.check("checkReverse").isChecked()) if f.check("checkReverse") else False})
+        return e
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        self._cartao_escolha()
+        c = UI.Cartao("Força", "seta_baixo")
+        self._num_un("spinForce", "Valor", "N", c, minimo=0.0, chave="forca")
+        bd = f.w("buttonDirection", QtWidgets.QAbstractButton)
+        if bd is not None:
+            ativo = bool(bd.isCheckable() and bd.isChecked())
+            b = QtWidgets.QPushButton("Escolhendo… clique na vista" if ativo else
+                                      (e["dir"] or "Normal à face (padrão)"))
+            b.setToolTip("Clique e escolha uma aresta, face ou eixo que dá a direção da força")
+            if ativo:
+                b.setObjectName("PrumoPrimario")
+            b.clicked.connect(lambda _=False, bd=bd: (bd.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.linha("Direção", b)
+            self.campos["direcao"] = b
+        self._chave("checkReverse", "Inverter o sentido", c, "inverter")
+        self.lay.addWidget(c)
+        self._fim()
+
+
+class PainelPressaoFem(_PainelRestricaoFem):
+    """Simulação → Pressão: faces, valor e sentido."""
+
+    TITULO = "Pressão"
+    TITULO_ESCOLHA = "Faces com pressão"
+
+    def estado(self):
+        f = self.f
+        e = _PainelRestricaoFem.estado(self)
+        e.update({"p": f.numero("if_pressure"),
+                  "inv": bool(f.check("checkBoxReverse").isChecked()) if f.check("checkBoxReverse") else False})
+        return e
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._cartao_escolha()
+        c = UI.Cartao("Pressão", "seta_baixo")
+        self._num_un("if_pressure", "Valor", "MPa", c, minimo=0.0, casas=4, chave="pressao")
+        self._chave("checkBoxReverse", "Inverter (puxando a face)", c, "inverter")
+        self.lay.addWidget(c)
+        self._fim()
+
+
+def _br(v, casas=None):
+    """Número no formato brasileiro, sem casas sobrando (7900 → '7.900'; 0,3 → '0,3')."""
+    if casas is None:
+        casas = 0 if abs(v) >= 100 else 2
+    t = "{:,.{c}f}".format(v, c=casas).replace(",", "X").replace(".", ",").replace("X", ".")
+    if "," in t:
+        t = t.rstrip("0").rstrip(",")
+    return t
+
+
+class PainelMaterialFem(_Base):
+    """Simulação → Material: o material escolhido e as propriedades usadas no cálculo. A escolha de outro
+    material fica na biblioteca do FreeCAD (formulário completo)."""
+
+    TITULO = "Material"
+    texto_completo = "Escolher outro material (biblioteca)"
+    CAMPOS = (("qsb_density", "Densidade", "kg/m^3"), ("qsb_young_modulus", "Módulo de elasticidade (E)", "GPa"),
+              ("qsb_poisson_ratio", "Coeficiente de Poisson (ν)", ""))
+
+    def _nome(self):
+        try:
+            vp = FreeCADGui.ActiveDocument.getInEdit()
+            obj = vp.Object if vp is not None else None
+            return str(obj.Material.get("Name", "")) if obj is not None and hasattr(obj, "Material") else ""
+        except Exception:
+            return ""
+
+    def estado(self):
+        f = self.f
+        return {"nome": self._nome(), "nums": tuple(f.numero(n) for n, _r, _u in self.CAMPOS),
+                "editar": bool(f.check("chbu_allow_edit").isChecked()) if f.check("chbu_allow_edit") else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Material", "solido")
+        c.linha("Escolhido", UI.Chip(e["nome"] or "—"))
+        self.lay.addWidget(c)
+        c = UI.Cartao("Propriedades usadas no cálculo", "numero")
+        for nome, rot, unidade in self.CAMPOS:
+            raw = f.numero(nome)
+            if raw is None:
+                continue
+            if not raw:
+                texto = "—"
+            elif unidade:
+                un = FreeCAD.Units.Quantity("1 " + unidade).Unit
+                v = FreeCAD.Units.Quantity(raw, un).getValueAs(unidade).Value
+                texto = "{} {}".format(_br(v), unidade.replace("^3", "³"))
+            else:
+                texto = _br(raw, 3)
+            ch = UI.Chip(texto)
+            c.linha(rot, ch)
+            self.campos[nome] = ch
+        nota = QtWidgets.QLabel("Para ajustar um valor ou escolher outro material, abra a biblioteca abaixo.")
+        nota.setObjectName("PrumoSub")
+        nota.setWordWrap(True)
+        c.widget(nota)
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+DIMENSOES_MALHA = {"From Shape": "Da peça", "3D": "Sólida (3D)", "2D": "Casca (2D)", "1D": "Barras (1D)"}
+ORDENS_MALHA = {"1st": "1ª ordem (linear)", "2nd": "2ª ordem (quadrática, mais precisa)"}
+
+
+class PainelMalhaGmsh(_Base):
+    """Simulação → Gerar malha: tipo, tamanhos dos elementos, ordem e a saída do Gmsh."""
+
+    TITULO = "Malha"
+
+    def estado(self):
+        f = self.f
+        te = f.w("te_output", QtWidgets.QTextEdit)
+        return {"dim": f.indice("cb_dimension"), "ordem": f.indice("cb_order"),
+                "nums": (f.numero("qsb_max_size"), f.numero("qsb_min_size")),
+                "saida": (te.toPlainText()[-400:] if te else "")}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Malha", "padrao")
+        cb = f.espelho("cb_dimension", DIMENSOES_MALHA, largura=240)
+        cb.activated.connect(lambda i: (_ativar(f.combo("cb_dimension"), i)))
+        c.linha("Tipo", cb)
+        self.campos["dim"] = cb
+        self._num("qsb_max_size", "Tamanho máximo do elemento", "mm", c, minimo=0.0, chave="max")
+        self._num("qsb_min_size", "Tamanho mínimo (0 = automático)", "mm", c, minimo=0.0, chave="min")
+        cb = f.espelho("cb_order", ORDENS_MALHA, largura=300)
+        cb.setMinimumContentsLength(18)
+        cb.activated.connect(lambda i: (_ativar(f.combo("cb_order"), i)))
+        c.linha("Ordem", cb)
+        self.campos["ordem"] = cb
+        self.lay.addWidget(c)
+        if e["saida"].strip():
+            c = UI.Cartao("Saída do Gmsh", "info")
+            lb = QtWidgets.QLabel("\n".join(e["saida"].strip().splitlines()[-6:]))
+            lb.setObjectName("PrumoSub")
+            lb.setWordWrap(True)
+            c.widget(lb)
+            self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        return "\"Aplicar\" gera a malha agora; OK gera e fecha."
 
     def precisa_do_formulario(self):
         return False

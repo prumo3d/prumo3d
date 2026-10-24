@@ -128,6 +128,14 @@ EXTRA = {
     "Pipe Parameters": "Parâmetros da varredura", "Section Orientation": "Orientação da seção",
     "Section Transformation": "Transformação da seção",
     "Projection Group": "Grupo de projeção",
+    # Simulação: quadro que escolhe onde vale (material, restrições em Python)
+    "Geometry Reference Selector": "Onde vale",
+    "Select geometry of type: {}{}{}": "Escolha na vista: {}{}{}",
+    "Selection mode": "Modo de seleção",
+    "Click and select geometric elements to add them to the list.{}The following geometry elements can be "
+    "selected: {}{}{}": "Clique em Adicionar e escolha na vista.{}Pode escolher: {}{}{}",
+    "{}If no geometry is added to the list, all remaining ones are used.":
+        "{}Se a lista ficar vazia, vale para todo o resto da peça.",
     "Sketch normal": "Normal do esboço", "Taper angle": "Ângulo de inclinação",
     # Barras de ferramentas (títulos)
     "Individual Views": "Vistas individuais", "Part Design Helper Features": "Auxiliares de peça",
