@@ -49,7 +49,10 @@ def widgets_do_layout(lay):
     if pai is None:
         return []
     par = []
-    for w in pai.findChildren(QtWidgets.QWidget, "", QtCore.Qt.FindDirectChildrenOnly):
+    # (findChildren com nome "" no PySide só acha os SEM nome; children() pega todos os filhos diretos)
+    for w in pai.children():
+        if not isinstance(w, QtWidgets.QWidget):
+            continue
         i = lay.indexOf(w)
         if i >= 0:
             par.append((i, w))

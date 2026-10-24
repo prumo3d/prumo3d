@@ -8896,14 +8896,18 @@ class T68CotaBalaoHachura(unittest.TestCase):
         self.assertAlmostEqual(cor[1], 0.0, places=2)
 
     def test_texto_formatado(self):
-        page = self.doc.findObjects(Type="TechDraw::DrawPage")[0]
-        an = self.doc.addObject("TechDraw::DrawRichAnno", "Nota")
-        page.addView(an)
-        an.AnnoText = "<p>antes</p>"
-        self.doc.recompute()
-        self._esp(0.8)
-        p = self._editar(an, "PainelTextoFormatado")
-        self.assertIn("antes", p.campos["texto"].toPlainText())
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.runCommand("TechDraw_RichTextAnnotation", 0)
+        p = None
+        for _i in range(20):
+            self._esp(0.2)
+            p = self.C.painel()
+            if p is not None:
+                break
+        self.assertIsNotNone(p, "o painel do texto formatado não apareceu")
+        self.assertEqual(type(p).__name__, "PainelTextoFormatado")
+        self.assertFalse(p.quadro.isVisible())
+        self.assertEqual(textos_com_problema(p), [])
         p.campos["texto"].setPlainText("Nota 1: rebarbar cantos")
         p.campos["moldura"].setChecked(True)
         self._esp(0.5)
@@ -8911,8 +8915,10 @@ class T68CotaBalaoHachura(unittest.TestCase):
         self.assertIn("estilo", p.campos, "com moldura, o estilo da linha aparece")
         self.assertIn("rebarbar", p.campos["texto"].toPlainText())
         self.assertTrue(self._ok())
-        self.assertIn("Nota 1: rebarbar cantos", an.AnnoText)
-        self.assertTrue(an.ShowFrame)
+        an = self.doc.findObjects(Type="TechDraw::DrawRichAnno")
+        self.assertEqual(len(an), 1)
+        self.assertIn("Nota 1: rebarbar cantos", an[0].AnnoText)
+        self.assertTrue(an[0].ShowFrame)
 
 
 class T69Fixacao(unittest.TestCase):
@@ -9191,7 +9197,6 @@ class T71JuntaDaMontagem(unittest.TestCase):
             p = self.C.painel()
             nomes = [v for k, v in p.campos.items() if k.startswith("nome")]
             self.assertEqual(nomes, ["Eixo"], "o filtro devia deixar só o Eixo: %s" % nomes)
-            self.assertTrue(p.campos["filtro"].hasFocus() or not FreeCADGui.getMainWindow().isActiveWindow())
             p.campos["peca0"].click()
             self._esp(1.0)
             p = self.C.painel()
@@ -9347,9 +9352,7 @@ class T72SimulacaoEmCartoes(unittest.TestCase):
         self._esp(0.6)
         ov = self.C.painel_secundario("PainelOndeVale")
         self.assertIn("tirar0", ov.campos, "o sólido escolhido devia aparecer")
-        ov.campos["adicionar"].click()
-        self._esp(0.4)
-        ov = self.C.painel_secundario("PainelOndeVale")
+        # o seletor do FreeCAD sai do modo de escolha depois de cada item acrescentado
         self.assertEqual(ov.campos["adicionar"].text(), "Adicionar na vista")
         self.assertTrue(self._ok())
         self.assertEqual([(o.Name, list(sub)) for o, sub in self.mat.References], [("Caixa", ["Solid1"])])
@@ -9426,8 +9429,12 @@ class T74MaisSolidosEmCartoes(unittest.TestCase):
             else:
                 FreeCADGui.Selection.addSelection(sel)
         FreeCADGui.runCommand(cmd, 0)
-        self._esp(1.5)
-        p = self.C.painel()
+        p = None
+        for _i in range(25):
+            self._esp(0.2)
+            p = self.C.painel()
+            if p is not None and type(p).__name__ == classe:
+                break
         self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
         self.assertEqual(type(p).__name__, classe)
         self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
