@@ -1656,8 +1656,368 @@ class PainelVistas(_Base):
         return False
 
 
+def _texto_espelho(cartao, rotulo, fc, largura=80, campos=None, chave=None):
+    """Campo de texto curto ligado a um QLineEdit do formulário (o FreeCAD lê no editingFinished)."""
+    le = QtWidgets.QLineEdit(fc.text() if fc is not None else "")
+    le.setObjectName("PrumoTexto")
+    le.setMaximumWidth(largura)
+    le.setAlignment(QtCore.Qt.AlignCenter)
+    if fc is None:
+        le.setEnabled(False)
+    else:
+        def passar(le=le, fc=fc):
+            if fc.text() != le.text():
+                fc.setText(le.text())
+                fc.editingFinished.emit()
+        le.editingFinished.connect(passar)
+    cartao.linha(rotulo, le)
+    if campos is not None and chave:
+        campos[chave] = le
+    return le
+
+
+def _escala_cartao(painel, cartao, nome_tipo, nome_valor, quantidade=True):
+    """Segmentado Da folha / Automática / Escolher + valor quando escolhida (corte e detalhe)."""
+    f = painel.f
+    i = f.indice(nome_tipo)
+    seg = UI.Segmentado(ESCALAS, str(max(0, i)), colunas=3)
+    seg.mudou.connect(lambda k: painel._indice(nome_tipo, int(k)))
+    cartao.widget(seg)
+    painel.campos["escala"] = seg
+    w = f.w(nome_valor, QtWidgets.QAbstractSpinBox)
+    if w is None:
+        return
+    if quantidade:
+        v = f.numero(nome_valor)
+    else:
+        v = w.value()
+    if v is None:
+        return
+    num = UI.CampoNumero(float(v), "", casas=4, minimo=0.0001)
+    num.setEnabled(i == 2)
+    if quantidade:
+        num.valueChanged.connect(lambda x: f.por_numero(nome_valor, x))
+    else:
+        num.valueChanged.connect(lambda x, w=w: w.setValue(float(x)))
+    cartao.linha("Fator de escala (ex.: 0,5 = 1:2)", num)
+    painel.campos["fator"] = num
+
+
+DIRECOES_CORTE = [("pbLeft", "← Esquerda", "Olhando para a esquerda"), ("pbRight", "→ Direita", "Olhando para a direita"),
+                  ("pbUp", "↑ Cima", "Olhando para cima"), ("pbDown", "↓ Baixo", "Olhando para baixo")]
+
+
+class PainelCorte(_Base):
+    """Desenho → Vista em corte: letra, para onde o corte olha, onde passa o plano, escala e atualização."""
+
+    QSS_EXTRA = PainelVistas.QSS_EXTRA
+
+    def estado(self):
+        f = self.f
+        le, base = f.w("leSymbol", QtWidgets.QLineEdit), f.w("leBaseView", QtWidgets.QLineEdit)
+        sc = f.w("sbScale", QtWidgets.QDoubleSpinBox)
+        live = f.w("cbLiveUpdate", QtWidgets.QCheckBox)
+        return {"letra": le.text() if le else "", "base": base.text() if base else "",
+                "escala": f.indice("cmbScaleType"), "fator": round(sc.value(), 6) if sc else None,
+                "org": tuple(f.numero(n) for n in ("sbOrgX", "sbOrgY", "sbOrgZ")),
+                "live": bool(live.isChecked()) if live else False,
+                "dir_ok": tuple(bool(f.w(n, QtWidgets.QAbstractButton) and
+                                     f.w(n, QtWidgets.QAbstractButton).isEnabled()) for n, _t, _d in DIRECOES_CORTE)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Corte", "texto")
+        if e["base"]:
+            c.linha("Vista de origem", UI.Chip(e["base"]))
+        _texto_espelho(c, "Letra do corte (ex.: A)", f.w("leSymbol", QtWidgets.QLineEdit), campos=self.campos,
+                       chave="letra")
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Para onde o corte olha", "seta_cima")
+        sub = QtWidgets.QLabel("Escolha a direção: o corte aparece na folha ao lado da vista de origem.")
+        sub.setObjectName("PrumoSub")
+        sub.setWordWrap(True)
+        c.widget(sub)
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for nome_fc, txt, dica in DIRECOES_CORTE:
+            fb = f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            b = QtWidgets.QToolButton()
+            b.setObjectName("PrumoVista")
+            b.setText(txt)
+            b.setToolTip(dica)
+            b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+            b.setMinimumHeight(32)
+            b.setEnabled(fb.isEnabled())
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(150, self.montar)))
+            hl.addWidget(b, 1)
+            self.campos[nome_fc] = b
+        c.widget(linha)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("O plano de corte passa por", "fixacao")
+        for nome_fc, rot in (("sbOrgX", "X"), ("sbOrgY", "Y"), ("sbOrgZ", "Z")):
+            self._num(nome_fc, rot, "mm", c)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Escala", "medida")
+        _escala_cartao(self, c, "cmbScaleType", "sbScale", quantidade=False)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Atualização", "acabamento")
+        lv = f.w("cbLiveUpdate", QtWidgets.QCheckBox)
+        if lv is not None:
+            sw = UI.Interruptor(e["live"])
+            sw.toggled.connect(lambda on, lv=lv: (lv.isChecked() != on and lv.click(),
+                                                  QtCore.QTimer.singleShot(50, self.montar)))
+            c.linha("Atualizar a cada mudança", sw)
+            self.campos["live"] = sw
+        up = f.w("pbUpdateNow", QtWidgets.QAbstractButton)
+        if up is not None and not e["live"]:
+            b = QtWidgets.QPushButton("Atualizar agora")
+            b.clicked.connect(lambda _=False, up=up: up.click())
+            c.widget(b)
+            self.campos["atualizar"] = b
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelDetalhe(_Base):
+    """Desenho → Vista de detalhe: letra, onde fica o círculo (arrastar na folha, X, Y, raio) e escala."""
+
+    def estado(self):
+        f = self.f
+        le, base = f.w("leReference", QtWidgets.QLineEdit), f.w("leBaseView", QtWidgets.QLineEdit)
+        return {"letra": le.text() if le else "", "base": base.text() if base else "",
+                "escala": f.indice("cbScaleType"),
+                "nums": tuple(f.numero(n) for n in ("qsbX", "qsbY", "qsbRadius", "qsbScale"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Detalhe", "texto")
+        if e["base"]:
+            c.linha("Vista de origem", UI.Chip(e["base"]))
+        _texto_espelho(c, "Letra do detalhe (ex.: B)", f.w("leReference", QtWidgets.QLineEdit), campos=self.campos,
+                       chave="letra")
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Onde fica o círculo", "raio")
+        dr = f.w("pbDragger", QtWidgets.QAbstractButton)
+        if dr is not None:
+            b = QtWidgets.QPushButton("Arrastar o círculo na folha")
+            b.setToolTip("Depois de clicar, arraste o círculo sobre a vista de origem")
+            b.setEnabled(dr.isEnabled())
+            b.clicked.connect(lambda _=False, dr=dr: dr.click())
+            c.widget(b)
+            self.campos["arrastar"] = b
+        self._num("qsbX", "X do centro", "mm", c)
+        self._num("qsbY", "Y do centro", "mm", c)
+        self._num("qsbRadius", "Raio", "mm", c, minimo=0.0)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Escala", "medida")
+        _escala_cartao(self, c, "cbScaleType", "qsbScale", quantidade=True)
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+def _num_simples(painel, nome, rotulo, unid, cartao, inteiro=False, casas=2, minimo=None, chave=None):
+    """Campo ligado a um QSpinBox/QDoubleSpinBox comum do formulário (sem rawValue)."""
+    cls = QtWidgets.QSpinBox if inteiro else QtWidgets.QDoubleSpinBox
+    w = painel.f.w(nome, cls)
+    if w is None or not w.isVisibleTo(painel.quadro):
+        return None
+    if inteiro:
+        n = QtWidgets.QSpinBox()
+        n.setObjectName("PrumoNum")
+        n.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+        n.setRange(w.minimum(), w.maximum())
+        n.setKeyboardTracking(False)
+        n.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        n.setMaximumWidth(120)
+        n.setValue(w.value())
+        n.valueChanged.connect(lambda v, w=w: w.setValue(int(v)))
+    else:
+        n = UI.CampoNumero(w.value(), unid, casas=casas) if minimo is None else \
+            UI.CampoNumero(w.value(), unid, casas=casas, minimo=minimo)
+        n.valueChanged.connect(lambda v, w=w: w.setValue(float(v)))
+    cartao.linha(rotulo, n)
+    painel.campos[chave or nome] = n
+    return n
+
+
+class PainelCota(_Base):
+    """Desenho → editar uma cota: casas decimais, referência, exata, texto livre, tolerância e aparência."""
+
+    def estado(self):
+        f = self.f
+        chk = ("cbReference", "cbTheoreticallyExact", "cbArbitrary", "cbEqualTolerance", "cbArrowheads")
+        sb = f.w("sbNumDecimals", QtWidgets.QSpinBox)
+        le = f.w("leFormatSpecifier", QtWidgets.QLineEdit)
+        return {"chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False for n in chk),
+                "dec": sb.value() if sb else None, "fmt": le.text() if le else "",
+                "tol": (f.numero("qsbOvertolerance"), f.numero("qsbUndertolerance")),
+                "fonte": f.numero("qsbFontSize"), "estilo": f.indice("comboDrawingStyle")}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Valor", "numero")
+        _num_simples(self, "sbNumDecimals", "Casas decimais", "", c, inteiro=True, chave="dec")
+        self._chave("cbReference", "Cota de referência (entre parênteses)", c, "ref")
+        self._chave("cbTheoreticallyExact", "Teoricamente exata (em caixa)", c, "exata")
+        arb = self._chave("cbArbitrary", "Texto livre no lugar do valor", c, "livre")
+        le = f.w("leFormatSpecifier", QtWidgets.QLineEdit)
+        if le is not None and arb is not None and e["chk"][2]:
+            t = QtWidgets.QLineEdit(le.text())
+            t.setObjectName("PrumoTexto")
+            t.textChanged.connect(lambda x, le=le: le.setText(x))
+            c.linha("Texto", t)
+            self.campos["texto"] = t
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Tolerância", "medida")
+        self._chave("cbEqualTolerance", "Simétrica (±)", c, "simetrica")
+        self._num("qsbOvertolerance", "Superior", "mm", c, chave="sup")
+        if not e["chk"][3]:
+            self._num("qsbUndertolerance", "Inferior", "mm", c, chave="inf")
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Aparência", "aparencia")
+        self._num("qsbFontSize", "Tamanho do texto", "mm", c, minimo=0.1, chave="fonte")
+        self._chave("cbArrowheads", "Inverter as setas", c, "setas")
+        cb = f.combo("comboDrawingStyle")
+        if cb is not None and cb.isVisibleTo(self.quadro):
+            lista = f.espelho("comboDrawingStyle", {"ISO oriented": "ISO, texto alinhado à linha",
+                                                    "ISO referencing": "ISO, texto em linha de chamada",
+                                                    "ASME inlined": "ASME, texto no meio da linha",
+                                                    "ASME referencing": "ASME, texto em linha de chamada"},
+                              largura=260)
+            lista.setMinimumContentsLength(16)
+            c.linha("Estilo", lista)
+            self.campos["estilo"] = lista
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+FORMAS_BALAO = {"Circular": "Círculo", "None": "Sem forma", "Triangle": "Triângulo", "Inspection": "Inspeção",
+                "Hexagon": "Hexágono", "Square": "Quadrado", "Rectangle": "Retângulo", "Line": "Sublinhado"}
+PONTAS = {"Filled arrow": "Seta cheia", "Open arrow": "Seta aberta", "Tick": "Traço", "Dot": "Ponto",
+          "Open circle": "Círculo aberto", "Fork": "Garfo", "Filled triangle": "Triângulo cheio", "None": "Nenhuma"}
+
+
+class PainelBalao(_Base):
+    """Desenho → editar um balão: texto (número da peça), forma, tamanho, ponta e linha."""
+
+    def estado(self):
+        f = self.f
+        le = f.w("leText", QtWidgets.QLineEdit)
+        return {"texto": le.text() if le else "", "forma": f.indice("comboBubbleShape"),
+                "ponta": f.indice("comboEndSymbol"), "linha": f.indice("comboLineVisible"),
+                "nums": tuple(f.numero(n) for n in ("qsbFontSize", "qsbShapeScale", "qsbLineWidth"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Balão", "texto")
+        le = f.w("leText", QtWidgets.QLineEdit)
+        if le is not None:
+            t = QtWidgets.QLineEdit(le.text())
+            t.setObjectName("PrumoTexto")
+            t.setMaximumWidth(120)
+            t.setAlignment(QtCore.Qt.AlignCenter)
+            t.textChanged.connect(lambda x, le=le: le.setText(x))
+            c.linha("Texto (nº da peça)", t)
+            self.campos["texto"] = t
+        forma = f.espelho("comboBubbleShape", FORMAS_BALAO)
+        c.linha("Forma", forma)
+        self.campos["forma"] = forma
+        self._num("qsbFontSize", "Tamanho do texto", "mm", c, minimo=0.1, chave="fonte")
+        self._num("qsbShapeScale", "Escala da forma", "", c, minimo=0.01, chave="escala")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Linha de chamada", "seta_cima")
+        ponta = f.espelho("comboEndSymbol", PONTAS, largura=220)
+        ponta.setMinimumContentsLength(14)
+        c.linha("Ponta", ponta)
+        self.campos["ponta"] = ponta
+        lv = f.combo("comboLineVisible")
+        if lv is not None:
+            sw = UI.Interruptor(lv.currentIndex() == 1)
+            sw.toggled.connect(lambda on, lv=lv: lv.setCurrentIndex(1 if on else 0))
+            c.linha("Mostrar a linha", sw)
+            self.campos["linha"] = sw
+        self._num("qsbLineWidth", "Espessura", "mm", c, minimo=0.0, chave="espessura")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelHachura(_Base):
+    """Desenho → hachura de face: escala, rotação e deslocamento (o padrão continua no formulário completo)."""
+
+    def estado(self):
+        f = self.f
+        vals = []
+        for n in ("dsbRotation", "dsbOffsetX", "dsbOffsetY"):
+            w = f.w(n, QtWidgets.QDoubleSpinBox)
+            vals.append(round(w.value(), 6) if w else None)
+        return {"escala": f.numero("sbScale"), "vals": tuple(vals)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        c = UI.Cartao("Hachura", "padrao")
+        self._num("sbScale", "Escala do padrão", "", c, minimo=0.0001, chave="escala")
+        _num_simples(self, "dsbRotation", "Rotação", "°", c, chave="rotacao")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Deslocamento do padrão", "fixacao")
+        _num_simples(self, "dsbOffsetX", "X", "mm", c, chave="dx")
+        _num_simples(self, "dsbOffsetY", "Y", "mm", c, chave="dy")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        return "O desenho do padrão (arquivo e cor) fica no formulário completo do FreeCAD."
+
+    def precisa_do_formulario(self):
+        return False
+
+
 # formulários que não dependem de uma operação de Peça em edição: marca → classe
-AVULSOS = {"cmbScaleType": "PainelVistas"}
+# (marcas únicas de cada formulário do FreeCAD: "cmbScaleType" existe no de vistas e no de corte)
+AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadius": "PainelDetalhe",
+           "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura"}
 
 
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",

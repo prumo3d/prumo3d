@@ -8598,6 +8598,136 @@ class T66PainelDeVistas(unittest.TestCase):
         self.assertIn("direção", self.C.direcao_em_palavras("[0.71 -0.71 0.00]"))
 
 
+class T67CorteEDetalhe(unittest.TestCase):
+    """Desenho → Vista em corte e Vista de detalhe em cartões: a letra, a direção e o raio escolhidos nos
+    cartões ficam na vista criada."""
+
+    setUp = T66PainelDeVistas.setUp
+    tearDown = T66PainelDeVistas.tearDown
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+
+    def _vista_base(self):
+        page = self.doc.findObjects(Type="TechDraw::DrawPage")[0]
+        v = self.doc.addObject("TechDraw::DrawViewPart", "Vista")
+        page.addView(v)
+        v.Source = [self.body]
+        v.Direction = FreeCAD.Vector(0, -1, 0)
+        self.doc.recompute()
+        self._esp(0.8)
+        return v
+
+    def _abrir(self, cmd, classe):
+        v = self._vista_base()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(v)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        return p
+
+    def test_corte_com_letra_e_direcao(self):
+        p = self._abrir("TechDraw_SectionView", "PainelCorte")
+        p.campos["letra"].setText("B")
+        p.campos["letra"].editingFinished.emit()
+        self._esp(0.3)
+        p.campos["pbRight"].click()
+        self._esp(1.5)
+        self.assertTrue(self._ok())
+        cortes = self.doc.findObjects(Type="TechDraw::DrawViewSection")
+        self.assertEqual(len(cortes), 1)
+        self.assertEqual(cortes[0].SectionSymbol, "B")
+
+    def test_detalhe_com_raio_e_letra(self):
+        p = self._abrir("TechDraw_DetailView", "PainelDetalhe")
+        p.campos["qsbRadius"].setValue(7.0)
+        p.campos["letra"].setText("C")
+        p.campos["letra"].editingFinished.emit()
+        self._esp(0.5)
+        self.assertTrue(self._ok())
+        dets = self.doc.findObjects(Type="TechDraw::DrawViewDetail")
+        self.assertEqual(len(dets), 1)
+        self.assertAlmostEqual(float(dets[0].Radius), 7.0, places=3)
+        self.assertEqual(dets[0].Reference, "C")
+
+    def test_vistas_nao_confundem_com_corte(self):
+        """O formulário de corte também tem um campo de escala com o mesmo nome do de vistas."""
+        import PrumoPainelComando as C
+        self.assertNotIn("cmbScaleType", C.AVULSOS)
+
+
+class T68CotaBalaoHachura(unittest.TestCase):
+    """Desenho → editar cota, balão e hachura em cartões; o OK grava o que se mudou nos cartões."""
+
+    setUp = T66PainelDeVistas.setUp
+    tearDown = T66PainelDeVistas.tearDown
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _vista_base = T67CorteEDetalhe._vista_base
+
+    def _editar(self, obj, classe):
+        FreeCADGui.ActiveDocument.setEdit(obj.Name)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % classe)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        return p
+
+    def test_cota(self):
+        v = self._vista_base()
+        page = self.doc.findObjects(Type="TechDraw::DrawPage")[0]
+        dim = self.doc.addObject("TechDraw::DrawViewDimension", "Cota")
+        dim.Type = "Distance"
+        dim.References2D = [(v, "Edge0")]
+        page.addView(dim)
+        self.doc.recompute()
+        self._esp(0.8)
+        p = self._editar(dim, "PainelCota")
+        p.campos["dec"].setValue(1)
+        p.campos["ref"].setChecked(True)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        # 1 casa decimal e cota de referência (o FreeCAD põe os parênteses no formato)
+        self.assertEqual(dim.FormatSpec, "(%.1w)")
+        self.assertFalse(dim.Arbitrary)
+
+    def test_balao(self):
+        v = self._vista_base()
+        page = self.doc.findObjects(Type="TechDraw::DrawPage")[0]
+        bal = self.doc.addObject("TechDraw::DrawViewBalloon", "Balao")
+        bal.SourceView = v
+        page.addView(bal)
+        bal.Text = "1"
+        self.doc.recompute()
+        self._esp(0.8)
+        p = self._editar(bal, "PainelBalao")
+        p.campos["texto"].setText("7")
+        p.campos["forma"].setCurrentIndex(4)
+        p.campos["forma"].activated.emit(4)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        self.assertEqual(bal.Text, "7")
+        self.assertEqual(bal.BubbleShape, "Hexagon")
+
+    def test_hachura(self):
+        v = self._vista_base()
+        hat = self.doc.addObject("TechDraw::DrawHatch", "Hachura")
+        hat.Source = (v, ["Face0"])
+        self.doc.recompute()
+        self._esp(0.8)
+        p = self._editar(hat, "PainelHachura")
+        p.campos["escala"].setValue(2.5)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(float(hat.ViewObject.HatchScale), 2.5, places=4)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8613,4 +8743,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
            T60Atualizacao, T61PaineisExtrasComoAbas,
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
-           T65MaisPaineisDeComando, T66PainelDeVistas]
+           T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
+           T68CotaBalaoHachura]

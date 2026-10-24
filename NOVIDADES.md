@@ -9,6 +9,24 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Desenho em cartões, parte 2:**
+  - **Vista em corte:** letra do corte, para onde ele olha (← Esquerda, → Direita, ↑ Cima, ↓ Baixo), por
+    onde passa o plano (X, Y, Z), escala e atualização.
+  - **Vista de detalhe:** letra, "Arrastar o círculo na folha", centro (X, Y), raio e escala.
+  - **Editar cota:** casas decimais, cota de referência (entre parênteses), teoricamente exata, texto
+    livre, tolerância (simétrica ou superior/inferior), tamanho do texto, inverter as setas e estilo.
+  - **Editar balão:** texto (nº da peça), forma, tamanho, ponta e linha de chamada.
+  - **Hachura:** escala, rotação e deslocamento do padrão.
+
+### Testes
+
+- Corte (letra e direção), detalhe (raio e letra), cota (casas e referência), balão (texto e forma) e
+  hachura (escala): cada painel abre em cartões e o OK grava o que foi mudado.
+
 ## 0.8.1 beta — 24/10/2026
 
 ### Melhorias
