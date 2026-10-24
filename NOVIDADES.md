@@ -18,10 +18,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   comandos em cartões, abas compactas), esboço (retirar relações automáticas que não cabem, referências
   automáticas, enquadrar ao sair), unidades (sistema em português e casas decimais) e atualizações. Cada
   opção grava na hora; as preferências completas do FreeCAD continuam a um clique.
+- **Multitransformação em cartões:** operações a repetir e a lista de transformações em ordem, com
+  "+ Espelhar", "+ Padrão linear", "+ Padrão circular", "+ Escala", Editar, Excluir, Subir e Descer (antes
+  só pelo menu do botão direito). Ao editar uma transformação, o quadro dela aparece com "Concluir esta
+  transformação".
 
 ### Testes
 
 - Preferências: abre pelo comando, grava na hora, unidades com nomes em português.
+- Multitransformação: adicionar um padrão linear pelos cartões, concluir e gravar.
 
 ## 0.9.1 beta — 24/10/2026
 

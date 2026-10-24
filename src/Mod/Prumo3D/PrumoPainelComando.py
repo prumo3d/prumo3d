@@ -29,7 +29,7 @@ TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole", "PartDesig
          "PartDesign::PolarPattern", "PartDesign::Mirrored", "PartDesign::Draft", "PartDesign::Thickness",
          "PartDesign::AdditiveHelix", "PartDesign::SubtractiveHelix", "PartDesign::AdditiveLoft",
          "PartDesign::SubtractiveLoft", "PartDesign::AdditivePipe", "PartDesign::SubtractivePipe",
-         "PartDesign::Boolean") + tuple("PartDesign::%s%s" % (a, b) for b in ("Box", "Cylinder", "Sphere", "Cone",
+         "PartDesign::Boolean", "PartDesign::MultiTransform") + tuple("PartDesign::%s%s" % (a, b) for b in ("Box", "Cylinder", "Sphere", "Cone",
                                        "Ellipsoid", "Torus", "Prism", "Wedge") for a in ("Additive", "Subtractive"))
 # campo que identifica o formulário do FreeCAD de cada comando
 MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType",
@@ -40,7 +40,8 @@ MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "P
          "PartDesign::Thickness": "joinComboBox", "PartDesign::AdditiveHelix": "inputMode",
          "PartDesign::SubtractiveHelix": "inputMode", "PartDesign::AdditiveLoft": "checkBoxRuled",
          "PartDesign::SubtractiveLoft": "checkBoxRuled", "PartDesign::AdditivePipe": "comboBoxTransition",
-         "PartDesign::SubtractivePipe": "comboBoxTransition", "PartDesign::Boolean": "comboType"}
+         "PartDesign::SubtractivePipe": "comboBoxTransition", "PartDesign::Boolean": "comboType",
+         "PartDesign::MultiTransform": "listTransformFeatures"}
 MARCA.update({t: "PartDesignGui__DlgPrimitives" for t in TIPOS if t.startswith(("PartDesign::Additive", "PartDesign::Subtractive"))
               and t.endswith(("Box", "Cylinder", "Sphere", "Cone", "Ellipsoid", "Torus", "Prism", "Wedge"))})
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
@@ -317,8 +318,8 @@ class PainelComando(QtWidgets.QWidget):
         if self.quadro is not None and shiboken.isValid(self.quadro):
             self.quadro.setVisible(mostrar)
         if escolha and not self.completo.isChecked():
-            self.dica.mostrar("Escolha a face (ou a peça) na vista: o quadro do FreeCAD abaixo mostra o que foi "
-                              "escolhido.")
+            self.dica.mostrar(self.dica_extra() or "Escolha a face (ou a peça) na vista: o quadro do FreeCAD abaixo "
+                                                   "mostra o que foi escolhido.")
         else:
             self.dica.mostrar(self.dica_extra())
 
@@ -2934,6 +2935,128 @@ class PainelMalhaGmsh(_Base):
         return False
 
 
+TIPOS_MULTI = [("Add Mirror Transformation", "+ Espelhar"), ("Add Linear Pattern", "+ Padrão linear"),
+               ("Add Polar Pattern", "+ Padrão circular"), ("Add Scale Transformation", "+ Escala")]
+ACOES_ITEM = [("Edit", "Editar"), ("Delete", "Excluir"), ("Move Up", "Subir"), ("Move Down", "Descer")]
+
+
+def nome_transformacao(rotulo):
+    """'Linear_Pattern001' → 'Padrão linear 001' (rótulos padrão do FreeCAD nas transformações)."""
+    import re
+    m = re.match(r"^(Mirrored|Linear_?Pattern|Polar_?Pattern|Scaled)(\d*)$", rotulo or "")
+    if not m:
+        return rotulo
+    base = {"Mirrored": "Espelhar", "Scaled": "Escala"}.get(m.group(1))
+    if base is None:
+        base = "Padrão linear" if m.group(1).startswith("Linear") else "Padrão circular"
+    return base + (" " + m.group(2) if m.group(2) else "")
+
+
+class PainelMultiTransform(_Base):
+    """Peça → Multitransformação: operações a repetir e a lista de transformações (espelhar, padrões,
+    escala) em ordem, com adicionar, editar, excluir, subir e descer. Ao editar uma transformação, o quadro
+    dela (do FreeCAD) aparece abaixo, com o OK próprio."""
+
+    def _acoes(self):
+        lw = self.f.w("listTransformFeatures", QtWidgets.QListWidget)
+        return lw.actions() if lw is not None else []
+
+    def _acao(self, indice):
+        acoes = self._acoes()
+        return acoes[indice] if 0 <= indice < len(acoes) else None
+
+    def estado(self):
+        f = self.f
+        lt = f.w("listTransformFeatures", QtWidgets.QListWidget)
+        ok = f.w("buttonOK", QtWidgets.QAbstractButton)
+        add = f.w("buttonAddFeature", QtWidgets.QAbstractButton)
+        rem = f.w("buttonRemoveFeature", QtWidgets.QAbstractButton)
+        return {"ops": self._lista("listWidgetFeatures"),
+                "add": bool(add.isChecked()) if add else False, "rem": bool(rem.isChecked()) if rem else False,
+                "trans": tuple(lt.item(i).text() for i in range(lt.count())) if lt else (),
+                "sel": lt.currentRow() if lt else -1,
+                "sub": bool(ok is not None and ok.isVisibleTo(self.quadro))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        self._selecao("Operações a repetir", "padrao", list(e["ops"]), "Nenhuma operação escolhida",
+                      [("buttonAddFeature", "Adicionar", "Concluir"), ("buttonRemoveFeature", "Tirar", "Concluir")],
+                      "ops")
+        c = UI.Cartao("Transformações (aplicadas em ordem)", "lista")
+        lt = f.w("listTransformFeatures", QtWidgets.QListWidget)
+        lista = QtWidgets.QListWidget()
+        lista.setObjectName("PrumoLista")
+        for t in e["trans"]:
+            lista.addItem(nome_transformacao(t))
+        lista.setFixedHeight(max(34, min(len(e["trans"]), 6) * 26 + 8))
+        if 0 <= e["sel"] < lista.count():
+            lista.setCurrentRow(e["sel"])
+        lista.currentRowChanged.connect(lambda r, lt=lt: lt is not None and lt.setCurrentRow(r))
+        lista.itemDoubleClicked.connect(lambda _it: self._executar(0))
+        if e["trans"]:
+            c.widget(lista)
+        else:
+            vazio = QtWidgets.QLabel("Nenhuma transformação: adicione abaixo.")
+            vazio.setObjectName("PrumoSub")
+            c.widget(vazio)
+        self.campos["lista"] = lista
+        grade = QtWidgets.QWidget()
+        g = QtWidgets.QGridLayout(grade)
+        g.setContentsMargins(0, 0, 0, 0)
+        g.setSpacing(4)
+        for n, (_orig, texto) in enumerate(TIPOS_MULTI):
+            b = QtWidgets.QPushButton(texto)
+            b.setEnabled(not e["sub"])
+            b.clicked.connect(lambda _=False, i=2 + n: self._executar(i))
+            g.addWidget(b, n // 2, n % 2)
+            self.campos["add%d" % n] = b
+        c.widget(grade)
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for n, (_orig, texto) in enumerate(ACOES_ITEM):
+            b = QtWidgets.QPushButton(texto)
+            b.setEnabled(bool(e["trans"]) and e["sel"] >= 0 and not e["sub"])
+            idx = {0: 0, 1: 1, 2: 6, 3: 7}[n]
+            b.clicked.connect(lambda _=False, i=idx: self._executar(i))
+            hl.addWidget(b)
+            self.campos["item%d" % n] = b
+        c.widget(linha)
+        self.lay.addWidget(c)
+        if e["sub"]:
+            ok = f.w("buttonOK", QtWidgets.QAbstractButton)
+            b = QtWidgets.QPushButton("Concluir esta transformação")
+            b.setObjectName("PrumoPrimario")
+            b.clicked.connect(lambda _=False, ok=ok: (ok.click(), QtCore.QTimer.singleShot(100, self.montar)))
+            self.lay.addWidget(b)
+            self.campos["concluir"] = b
+        self._acabamento()
+        self._fim()
+
+    def _executar(self, indice):
+        a = self._acao(indice)
+        if a is not None:
+            a.trigger()
+        QtCore.QTimer.singleShot(120, self.montar)
+
+    def dica_extra(self):
+        e = self.estado()
+        if e["sub"]:
+            return "Ajuste a transformação no quadro do FreeCAD abaixo e clique em \"Concluir esta transformação\"."
+        if e["add"] or e["rem"]:
+            return DICA_ESCOLHA.get("buttonRefAdd", "")
+        return ""
+
+    def precisa_do_formulario(self):
+        ok = self.f.w("buttonOK", QtWidgets.QAbstractButton)
+        return bool(ok is not None and ok.isVisibleTo(self.quadro))
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
@@ -2943,7 +3066,7 @@ CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComa
            "PartDesign::AdditiveHelix": "PainelHelice", "PartDesign::SubtractiveHelix": "PainelHelice",
            "PartDesign::AdditiveLoft": "PainelLoft", "PartDesign::SubtractiveLoft": "PainelLoft",
            "PartDesign::AdditivePipe": "PainelVarredura", "PartDesign::SubtractivePipe": "PainelVarredura",
-           "PartDesign::Boolean": "PainelBooleana"}
+           "PartDesign::Boolean": "PainelBooleana", "PartDesign::MultiTransform": "PainelMultiTransform"}
 CLASSES.update({t: "PainelPrimitiva" for t in MARCA if MARCA[t] == "PartDesignGui__DlgPrimitives"})
 
 

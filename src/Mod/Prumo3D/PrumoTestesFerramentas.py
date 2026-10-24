@@ -8565,6 +8565,37 @@ class T65MaisPaineisDeComando(unittest.TestCase):
         self.assertTrue(self._ok())
         self.assertEqual(obj.Type, "Fuse")
 
+    def test_multitransformacao(self):
+        self.doc = novo_doc("PrumoTesteMulti")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        sk = esboco_retangulo(body, 10.0, 10.0)
+        pad = body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 5
+        self.doc.recompute()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(pad)
+        FreeCADGui.runCommand("PartDesign_MultiTransform", 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertEqual(type(p).__name__, "PainelMultiTransform")
+        self.assertEqual(textos_com_problema(p), [])
+        self.assertIn("Pad", p.campos["ops"].text())
+        p.campos["add1"].click()               # + Padrão linear
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertTrue(p.estado()["sub"], "a edição da transformação devia abrir")
+        self.assertTrue(p.quadro.isVisible(), "o quadro do FreeCAD aparece durante a edição")
+        p.campos["concluir"].click()
+        self._esp(1.0)
+        p = self.C.painel()
+        self.assertEqual(len(p.estado()["trans"]), 1)
+        self.assertEqual(p.campos["lista"].item(0).text().split()[0], "Padrão")
+        self.assertTrue(self._ok())
+        mt = self.doc.findObjects(Type="PartDesign::MultiTransform")
+        self.assertEqual(len(mt[0].Transformations), 1)
+
     def test_varredura(self):
         obj, p = self._abrir("AdditivePipe", "PainelVarredura")
         self.assertIn("Perfil", p.campos["perfil"].text())
