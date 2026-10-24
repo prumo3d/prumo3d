@@ -504,13 +504,14 @@ class _Base(PainelComando):
     """Começo comum dos painéis (sem os modos da extrusão)."""
 
     texto_completo = "Formulário completo do FreeCAD"
+    QSS_EXTRA = ""
 
     def __init__(self, obj, quadro, parent=None):
         self.modos = []
         QtWidgets.QWidget.__init__(self, parent)
         self.setObjectName("PrumoUI")
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-        self.setStyleSheet(UI.qss() + UI.tema("#PrumoUI { background: transparent; }"))
+        self.setStyleSheet(UI.qss() + UI.tema("#PrumoUI { background: transparent; }" + self.QSS_EXTRA))
         self.obj = obj
         self.f = Formulario(quadro)
         self.quadro = quadro
@@ -1414,6 +1415,251 @@ class PainelBooleana(_Escolhas):
         self._fim()
 
 
+# ----------------------------------------------------------------------------------- Desenho: vistas
+# posição de cada caixinha do formulário (chkView0…9) na grade 3 × 4, e o nome da vista em cada diedro
+GRADE_VISTAS = {0: (0, 0), 1: (0, 1), 2: (0, 2), 3: (1, 0), 4: (1, 1), 5: (1, 2), 6: (1, 3),
+                7: (2, 0), 8: (2, 1), 9: (2, 2)}
+VISTAS_3 = {0: "FrontTopLeft", 1: "Top", 2: "FrontTopRight", 3: "Left", 4: "Front", 5: "Right", 6: "Rear",
+            7: "FrontBottomLeft", 8: "Bottom", 9: "FrontBottomRight"}
+VISTAS_1 = {0: "FrontBottomRight", 1: "Bottom", 2: "FrontBottomLeft", 3: "Right", 4: "Front", 5: "Left",
+            6: "Rear", 7: "FrontTopRight", 8: "Top", 9: "FrontTopLeft"}
+NOMES_VISTA = {"Front": "Frontal", "Top": "Superior", "Bottom": "Inferior", "Left": "Lateral esq.",
+               "Right": "Lateral dir.", "Rear": "Posterior", "FrontTopLeft": "Isométrica",
+               "FrontTopRight": "Isométrica", "FrontBottomLeft": "Isométrica", "FrontBottomRight": "Isométrica"}
+DICA_VISTA = {"FrontTopLeft": "Isométrica de cima, pela esquerda", "FrontTopRight": "Isométrica de cima, pela direita",
+              "FrontBottomLeft": "Isométrica de baixo, pela esquerda",
+              "FrontBottomRight": "Isométrica de baixo, pela direita"}
+ESCALAS = [("0", "Da folha", "lista"), ("1", "Automática", "medida"), ("2", "Escolher", "numero")]
+DIEDROS = [("0", "1º diedro", "seta_baixo"), ("1", "3º diedro", "seta_cima"), ("2", "Da folha", "lista")]
+GIROS = [("butLeftRotate", "←", "Girar para a esquerda"), ("butRightRotate", "→", "Girar para a direita"),
+         ("butTopRotate", "↑", "Girar para cima"), ("butDownRotate", "↓", "Girar para baixo"),
+         ("butCCWRotate", "⟲", "Girar no sentido anti-horário"), ("butCWRotate", "⟳", "Girar no sentido horário")]
+
+
+def direcao_em_palavras(texto):
+    """'[0.00 -1.00 0.00]' → 'de frente (−Y)'. A direção da vista aponta da peça para quem olha."""
+    import re
+    nums = re.findall(r"-?\d+(?:[.,]\d+)?", texto or "")
+    try:
+        v = [float(n.replace(",", ".")) for n in nums[:3]]
+    except ValueError:
+        return texto
+    if len(v) != 3:
+        return texto
+    nomes = {(0, -1, 0): "de frente (−Y)", (0, 1, 0): "de trás (+Y)", (0, 0, 1): "de cima (+Z)",
+             (0, 0, -1): "de baixo (−Z)", (1, 0, 0): "pela direita (+X)", (-1, 0, 0): "pela esquerda (−X)"}
+    chave = tuple(int(round(x)) if abs(abs(x) - round(abs(x))) < 1e-3 else None for x in v)
+    if chave in nomes:
+        return nomes[chave]
+    return "na direção ({:.2f}; {:.2f}; {:.2f})".format(*v).replace(".", ",")
+
+
+def terceiro_diedro(f):
+    """O formulário de vistas está no 3º diedro? (o Brasil usa o 1º; o FreeCAD vem no 1º por padrão)"""
+    cb = f.combo("projection")
+    i = cb.currentIndex() if cb is not None and cb.isVisibleTo(f.q) else -1
+    if i == 1:
+        return True
+    if i == 0:
+        return False
+    if i == 2:
+        try:
+            for pg in FreeCAD.ActiveDocument.findObjects(Type="TechDraw::DrawPage"):
+                return str(pg.ProjectionType).startswith("Third")
+        except Exception:
+            return False
+        return False
+    return FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/TechDraw/General").GetInt(
+        "ProjectionAngle", 0) == 1
+
+
+class PainelVistas(_Base):
+    """Desenho → Vista / Grupo de projeção: quais vistas entram (grade no diedro certo), direção da frontal,
+    escala e arranjo. Comanda o formulário do FreeCAD, que é quem cria as vistas."""
+
+    QSS_EXTRA = ("QToolButton#PrumoVista { border: 1px solid #DCE4EC; border-radius: 8px; background: #FFFFFF;"
+                 " color: #3B4A59; padding: 4px 2px; }"
+                 "QToolButton#PrumoVista:hover { border-color: #003A70; color: #003A70; }"
+                 "QToolButton#PrumoVista:checked { background: #E6EEF7; border-color: #003A70; color: #003A70;"
+                 " font-weight: 600; }"
+                 "QToolButton#PrumoVista:disabled { color: #B6C0CA; border-color: #EEF2F6; }")
+
+    def _caixa(self, i):
+        return self.f.w("chkView%d" % i, QtWidgets.QCheckBox)
+
+    def estado(self):
+        f = self.f
+        caixas = []
+        for i in range(10):
+            c = self._caixa(i)
+            caixas.append((bool(c.isChecked()), bool(c.isEnabled()), bool(c.isVisibleTo(self.quadro)))
+                          if c is not None else (False, False, False))
+        prim = f.w("lePrimary", QtWidgets.QPushButton)
+        sx, sy = f.numero("sbXSpacing"), f.numero("sbYSpacing")
+        num, den = f.w("sbScaleNum", QtWidgets.QSpinBox), f.w("sbScaleDen", QtWidgets.QSpinBox)
+        auto = f.w("cbAutoDistribute", QtWidgets.QCheckBox)
+        return {"caixas": tuple(caixas), "terceiro": terceiro_diedro(f), "escala": f.indice("cmbScaleType"),
+                "num": num.value() if num else 1, "den": den.value() if den else 1,
+                "grupo": bool(f.combo("projection") is not None and f.combo("projection").isVisibleTo(self.quadro)),
+                "diedro": f.indice("projection"), "auto": bool(auto.isChecked()) if auto else False,
+                "sx": round(sx, 6) if sx is not None else None, "sy": round(sy, 6) if sy is not None else None,
+                "prim": prim.text() if prim else ""}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        nomes = VISTAS_3 if e["terceiro"] else VISTAS_1
+
+        # vistas
+        c = UI.Cartao("Vistas", "padrao")
+        sub = QtWidgets.QLabel("Clique para pôr ou tirar uma vista. A posição é a da folha "
+                               "(%s diedro)." % ("3º" if e["terceiro"] else "1º"))
+        sub.setObjectName("PrumoSub")
+        sub.setWordWrap(True)
+        c.widget(sub)
+        grade = QtWidgets.QWidget()
+        g = QtWidgets.QGridLayout(grade)
+        g.setContentsMargins(0, 0, 0, 0)
+        g.setSpacing(4)
+        for col in range(4):
+            g.setColumnStretch(col, 1)
+        secundarias = any(e["caixas"][i][2] for i in range(10) if i != 4)
+        for i, (marcada, pode, vis) in enumerate(e["caixas"]):
+            nome = nomes[i]
+            b = QtWidgets.QToolButton()
+            b.setObjectName("PrumoVista")
+            b.setCheckable(True)
+            b.setChecked(marcada)
+            b.setText(NOMES_VISTA.get(nome, nome))
+            b.setToolTip(DICA_VISTA.get(nome, NOMES_VISTA.get(nome, nome)))
+            b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+            b.setMinimumHeight(34)
+            b.setEnabled(pode and (vis or i == 4) and (secundarias or i == 4))
+            b.clicked.connect(lambda _on=False, i=i: self._alternar(i))
+            r, col = GRADE_VISTAS[i]
+            g.addWidget(b, r, col)
+            self.campos["vista%d" % i] = b
+        c.widget(grade)
+        if not secundarias:
+            aviso = QtWidgets.QLabel("Esta vista é avulsa: para um grupo de vistas, use Grupo de projeção.")
+            aviso.setObjectName("PrumoSub")
+            aviso.setWordWrap(True)
+            c.widget(aviso)
+        self.lay.addWidget(c)
+
+        # direção da frontal
+        c = UI.Cartao("Direção da vista frontal", "seta_cima")
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for nome_fc, txt, dica in GIROS:
+            fb = f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            b = QtWidgets.QToolButton()
+            b.setObjectName("PrumoVista")
+            b.setText(txt)
+            b.setToolTip(dica)
+            b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+            b.setMinimumHeight(30)
+            b.setEnabled(fb.isEnabled())
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            hl.addWidget(b, 1)
+            self.campos[nome_fc] = b
+        c.widget(linha)
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(6)
+        for nome_fc, txt, dica in (("butFront", "Frente padrão", "Volta a frontal para a frente da peça"),
+                                   ("butCam", "Como está na tela", "A frontal fica como a peça aparece na vista 3D "
+                                                                   "(ou de frente para a face escolhida)")):
+            fb = f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            b = QtWidgets.QPushButton(txt)
+            b.setToolTip(dica)
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            hl.addWidget(b)
+            self.campos[nome_fc] = b
+        hl.addStretch(1)
+        c.widget(linha)
+        if e["prim"]:
+            lb = QtWidgets.QLabel("A frontal mostra a peça vista " + direcao_em_palavras(e["prim"]))
+            lb.setObjectName("PrumoSub")
+            c.widget(lb)
+        self.lay.addWidget(c)
+
+        # escala
+        c = UI.Cartao("Escala", "medida")
+        seg = UI.Segmentado(ESCALAS, str(max(0, e["escala"])), colunas=3)
+        seg.mudou.connect(lambda k: (self._indice("cmbScaleType", int(k))))
+        c.widget(seg)
+        self.campos["escala"] = seg
+        par = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(par)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for chave, nome_fc in (("num", "sbScaleNum"), ("den", "sbScaleDen")):
+            fc = f.w(nome_fc, QtWidgets.QSpinBox)
+            n = QtWidgets.QSpinBox()
+            n.setObjectName("PrumoNum")
+            n.setButtonSymbols(QtWidgets.QAbstractSpinBox.NoButtons)
+            n.setRange(1, 100000)
+            n.setKeyboardTracking(False)
+            n.setAlignment(QtCore.Qt.AlignCenter)
+            n.setMaximumWidth(70)
+            n.setValue(int(e[chave]))
+            n.setEnabled(e["escala"] == 2 and fc is not None)
+            if fc is not None:
+                n.valueChanged.connect(lambda v, fc=fc: fc.setValue(int(v)))
+            hl.addWidget(n)
+            self.campos[chave] = n
+            if chave == "num":
+                dois = QtWidgets.QLabel(":")
+                hl.addWidget(dois)
+        hl.addStretch(1)
+        c.linha("Escala da vista", par)
+        self.lay.addWidget(c)
+
+        # arranjo (só em grupo de projeção)
+        if e["grupo"]:
+            c = UI.Cartao("Arranjo na folha", "lista")
+            seg = UI.Segmentado(DIEDROS, str(max(0, e["diedro"])), colunas=3)
+            seg.mudou.connect(lambda k: self._indice("projection", int(k)))
+            c.widget(seg)
+            self.campos["diedro"] = seg
+            ab = f.w("cbAutoDistribute", QtWidgets.QCheckBox)
+            if ab is not None:
+                sw = UI.Interruptor(e["auto"])
+                sw.toggled.connect(lambda on, ab=ab: (ab.isChecked() != on and ab.click(),
+                                                      QtCore.QTimer.singleShot(50, self.montar)))
+                c.linha("Espaçar sozinho", sw)
+                self.campos["auto"] = sw
+            if e["auto"]:
+                self._num("sbXSpacing", "Espaço na horizontal", "mm", c, minimo=0.0, chave="sx")
+                self._num("sbYSpacing", "Espaço na vertical", "mm", c, minimo=0.0, chave="sy")
+            self.lay.addWidget(c)
+        self._fim()
+
+    def _alternar(self, i):
+        cx = self._caixa(i)
+        if cx is not None and cx.isEnabled():
+            cx.setChecked(not cx.isChecked())
+        QtCore.QTimer.singleShot(80, self.montar)
+
+    def precisa_do_formulario(self):
+        return False
+
+
+# formulários que não dependem de uma operação de Peça em edição: marca → classe
+AVULSOS = {"cmbScaleType": "PainelVistas"}
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
@@ -1456,22 +1702,37 @@ class Encaixe:
         except Exception as exc:
             FreeCAD.Console.PrintLog("Prumo: painel de comando: {}\n".format(exc))
 
+    def _avulso(self, panel):
+        """(marca, quadro) de um formulário avulso (ex.: vistas do Desenho) no painel de tarefas."""
+        for marca in AVULSOS:
+            q = _quadro_do_formulario(panel, marca)
+            if q is not None:
+                return marca, q
+        return None, None
+
     def _passo(self):
         obj = em_edicao() if ligado() else None
-        if obj is None:
+        panel = _painel_de_tarefas() if ligado() else None
+        marca = None
+        if obj is None and panel is not None:
+            marca, quadro = self._avulso(panel)
+        if obj is None and marca is None:
             if self.painel is not None:
                 self._tirar()
             return
-        panel = _painel_de_tarefas()
         if panel is None:
             return
-        quadro = _quadro_do_formulario(panel, MARCA[obj.TypeId])
+        if obj is not None:
+            quadro = _quadro_do_formulario(panel, MARCA[obj.TypeId])
         if quadro is None:
             return
-        if not self._vivo() or self.painel.parent() is not panel or self.obj is not obj:
+        chave = obj if obj is not None else marca
+        if not self._vivo() or self.painel.parent() is not panel or self.obj is not chave or \
+                self.painel.quadro is not quadro:
             self._tirar()
-            self.obj = obj
-            self.painel = globals()[CLASSES[obj.TypeId]](obj, quadro, panel)
+            self.obj = chave
+            classe = CLASSES[obj.TypeId] if obj is not None else AVULSOS[marca]
+            self.painel = globals()[classe](obj, quadro, panel)
             lay = panel.layout()
             lay.insertWidget(lay.indexOf(quadro), self.painel)
             return

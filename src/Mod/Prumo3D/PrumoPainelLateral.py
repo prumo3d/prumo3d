@@ -174,10 +174,12 @@ def _cabecalhos_da_tarefa(dock):
     for w in dock.findChildren(QtWidgets.QWidget, "PrumoPainel"):
         if w.isVisibleTo(dock) and w.windowTitle():
             saida.append((w.windowTitle(), w.windowIcon()))       # painel Prumo: o título dele
+    escondidos = []
     for b in dock.findChildren(QtWidgets.QToolButton):
-        if b.property("class") == "header" and b.text() and b.isVisibleTo(dock):
-            saida.append((b.text(), b.icon()))
-    return saida
+        if b.property("class") == "header" and b.text():
+            (saida if b.isVisibleTo(dock) else escondidos).append((b.text(), b.icon()))
+    # quadro do FreeCAD escondido atrás dos cartões do Prumo: o título dele ainda nomeia o comando
+    return saida or escondidos
 
 
 def titulo_do_comando(dock=None):

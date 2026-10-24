@@ -7481,6 +7481,95 @@ class T60Atualizacao(unittest.TestCase):
         self.assertEqual(self.g.GetString("PularVersao", ""), "v0.6.0-beta")
         self.assertIsNone(A.AvisoAtualizacao(info, automatico=False).pular)
 
+    def _esp(self, s=0.5):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            time.sleep(0.02)
+
+    def test_atualizar_agora_responde_sem_ninguem_guardar_o_aviso(self):
+        """Como no botão do Sobre: o aviso é aberto e ninguém guarda o objeto. O clique tem de funcionar."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import gc
+        from PySide import QtWidgets
+        A = self.A
+        info = A.escolher(self._lista())
+        chamadas = []
+        original = A.atualizar
+        A.atualizar = lambda *a, **k: chamadas.append(a) or "teste"
+        try:
+            A.AvisoAtualizacao(info, automatico=False).mostrar()
+            gc.collect()
+            self._esp(0.3)
+            botoes = [b for w in QtWidgets.QApplication.topLevelWidgets()
+                      if isinstance(w, QtWidgets.QDialog) and w.isVisible()
+                      and w.windowTitle() == "Atualização do Prumo 3D"
+                      for b in w.findChildren(QtWidgets.QPushButton) if b.text() == "Atualizar agora"]
+            self.assertTrue(botoes, "o aviso não ficou aberto")
+            botoes[-1].click()
+            self._esp(0.3)
+            self.assertEqual(len(chamadas), 1, "clicar em Atualizar agora não fez nada")
+        finally:
+            A.atualizar = original
+
+    def _ativo_local(self, dados, digest=None):
+        import hashlib
+        import tempfile
+        pasta = tempfile.mkdtemp()
+        origem = os.path.join(pasta, "origem.bin")
+        with open(origem, "wb") as f:
+            f.write(dados)
+        return pasta, {"nome": "Prumo3D_teste-installer.exe", "tamanho": len(dados),
+                       "url": "file:///" + origem.replace("\\", "/").lstrip("/"),
+                       "digest": digest or "sha256:" + hashlib.sha256(dados).hexdigest()}
+
+    def _esperar(self, j, s=10):
+        import time
+        t = time.time()
+        while not j.estado["fim"] and time.time() - t < s:
+            self._esp(0.1)
+        self._esp(0.5)
+
+    def test_janela_de_download_mostra_progresso_e_o_proximo_passo(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        A = self.A
+        pasta, ativo = self._ativo_local(os.urandom(3 * 1024 * 1024))
+        j = A.JanelaDownload(ativo, os.path.join(pasta, ativo["nome"]), "instalador", "0.9.0 beta").iniciar()
+        try:
+            self.assertTrue(j.d.isVisible(), "a janela de progresso não apareceu")
+            self._esperar(j)
+            self.assertEqual(j.barra.value(), 1000)
+            self.assertIn("Pronto", j.situacao.text())
+            self.assertTrue(j.principal.isVisible())
+            self.assertEqual(j.principal.text(), "Fechar o Prumo e instalar")
+            self.assertEqual(j.secundario.text(), "Depois")
+            self.assertEqual(textos_com_problema(j.d), [], "texto cortado na janela de atualização")
+            self.assertTrue(os.path.exists(os.path.join(pasta, ativo["nome"])))
+            j.secundario.click()
+            self._esp(0.3)
+            self.assertFalse(j.d.isVisible())
+        finally:
+            j.d.close()
+
+    def test_janela_de_download_mostra_o_erro_e_tenta_de_novo(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        A = self.A
+        pasta, ativo = self._ativo_local(os.urandom(200 * 1024), digest="sha256:" + "0" * 64)
+        j = A.JanelaDownload(ativo, os.path.join(pasta, ativo["nome"]), "instalador").iniciar()
+        try:
+            self._esperar(j)
+            self.assertIn("Não foi possível", j.situacao.text())
+            self.assertIn("SHA-256", j.detalhe.text())
+            self.assertEqual(j.principal.text(), "Tentar de novo")
+            self.assertTrue(j.d.isVisible(), "o erro tem de aparecer na janela")
+        finally:
+            j.d.close()
+
     def test_sobre_tem_botao_e_chave(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
@@ -8426,6 +8515,89 @@ class T65MaisPaineisDeComando(unittest.TestCase):
         self.assertEqual(obj.Transition, "Right corner")
 
 
+class T66PainelDeVistas(unittest.TestCase):
+    """Desenho → Grupo de projeção e Vista: cartões no lugar do formulário do FreeCAD; as vistas escolhidas
+    na grade (no 1º diedro) viram vistas da folha e a escala escolhida fica na vista."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        self.doc = novo_doc("PrumoTesteVistas")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.body = self.doc.addObject("PartDesign::Body", "Body")
+        sk = esboco_retangulo(self.body)
+        pad = self.body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 10
+        self.doc.recompute()
+        FreeCADGui.activateWorkbench("TechDrawWorkbench")
+        self._esp(0.4)
+        FreeCADGui.runCommand("TechDraw_PageDefault", 0)
+        self._esp(0.8)
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+        self._esp(0.8)      # janelas de folha somem só no próximo ciclo
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+
+    def _abrir(self, cmd):
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(self.body)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
+        self.assertEqual(type(p).__name__, "PainelVistas")
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        return p
+
+    def test_grupo_com_vista_inferior_no_1o_diedro(self):
+        p = self._abrir("TechDraw_ProjectionGroup")
+        self.assertIn("diedro", p.campos, "grupo de projeção mostra o arranjo")
+        self.assertEqual(p.campos["vista1"].text(), "Inferior", "no 1º diedro a vista de baixo fica em cima")
+        self.assertEqual(p.campos["vista8"].text(), "Superior")
+        self.assertTrue(p.campos["vista4"].isChecked())
+        p.campos["vista1"].click()
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertTrue(p.campos["vista1"].isChecked())
+        self.assertTrue(self._ok())
+        grupos = self.doc.findObjects(Type="TechDraw::DrawProjGroup")
+        self.assertEqual(len(grupos), 1)
+        self.assertEqual(sorted(v.Type for v in grupos[0].Views), ["Bottom", "Front"])
+
+    def test_vista_avulsa_com_escala_escolhida(self):
+        p = self._abrir("TechDraw_View")
+        self.assertNotIn("diedro", p.campos, "vista avulsa não tem arranjo de grupo")
+        p.campos["escala"].definir("2", silencioso=False)
+        self._esp(0.6)
+        p = self.C.painel()
+        self.assertTrue(p.campos["den"].isEnabled())
+        p.campos["den"].setValue(5)
+        self._esp(0.6)
+        self.assertTrue(self._ok())
+        vistas = [o for o in self.doc.Objects if o.TypeId in ("TechDraw::DrawViewPart", "TechDraw::DrawProjGroupItem")]
+        self.assertTrue(vistas)
+        self.assertEqual(vistas[0].ScaleType, "Custom")
+        self.assertAlmostEqual(vistas[0].Scale, 0.2, places=6)
+
+    def test_direcao_em_palavras(self):
+        self.assertEqual(self.C.direcao_em_palavras("[0.00 -1.00 0.00]"), "de frente (−Y)")
+        self.assertEqual(self.C.direcao_em_palavras("[0.00 0.00 1.00]"), "de cima (+Z)")
+        self.assertIn("direção", self.C.direcao_em_palavras("[0.71 -0.71 0.00]"))
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8441,4 +8613,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
            T60Atualizacao, T61PaineisExtrasComoAbas,
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
-           T65MaisPaineisDeComando]
+           T65MaisPaineisDeComando, T66PainelDeVistas]

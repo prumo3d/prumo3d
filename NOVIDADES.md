@@ -9,6 +9,27 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Desenho → Vista e Grupo de projeção em cartões:** as vistas são escolhidas numa grade que já segue o
+  1º diedro (a vista de baixo fica em cima, como na folha), com a direção da frontal dita em palavras
+  ("de frente", "de cima"), a escala (da folha, automática ou escolhida, ex.: 1:5) e o arranjo do grupo.
+- **Atualização com janela de progresso:** barra, MB baixados, velocidade e tempo que falta, com
+  Cancelar. No fim, a mesma janela diz o próximo passo ("Fechar o Prumo e instalar" ou onde ficou o
+  arquivo) ou o erro, com "Tentar de novo". "Verificar atualizações" mostra "Procurando…" enquanto consulta.
+
+### Correções
+
+- **"Atualizar agora" não fazia nada** quando a atualização era procurada por Ajuda → Sobre: a janela do
+  aviso abria, mas o botão não respondia. Na verificação automática ao abrir já funcionava.
+
+### Testes
+
+- Painel de vistas (grupo com vista inferior no 1º diedro, vista avulsa com escala 1:5) e janela de
+  atualização (progresso, próximo passo, erro, e o clique que antes não respondia).
+
 ## 0.8.0 beta — 24/10/2026
 
 ### Melhorias

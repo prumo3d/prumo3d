@@ -99,10 +99,10 @@ def escolher(releases, aceitar_beta=True):
     }
 
 
-def _abrir_url(url, timeout):
+def _abrir_url(url, timeout, aceitar="application/vnd.github+json"):
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "Prumo3D/" + versao_atual(),
-                                               "Accept": "application/vnd.github+json"})
+                                               "Accept": aceitar})
     try:
         return urllib.request.urlopen(req, timeout=timeout)
     except Exception as exc:
@@ -164,7 +164,7 @@ def baixar(url, destino, digest="", progresso=None, cancelado=None, timeout=30):
     parte = destino + ".parte"
     h = hashlib.sha256()
     feito = 0
-    with _abrir_url(url, timeout) as r:
+    with _abrir_url(url, timeout, aceitar="application/octet-stream") as r:
         total = int(r.headers.get("Content-Length") or 0)
         with open(parte, "wb") as f:
             while True:
@@ -278,6 +278,10 @@ class AvisoAtualizacao:
         self.atualizar.clicked.connect(self._atualizar)
         bb.addWidget(self.atualizar)
         v.addLayout(bb)
+        # o Python precisa segurar este objeto enquanto a janela estiver aberta: sem isso ele some da
+        # memória e os botões ligados aos métodos dele (Atualizar agora) deixam de responder
+        _vivos.append(self)
+        d.finished.connect(lambda _r: self in _vivos and _vivos.remove(self))
 
     def mostrar(self):
         self.d.show()
@@ -289,44 +293,109 @@ class AvisoAtualizacao:
         self.d.reject()
 
     def _atualizar(self):
+        pai = self.d.parentWidget()
         self.d.accept()
-        atualizar(self.info, self.modo, self.ativo)
+        atualizar(self.info, self.modo, self.ativo, parent=pai)
 
 
-def atualizar(info, modo=None, ativo=None):
+def atualizar(info, modo=None, ativo=None, parent=None):
     QtCore, QtGui, QtWidgets = _qt()
     modo = modo or modo_instalacao()
     ativo = ativo or ativo_do_sistema(info, modo)
     if modo == "manual" or ativo is None:
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(info["pagina"]))
+        QtWidgets.QMessageBox.information(
+            parent or _pai_para_janela(), "Atualização do Prumo 3D",
+            "Esta instalação não se atualiza sozinha. A página da versão {} foi aberta no navegador: baixe "
+            "o arquivo do seu sistema por lá.".format(info["texto"]))
         return "pagina"
     if modo == "appimage":
         pasta = os.path.dirname(os.environ.get("APPIMAGE", "")) or os.path.expanduser("~")
     else:
         pasta = pasta_download()
     destino = os.path.join(pasta, ativo["nome"])
-    Baixador(ativo, destino, lambda caminho: _depois_de_baixar(modo, caminho)).iniciar()
+    JanelaDownload(ativo, destino, modo, info.get("texto", ""), parent=parent).iniciar()
     return "baixando"
 
 
-class Baixador:
-    """Baixa em segundo plano com uma janela de progresso (com Cancelar)."""
+def _pai_para_janela():
+    """Janela modal aberta (ex.: Sobre) ou a principal: uma janela filha da principal ficaria travada
+    atrás de um diálogo modal."""
+    QtCore, QtGui, QtWidgets = _qt()
+    return QtWidgets.QApplication.activeModalWidget() or janela_principal()
 
-    def __init__(self, ativo, destino, ao_terminar):
+
+def _mb(n):
+    return "{:.1f}".format(n / 1e6).replace(".", ",")
+
+
+def _tempo(seg):
+    seg = int(max(0, seg))
+    if seg < 60:
+        return "menos de 1 min"
+    return "cerca de {} min".format(int(round(seg / 60.0)))
+
+
+class JanelaDownload:
+    """Janela de atualização no padrão do Prumo: barra de progresso, MB, velocidade, tempo que falta e
+    Cancelar; no fim, o próximo passo (instalar agora ou onde ficou o arquivo) ou o erro, na mesma janela."""
+
+    def __init__(self, ativo, destino, modo, texto_versao="", parent=None):
         QtCore, QtGui, QtWidgets = _qt()
-        self.ativo, self.destino, self.ao_terminar = ativo, destino, ao_terminar
+        import PrumoUI as UI
+        self.ativo, self.destino, self.modo = ativo, destino, modo
         self.estado = {"feito": 0, "total": ativo.get("tamanho", 0), "erro": None, "fim": False, "cancelar": False}
-        self.dlg = QtWidgets.QProgressDialog("Baixando {}…".format(ativo["nome"]), "Cancelar", 0, 1000,
-                                             janela_principal())
-        self.dlg.setWindowTitle("Atualização do Prumo 3D")
-        self.dlg.setMinimumDuration(0)
-        self.dlg.setAutoClose(False)
-        self.dlg.setAutoReset(False)
-        self.dlg.canceled.connect(lambda: self.estado.__setitem__("cancelar", True))
+        self.inicio = None
+        self.d = QtWidgets.QDialog(parent or _pai_para_janela())
+        d = self.d
+        d.setObjectName("PrumoUI")
+        d.setWindowTitle("Atualização do Prumo 3D")
+        d.setStyleSheet(UI.qss() + UI.tema(
+            "QProgressBar { border: 1px solid #DCE4EC; border-radius: 6px; background: #EEF2F6; height: 14px;"
+            " text-align: center; color: transparent; }"
+            "QProgressBar::chunk { background: #003A70; border-radius: 6px; }"
+            "QLabel#PrumoErro { color: #A33A2B; font-weight: 600; }"
+            "QLabel#PrumoOk { color: #1E7A4C; font-weight: 600; }"))
+        d.setMinimumWidth(480)
+        v = QtWidgets.QVBoxLayout(d)
+        v.setContentsMargins(18, 16, 18, 14)
+        v.setSpacing(10)
+        self.texto_versao = texto_versao
+        self.titulo = QtWidgets.QLabel("Baixando o Prumo 3D {}".format(texto_versao).strip())
+        self.titulo.setStyleSheet(UI.tema("color: #003A70; font-size: 13pt; font-weight: 700;"))
+        v.addWidget(self.titulo)
+        self.situacao = QtWidgets.QLabel("Preparando o download…")
+        self.situacao.setWordWrap(True)
+        v.addWidget(self.situacao)
+        self.barra = QtWidgets.QProgressBar()
+        self.barra.setRange(0, 0)          # até saber o tamanho: barra "andando"
+        self.barra.setTextVisible(False)
+        v.addWidget(self.barra)
+        self.detalhe = QtWidgets.QLabel(ativo.get("nome", ""))
+        self.detalhe.setObjectName("PrumoSub")
+        self.detalhe.setWordWrap(True)
+        v.addWidget(self.detalhe)
+        bb = QtWidgets.QHBoxLayout()
+        bb.addStretch(1)
+        self.secundario = QtWidgets.QPushButton("Cancelar")
+        self.secundario.setAutoDefault(False)
+        self.secundario.setDefault(False)
+        self.secundario.clicked.connect(self._cancelar)
+        bb.addWidget(self.secundario)
+        self.principal = QtWidgets.QPushButton("")
+        self.principal.setObjectName("PrumoPrimario")
+        self.principal.setAutoDefault(False)
+        self.principal.setVisible(False)
+        self.principal.clicked.connect(self._principal)
+        bb.addWidget(self.principal)
+        v.addLayout(bb)
+        self.acao = None
+        d.rejected.connect(self._fechou)
         self.t = QtCore.QTimer()
         self.t.setInterval(200)
         self.t.timeout.connect(self._tick)
 
+    # ---------------------------------------------------------------- download em segundo plano
     def _trabalho(self):
         try:
             baixar(self.ativo["url"], self.destino, self.ativo.get("digest", ""),
@@ -337,59 +406,139 @@ class Baixador:
         self.estado["fim"] = True
 
     def iniciar(self):
+        self.inicio = time.time()
+        self.estado.update(feito=0, erro=None, fim=False, cancelar=False)
         threading.Thread(target=self._trabalho, daemon=True).start()
         self.t.start()
-        self.dlg.show()
-        _vivos.append(self)
+        if self not in _vivos:
+            _vivos.append(self)
+        self.d.show()
+        self.d.raise_()
+        self.d.activateWindow()
         return self
 
     def _tick(self):
-        QtCore, QtGui, QtWidgets = _qt()
         e = self.estado
-        if e["total"]:
-            self.dlg.setValue(int(1000 * e["feito"] / e["total"]))
-            self.dlg.setLabelText("Baixando {}…\n{:.0f} de {:.0f} MB".format(
-                self.ativo["nome"], e["feito"] / 1e6, e["total"] / 1e6))
+        if e["total"] and e["feito"]:
+            frac = min(1.0, e["feito"] / float(e["total"]))
+            if self.barra.maximum() == 0:
+                self.barra.setRange(0, 1000)
+            self.barra.setValue(int(1000 * frac))
+            dt = max(0.001, time.time() - (self.inicio or time.time()))
+            vel = e["feito"] / dt
+            falta = (e["total"] - e["feito"]) / vel if vel > 0 else 0
+            self.situacao.setText("Baixando… {:.0f}%".format(100 * frac))
+            self.detalhe.setText("{} de {} MB · {} MB/s · falta {}".format(
+                _mb(e["feito"]), _mb(e["total"]), _mb(vel), _tempo(falta)))
+        elif e["feito"]:
+            self.situacao.setText("Baixando… {} MB".format(_mb(e["feito"])))
         if not e["fim"]:
             return
         self.t.stop()
-        self.dlg.close()
-        if self in _vivos:
-            _vivos.remove(self)
         if e["erro"] is not None:
-            if not isinstance(e["erro"], InterruptedError):
-                QtWidgets.QMessageBox.warning(janela_principal(), "Atualização do Prumo 3D",
-                                              "Não foi possível baixar a atualização:\n{}".format(e["erro"]))
+            if isinstance(e["erro"], InterruptedError):
+                self._fim_do_objeto()
+                self.d.close()
+                return
+            self._erro(e["erro"])
             return
-        self.ao_terminar(self.destino)
+        self._pronto()
+
+    # ---------------------------------------------------------------- estados finais
+    def _erro(self, exc):
+        self.barra.setRange(0, 1000)
+        self.barra.setValue(0)
+        self.situacao.setObjectName("PrumoErro")
+        self.situacao.style().unpolish(self.situacao)
+        self.situacao.style().polish(self.situacao)
+        self.situacao.setText("Não foi possível baixar a atualização.")
+        self.detalhe.setText("{}\n\nVerifique a internet e tente de novo, ou baixe pela página de versões:\n{}"
+                             .format(exc, PAGINA))
+        self.acao = "tentar"
+        self.principal.setText("Tentar de novo")
+        self.principal.setVisible(True)
+        self.secundario.setText("Fechar")
+        self._ajustar()
+
+    def _pronto(self):
+        self.barra.setRange(0, 1000)
+        self.barra.setValue(1000)
+        self.situacao.setObjectName("PrumoOk")
+        self.situacao.style().unpolish(self.situacao)
+        self.situacao.style().polish(self.situacao)
+        if self.modo == "appimage":
+            try:
+                os.chmod(self.destino, 0o755)
+            except OSError:
+                pass
+            self.situacao.setText("Pronto: a versão nova foi baixada e conferida.")
+            self.titulo.setText("Prumo 3D {} baixado".format(self.texto_versao).replace("  ", " "))
+            self.detalhe.setText("Arquivo: {}\nPasta: {}\n\nFeche o Prumo e abra esse arquivo. O arquivo antigo "
+                                 "pode ser apagado depois.".format(os.path.basename(self.destino),
+                                                                   os.path.dirname(self.destino)))
+            self.acao = None
+            self.principal.setVisible(False)
+            self.secundario.setText("Fechar")
+            self._ajustar()
+            return
+        self.situacao.setText("Pronto: o instalador foi baixado e conferido.")
+        self.titulo.setText("Prumo 3D {} pronto para instalar".format(self.texto_versao).replace("  ", " "))
+        self.detalhe.setText("Para instalar, o Prumo precisa fechar (ele pergunta se quer salvar o que estiver "
+                             "aberto).\n\nSe preferir depois, o instalador fica na pasta:\n{}".format(
+                                 os.path.dirname(self.destino)))
+        self.acao = "instalar"
+        self.principal.setText("Fechar o Prumo e instalar")
+        self.principal.setVisible(True)
+        self.secundario.setText("Depois")
+        self._ajustar()
+
+    def _ajustar(self):
+        """Texto com quebra de linha não faz a janela crescer sozinha: calcula a altura e reajusta."""
+        QtCore, QtGui, QtWidgets = _qt()
+        for lb in (self.situacao, self.detalhe):
+            w = max(lb.width(), self.d.width() - 36)
+            lb.setMinimumHeight(lb.heightForWidth(w) if lb.hasHeightForWidth() else lb.sizeHint().height())
+        self.d.adjustSize()
+
+    # ---------------------------------------------------------------- botões
+    def _principal(self):
+        if self.acao == "tentar":
+            self.situacao.setObjectName("")
+            self.situacao.style().unpolish(self.situacao)
+            self.situacao.style().polish(self.situacao)
+            self.situacao.setText("Preparando o download…")
+            self.detalhe.setText(self.ativo.get("nome", ""))
+            self.barra.setRange(0, 0)
+            self.principal.setVisible(False)
+            self.secundario.setText("Cancelar")
+            self.iniciar()
+        elif self.acao == "instalar":
+            self.d.accept()
+            self._fim_do_objeto()
+            instalar_ao_fechar(self.destino)
+
+    def _cancelar(self):
+        if not self.estado["fim"]:
+            self.estado["cancelar"] = True
+            self.situacao.setText("Cancelando…")
+            self.secundario.setEnabled(False)
+            return
+        self.d.reject()
+
+    def _fechou(self):
+        if not self.estado["fim"]:
+            self.estado["cancelar"] = True      # fechou a janela no X durante o download
+        self._fim_do_objeto()
+
+    def _fim_do_objeto(self):
+        if self.estado["fim"] and self in _vivos:
+            _vivos.remove(self)
+
+
+Baixador = JanelaDownload      # nome antigo
 
 
 _vivos = []
-
-
-def _depois_de_baixar(modo, caminho):
-    QtCore, QtGui, QtWidgets = _qt()
-    mw = janela_principal()
-    if modo == "appimage":
-        try:
-            os.chmod(caminho, 0o755)
-        except OSError:
-            pass
-        QtWidgets.QMessageBox.information(
-            mw, "Atualização do Prumo 3D",
-            "A versão nova foi baixada em:\n{}\n\nFeche o Prumo e abra esse arquivo. O arquivo antigo pode ser "
-            "apagado depois.".format(caminho))
-        return
-    r = QtWidgets.QMessageBox.question(
-        mw, "Atualização do Prumo 3D",
-        "O instalador foi baixado e conferido.\n\nPara instalar, o Prumo precisa fechar (ele pergunta se quer "
-        "salvar o que estiver aberto). Fechar e instalar agora?",
-        QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.Yes)
-    if r != QtWidgets.QMessageBox.Yes:
-        QtWidgets.QMessageBox.information(mw, "Atualização do Prumo 3D",
-                                          "Tudo bem. O instalador ficou em:\n{}".format(caminho))
-        return
-    instalar_ao_fechar(caminho)
 
 
 def instalar_ao_fechar(caminho):
@@ -455,10 +604,16 @@ class Verificacao:
 
 
 def verificar_agora(parent=None):
-    """Botão "Verificar atualizações" (Sobre): sempre mostra o resultado."""
+    """Botão "Verificar atualizações" (Sobre): sempre mostra o resultado (e "Procurando…" enquanto isso)."""
     QtCore, QtGui, QtWidgets = _qt()
+    espera = QtWidgets.QProgressDialog("Procurando atualizações…", None, 0, 0, parent or _pai_para_janela())
+    espera.setWindowTitle("Atualização do Prumo 3D")
+    espera.setMinimumDuration(0)
+    espera.setCancelButton(None)
+    espera.show()
 
     def fim(info, erro):
+        espera.close()
         _params().SetFloat("UltimaVerificacao", time.time())
         if erro is not None:
             QtWidgets.QMessageBox.information(

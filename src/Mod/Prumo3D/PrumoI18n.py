@@ -127,6 +127,7 @@ EXTRA = {
     "Helix Parameters": "Parâmetros da hélice", "Loft Parameters": "Parâmetros do loft",
     "Pipe Parameters": "Parâmetros da varredura", "Section Orientation": "Orientação da seção",
     "Section Transformation": "Transformação da seção",
+    "Projection Group": "Grupo de projeção",
     "Sketch normal": "Normal do esboço", "Taper angle": "Ângulo de inclinação",
     # Barras de ferramentas (títulos)
     "Individual Views": "Vistas individuais", "Part Design Helper Features": "Auxiliares de peça",
