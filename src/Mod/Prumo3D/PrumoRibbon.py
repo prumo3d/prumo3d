@@ -72,7 +72,7 @@ TABS = [
             ("Std_Measure", L, "Medir"), ("Part_SelectFilter", S, "Filtro de seleção"),
             ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),
             ("Std_TreeViewActions", S, "Opções da árvore"),
-            ("Std_DlgMacroExecute", S, "Macros"), ("Std_DlgPreferences", L, "Preferências"),
+            ("Std_DlgMacroExecute", S, "Macros"), ("Prumo_Preferencias", L, "Preferências"),
         ]),
         ("Estrutura", [
             ("Std_Part", S, "Nova parte"), ("Std_Group", S, "Novo grupo"), ("Part_Datums", S, "Referências"),
@@ -319,7 +319,8 @@ TABS = [
     {"id": "prumo", "label": "Prumo", "wb": None, "panels": [
         ("Prumo", [
             ("Prumo_Inicio", L, "Tela\ninicial"), ("Prumo_AplicarTema", L, "Aplicar\ntema"),
-            ("Prumo_TemaEscuro", L, "Tema\nescuro"), ("Prumo_Sobre", L, "Sobre"),
+            ("Prumo_TemaEscuro", L, "Tema\nescuro"), ("Prumo_Preferencias", L, "Preferências"),
+            ("Prumo_Sobre", L, "Sobre"),
         ]),
         ("Interface", [
             ("Prumo_TemaIcones", S, "Tema de ícones"), ("Prumo_BarrasClassicas", S, "Barras clássicas"),

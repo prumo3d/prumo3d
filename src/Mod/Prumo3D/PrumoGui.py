@@ -830,6 +830,11 @@ MENU_EXTRA = ["Prumo_TemaIcones", "Prumo_BarrasClassicas", "Prumo_RemoverSplash"
 def register_commands():
     FreeCADGui.addCommand("Prumo_AplicarTema", CmdAplicarTema())
     FreeCADGui.addCommand("Prumo_Sobre", CmdSobre())
+    try:
+        import PrumoPreferencias
+        PrumoPreferencias.registrar()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: preferências: {}\n".format(exc))
     FreeCADGui.addCommand("Prumo_Arvore", CmdArvore())
     FreeCADGui.addCommand("Prumo_RemoverSplash", CmdRemoverSplash())
     FreeCADGui.addCommand("Prumo_BarrasClassicas", CmdBarrasClassicas())

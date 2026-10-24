@@ -9,6 +9,20 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Preferências do Prumo:** botão "Preferências" (abas Início e Prumo) abre uma janela em cartões com o
+  que importa: tema claro/escuro, tela inicial, faixa contextual, painel lateral (único, propriedades e
+  comandos em cartões, abas compactas), esboço (retirar relações automáticas que não cabem, referências
+  automáticas, enquadrar ao sair), unidades (sistema em português e casas decimais) e atualizações. Cada
+  opção grava na hora; as preferências completas do FreeCAD continuam a um clique.
+
+### Testes
+
+- Preferências: abre pelo comando, grava na hora, unidades com nomes em português.
+
 ## 0.9.1 beta — 24/10/2026
 
 ### Correções

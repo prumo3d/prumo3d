@@ -9139,6 +9139,53 @@ class T72SimulacaoEmCartoes(unittest.TestCase):
         self.assertAlmostEqual(FreeCAD.Units.Quantity("1 MPa").Value, 1000.0)
 
 
+class T73Preferencias(unittest.TestCase):
+    """Preferências do Prumo em cartões: abre pelo comando, cada interruptor grava na hora, sem texto
+    cortado, unidades com nomes em português."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self.g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+        self.antes = self.g.GetBool("EnquadrarAoSairDoEsboco", True)
+
+    def tearDown(self):
+        self.g.SetBool("EnquadrarAoSairDoEsboco", self.antes)
+        import PrumoPreferencias as P
+        j = P._estado["janela"]
+        if j is not None:
+            try:
+                j.close()
+            except RuntimeError:
+                pass
+
+    _esp = T62PainelDeComando._esp
+
+    def test_abre_e_grava(self):
+        import PrumoPreferencias as P
+        FreeCADGui.runCommand("Prumo_Preferencias", 0)
+        self._esp(0.6)
+        j = P._estado["janela"]
+        self.assertIsNotNone(j)
+        self.assertTrue(j.isVisible())
+        self.assertEqual(textos_com_problema(j), [])
+        sw = j.campos["EnquadrarAoSairDoEsboco"]
+        sw.setChecked(not self.antes)
+        self._esp(0.1)
+        self.assertEqual(self.g.GetBool("EnquadrarAoSairDoEsboco", True), not self.antes)
+        nomes = [j.campos["esquema"].itemText(i) for i in range(j.campos["esquema"].count())]
+        self.assertTrue(any(n.startswith("Padrão") for n in nomes), nomes)
+        self.assertFalse(any(n in ("Internal", "MKS") for n in nomes), nomes)
+        for k in ("PainelLateralUnico", "RetirarAutomaticasEmConflito", "VerificarAtualizacoes", "tema", "decimais"):
+            self.assertIn(k, j.campos)
+
+    def test_botao_da_faixa(self):
+        import PrumoRibbon
+        inicio = [t for t in PrumoRibbon.TABS if t["id"] == "inicio"][0]
+        cmds = [b[0] for _p, bs in inicio["panels"] for b in bs]
+        self.assertIn("Prumo_Preferencias", cmds)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -9156,4 +9203,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
-           T71JuntaDaMontagem, T72SimulacaoEmCartoes]
+           T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias]
