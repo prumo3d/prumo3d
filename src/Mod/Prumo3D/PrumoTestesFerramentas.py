@@ -7762,6 +7762,262 @@ class T62PainelDeComando(unittest.TestCase):
         self.assertEqual(p.nome_medida, "Profundidade")
 
 
+class T63FerramentasDePontaAPonta(unittest.TestCase):
+    """Toda ferramenta da faixa abre e fecha sem erro de Python, e o esboço aguenta as ferramentas e conflitos.
+
+    Cada comando roda com uma peça pronta e selecionada (corpo, esboço, extrusão); janelas que se abrem são
+    fechadas, painéis cancelados. Falha se aparecer 'Traceback' no relatório ou se o documento quebrar.
+    """
+
+    NAO_RODAR = {"Prumo_AplicarTema", "Prumo_TemaEscuro", "Prumo_TemaIcones", "Prumo_Testes",
+                 "Prumo_RemoverSplash", "Prumo_ModoDistribuicao", "Prumo_BarrasClassicas", "Std_Print",
+                 "Std_PrintPdf", "Std_DlgPreferences", "Std_DlgMacroExecute", "Std_Open", "Std_Import",
+                 "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio",
+                 "TechDraw_FillTemplateFields"}
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtCore
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(250)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        self._limpar_tela()
+
+    # ---------------------------------------------------------------- ajudantes
+    @staticmethod
+    def _erros_do_prumo(texto):
+        """Tracebacks que passam pelo código do Prumo. (Ferramentas do próprio FreeCAD avisam por Traceback
+        quando a seleção não serve, ex.: booleana com um sólido só; isso não é defeito do Prumo.)"""
+        out = []
+        partes = texto.split("Traceback (most recent call last):")[1:]
+        for p in partes:
+            bloco = p[:1500]
+            if "Prumo3D" in bloco or "Prumo" in bloco.split("<class")[0]:
+                out.append(bloco[:400].replace("\n", " | "))
+        return out
+
+    def _relatorio(self):
+        from PySide import QtWidgets
+        mw = FreeCADGui.getMainWindow()
+        for d in mw.findChildren(QtWidgets.QDockWidget):
+            if d.objectName() == "Report view":
+                t = d.findChild(QtWidgets.QTextEdit)
+                if t is not None:
+                    return t.toPlainText()
+        return ""
+
+    def _fechar_janelas(self):
+        from PySide import QtWidgets
+        w = QtWidgets.QApplication.activeModalWidget()
+        if w is not None:
+            try:
+                w.reject() if hasattr(w, "reject") else w.close()
+            except Exception:
+                pass
+
+    def _limpar_tela(self):
+        from PySide import QtWidgets
+        mw = FreeCADGui.getMainWindow()
+        for _ in range(3):
+            self._fechar_janelas()
+            try:
+                if FreeCADGui.Control.activeDialog():
+                    FreeCADGui.Control.closeDialog()
+            except Exception:
+                pass
+            try:
+                if FreeCADGui.ActiveDocument is not None and FreeCADGui.ActiveDocument.getInEdit() is not None:
+                    FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+            for w in QtWidgets.QApplication.topLevelWidgets():
+                if isinstance(w, QtWidgets.QDialog) and w.isVisible() and w is not mw:
+                    w.close()
+            self._esp(0.1)
+
+    def _esp(self, s=0.3):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            FreeCADGui.updateGui()
+            time.sleep(0.01)
+
+    def _cena(self, nome):
+        doc = novo_doc(nome)
+        FreeCAD.setActiveDocument(doc.Name)
+        body = doc.addObject("PartDesign::Body", "Body")
+        sk = esboco_retangulo(body)
+        pad = body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 10
+        doc.recompute()
+        return doc, body, sk, pad
+
+    @staticmethod
+    def _vivo(obj):
+        try:
+            return obj.Name is not None and obj.Document is not None and obj.isValid()
+        except Exception:
+            return False
+
+    @staticmethod
+    def _comandos_da_aba(tab):
+        nomes = []
+        for _painel, botoes in tab["panels"]:
+            for b in botoes:
+                for c in str(b[0]).split("|"):
+                    if c and c not in nomes:
+                        nomes.append(c)
+        return nomes
+
+    # ---------------------------------------------------------------- testes
+    def test_cada_ferramenta_da_faixa_abre_e_fecha(self):
+        import PrumoRibbon
+        erros, rodados = [], 0
+        doc = None
+        for tab in PrumoRibbon.TABS:
+            wb = tab.get("wb")
+            for extra in (tab.get("wb_extra") or []) + ([wb] if wb else []):
+                try:
+                    FreeCADGui.activateWorkbench(extra)
+                except Exception:
+                    pass
+            self._esp(0.2)
+            if doc is not None and doc.Name in FreeCAD.listDocuments():
+                fechar(doc)
+            doc = None
+            for d in list(FreeCAD.listDocuments().values()):
+                if d.Name.startswith(("Sem", "Unnamed")):
+                    fechar(d)
+            # janelas de folha (TechDraw) de documento fechado só somem no próximo ciclo da interface;
+            # selecionar antes disso derruba o FreeCAD (observador de seleção já apagado)
+            self._esp(0.8)
+            for cmd in self._comandos_da_aba(tab):
+                if cmd in self.NAO_RODAR or cmd not in FreeCADGui.listCommands():
+                    continue
+                if doc is None or doc.Name not in FreeCAD.listDocuments() or not self._vivo(pad):
+                    if doc is not None and doc.Name in FreeCAD.listDocuments():
+                        fechar(doc)
+                        self._esp(0.8)
+                    doc, body, sk, pad = self._cena("PrumoTesteFaixa")
+                antes = self._relatorio()
+                try:
+                    with open(os.path.join(FreeCAD.getUserAppDataDir(), "teste_faixa.log"), "a") as lg:
+                        lg.write(cmd + "\n")
+                except OSError:
+                    pass
+                try:
+                    FreeCADGui.Selection.clearSelection()
+                    FreeCADGui.Selection.addSelection(pad)
+                    FreeCADGui.runCommand(cmd, 0)
+                    self._esp(0.25)
+                except Exception as exc:
+                    erros.append("%s: %s" % (cmd, exc))
+                self._limpar_tela()
+                novo = self._relatorio()[len(antes):]
+                for trecho in self._erros_do_prumo(novo):
+                    erros.append("%s: %s" % (cmd, trecho))
+                rodados += 1
+                if doc.Name not in FreeCAD.listDocuments():
+                    doc = None
+        for d in list(FreeCAD.listDocuments().values()):
+            if d.Name.startswith("PrumoTesteFaixa") or d.Name.startswith("Sem") or d.Name.startswith("Unnamed"):
+                fechar(d)
+        self.assertGreater(rodados, 150, "poucos comandos rodaram: %d" % rodados)
+        self.assertEqual(erros, [], "ferramentas com erro:\n" + "\n".join(erros))
+
+    def test_ferramentas_do_esboco_ligam_e_cancelam(self):
+        from PySide import QtCore, QtGui, QtWidgets
+        import PrumoRibbon
+        doc, body, sk, pad = self._cena("PrumoTesteFerramentasEsboco")
+        try:
+            FreeCADGui.activateWorkbench("SketcherWorkbench")
+            FreeCADGui.ActiveDocument.setEdit(sk.Name)
+            self._esp(0.8)
+            tab = [t for t in PrumoRibbon.TABS if t["id"] == "esboco"][0]
+            erros = []
+            for cmd in self._comandos_da_aba(tab):
+                if cmd not in FreeCADGui.listCommands():
+                    continue          # comando só da compilação completa (ex.: linha de construção, em C++)
+                if not cmd.startswith("Sketcher_") or cmd in ("Sketcher_LeaveSketch", "Sketcher_NewSketch",
+                                                              "Sketcher_EditSketch", "Sketcher_MapSketch",
+                                                              "Sketcher_ValidateSketch", "Sketcher_MergeSketches",
+                                                              "Sketcher_MirrorSketch", "Sketcher_ReorientSketch"):
+                    continue
+                if FreeCADGui.ActiveDocument.getInEdit() is None:
+                    FreeCADGui.ActiveDocument.setEdit(sk.Name)
+                    self._esp(0.5)
+                antes = self._relatorio()
+                try:
+                    FreeCADGui.runCommand(cmd, 0)
+                    self._esp(0.2)
+                    vista = FreeCADGui.ActiveDocument.ActiveView.graphicsView()
+                    for tipo in (QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease):
+                        QtWidgets.QApplication.sendEvent(
+                            vista, QtGui.QKeyEvent(tipo, QtCore.Qt.Key_Escape, QtCore.Qt.NoModifier))
+                    self._esp(0.15)
+                except Exception as exc:
+                    erros.append("%s: %s" % (cmd, exc))
+                self._fechar_janelas()
+                novo = self._relatorio()[len(antes):]
+                for trecho in self._erros_do_prumo(novo):
+                    erros.append("%s: %s" % (cmd, trecho))
+            self.assertEqual(erros, [], "\n".join(erros))
+        finally:
+            self._limpar_tela()
+            fechar(doc)
+
+    def test_conflito_no_esboco_aparece_e_se_resolve(self):
+        import Part
+        import Sketcher
+        import PrumoPainelEsboco as E
+        E.instalar()
+        doc, body, sk, pad = self._cena("PrumoTesteConflito")
+        try:
+            s2 = body.newObject("Sketcher::SketchObject", "Circulos")
+            s2.AttachmentSupport = [(body.Origin.OriginFeatures[3], "")]
+            s2.MapMode = "FlatFace"
+            doc.recompute()
+            FreeCADGui.ActiveDocument.setEdit(s2.Name)
+            self._esp(0.8)
+            # dois círculos de raio fixo e uma linha tangente aos dois, horizontal: não fecha (conflito)
+            s2.addGeometry(Part.Circle(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 0, 1), 10))
+            s2.addConstraint(Sketcher.Constraint("Coincident", 0, 3, -1, 1))
+            s2.addConstraint(Sketcher.Constraint("Radius", 0, 10))
+            s2.addGeometry(Part.Circle(FreeCAD.Vector(60, 0, 0), FreeCAD.Vector(0, 0, 1), 5))
+            s2.addConstraint(Sketcher.Constraint("PointOnObject", 1, 3, -1))
+            s2.addConstraint(Sketcher.Constraint("Radius", 1, 5))
+            s2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 10, 0), FreeCAD.Vector(60, 5, 0)))
+            s2.addConstraint(Sketcher.Constraint("Tangent", 2, 1, 0))
+            s2.addConstraint(Sketcher.Constraint("Tangent", 2, 2, 1))
+            s2.addConstraint(Sketcher.Constraint("Horizontal", 2))
+            s2.solve()
+            self._esp(0.8)
+            p = E.painel()
+            self.assertIsNotNone(p)
+            texto = p.situacao.text().lower()
+            self.assertTrue("conflito" in texto or "não fecha" in texto, "situação não avisou: " + texto)
+            self.assertNotIn("totalmente definido", texto)
+            self.assertTrue(p.resolver.isVisible())
+            n = len(s2.Constraints)
+            p.resolver.click()
+            self._esp(0.6)
+            self.assertEqual(len(s2.Constraints), n - 1)
+            self.assertEqual(E.problemas(s2), set(), "o conflito continuou depois de apagar a mais recente")
+            self.assertEqual(E.resolve(s2), 0, "o esboço continuou sem solução")
+            self.assertIsNotNone(FreeCADGui.ActiveDocument.getInEdit(), "o esboço saiu da edição")
+        finally:
+            self._limpar_tela()
+            fechar(doc)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -7776,4 +8032,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T55PainelLateral, T56PropriedadesEAparencia,
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
            T60Atualizacao, T61PaineisExtrasComoAbas,
-           T62PainelDeComando]
+           T62PainelDeComando, T63FerramentasDePontaAPonta]

@@ -645,6 +645,12 @@ if FreeCAD.GuiUp:
                 self.painel.terminar_trecho()
             return True
 
+    def _remover_observador(obs):
+        try:
+            FreeCADGui.Selection.removeObserver(obs)
+        except Exception:
+            pass
+
     class _ObsSelecao:
         """Clicar numa linha do esboço na vista seleciona a linha na lista do painel."""
 
@@ -653,7 +659,13 @@ if FreeCAD.GuiUp:
 
         def addSelection(self, doc, obj, sub, pnt):
             pn = self.painel
-            if obj != pn.obj.Name or not sub or not sub.startswith("Edge"):
+            try:
+                nome = pn.obj.Name
+            except Exception:
+                # o painel fechou sem passar pelo OK/Cancelar (ou o esboço foi apagado): sai da escuta
+                QtCore.QTimer.singleShot(0, lambda: _remover_observador(self))
+                return
+            if obj != nome or not sub or not sub.startswith("Edge"):
                 return
             try:
                 e = pn.obj.Shape.getElement(sub)

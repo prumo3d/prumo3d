@@ -9,6 +9,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Esboço que não fecha** (ex.: dois círculos e uma linha ligando os dois, com as restrições automáticas
+  de tangência e horizontal): o painel do esboço avisava "Totalmente definido". Agora mostra em vermelho
+  "O esboço não fecha" ou "Restrições em conflito: Tangente · Linha 3 / Círculo 2…", põe as restrições
+  com problema no topo da lista (⚠) e oferece "Apagar a restrição mais recente do conflito".
+- **Esboço 3D:** depois de fechar o painel sem OK/Cancelar, qualquer clique de seleção dava erro.
+
+### Testes
+
+- Testes de ponta a ponta: todas as ferramentas da faixa (cerca de 270) abrem e fecham com uma peça
+  pronta, as ferramentas do esboço ligam e cancelam, e o conflito de restrições aparece e se resolve.
+
 ## 0.7.0 beta — 23/10/2026
 
 ### Novo

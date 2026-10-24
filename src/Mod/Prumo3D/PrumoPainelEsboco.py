@@ -202,8 +202,42 @@ def relacoes_possiveis(sel):
     return ok
 
 
-def situacao(sk):
-    """(texto, tipo) da situação: tipo 'ok', 'info' ou 'erro'."""
+def problemas(sk):
+    """Índices (base 0) das restrições em conflito, repetidas ou com defeito (o FreeCAD numera a partir de 1)."""
+    out = set()
+    for prop in ("ConflictingConstraints", "RedundantConstraints", "MalformedConstraints"):
+        try:
+            for n in getattr(sk, prop, []) or []:
+                if 1 <= int(n) <= len(sk.Constraints):
+                    out.add(int(n) - 1)
+        except Exception:
+            pass
+    return out
+
+
+def _nomes_restricoes(sk, numeros):
+    partes = []
+    for n in numeros[:3]:
+        try:
+            partes.append(texto_restricao(sk, sk.Constraints[int(n) - 1]))
+        except Exception:
+            partes.append(str(n))
+    return "; ".join(partes) + ("…" if len(numeros) > 3 else "")
+
+
+def resolve(sk):
+    """Código do resolvedor: 0 ok, -1 não achou solução, -2 repetidas, -3 conflito, -4 com defeito."""
+    try:
+        return int(sk.solve())
+    except Exception:
+        return 0
+
+
+def situacao(sk, codigo=None):
+    """(texto, tipo) da situação: tipo 'ok', 'info' ou 'erro'.
+
+    codigo: resultado de resolve(sk), quando já calculado. Sem ele, só as listas do esboço contam
+    (e um esboço sem solução apareceria como definido)."""
     try:
         conflito = list(getattr(sk, "ConflictingConstraints", []) or [])
         redund = list(getattr(sk, "RedundantConstraints", []) or [])
@@ -212,11 +246,14 @@ def situacao(sk):
     except Exception:
         return "", "info"
     if mal:
-        return "Restrição com defeito: {}".format(", ".join(str(i) for i in mal[:5])), "erro"
+        return "Restrição com defeito: {}".format(_nomes_restricoes(sk, mal)), "erro"
     if conflito:
-        return "Restrições em conflito: {}".format(", ".join(str(i) for i in conflito[:5])), "erro"
+        return "Restrições em conflito: {}".format(_nomes_restricoes(sk, conflito)), "erro"
     if redund:
-        return "Restrições repetidas: {}".format(", ".join(str(i) for i in redund[:5])), "erro"
+        return "Restrições repetidas: {}".format(_nomes_restricoes(sk, redund)), "erro"
+    if codigo is not None and codigo < 0:
+        return ("O esboço não fecha: o resolvedor não achou uma solução com estas restrições (comum quando "
+                "entram restrições automáticas demais). Apague a mais recente ou desfaça (Ctrl+Z)."), "erro"
     if dof == 0:
         return "Totalmente definido", "ok"
     if dof > 0:
@@ -256,6 +293,14 @@ class PainelEsboco(QtWidgets.QWidget):
         self.situacao.setObjectName("PrumoSituacao")
         self.situacao.setWordWrap(True)
         lay.addWidget(self.situacao)
+        # conflito (ex.: restrições automáticas demais ao ligar dois círculos): apaga a mais recente
+        self.resolver = QtWidgets.QPushButton("Apagar a restrição mais recente do conflito")
+        self.resolver.setObjectName("PrumoPrimario")
+        self.resolver.setToolTip("Normalmente é a que entrou sozinha por último (tangente, horizontal…). "
+                                 "Desfazer (Ctrl+Z) volta.")
+        self.resolver.clicked.connect(self._resolver)
+        self.resolver.setVisible(False)
+        lay.addWidget(self.resolver)
 
         # Relações
         self.cartao_rel = UI.Cartao("Relações", "rel_paralela")
@@ -344,6 +389,13 @@ class PainelEsboco(QtWidgets.QWidget):
         sk.Document.recompute()
         self.atualizar(True)
 
+    def _resolver(self):
+        ruins = sorted(problemas(self.sk))
+        if ruins:
+            self._apagar(ruins[-1])
+        elif len(self.sk.Constraints):
+            self._apagar(len(self.sk.Constraints) - 1)    # sem lista do resolvedor: a última que entrou
+
     def _selecionar_restricao(self, item):
         i = item.data(QtCore.Qt.UserRole)
         try:
@@ -368,12 +420,15 @@ class PainelEsboco(QtWidgets.QWidget):
         if assin == self.assinatura and not forcar:
             return
         self.assinatura = assin
-        texto, tipo = situacao(sk)
+        self.codigo = resolve(sk)
+        texto, tipo = situacao(sk, self.codigo)
         self.situacao.setText(texto)
         self.situacao.setProperty("tipo", tipo)
         self.situacao.style().unpolish(self.situacao)
         self.situacao.style().polish(self.situacao)
         self.situacao.setVisible(bool(texto))
+        ruins = problemas(sk)
+        self.resolver.setVisible(bool(ruins) or (self.codigo < 0 and len(sk.Constraints) > 0))
 
         self.chips.setText("Selecionado: " + ", ".join(sel["nomes"][:6]) + ("…" if len(sel["nomes"]) > 6 else "")
                            if sel["nomes"] else "Nada selecionado")
@@ -382,6 +437,7 @@ class PainelEsboco(QtWidgets.QWidget):
             b.setEnabled(k in ok)
 
         visiveis = restricoes_visiveis(sk)
+        visiveis.sort(key=lambda par: (par[0] not in ruins, par[0]))      # as com problema primeiro
         self.cartao_lista.titulo.setText("Neste esboço ({})".format(len(visiveis)))
         self.lista.clear()
         for i, c in visiveis:
@@ -391,9 +447,11 @@ class PainelEsboco(QtWidgets.QWidget):
             hl = QtWidgets.QHBoxLayout(linha)
             hl.setContentsMargins(4, 0, 0, 0)
             hl.setSpacing(4)
-            lb = QtWidgets.QLabel(texto_restricao(sk, c))
+            lb = QtWidgets.QLabel(("⚠ " if i in ruins else "") + texto_restricao(sk, c))
             lb.setToolTip(lb.text())
-            if not getattr(c, "Driving", True):
+            if i in ruins:
+                lb.setStyleSheet(UI.tema("color: #A33A2B; font-weight: 600;"))
+            elif not getattr(c, "Driving", True):
                 lb.setStyleSheet(UI.tema("color: #4D7FAD;"))
             hl.addWidget(lb, 1)
             x = QtWidgets.QToolButton()
