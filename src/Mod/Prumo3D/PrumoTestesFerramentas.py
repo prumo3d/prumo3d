@@ -8805,6 +8805,129 @@ class T69Fixacao(unittest.TestCase):
         self.assertEqual(type(self.C.painel_fixacao()).__name__, "PainelFixacao")
 
 
+class T70SolidosEmCartoes(unittest.TestCase):
+    """Sólidos (Part): Extrusão, Revolução, Espelhar e Escala em cartões; as formas seguem a seleção da lista
+    do FreeCAD e o OK grava o que se mudou nos cartões."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import Part
+        from PySide import QtCore
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        FreeCADGui.activateWorkbench("PartWorkbench")
+        self.doc = novo_doc("PrumoTesteSolidos")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.perfil = self.doc.addObject("Sketcher::SketchObject", "Perfil")
+        V = FreeCAD.Vector
+        pts = [V(10, 0, 0), V(30, 0, 0), V(30, 20, 0), V(10, 20, 0)]
+        for i in range(4):
+            self.perfil.addGeometry(Part.LineSegment(pts[i], pts[(i + 1) % 4]))
+        self.caixa = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def _abrir(self, cmd, sel, classe):
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(sel)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        ligadas = [k for k, v in p.campos.items() if k.startswith("forma") and v.isChecked()]
+        self.assertEqual(len(ligadas), 1, "a forma selecionada devia aparecer ligada: %s" % ligadas)
+        return p
+
+    def _novo(self, tipo):
+        return [o for o in self.doc.Objects if o.TypeId == tipo]
+
+    def test_extrusao(self):
+        p = self._abrir("Part_Extrude", self.perfil, "PainelExtrusaoPart")
+        p.campos["favor"].setValue(25.0)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        ex = self._novo("Part::Extrusion")
+        self.assertEqual(len(ex), 1)
+        self.assertAlmostEqual(float(ex[0].LengthFwd), 25.0, places=4)
+
+    def test_revolucao(self):
+        p = self._abrir("Part_Revolve", self.perfil, "PainelRevolucaoPart")
+        p.campos["angulo"].setValue(90.0)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        rv = self._novo("Part::Revolution")
+        self.assertEqual(len(rv), 1)
+        self.assertAlmostEqual(float(rv[0].Angle), 90.0, places=4)
+
+    def test_espelhar_no_plano_xz(self):
+        p = self._abrir("Part_Mirror", self.caixa, "PainelEspelharPart")
+        p.campos["plano"].setCurrentIndex(1)
+        p.campos["plano"].activated.emit(1)
+        self._esp(0.4)
+        self.assertTrue(self._ok())
+        mr = self._novo("Part::Mirroring")
+        self.assertEqual(len(mr), 1)
+        n = mr[0].Normal
+        self.assertAlmostEqual(abs(n.y), 1.0, places=6, msg="plano XZ tem normal em Y: %s" % n)
+
+    def _arestas(self, cmd, tipo, chanfro):
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(self.caixa)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        p = self.C.painel()
+        self.assertEqual(type(p).__name__, "PainelArestasPart")
+        self.assertEqual(p._chanfro(), chanfro)
+        self.assertEqual(textos_com_problema(p), [])
+        p.campos["selectAllButton"].click()
+        self._esp(0.6)
+        p = self.C.painel()
+        self.assertIn("12 marcadas", p.campos["resumo"].text())
+        p.campos["r1"].setValue(2.0)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        obj = self._novo(tipo)
+        self.assertEqual(len(obj), 1)
+        self.assertEqual(len(obj[0].Edges), 12)
+        self.assertAlmostEqual(obj[0].Edges[0][1], 2.0, places=4)
+
+    def test_arredondar_todas_as_arestas(self):
+        self._arestas("Part_Fillet", "Part::Fillet", False)
+
+    def test_chanfrar_todas_as_arestas(self):
+        self._arestas("Part_Chamfer", "Part::Chamfer", True)
+
+    def test_escala(self):
+        p = self._abrir("Part_Scale", self.caixa, "PainelEscalaPart")
+        p.campos["fator"].setValue(2.0)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        sc = self._novo("Part::Scale")
+        self.assertEqual(len(sc), 1)
+        self.assertAlmostEqual(float(sc[0].UniformScale), 2.0, places=4)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8821,4 +8944,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T60Atualizacao, T61PaineisExtrasComoAbas,
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
-           T68CotaBalaoHachura, T69Fixacao]
+           T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes]

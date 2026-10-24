@@ -2017,7 +2017,10 @@ class PainelHachura(_Base):
 # formulários que não dependem de uma operação de Peça em edição: marca → classe
 # (marcas únicas de cada formulário do FreeCAD: "cmbScaleType" existe no de vistas e no de corte)
 AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadius": "PainelDetalhe",
-           "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura"}
+           "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura",
+           "spinLenFwd": "PainelExtrusaoPart", "selectLine": "PainelRevolucaoPart",
+           "referenceLineEdit": "PainelEspelharPart", "rbUniform": "PainelEscalaPart",
+           "filletStartRadius": "PainelArestasPart"}
 
 
 # ----------------------------------------------------------------------------------- Fixação (anexar)
@@ -2199,6 +2202,367 @@ class EncaixeFixacao:
             return
         self.painel.atualizar()
         self.painel.mostrar_formulario()
+
+
+# ----------------------------------------------------------------------------------- Sólidos (Part)
+def _formas_cartao(painel, nome_arvore, titulo="Formas", vazio="Nenhuma forma disponível"):
+    """Cartão com as formas da lista do FreeCAD como interruptores (ligado = a forma entra na operação)."""
+    tree = painel.f.w(nome_arvore, QtWidgets.QTreeWidget)
+    c = UI.Cartao(titulo, "solido")
+    if tree is None or tree.topLevelItemCount() == 0:
+        lb = QtWidgets.QLabel(vazio)
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+        painel.lay.addWidget(c)
+        return c
+    # os formulários de Sólidos usam as linhas SELECIONADAS da lista (não a caixinha)
+    for i in range(min(tree.topLevelItemCount(), 12)):
+        it = tree.topLevelItem(i)
+        sw = UI.Interruptor(it.isSelected())
+        sw.toggled.connect(lambda on, it=it: it.setSelected(bool(on)))
+        c.linha(it.text(0), sw)
+        painel.campos["forma%d" % i] = sw
+    if tree.topLevelItemCount() > 12:
+        lb = QtWidgets.QLabel("… e mais {} (veja no formulário completo)".format(tree.topLevelItemCount() - 12))
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+    painel.lay.addWidget(c)
+    return c
+
+
+def _estado_arvore(f, nome):
+    tree = f.w(nome, QtWidgets.QTreeWidget)
+    if tree is None:
+        return ()
+    return tuple((tree.topLevelItem(i).text(0), tree.topLevelItem(i).isSelected())
+                 for i in range(tree.topLevelItemCount()))
+
+
+def _botao_eixo(painel, linha_layout, nome_fc, texto):
+    fb = painel.f.w(nome_fc, QtWidgets.QAbstractButton)
+    if fb is None:
+        return
+    b = QtWidgets.QToolButton()
+    b.setObjectName("PrumoVista")
+    b.setText(texto)
+    b.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+    b.setMinimumHeight(30)
+    b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(80, painel.montar)))
+    linha_layout.addWidget(b, 1)
+    painel.campos[nome_fc] = b
+
+
+def _radio(painel, nome):
+    r = painel.f.w(nome, QtWidgets.QRadioButton)
+    return bool(r.isChecked()) if r is not None else False
+
+
+DIR_EXTRUSAO = [("rbDirModeNormal", "Normal da face", "seta_cima"), ("rbDirModeEdge", "Ao longo de aresta", "medida"),
+                ("rbDirModeCustom", "Escolher", "numero")]
+
+
+class PainelExtrusaoPart(_Base):
+    """Sólidos → Extrusão: formas, direção, comprimento (a favor, oposto, simétrica, ângulo) e sólido."""
+
+    QSS_EXTRA = PainelVistas.QSS_EXTRA
+
+    def estado(self):
+        f = self.f
+        return {"formas": _estado_arvore(f, "treeWidget"),
+                "dir": tuple(_radio(self, n) for n, _t, _i in DIR_EXTRUSAO),
+                "nums": tuple(f.numero(n) for n in ("spinLenFwd", "spinLenRev", "spinTaperAngle", "spinTaperAngleRev")),
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("chkReversed", "chkSymmetric", "chkSolid"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        _formas_cartao(self, "treeWidget")
+        c = UI.Cartao("Direção", "seta_cima")
+        atual = next((n for (n, _t, _i), on in zip(DIR_EXTRUSAO, e["dir"]) if on), DIR_EXTRUSAO[0][0])
+        seg = UI.Segmentado([(n, t, i) for n, t, i in DIR_EXTRUSAO], atual, colunas=3)
+
+        def modo(k):
+            r = f.w(k, QtWidgets.QRadioButton)
+            if r is not None:
+                r.setChecked(True)
+            QtCore.QTimer.singleShot(0, self.montar)
+        seg.mudou.connect(modo)
+        c.widget(seg)
+        self.campos["dir"] = seg
+        if atual == "rbDirModeEdge":
+            le = f.w("txtLink", QtWidgets.QLineEdit)
+            bt = f.w("btnSelectEdge", QtWidgets.QAbstractButton)
+            b = QtWidgets.QPushButton((le.text() if le is not None and le.text() else "Escolher aresta na vista"))
+            if bt is not None:
+                b.clicked.connect(lambda _=False, bt=bt: (bt.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.linha("Aresta", b)
+            self.campos["aresta"] = b
+        if atual == "rbDirModeCustom":
+            linha = QtWidgets.QWidget()
+            hl = QtWidgets.QHBoxLayout(linha)
+            hl.setContentsMargins(0, 0, 0, 0)
+            hl.setSpacing(4)
+            for n, t in (("btnX", "X"), ("btnY", "Y"), ("btnZ", "Z")):
+                _botao_eixo(self, hl, n, t)
+            c.widget(linha)
+            for n, rot in (("dirX", "X"), ("dirY", "Y"), ("dirZ", "Z")):
+                _num_simples(self, n, rot, "", c, casas=3)
+        self._chave("chkReversed", "Inverter", c, "inverter")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Comprimento", "medida")
+        self._num("spinLenFwd", "A favor", "mm", c, chave="favor")
+        self._chave("chkSymmetric", "Simétrica", c, "simetrica")
+        if not e["chk"][1]:
+            self._num("spinLenRev", "Em sentido oposto", "mm", c, chave="oposto")
+        self._num("spinTaperAngle", "Ângulo de saída", "°", c, chave="saida")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Resultado", "acabamento")
+        self._chave("chkSolid", "Criar sólido (fechar perfis)", c, "solido")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelRevolucaoPart(_Base):
+    """Sólidos → Revolução: formas, eixo (X/Y/Z ou aresta), ângulo, simétrica e sólido."""
+
+    QSS_EXTRA = PainelVistas.QSS_EXTRA
+
+    def estado(self):
+        f = self.f
+        le = f.w("txtAxisLink", QtWidgets.QLineEdit)
+        return {"formas": _estado_arvore(f, "treeWidget"), "eixo": le.text() if le else "",
+                "nums": tuple(f.numero(n) for n in ("xPos", "yPos", "zPos", "xDir", "yDir", "zDir", "angle")),
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("checkSymmetric", "checkSolid"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        _formas_cartao(self, "treeWidget")
+        c = UI.Cartao("Eixo", "fixacao")
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(4)
+        for n, t in (("btnX", "Eixo X"), ("btnY", "Eixo Y"), ("btnZ", "Eixo Z")):
+            _botao_eixo(self, hl, n, t)
+        c.widget(linha)
+        sl = f.w("selectLine", QtWidgets.QAbstractButton)
+        if sl is not None:
+            b = QtWidgets.QPushButton(e["eixo"] or "Escolher aresta na vista")
+            b.clicked.connect(lambda _=False, sl=sl: (sl.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.linha("Ou uma aresta", b)
+            self.campos["aresta"] = b
+        for n, rot in (("xPos", "Centro X"), ("yPos", "Centro Y"), ("zPos", "Centro Z")):
+            self._num(n, rot, "mm", c)
+        self.lay.addWidget(c)
+        c = UI.Cartao("Giro", "angulo")
+        self._num("angle", "Ângulo", "°", c, chave="angulo")
+        self._chave("checkSymmetric", "Simétrico", c, "simetrico")
+        self._chave("checkSolid", "Criar sólido (fechar perfis)", c, "solido")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+PLANOS_ESPELHO = {"XY-plane": "Plano XY", "XZ-plane": "Plano XZ", "YZ-plane": "Plano YZ",
+                  "Use selected reference": "A referência escolhida"}
+
+
+class PainelEspelharPart(_Base):
+    """Sólidos → Espelhar: formas, plano (XY/XZ/YZ ou uma face) e ponto por onde passa."""
+
+    def estado(self):
+        f = self.f
+        le = f.w("referenceLineEdit", QtWidgets.QLineEdit)
+        return {"formas": _estado_arvore(f, "shapes"), "plano": f.indice("comboBox"),
+                "ref": le.text() if le else "", "base": tuple(f.numero(n) for n in ("baseX", "baseY", "baseZ"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        _formas_cartao(self, "shapes")
+        c = UI.Cartao("Plano de espelho", "simetrica")
+        cb = f.espelho("comboBox", PLANOS_ESPELHO, largura=240)
+        cb.activated.connect(lambda _i: QtCore.QTimer.singleShot(0, self.montar))
+        c.linha("Espelhar em", cb)
+        self.campos["plano"] = cb
+        sb = f.w("selectButton", QtWidgets.QAbstractButton)
+        if sb is not None:
+            b = QtWidgets.QPushButton(e["ref"] or "Escolher face ou plano na vista")
+            b.clicked.connect(lambda _=False, sb=sb: (sb.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.linha("Referência", b)
+            self.campos["ref"] = b
+        self.lay.addWidget(c)
+        c = UI.Cartao("O plano passa por", "fixacao")
+        for n, rot in (("baseX", "X"), ("baseY", "Y"), ("baseZ", "Z")):
+            self._num(n, rot, "mm", c)
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelEscalaPart(_Base):
+    """Sólidos → Escala: formas e fator (o mesmo nos três eixos ou um por eixo)."""
+
+    def estado(self):
+        f = self.f
+        vals = []
+        for n in ("dsbUniformScale", "dsbXScale", "dsbYScale", "dsbZScale"):
+            w = f.w(n, QtWidgets.QDoubleSpinBox)
+            vals.append(round(w.value(), 6) if w else None)
+        return {"formas": _estado_arvore(f, "treeWidget"), "uniforme": _radio(self, "rbUniform"), "vals": tuple(vals)}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        _formas_cartao(self, "treeWidget")
+        c = UI.Cartao("Fator de escala", "medida")
+        seg = UI.Segmentado([("rbUniform", "Igual nos 3 eixos", "medida"), ("rbNonUniform", "Um por eixo", "padrao")],
+                            "rbUniform" if e["uniforme"] else "rbNonUniform", colunas=2)
+
+        def modo(k):
+            r = f.w(k, QtWidgets.QRadioButton)
+            if r is not None:
+                r.setChecked(True)
+            QtCore.QTimer.singleShot(0, self.montar)
+        seg.mudou.connect(modo)
+        c.widget(seg)
+        self.campos["modo"] = seg
+        if e["uniforme"]:
+            _num_simples(self, "dsbUniformScale", "Fator", "", c, casas=4, chave="fator")
+        else:
+            for n, rot in (("dsbXScale", "Em X"), ("dsbYScale", "Em Y"), ("dsbZScale", "Em Z")):
+                _num_simples(self, n, rot, "", c, casas=4)
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelArestasPart(_Base):
+    """Sólidos → Arredondar / Chanfrar arestas: forma, arestas marcadas (na vista ou todas), tipo e medida."""
+
+    QSS_EXTRA = PainelVistas.QSS_EXTRA
+
+    def _chanfro(self):
+        lb = self.f.w("labelRadius", QtWidgets.QLabel)
+        gb = self.f.w("parameterName", QtWidgets.QGroupBox)
+        txt = ((lb.text() if lb else "") + " " + (gb.title() if gb else "")).lower()
+        return any(k in txt for k in ("length", "chanfro", "chamfer", "compr"))
+
+    def _marcadas(self):
+        tv = self.f.w("treeView", QtWidgets.QTreeView)
+        m = tv.model() if tv is not None else None
+        if m is None:
+            return []
+        out = []
+        for r in range(m.rowCount()):
+            ix = m.index(r, 0)
+            if m.data(ix, QtCore.Qt.CheckStateRole) in (QtCore.Qt.Checked, 2, QtCore.Qt.CheckState.Checked):
+                out.append(str(m.data(ix, QtCore.Qt.DisplayRole)))
+        return out
+
+    def estado(self):
+        f = self.f
+        return {"forma": f.indice("shapeObject"), "marcadas": tuple(self._marcadas()),
+                "faces": _radio(self, "selectFaces"), "tipo": f.indice("filletType"),
+                "r": (f.numero("filletStartRadius"), f.numero("filletEndRadius"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        chanfro = self._chanfro()
+        c = UI.Cartao("Forma", "solido")
+        cb = QtWidgets.QComboBox()
+        cb.setObjectName("PrumoLista")
+        cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        cb.setMinimumContentsLength(12)
+        cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        fc = f.combo("shapeObject")
+        for i in range(fc.count() if fc else 0):
+            cb.addItem(fc.itemText(i))
+        cb.setCurrentIndex(e["forma"])
+        cb.activated.connect(lambda i: (_ativar(f.combo("shapeObject"), i), QtCore.QTimer.singleShot(80, self.montar)))
+        c.widget(cb)
+        self.campos["forma"] = cb
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Arestas", "selecao")
+        n = len(e["marcadas"])
+        lb = QtWidgets.QLabel(("{} marcada{}: ".format(n, "s" if n != 1 else "") + ", ".join(e["marcadas"][:6]) +
+                               ("…" if n > 6 else "")) if n else "Nenhuma aresta marcada: clique nelas na vista")
+        lb.setObjectName("PrumoSub")
+        lb.setWordWrap(True)
+        c.widget(lb)
+        self.campos["resumo"] = lb
+        seg = UI.Segmentado([("selectEdges", "Clicar em arestas", "selecao"), ("selectFaces", "Clicar em faces", "solido")],
+                            "selectFaces" if e["faces"] else "selectEdges", colunas=2)
+
+        def modo(k):
+            r = f.w(k, QtWidgets.QRadioButton)
+            if r is not None:
+                r.setChecked(True)
+            QtCore.QTimer.singleShot(0, self.montar)
+        seg.mudou.connect(modo)
+        c.widget(seg)
+        self.campos["modo"] = seg
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(6)
+        for nome_fc, txt in (("selectAllButton", "Todas"), ("selectNoneButton", "Nenhuma")):
+            fb = f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            b = QtWidgets.QPushButton(txt)
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            hl.addWidget(b)
+            self.campos[nome_fc] = b
+        hl.addStretch(1)
+        c.widget(linha)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Chanfro" if chanfro else "Arredondamento", "chanfro" if chanfro else "raio")
+        tipos = [("0", "Constante", "medida"), ("1", "Variável", "angulo")]
+        seg = UI.Segmentado(tipos, str(max(0, e["tipo"])), colunas=2)
+        seg.mudou.connect(lambda k: (_ativar(f.combo("filletType"), int(k)), QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["tipo"] = seg
+        medida = "Comprimento" if chanfro else "Raio"
+        self._num("filletStartRadius", medida + (" no início" if e["tipo"] == 1 else ""), "mm", c, minimo=0.0,
+                  chave="r1")
+        if e["tipo"] == 1:
+            self._num("filletEndRadius", medida + " no fim", "mm", c, minimo=0.0, chave="r2")
+        self.lay.addWidget(c)
+        self._fim()
+
+    def precisa_do_formulario(self):
+        return False
 
 
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",

@@ -24,6 +24,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Fixação em cartões:** o quadro "Fixação" do FreeCAD (planos, linhas e pontos auxiliares, primitivas e
   Editar fixação) virou cartões: onde a peça se prende (só as referências usadas e a próxima livre),
   o modo numa lista e o deslocamento (X, Y, Z e rotações), com "Inverter o lado".
+- **Sólidos em cartões:** Extrusão (direção, a favor/oposto/simétrica, ângulo de saída, sólido), Revolução
+  (eixo X/Y/Z ou aresta, centro, ângulo), Espelhar (plano XY/XZ/YZ ou face, ponto), Escala (igual nos 3
+  eixos ou um por eixo) e Arredondar/Chanfrar arestas (forma, Todas/Nenhuma, constante ou variável). Em
+  todos, as formas da operação aparecem como interruptores.
 
 ### Testes
 
@@ -31,6 +35,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   hachura (escala): cada painel abre em cartões e o OK grava o que foi mudado.
 - Fixação: deslocamento e modo escolhidos nos cartões ficam no plano auxiliar; nas primitivas aparecem
   os dois painéis (medidas e fixação).
+- Sólidos: extrusão de 25 mm, revolução de 90°, espelho no plano XZ, escala 2× e arredondar/chanfrar as
+  12 arestas de uma caixa, pelos cartões.
 
 ## 0.8.1 beta — 24/10/2026
 
