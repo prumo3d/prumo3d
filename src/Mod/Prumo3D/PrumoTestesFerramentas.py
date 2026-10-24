@@ -6846,6 +6846,37 @@ class T54ReferenciasAutomaticas(unittest.TestCase):
         self.assertEqual(len(R._externas(sk2)), 0)
 
 
+def painel_lateral_montado(P):
+    """Testes do painel lateral partem dele montado: outro teste pode ter deixado um painel solto,
+    escondido ou dentro da janela de 10 s em que a tela inicial esconde os laterais."""
+    import time
+    from PySide import QtCore, QtWidgets
+    try:
+        import PrumoInicio
+        PrumoInicio._side["esconder_ate"] = 0
+    except Exception:
+        pass
+    mw = FreeCADGui.getMainWindow()
+    ds = P.docks(mw)
+    achado = []
+    for n in (P.ARVORE, P.PROPRIEDADES):
+        d = ds.get(n)
+        if d is None:
+            continue
+        if d.isFloating() or not d.isVisible() or mw.dockWidgetArea(d) != QtCore.Qt.LeftDockWidgetArea:
+            achado.append("%s solto=%s visivel=%s" % (n, d.isFloating(), d.isVisible()))
+            d.setFloating(False)
+            d.show()
+    if achado or P.barra_de_abas(mw) is None:
+        FreeCAD.Console.PrintLog("teste: painel lateral desmontado (%s); remontando\n" % "; ".join(achado))
+        P._estado["juntou"] = False
+    t = time.time()
+    while time.time() - t < 0.5:
+        QtWidgets.QApplication.processEvents()
+        P.organizar()
+        time.sleep(0.02)
+
+
 class T55PainelLateral(unittest.TestCase):
     """Painel lateral único: Árvore | Propriedades | comando, abas no alto, aba do comando só enquanto ele dura."""
 
@@ -6857,6 +6888,7 @@ class T55PainelLateral(unittest.TestCase):
             self.skipTest("painel lateral único desligado nesta sessão")
         self.P = P
         self.doc = novo_doc("PrumoTestePainel")
+        painel_lateral_montado(P)
         FreeCAD.setActiveDocument(self.doc.Name)
 
     def tearDown(self):
@@ -7478,6 +7510,7 @@ class T61PaineisExtrasComoAbas(unittest.TestCase):
             self.skipTest("painel lateral único desligado nesta sessão")
         self.P = P
         self.doc = novo_doc("PrumoTesteExtras")
+        painel_lateral_montado(P)
 
     def tearDown(self):
         for n in self.P.EXTRAS:
