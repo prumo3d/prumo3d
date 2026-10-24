@@ -21,11 +21,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
     livre, tolerância (simétrica ou superior/inferior), tamanho do texto, inverter as setas e estilo.
   - **Editar balão:** texto (nº da peça), forma, tamanho, ponta e linha de chamada.
   - **Hachura:** escala, rotação e deslocamento do padrão.
+- **Fixação em cartões:** o quadro "Fixação" do FreeCAD (planos, linhas e pontos auxiliares, primitivas e
+  Editar fixação) virou cartões: onde a peça se prende (só as referências usadas e a próxima livre),
+  o modo numa lista e o deslocamento (X, Y, Z e rotações), com "Inverter o lado".
 
 ### Testes
 
 - Corte (letra e direção), detalhe (raio e letra), cota (casas e referência), balão (texto e forma) e
   hachura (escala): cada painel abre em cartões e o OK grava o que foi mudado.
+- Fixação: deslocamento e modo escolhidos nos cartões ficam no plano auxiliar; nas primitivas aparecem
+  os dois painéis (medidas e fixação).
 
 ## 0.8.1 beta — 24/10/2026
 

@@ -2020,6 +2020,187 @@ AVULSOS = {"chkView4": "PainelVistas", "gbOrientation": "PainelCorte", "qsbRadiu
            "gbTolerancing": "PainelCota", "comboBubbleShape": "PainelBalao", "fcFile": "PainelHachura"}
 
 
+# ----------------------------------------------------------------------------------- Fixação (anexar)
+class PainelFixacao(_Base):
+    """Quadro "Fixação" do FreeCAD (auxiliares, primitivas, Editar fixação) em cartões: em que a peça se
+    prende, o modo e o deslocamento. Fica logo acima do quadro original, que some."""
+
+    texto_completo = "Fixação completa do FreeCAD"
+
+    def _refs(self):
+        out = []
+        for i in range(1, 5):
+            b = self.f.w("buttonRef%d" % i, QtWidgets.QAbstractButton)
+            le = self.f.w("lineRef%d" % i, QtWidgets.QLineEdit)
+            if b is None or le is None:
+                continue
+            out.append((i, b, le))
+        return out
+
+    def _n_referencias(self):
+        """Quantas referências o objeto em edição já tem (None se não der para saber)."""
+        try:
+            vp = FreeCADGui.ActiveDocument.getInEdit()
+            obj = vp.Object if vp is not None else None
+            return len(obj.AttachmentSupport) if obj is not None and hasattr(obj, "AttachmentSupport") else None
+        except Exception:
+            return None
+
+    def _modos(self):
+        lw = self.f.w("listOfModes", QtWidgets.QListWidget)
+        if lw is None:
+            return None, []
+        itens = []
+        for i in range(lw.count()):
+            it = lw.item(i)
+            ok = bool(it.flags() & QtCore.Qt.ItemIsEnabled)
+            itens.append((i, it.text(), it.toolTip(), ok, it.isSelected()))
+        return lw, itens
+
+    def estado(self):
+        f = self.f
+        refs = tuple((b.text(), le.text(), b.isEnabled(), bool(b.isCheckable() and b.isChecked()))
+                     for _i, b, le in self._refs())
+        _lw, modos = self._modos()
+        gb = f.w("groupBox_AttachmentOffset", QtWidgets.QGroupBox)
+        msg = f.w("message", QtWidgets.QLabel)
+        return {"refs": refs, "modos": tuple((t, ok, sel) for _i, t, _d, ok, sel in modos),
+                "desl": bool(gb.isEnabled()) if gb else False,
+                "nums": tuple(f.numero("attachmentOffset" + n) for n in ("X", "Y", "Z", "Roll", "Pitch", "Yaw")),
+                "flip": bool(f.check("checkBoxFlip").isChecked()) if f.check("checkBoxFlip") else False,
+                "msg": msg.text() if msg else ""}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+
+        c = UI.Cartao("Fixação: onde se prende", "fixacao")
+        n_refs = self._n_referencias()
+        algum = False
+        for n, (i, b, le) in enumerate(self._refs()):
+            preenchida = n < n_refs if n_refs is not None else bool(le.text().strip()) and b.isEnabled()
+            # mostra as preenchidas e a próxima livre (o FreeCAD libera uma de cada vez)
+            if n > 0 and not preenchida and (not b.isEnabled() or (n_refs is not None and n > n_refs)):
+                continue
+            texto = le.text().strip() if preenchida else ""
+            algum = True
+            escolhendo = bool(b.isCheckable() and b.isChecked()) or "…" in b.text() or "..." in b.text()
+            bt = QtWidgets.QPushButton("Escolhendo… clique na vista" if escolhendo else
+                                       (texto or "Escolher na vista"))
+            bt.setToolTip(texto or "Clique e escolha na vista (face, aresta, ponto ou plano)")
+            if escolhendo:
+                bt.setObjectName("PrumoPrimario")
+            bt.setEnabled(b.isEnabled())
+            bt.clicked.connect(lambda _=False, b=b: (b.click(), QtCore.QTimer.singleShot(80, self.montar)))
+            c.linha("Referência %d" % (n + 1), bt)
+            self.campos["ref%d" % i] = bt
+        if not algum:
+            lb = QtWidgets.QLabel("Solta (sem referência)")
+            lb.setObjectName("PrumoSub")
+            c.widget(lb)
+        self.lay.addWidget(c)
+
+        lw, modos = self._modos()
+        if lw is not None and modos:
+            c = UI.Cartao("Modo", "lista")
+            cb = QtWidgets.QComboBox()
+            cb.setObjectName("PrumoLista")
+            cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            cb.setMinimumContentsLength(16)
+            cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            atual = 0
+            mapa = []
+            for i, texto, dica, ok, sel in modos:
+                if not ok:
+                    continue
+                cb.addItem(texto)
+                cb.setItemData(cb.count() - 1, dica, QtCore.Qt.ToolTipRole)
+                mapa.append(i)
+                if sel:
+                    atual = cb.count() - 1
+            cb.setCurrentIndex(atual)
+
+            def escolher(k, lw=lw, mapa=mapa):
+                if 0 <= k < len(mapa):
+                    lw.setCurrentRow(mapa[k])
+                    it = lw.item(mapa[k])
+                    if it is not None and not it.isSelected():
+                        it.setSelected(True)
+                QtCore.QTimer.singleShot(80, self.montar)
+            cb.activated.connect(escolher)
+            c.widget(cb)
+            self.campos["modo"] = cb
+            self.lay.addWidget(c)
+
+        if e["desl"]:
+            c = UI.Cartao("Deslocamento", "seta_cima")
+            for suf, rot, unid in (("X", "X", "mm"), ("Y", "Y", "mm"), ("Z", "Z", "mm"),
+                                   ("Roll", "Rotação em X", "°"), ("Pitch", "Rotação em Y", "°"),
+                                   ("Yaw", "Rotação em Z", "°")):
+                self._num("attachmentOffset" + suf, rot, unid, c, chave="desl" + suf)
+            self._chave("checkBoxFlip", "Inverter o lado", c, "flip")
+            self.lay.addWidget(c)
+        self._fim()
+
+    def dica_extra(self):
+        msg = self.f.w("message", QtWidgets.QLabel)
+        return msg.text().strip() if msg is not None and msg.isVisibleTo(self.quadro) else ""
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class EncaixeFixacao:
+    """Põe o PainelFixacao acima do quadro "Fixação" do FreeCAD sempre que ele aparece no painel de tarefas
+    (independe do painel principal: nas primitivas os dois aparecem juntos)."""
+
+    MARCA = "listOfModes"
+
+    def __init__(self):
+        self.painel = None
+        self.t = QtCore.QTimer(FreeCADGui.getMainWindow())
+        self.t.setInterval(300)
+        self.t.timeout.connect(self._tick)
+
+    def iniciar(self):
+        self.t.start()
+
+    def _vivo(self):
+        return self.painel is not None and shiboken.isValid(self.painel)
+
+    def _tirar(self):
+        if self._vivo():
+            self.painel.hide()
+            self.painel.setParent(None)
+            self.painel.deleteLater()
+        self.painel = None
+
+    def _tick(self):
+        try:
+            self._passo()
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: fixação: {}\n".format(exc))
+
+    def _passo(self):
+        panel = _painel_de_tarefas() if ligado() else None
+        quadro = _quadro_do_formulario(panel, self.MARCA) if panel is not None else None
+        if quadro is None:
+            if self.painel is not None:
+                self._tirar()
+            return
+        if not self._vivo() or self.painel.parent() is not panel or self.painel.quadro is not quadro:
+            self._tirar()
+            self.painel = PainelFixacao(None, quadro, panel)
+            lay = panel.layout()
+            lay.insertWidget(lay.indexOf(quadro), self.painel)
+            return
+        self.painel.atualizar()
+        self.painel.mostrar_formulario()
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
@@ -2107,7 +2288,15 @@ def instalar():
     if _estado["encaixe"] is None:
         _estado["encaixe"] = Encaixe()
     _estado["encaixe"].iniciar()
+    if _estado.get("fixacao") is None:
+        _estado["fixacao"] = EncaixeFixacao()
+    _estado["fixacao"].iniciar()
     return _estado["encaixe"]
+
+
+def painel_fixacao():
+    e = _estado.get("fixacao")
+    return e.painel if e is not None and e._vivo() else None
 
 
 def painel():

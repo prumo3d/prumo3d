@@ -8728,6 +8728,83 @@ class T68CotaBalaoHachura(unittest.TestCase):
         self.assertAlmostEqual(float(hat.ViewObject.HatchScale), 2.5, places=4)
 
 
+class T69Fixacao(unittest.TestCase):
+    """Quadro "Fixação" em cartões: nos auxiliares sozinho, nas primitivas junto do painel de medidas;
+    o deslocamento e o modo escolhidos nos cartões ficam no objeto."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+
+    def setUp(self):
+        T65MaisPaineisDeComando.setUp(self)
+        from PySide import QtCore
+        self.timer = QtCore.QTimer()          # pergunta do FreeCAD não pode travar a bateria
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        T65MaisPaineisDeComando.tearDown(self)
+
+    def _corpo(self):
+        self.doc = novo_doc("PrumoTesteFixacao")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        body = self.doc.addObject("PartDesign::Body", "Body")
+        return body, {o.Role: o for o in body.Origin.OriginFeatures}
+
+    def test_plano_auxiliar_com_deslocamento(self):
+        body, planos = self._corpo()
+        pl = body.newObject("PartDesign::Plane", "Plano")
+        pl.AttachmentSupport = [(planos["XY_Plane"], "")]
+        pl.MapMode = "FlatFace"
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(pl.Name)
+        self._esp(1.5)
+        p = self.C.painel_fixacao()
+        self.assertIsNotNone(p, "o painel de fixação não apareceu")
+        self.assertFalse(p.quadro.isVisible(), "o quadro Fixação do FreeCAD devia ficar escondido")
+        self.assertEqual(textos_com_problema(p), [])
+        self.assertIn("ref1", p.campos)
+        self.assertNotIn("ref3", p.campos, "só a preenchida e a próxima livre aparecem")
+        p.campos["deslZ"].setValue(15.0)
+        self._esp(0.4)
+        from PySide import QtWidgets
+        visiveis = [b.text() for b in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPushButton) if b.isVisible()]
+        self.assertTrue(self._ok(), "sem OK; diálogo=%s botões=%s" % (FreeCADGui.Control.activeDialog(), visiveis[:12]))
+        self.assertAlmostEqual(pl.AttachmentOffset.Base.z, 15.0, places=4)
+
+    def test_modo_escolhido_no_cartao(self):
+        body, planos = self._corpo()
+        pl = body.newObject("PartDesign::Plane", "Plano")
+        pl.AttachmentSupport = [(planos["XY_Plane"], "")]
+        pl.MapMode = "FlatFace"
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(pl.Name)
+        self._esp(1.5)
+        p = self.C.painel_fixacao()
+        cb = p.campos["modo"]
+        self.assertGreater(cb.count(), 2)
+        atual = cb.currentIndex()
+        # outro modo que sirva para um plano (o 0 é "Desativado", que o FreeCAD pergunta antes de aceitar)
+        alvo = next(i for i in range(1, cb.count()) if i != atual)
+        cb.setCurrentIndex(alvo)
+        cb.activated.emit(alvo)
+        self._esp(0.6)
+        self.assertTrue(self._ok())
+        self.assertNotEqual(pl.MapMode, "FlatFace", "o modo escolhido no cartão não foi gravado")
+
+    def test_primitiva_tem_os_dois_paineis(self):
+        body, _p = self._corpo()
+        cx = body.newObject("PartDesign::AdditiveBox", "Cubo")
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(cx.Name)
+        self._esp(1.5)
+        self.assertEqual(type(self.C.painel()).__name__, "PainelPrimitiva")
+        self.assertEqual(type(self.C.painel_fixacao()).__name__, "PainelFixacao")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8744,4 +8821,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T60Atualizacao, T61PaineisExtrasComoAbas,
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
-           T68CotaBalaoHachura]
+           T68CotaBalaoHachura, T69Fixacao]
