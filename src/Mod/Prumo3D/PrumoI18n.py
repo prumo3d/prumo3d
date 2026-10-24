@@ -124,6 +124,9 @@ EXTRA = {
     "Fillet parameters": "Parâmetros do arredondamento", "Fillet Parameters": "Parâmetros do arredondamento",
     "Chamfer parameters": "Parâmetros do chanfro", "Chamfer Parameters": "Parâmetros do chanfro",
     "Thickness parameters": "Parâmetros da casca", "Draft parameters": "Parâmetros do ângulo de saída",
+    "Helix Parameters": "Parâmetros da hélice", "Loft Parameters": "Parâmetros do loft",
+    "Pipe Parameters": "Parâmetros da varredura", "Section Orientation": "Orientação da seção",
+    "Section Transformation": "Transformação da seção",
     "Sketch normal": "Normal do esboço", "Taper angle": "Ângulo de inclinação",
     # Barras de ferramentas (títulos)
     "Individual Views": "Vistas individuais", "Part Design Helper Features": "Auxiliares de peça",

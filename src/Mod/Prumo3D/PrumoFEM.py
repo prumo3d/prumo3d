@@ -846,6 +846,30 @@ class EstadoIcone(QtWidgets.QLabel):
         self.style().polish(self)
 
 
+class _CabEtapa(QtWidgets.QFrame):
+    """Cabeçalho clicável da etapa. Um QFrame (não QPushButton): o botão não cresce com o resumo
+    quebrado em duas linhas, e o texto invadia o título."""
+    clicked = QtCore.Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == QtCore.Qt.LeftButton and self.rect().contains(ev.pos()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(ev)
+
+    def keyPressEvent(self, ev):
+        if ev.key() in (QtCore.Qt.Key_Space, QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
+            self.clicked.emit()
+            return
+        super().keyPressEvent(ev)
+
+    def click(self):
+        self.clicked.emit()
+
+
 class Etapa(QtWidgets.QFrame):
     abrir = QtCore.Signal(object)
 
@@ -856,10 +880,10 @@ class Etapa(QtWidgets.QFrame):
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(10, 8, 10, 8)
         lay.setSpacing(6)
-        cab = QtWidgets.QPushButton()
+        cab = _CabEtapa()
         cab.setObjectName("SwEtapaCab")
         cab.setCursor(QtCore.Qt.PointingHandCursor)
-        cab.setFlat(True)
+        self.cab = cab
         hl = QtWidgets.QHBoxLayout(cab)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.setSpacing(8)

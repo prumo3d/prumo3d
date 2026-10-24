@@ -9,6 +9,26 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Mais comandos em cartões:** Ângulo de saída, Casca, Hélice (aditiva e subtrativa), Loft e Varredura
+  (aditivos e subtrativos) ganharam o mesmo painel de cartões da Extrusão e do Furo: o que foi escolhido
+  na vista, as medidas, interruptores e botões no lugar das listas. O formulário completo do FreeCAD
+  continua a um clique.
+- Títulos de quadros que ainda apareciam em inglês na Hélice, no Loft e na Varredura foram traduzidos.
+
+### Correções
+
+- **Assistentes de estruturas e de simulação:** quando o resumo de uma etapa ocupava duas linhas (ex.:
+  "Resultados"), o texto ficava cortado por cima do título.
+
+### Testes
+
+- Novo teste confere que nenhum painel do Prumo nem os assistentes têm texto cortado ou sobreposto.
+- Testes dos novos painéis: cada um abre em cartões e o OK grava o que foi mudado.
+
 ## 0.7.1 beta — 24/10/2026
 
 ### Correções

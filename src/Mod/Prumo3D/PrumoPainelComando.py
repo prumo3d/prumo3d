@@ -26,13 +26,19 @@ PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 
 TIPOS = ("PartDesign::Pad", "PartDesign::Pocket", "PartDesign::Hole", "PartDesign::Revolution",
          "PartDesign::Groove", "PartDesign::Fillet", "PartDesign::Chamfer", "PartDesign::LinearPattern",
-         "PartDesign::PolarPattern", "PartDesign::Mirrored")
+         "PartDesign::PolarPattern", "PartDesign::Mirrored", "PartDesign::Draft", "PartDesign::Thickness",
+         "PartDesign::AdditiveHelix", "PartDesign::SubtractiveHelix", "PartDesign::AdditiveLoft",
+         "PartDesign::SubtractiveLoft", "PartDesign::AdditivePipe", "PartDesign::SubtractivePipe")
 # campo que identifica o formulário do FreeCAD de cada comando
 MARCA = {"PartDesign::Pad": "changeMode", "PartDesign::Pocket": "changeMode", "PartDesign::Hole": "ThreadType",
          "PartDesign::Revolution": "revolveAngle", "PartDesign::Groove": "revolveAngle",
          "PartDesign::Fillet": "filletRadius", "PartDesign::Chamfer": "chamferType",
          "PartDesign::LinearPattern": "listWidgetFeatures", "PartDesign::PolarPattern": "listWidgetFeatures",
-         "PartDesign::Mirrored": "listWidgetFeatures"}
+         "PartDesign::Mirrored": "listWidgetFeatures", "PartDesign::Draft": "draftAngle",
+         "PartDesign::Thickness": "joinComboBox", "PartDesign::AdditiveHelix": "inputMode",
+         "PartDesign::SubtractiveHelix": "inputMode", "PartDesign::AdditiveLoft": "checkBoxRuled",
+         "PartDesign::SubtractiveLoft": "checkBoxRuled", "PartDesign::AdditivePipe": "comboBoxTransition",
+         "PartDesign::SubtractivePipe": "comboBoxTransition"}
 LADOS = [("one", "Um lado", "seta_cima"), ("two", "Dois lados", "dois_lados"), ("sym", "Simétrica", "simetrica")]
 MODOS = {
     "PartDesign::Pad": [("Length", "Medida", "medida"), ("UpToLast", "Até o fim", "ate_fim"),
@@ -529,14 +535,84 @@ class _Base(PainelComando):
         self.lay.addWidget(self.completo)
         self.mostrar_formulario()
 
+    def _selecao(self, titulo, icone, itens, vazio, botoes, chave="itens"):
+        """Cartão com o que foi escolhido na vista e os botões de escolha do FreeCAD (botões de alternar).
+        botoes = [(nome no formulário, texto parado, texto escolhendo)]."""
+        c = UI.Cartao(titulo, icone)
+        n = len(itens)
+        lb = QtWidgets.QLabel(("{} escolhido{}: ".format(n, "s" if n != 1 else "") + ", ".join(itens[:6]) +
+                               ("…" if n > 6 else "")) if n else vazio)
+        lb.setWordWrap(True)
+        lb.setObjectName("PrumoSub")
+        c.widget(lb)
+        self.campos[chave] = lb
+        linha = QtWidgets.QWidget()
+        hl = QtWidgets.QHBoxLayout(linha)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(6)
+        for nome_fc, parado, escolhendo in botoes:
+            fb = self.f.w(nome_fc, QtWidgets.QAbstractButton)
+            if fb is None:
+                continue
+            ativo = bool(fb.isCheckable() and fb.isChecked())
+            b = QtWidgets.QPushButton(escolhendo if ativo else parado)
+            if ativo:
+                b.setObjectName("PrumoPrimario")
+            b.setEnabled(fb.isEnabled())
+            b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(50, self.montar)))
+            hl.addWidget(b)
+            self.campos[nome_fc] = b
+        hl.addStretch(1)
+        c.widget(linha)
+        self.lay.addWidget(c)
+        return c
+
+    def _lista(self, nome="listWidgetReferences"):
+        lw = self.f.w(nome, QtWidgets.QListWidget)
+        return tuple(lw.item(i).text() for i in range(lw.count())) if lw is not None else ()
+
+    def _escolhendo(self, *nomes):
+        for n in nomes:
+            b = self.f.w(n, QtWidgets.QAbstractButton)
+            if b is not None and b.isCheckable() and b.isChecked():
+                return n
+        return None
+
+    def _chave(self, nome, rotulo, cartao, chave=None):
+        """Interruptor ligado a um QCheckBox do formulário do FreeCAD (só se ele estiver visível)."""
+        cb = self.f.check(nome)
+        if cb is None or not cb.isVisibleTo(self.quadro):
+            return None
+        sw = UI.Interruptor(cb.isChecked())
+        sw.setEnabled(cb.isEnabled())
+        sw.toggled.connect(lambda on, n=nome: self._marcar(n, on))
+        cartao.linha(rotulo, sw)
+        self.campos[chave or nome] = sw
+        return sw
+
+    def _num(self, nome, rotulo, unid, cartao, minimo=None, chave=None):
+        """Campo numérico ligado a um QuantitySpinBox do formulário (só se estiver visível)."""
+        w = self.f.w(nome, QtWidgets.QAbstractSpinBox)
+        v = self.f.numero(nome)
+        if w is None or v is None or not w.isVisibleTo(self.quadro):
+            return None
+        num = UI.CampoNumero(v, unid) if minimo is None else UI.CampoNumero(v, unid, minimo=minimo)
+        num.valueChanged.connect(lambda x, n=nome: self.f.por_numero(n, x))
+        cartao.linha(rotulo, num)
+        self.campos[chave or nome] = num
+        return num
+
     def _acabamento(self, extra=None):
+        if not extra and "Refine" not in self.obj.PropertiesList:
+            return
         c = UI.Cartao("Acabamento", "acabamento")
         for rot, w in (extra or []):
             c.linha(rot, w)
-        sw = UI.Interruptor(bool(getattr(self.obj, "Refine", False)))
-        sw.toggled.connect(self._refinar)
-        c.linha("Unir faces planas (refinar)", sw)
-        self.campos["refinar"] = sw
+        if "Refine" in self.obj.PropertiesList:
+            sw = UI.Interruptor(bool(getattr(self.obj, "Refine", False)))
+            sw.toggled.connect(self._refinar)
+            c.linha("Unir faces planas (refinar)", sw)
+            self.campos["refinar"] = sw
         self.lay.addWidget(c)
 
 
@@ -916,11 +992,265 @@ class PainelPadrao(_Base):
         return False
 
 
+DICA_ESCOLHA = {
+    "buttonRefSel": "Clique nas faces na vista: cada clique põe ou tira uma face. Depois, \"Concluir\".",
+    "buttonPlane": "Clique na face ou no plano que fica parado (plano neutro).",
+    "buttonLine": "Clique na aresta ou no eixo que dá a direção de saída do molde.",
+    "buttonProfileBase": "Clique no esboço (ou face) do perfil.",
+    "buttonSpineBase": "Clique no esboço ou nas arestas do caminho.",
+    "buttonRefAdd": "Clique nos itens que quer acrescentar; depois, \"Concluir\".",
+    "buttonRefRemove": "Clique nos itens que quer tirar; depois, \"Concluir\".",
+}
+
+
+class _Escolhas(_Base):
+    """Painéis em que o principal é escolher coisas na vista (faces, perfis, caminho)."""
+
+    BOTOES = ()
+
+    def dica_extra(self):
+        n = self._escolhendo(*self.BOTOES)
+        return DICA_ESCOLHA.get(n, "")
+
+    def precisa_do_formulario(self):
+        return False
+
+
+class PainelAngulo(_Escolhas):
+    """Ângulo de saída: faces, ângulo, plano neutro e direção de saída."""
+
+    BOTOES = ("buttonRefSel", "buttonPlane", "buttonLine")
+
+    def estado(self):
+        f = self.f
+        lp, ll = f.w("linePlane", QtWidgets.QLineEdit), f.w("lineLine", QtWidgets.QLineEdit)
+        return {"refs": self._lista(), "ang": f.numero("draftAngle"), "esc": self._escolhendo(*self.BOTOES),
+                "plano": lp.text() if lp else "", "linha": ll.text() if ll else "",
+                "inv": bool(f.check("checkReverse").isChecked()) if f.check("checkReverse") else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._selecao("Faces a inclinar", "selecao", list(e["refs"]), "Nenhuma face escolhida",
+                      [("buttonRefSel", "Escolher faces na vista", "Concluir a escolha")], "faces")
+        c = UI.Cartao("Inclinação", "angulo")
+        self._num("draftAngle", "Ângulo", "°", c, minimo=0.0, chave="ang")
+        self._chave("checkReverse", "Inverter o sentido", c, "inv")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Referências", "fixacao")
+        for chave, nome_fc, rot, vazio in (("plano", "buttonPlane", "Plano neutro", "Automático"),
+                                           ("linha", "buttonLine", "Direção de saída", "Normal ao plano")):
+            fb = self.f.w(nome_fc, QtWidgets.QAbstractButton)
+            b = QtWidgets.QPushButton(e[chave] or vazio)
+            b.setToolTip("Clique e escolha na vista")
+            if fb is not None:
+                if fb.isCheckable() and fb.isChecked():
+                    b.setObjectName("PrumoPrimario")
+                    b.setText("Escolhendo… (clique na vista)")
+                b.setEnabled(fb.isEnabled())
+                b.clicked.connect(lambda _=False, fb=fb: (fb.click(), QtCore.QTimer.singleShot(50, self.montar)))
+            c.linha(rot, b)
+            self.campos[chave] = b
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
+MODOS_CASCA = [("0", "Casca", "solido"), ("1", "Tubo", "atraves"), ("2", "Frente e verso", "dois_lados")]
+JUNCOES = [("0", "Arredondada", "raio"), ("1", "Canto vivo", "chanfro")]
+
+
+class PainelCasca(_Escolhas):
+    """Casca: faces que ficam abertas, espessura, para dentro, modo e junção."""
+
+    BOTOES = ("buttonRefSel",)
+
+    def estado(self):
+        f = self.f
+        return {"refs": self._lista(), "esp": f.numero("Value"), "esc": self._escolhendo(*self.BOTOES),
+                "modo": f.indice("modeComboBox"), "junta": f.indice("joinComboBox"),
+                "dentro": bool(f.check("checkReverse").isChecked()) if f.check("checkReverse") else False,
+                "inter": bool(f.check("checkIntersection").isChecked()) if f.check("checkIntersection") else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._selecao("Faces abertas", "selecao", list(e["refs"]), "Nenhuma face escolhida (casca fechada)",
+                      [("buttonRefSel", "Escolher faces na vista", "Concluir a escolha")], "faces")
+        c = UI.Cartao("Parede", "medida")
+        self._num("Value", "Espessura", "mm", c, minimo=0.0, chave="esp")
+        self._chave("checkReverse", "Para dentro", c, "dentro")
+        self.lay.addWidget(c)
+        c = UI.Cartao("Como é feita", "acabamento")
+        seg = UI.Segmentado(MODOS_CASCA, str(max(0, e["modo"])), colunas=3)
+        seg.mudou.connect(lambda k: (_ativar(self.f.combo("modeComboBox"), int(k)),
+                                     QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["modo"] = seg
+        sub = QtWidgets.QLabel("Cantos")
+        sub.setObjectName("PrumoSub")
+        c.widget(sub)
+        seg = UI.Segmentado(JUNCOES, str(max(0, e["junta"])), colunas=2)
+        seg.mudou.connect(lambda k: (_ativar(self.f.combo("joinComboBox"), int(k)),
+                                     QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["junta"] = seg
+        self._chave("checkIntersection", "Permitir interseções", c, "inter")
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
+MODOS_HELICE = [("0", "Passo e altura", "medida"), ("1", "Passo e voltas", "padrao"),
+                ("2", "Altura e voltas", "seta_cima"), ("3", "Com crescimento", "angulo")]
+
+
+class PainelHelice(_Base):
+    """Hélice (aditiva e subtrativa): eixo, como medir e as medidas."""
+
+    def estado(self):
+        f = self.f
+        vis = tuple(f.visivel(n) for n in ("pitch", "height", "turns", "coneAngle", "growth", "checkBoxOutside"))
+        return {"eixo": f.indice("axis"), "n_eixo": f.combo("axis").count() if f.combo("axis") else 0,
+                "modo": f.indice("inputMode"), "vis": vis,
+                "vals": tuple(f.numero(n) for n in ("pitch", "height", "turns", "coneAngle", "growth")),
+                "chk": tuple(bool(f.check(n).isChecked()) if f.check(n) else False
+                             for n in ("checkBoxLeftHanded", "checkBoxReversed", "checkBoxOutside"))}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        f = self.f
+        c = UI.Cartao("Eixo", "fixacao")
+        fc = f.combo("axis")
+        cb = QtWidgets.QComboBox()
+        cb.setObjectName("PrumoLista")
+        cb.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        cb.setMinimumContentsLength(8)
+        cb.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        for i in range(fc.count() if fc else 0):
+            t = fc.itemText(i)
+            cb.addItem(DIRECOES_PT.get(t, DIRECOES_PT.get(t.replace("-axis", " axis"), t)))
+        cb.setCurrentIndex(e["eixo"])
+        cb.activated.connect(lambda i: (_ativar(f.combo("axis"), i), QtCore.QTimer.singleShot(0, self.montar)))
+        c.linha("Gira em torno de", cb)
+        self.campos["eixo"] = cb
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Medidas", "medida")
+        im = f.combo("inputMode")
+        ops = [o for o in MODOS_HELICE if im is not None and int(o[0]) < im.count()]
+        seg = UI.Segmentado(ops, str(max(0, e["modo"])), colunas=2)
+        seg.mudou.connect(lambda k: (_ativar(f.combo("inputMode"), int(k)), QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["modo"] = seg
+        self._num("pitch", "Passo", "mm", c, minimo=0.0)
+        self._num("height", "Altura", "mm", c)
+        turns = f.w("turns", QtWidgets.QAbstractSpinBox)
+        if turns is not None and turns.isVisibleTo(self.quadro) and f.numero("turns") is not None:
+            num = UI.CampoNumero(f.numero("turns"), "", minimo=0.0)
+            num.valueChanged.connect(lambda x: f.por_numero("turns", x))
+            c.linha("Voltas", num)
+            self.campos["turns"] = num
+        self._num("coneAngle", "Ângulo do cone", "°", c)
+        self._num("growth", "Crescimento por volta", "mm", c)
+        self.lay.addWidget(c)
+
+        c = UI.Cartao("Sentido", "seta_cima")
+        self._chave("checkBoxLeftHanded", "Rosca à esquerda", c)
+        self._chave("checkBoxReversed", "Inverter", c)
+        self._chave("checkBoxOutside", "Remover por fora", c)
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+    def precisa_do_formulario(self):
+        cb = self.f.combo("axis")
+        return cb is not None and "refer" in cb.currentText().lower()
+
+
+class PainelLoft(_Escolhas):
+    """Loft (aditivo e subtrativo): perfil base, seções e forma."""
+
+    BOTOES = ("buttonProfileBase", "buttonRefAdd", "buttonRefRemove")
+
+    def estado(self):
+        f = self.f
+        pb = f.w("profileBaseEdit", QtWidgets.QLineEdit)
+        return {"base": pb.text() if pb else "", "secoes": self._lista(), "esc": self._escolhendo(*self.BOTOES),
+                "regrada": bool(f.check("checkBoxRuled").isChecked()) if f.check("checkBoxRuled") else False,
+                "fechado": bool(f.check("checkBoxClosed").isChecked()) if f.check("checkBoxClosed") else False}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._selecao("Perfil inicial", "perfil", [e["base"]] if e["base"] else [], "Nenhum perfil escolhido",
+                      [("buttonProfileBase", "Escolher perfil", "Escolhendo…")], "base")
+        self._selecao("Seções (na ordem)", "lista", list(e["secoes"]), "Nenhuma seção: escolha pelo menos uma",
+                      [("buttonRefAdd", "Adicionar", "Concluir"), ("buttonRefRemove", "Tirar", "Concluir")],
+                      "secoes")
+        c = UI.Cartao("Forma", "solido")
+        self._chave("checkBoxRuled", "Faces retas entre as seções", c, "regrada")
+        self._chave("checkBoxClosed", "Fechar (volta ao primeiro perfil)", c, "fechado")
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
+TRANSICOES = [("0", "Transformada", "angulo"), ("1", "Canto reto", "chanfro"), ("2", "Canto redondo", "raio")]
+
+
+class PainelVarredura(_Escolhas):
+    """Varredura (aditiva e subtrativa): perfil, caminho e transição nos cantos.
+    Orientação e seções extras continuam nos quadros do FreeCAD logo abaixo."""
+
+    BOTOES = ("buttonProfileBase", "buttonSpineBase", "buttonRefAdd", "buttonRefRemove")
+
+    def estado(self):
+        f = self.f
+        pb, sb = f.w("profileBaseEdit", QtWidgets.QLineEdit), f.w("spineBaseEdit", QtWidgets.QLineEdit)
+        return {"perfil": pb.text() if pb else "", "caminho": sb.text() if sb else "", "arestas": self._lista(),
+                "esc": self._escolhendo(*self.BOTOES), "trans": f.indice("comboBoxTransition")}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        self._selecao("Perfil", "perfil", [e["perfil"]] if e["perfil"] else [], "Nenhum perfil escolhido",
+                      [("buttonProfileBase", "Escolher perfil", "Escolhendo…")], "perfil")
+        itens = ([e["caminho"]] if e["caminho"] else []) + list(e["arestas"])
+        self._selecao("Caminho", "seta_cima", itens, "Nenhum caminho escolhido",
+                      [("buttonSpineBase", "Escolher caminho", "Escolhendo…"), ("buttonRefAdd", "Mais arestas", "Concluir"),
+                       ("buttonRefRemove", "Tirar", "Concluir")], "caminho")
+        c = UI.Cartao("Cantos do caminho", "acabamento")
+        seg = UI.Segmentado(TRANSICOES, str(max(0, e["trans"])), colunas=3)
+        seg.mudou.connect(lambda k: (_ativar(self.f.combo("comboBoxTransition"), int(k)),
+                                     QtCore.QTimer.singleShot(0, self.montar)))
+        c.widget(seg)
+        self.campos["trans"] = seg
+        self.lay.addWidget(c)
+        self._acabamento()
+        self._fim()
+
+
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
            "PartDesign::Hole": "PainelFuro", "PartDesign::Revolution": "PainelRevolucao",
            "PartDesign::Groove": "PainelRevolucao", "PartDesign::Fillet": "PainelAcabamentoArestas",
            "PartDesign::Chamfer": "PainelAcabamentoArestas", "PartDesign::LinearPattern": "PainelPadrao",
-           "PartDesign::PolarPattern": "PainelPadrao", "PartDesign::Mirrored": "PainelPadrao"}
+           "PartDesign::PolarPattern": "PainelPadrao", "PartDesign::Mirrored": "PainelPadrao",
+           "PartDesign::Draft": "PainelAngulo", "PartDesign::Thickness": "PainelCasca",
+           "PartDesign::AdditiveHelix": "PainelHelice", "PartDesign::SubtractiveHelix": "PainelHelice",
+           "PartDesign::AdditiveLoft": "PainelLoft", "PartDesign::SubtractiveLoft": "PainelLoft",
+           "PartDesign::AdditivePipe": "PainelVarredura", "PartDesign::SubtractivePipe": "PainelVarredura"}
 
 
 class Encaixe:

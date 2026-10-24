@@ -8054,6 +8054,278 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             fechar(doc)
 
 
+def textos_com_problema(raiz):
+    """Rótulos visíveis com texto cortado (quebra de linha sem altura) ou sobrepostos a outro rótulo."""
+    from PySide import QtCore, QtWidgets
+    out = []
+    labs = [l for l in raiz.findChildren(QtWidgets.QLabel) if l.isVisible() and l.text().strip()]
+    for l in labs:
+        if l.wordWrap() and l.hasHeightForWidth():
+            precisa = l.heightForWidth(l.width())
+            if precisa > l.height() + 3:
+                out.append("cortado (%d de %d px): %r" % (l.height(), precisa, l.text()[:60]))
+    rets = [(l, QtCore.QRect(l.mapTo(raiz, QtCore.QPoint(0, 0)), l.size())) for l in labs]
+    for i, (a, ra) in enumerate(rets):
+        for b, rb in rets[i + 1:]:
+            if a.isAncestorOf(b) or b.isAncestorOf(a):
+                continue
+            r = ra.intersected(rb)
+            if r.width() > 4 and r.height() > 4:
+                out.append("sobreposto: %r x %r" % (a.text()[:40], b.text()[:40]))
+    return out
+
+
+def operacao_em_edicao(tipo, nome_doc="PrumoTesteOperacao"):
+    """Documento com a operação de Peça 'tipo' já criada e aberta para edição (painel de tarefas do FreeCAD).
+    Devolve (doc, obj). Tipos: Draft, Thickness, AdditiveHelix, SubtractiveHelix, AdditiveLoft, SubtractiveLoft,
+    AdditivePipe, SubtractivePipe."""
+    import Part
+    doc = novo_doc(nome_doc)
+    FreeCAD.setActiveDocument(doc.Name)
+    body = doc.addObject("PartDesign::Body", "Body")
+    planos = {o.Role: o for o in body.Origin.OriginFeatures}
+    if tipo in ("Draft", "Thickness") or tipo.startswith("Subtractive"):
+        sk = esboco_retangulo(body)
+        pad = body.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 20
+        doc.recompute()
+    if tipo == "Draft":
+        obj = body.newObject("PartDesign::Draft", "Draft")
+        obj.Base = (pad, ["Face1"])
+        obj.Angle = 2
+    elif tipo == "Thickness":
+        obj = body.newObject("PartDesign::Thickness", "Thickness")
+        obj.Base = (pad, ["Face6"])
+        obj.Value = 1
+    elif tipo.endswith("Helix"):
+        perfil = esboco_retangulo(body, 2.0, 2.0, "Perfil", suporte=(planos["XZ_Plane"], [""]))
+        perfil.AttachmentOffset = FreeCAD.Placement(FreeCAD.Vector(12, 0, 0), FreeCAD.Rotation())
+        obj = body.newObject("PartDesign::" + tipo, "Helice")
+        obj.Profile = perfil
+        obj.ReferenceAxis = (perfil, ["V_Axis"])
+        obj.Pitch = 6
+        obj.Height = 18
+    elif tipo.endswith("Loft"):
+        a = esboco_retangulo(body, 10.0, 10.0, "SecaoA")
+        b = esboco_retangulo(body, 6.0, 6.0, "SecaoB")
+        b.AttachmentOffset = FreeCAD.Placement(FreeCAD.Vector(2, 2, 15), FreeCAD.Rotation())
+        obj = body.newObject("PartDesign::" + tipo, "Loft")
+        obj.Profile = a
+        obj.Sections = [b]
+    elif tipo.endswith("Pipe"):
+        perfil = esboco_retangulo(body, 6.0, 6.0, "Perfil")
+        cam = body.newObject("Sketcher::SketchObject", "Caminho")
+        cam.AttachmentSupport = (planos["XZ_Plane"], [""])
+        cam.MapMode = "FlatFace"
+        cam.addGeometry(Part.LineSegment(FreeCAD.Vector(3, 0, 0), FreeCAD.Vector(3, 25, 0)))
+        obj = body.newObject("PartDesign::" + tipo, "Varredura")
+        obj.Profile = perfil
+        obj.Spine = (cam, ["Edge1"])
+    else:
+        raise ValueError(tipo)
+    doc.recompute()
+    FreeCADGui.ActiveDocument.setEdit(obj, 0)
+    return doc, obj
+
+
+class T64TextosNasTelas(unittest.TestCase):
+    """Nenhum texto cortado ou sobreposto nos painéis do Prumo e nos assistentes."""
+
+    # mesmos ajudantes do T63: fecha janelas modais sozinho e limpa a tela entre comandos
+    setUp = T63FerramentasDePontaAPonta.setUp
+    tearDown = T63FerramentasDePontaAPonta.tearDown
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+    _limpar_tela = T63FerramentasDePontaAPonta._limpar_tela
+
+    def _esp(self, s=0.5):
+        import time
+        from PySide import QtWidgets
+        t = time.time()
+        while time.time() - t < s:
+            QtWidgets.QApplication.processEvents()
+            time.sleep(0.01)
+
+    def test_etapa_com_resumo_longo_cresce(self):
+        from PySide import QtWidgets
+        import PrumoFEM as F
+        w = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout(w)
+        e = F.Etapa(1, "r", "Resultados",
+                    "Taxa máxima 0,68 · grande deslocabilidade: análise insuficiente, enrijeça a estrutura")
+        lay.addWidget(e)
+        lay.addStretch(1)
+        w.resize(300, 300)
+        w.show()
+        try:
+            self._esp(0.3)
+            self.assertEqual(textos_com_problema(w), [])
+            abertas = []
+            e.abrir.connect(abertas.append)
+            e.cab.click()
+            self.assertEqual(abertas, [e], "clicar no cabeçalho abre a etapa")
+        finally:
+            w.close()
+
+    def test_paineis_do_prumo_sem_texto_cortado(self):
+        from PySide import QtWidgets
+        import PrumoRibbon
+        T63 = T63FerramentasDePontaAPonta
+        problemas, abertos, vistos = [], 0, set()
+        mw = FreeCADGui.getMainWindow()
+        for tab in PrumoRibbon.TABS:
+            if tab.get("wb"):
+                try:
+                    FreeCADGui.activateWorkbench(tab["wb"])
+                except Exception:
+                    pass
+            doc, body, sk, pad = T63._cena(self, "PrumoTesteTextos")
+            try:
+                for cmd in T63._comandos_da_aba(tab):
+                    if not cmd.startswith("Prumo") or cmd in vistos or cmd in T63.NAO_RODAR:
+                        continue
+                    if cmd not in FreeCADGui.listCommands() or not T63._vivo(pad):
+                        continue
+                    vistos.add(cmd)
+                    FreeCADGui.Selection.clearSelection()
+                    FreeCADGui.Selection.addSelection(pad)
+                    try:
+                        FreeCADGui.runCommand(cmd, 0)
+                    except Exception:
+                        continue
+                    self._esp(0.6)
+                    alvos = [w for w in mw.findChildren(QtWidgets.QWidget)
+                             if w.metaObject().className() == "Gui::TaskView::TaskView" and w.isVisible()]
+                    alvos += [d.widget() for d in mw.findChildren(QtWidgets.QDockWidget)
+                              if d.objectName().startswith("PrumoAssistente") and d.isVisible()]
+                    for a in alvos:
+                        abertos += 1
+                        problemas += ["%s: %s" % (cmd, p) for p in textos_com_problema(a)]
+                    self._limpar_tela()
+                    for d in mw.findChildren(QtWidgets.QDockWidget):
+                        if d.objectName().startswith("PrumoAssistente"):
+                            d.close()
+            finally:
+                fechar(doc)
+                self._esp(0.8)
+        self.assertGreater(abertos, 10, "poucos painéis abriram: %d" % abertos)
+        self.assertEqual(problemas, [], "\n".join(problemas))
+
+    def test_assistente_de_estruturas_com_resultado(self):
+        import json
+        import PrumoEstrutura as E, PrumoAnaliseEstrutura as A, PrumoAssistenteEstrutura as AE
+        doc = novo_doc("PrumoTesteTextosEst")
+        dock = None
+        try:
+            sk = esboco_linhas(doc, [((0, 0), (0, 4000)), ((0, 4000), (6000, 4000)), ((6000, 4000), (6000, 0))], "XZ")
+            est = E.criar(doc, sk, "W 200 x 22,5", material="ASTM A36")
+            doc.recompute()
+            an = A.criar(doc, est)
+            an.Apoios = ["%s=Engaste" % A._chave_no((0, 0, 0)), "%s=Engaste" % A._chave_no((6000, 0, 0))]
+            casos = [A.caso_padrao(), {"nome": "Sobrecarga", "tipo": "Sobrecarga (sem predominância de equipamentos)",
+                     "cargas": [{"alvo": "barra", "linha": 1, "tipo": "distribuida", "valor": 4.0,
+                                 "direcao": "Para baixo (−Z)"}]}]
+            an.Casos = [json.dumps(c, ensure_ascii=False) for c in casos]
+            doc.recompute()
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(est)
+            dock = AE.mostrar()
+            w = dock.widget()
+            w.calcular()
+            for etapa in ("resultado", "cargas"):
+                w.abrir_etapa(etapa)
+                self._esp(0.4)
+                self.assertEqual(textos_com_problema(w), [], "etapa %s" % etapa)
+        finally:
+            if dock is not None:
+                dock.close()
+            fechar(doc)
+
+
+class T65MaisPaineisDeComando(unittest.TestCase):
+    """Ângulo de saída, Casca, Hélice, Loft e Varredura em cartões; o OK grava o que se mudou no cartão."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        self.doc = None
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        if self.doc is not None:
+            fechar(self.doc)
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+
+    def _abrir(self, tipo, classe):
+        self.doc, obj = operacao_em_edicao(tipo, "PrumoTesteMaisComandos")
+        self._esp(1.2)
+        p = self.C.painel()
+        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % tipo)
+        self.assertEqual(type(p).__name__, classe)
+        self.assertEqual(textos_com_problema(p), [], tipo)
+        self.assertFalse(p.quadro.isVisible(), "%s: o formulário do FreeCAD devia ficar escondido" % tipo)
+        return obj, p
+
+    def test_angulo_de_saida(self):
+        obj, p = self._abrir("Draft", "PainelAngulo")
+        self.assertIn("faces", p.campos)
+        p.campos["ang"].setValue(3.0)
+        p.campos["ang"].editingFinished.emit()
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(obj.Angle.getValueAs("deg").Value, 3.0, places=3)
+
+    def test_casca(self):
+        obj, p = self._abrir("Thickness", "PainelCasca")
+        p.campos["esp"].setValue(2.0)
+        p.campos["esp"].editingFinished.emit()
+        p.campos["junta"].definir("1", silencioso=False)
+        self._esp(0.5)
+        p = self.C.painel()
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(obj.Value.Value, 2.0, places=3)
+        self.assertEqual(obj.Join, "Intersection")
+
+    def test_helice_aditiva_e_subtrativa(self):
+        obj, p = self._abrir("AdditiveHelix", "PainelHelice")
+        p.campos["pitch"].setValue(5.0)
+        p.campos["pitch"].editingFinished.emit()
+        p.campos["checkBoxLeftHanded"].setChecked(True)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertAlmostEqual(obj.Pitch.Value, 5.0, places=3)
+        self.assertTrue(obj.LeftHanded)
+        fechar(self.doc)
+        self.doc = None
+        obj, p = self._abrir("SubtractiveHelix", "PainelHelice")
+        self.assertIn("checkBoxOutside", p.campos, "a subtrativa tem a opção de remover por fora")
+
+    def test_loft(self):
+        obj, p = self._abrir("AdditiveLoft", "PainelLoft")
+        self.assertIn("SecaoB", p.campos["secoes"].text())
+        p.campos["regrada"].setChecked(True)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        self.assertTrue(obj.Ruled)
+
+    def test_varredura(self):
+        obj, p = self._abrir("AdditivePipe", "PainelVarredura")
+        self.assertIn("Perfil", p.campos["perfil"].text())
+        p.campos["trans"].definir("1", silencioso=False)
+        self._esp(0.5)
+        self.assertTrue(self._ok())
+        self.assertEqual(obj.Transition, "Right corner")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -8068,4 +8340,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T55PainelLateral, T56PropriedadesEAparencia,
            T57PainelDoEsboco, T58TelaInicialAjuda, T59PadraoVisualNosPaineis,
            T60Atualizacao, T61PaineisExtrasComoAbas,
-           T62PainelDeComando, T63FerramentasDePontaAPonta]
+           T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
+           T65MaisPaineisDeComando]
