@@ -9,6 +9,23 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Linha ligando dois círculos ainda quebrava o esboço** (relatado na 0.8.1, com círculos de Ø50 e
+  Ø30): ao desenhar, o FreeCAD punha tangente e duas "Vertical" (alinhamento com os centros), que não
+  cabiam juntas; no primeiro recálculo, ele jogava os círculos a bilhões de mm, e o Prumo retirava a
+  relação a partir desse desenho já estragado. Agora o Prumo guarda o desenho do instante em que as
+  relações entram, testa cada opção de retirada sem mexer no esboço e fica com a que menos move o que já
+  estava desenhado, preferindo tirar alinhamentos do cursor e manter a tangente. A retirada entra no
+  desfazer (Ctrl+Z).
+
+### Testes
+
+- O caso relatado (Ø50, Ø30, tangente + duas verticais) virou teste: os círculos não podem sair do
+  lugar e a tangente tem de ficar.
+
 ## 0.9.0 beta — 24/10/2026
 
 ### Melhorias

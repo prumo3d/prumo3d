@@ -262,7 +262,160 @@ def situacao(sk, codigo=None):
     return "", "info"
 
 
-def retirar_automaticas_em_conflito(sk, base_restricoes, base_geometria):
+_DIAG = []      # (opção, fechou?, movimento) do último teste, para diagnóstico
+INCIDENCIA = ("Coincident", "PointOnObject")      # ligam pontos; as outras automáticas só dão direção
+# quanto "custa" retirar cada tipo de restrição automática (alinhamentos do cursor saem primeiro)
+PESO_RETIRAR = {"Horizontal": 0, "Vertical": 0, "Parallel": 1, "Perpendicular": 1, "Equal": 1, "Tangent": 2,
+                "PointOnObject": 3, "Coincident": 3}
+
+
+def _pontos_antigos(sk_ou_lista, base_geometria):
+    """Pontos (início, fim, centro) e raios da geometria que já existia antes do desenho novo."""
+    geos = sk_ou_lista.Geometry if hasattr(sk_ou_lista, "Geometry") else sk_ou_lista
+    out = []
+    for g in list(geos)[:base_geometria]:
+        for atr in ("StartPoint", "EndPoint", "Center"):
+            try:
+                v = getattr(g, atr, None)
+            except Exception:
+                v = None
+            if v is not None:
+                out.append(FreeCAD.Vector(v))
+        r = getattr(g, "Radius", None)
+        if r is not None:
+            out.append(FreeCAD.Vector(float(r), 0, 0))
+    return out
+
+
+class ObservadorDoDesenho:
+    """Guarda a geometria do esboço no instante em que entram restrições novas, ANTES do FreeCAD
+    recalcular: com restrições automáticas em conflito, esse recálculo joga a geometria para longe
+    (ex.: círculos a bilhões de mm), e a escolha do que retirar precisa partir do desenho de verdade."""
+
+    def __init__(self, sk):
+        self.sk = sk
+        self.n = len(sk.Constraints)
+        self.antes = None          # (nº de restrições, cópia da geometria)
+
+    def slotChangedObject(self, obj, prop):
+        try:
+            if obj is not self.sk or prop != "Constraints":
+                return
+            n = len(obj.Constraints)
+            if n > self.n:
+                self.antes = (n, [g.copy() for g in obj.Geometry])
+            self.n = n
+        except Exception:
+            pass
+
+    def geometria_antes(self, sk):
+        """A cópia, se ainda corresponde ao esboço (mesmo nº de restrições e de geometrias)."""
+        if self.antes is None:
+            return None
+        n, geos = self.antes
+        if n != len(sk.Constraints) or len(geos) != len(sk.Geometry):
+            return None
+        return geos
+
+
+def _deslocamento(antes, depois):
+    if len(antes) != len(depois):
+        return float("inf")
+    return max([(a - b).Length for a, b in zip(antes, depois)] or [0.0])
+
+
+def _escolher_retirada(sk, base_restricoes, base_geometria, geo_antes=None):
+    """Testa (numa transação desfeita logo em seguida) quais restrições novas retirar e devolve a opção
+    que fecha o esboço mexendo menos no que já estava desenhado. None se nenhuma opção serve.
+    geo_antes: a geometria antes do recálculo que falhou (cada teste parte dela)."""
+    doc = sk.Document
+    novos = list(range(base_restricoes, len(sk.Constraints)))
+    if not novos or getattr(doc, "HasPendingTransaction", True):
+        return None
+    tipos = {i: sk.Constraints[i].Type for i in novos}
+    candidatos = [(i,) for i in novos]
+    direcao = tuple(i for i in novos if tipos[i] not in INCIDENCIA)
+    for c in (direcao, tuple(novos)):
+        if c and c not in candidatos:
+            candidatos.append(c)
+    # pares de restrições de direção (ex.: duas "Vertical" automáticas)
+    for a in range(len(direcao)):
+        for b in range(a + 1, len(direcao)):
+            par = (direcao[a], direcao[b])
+            if par not in candidatos:
+                candidatos.append(par)
+    del _DIAG[:]
+    antes = _pontos_antigos(geo_antes if geo_antes is not None else sk, base_geometria)
+    if antes:
+        xs = [v.x for v in antes]
+        ys = [v.y for v in antes]
+        tamanho = max(1.0, ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5)
+    else:
+        tamanho = 1.0
+    melhor = None
+    for cand in candidatos:
+        doc.openTransaction("Prumo: teste de restrição")
+        try:
+            if geo_antes is not None:
+                sk.Geometry = [g.copy() for g in geo_antes]
+            for i in sorted(cand, reverse=True):
+                sk.delConstraint(i)
+            codigo = resolve(sk)
+            ok = codigo == 0 and not problemas(sk)
+            mov = _deslocamento(antes, _pontos_antigos(sk, base_geometria)) if ok else float("inf")
+        except Exception:
+            ok, mov = False, float("inf")
+        finally:
+            doc.abortTransaction()
+        _DIAG.append((cand, ok, mov))
+        if not ok:
+            continue
+        # menos movimento (até 3% do tamanho do desenho conta como empate: geometria solta acomoda um pouco);
+        # depois, menos restrições tiradas; depois, preferir tirar alinhamentos do cursor (vertical/horizontal)
+        # a tangentes e ligações de ponto, que costumam ser a intenção de quem desenhou
+        faixa = 0.0 if mov <= max(0.01, 0.03 * tamanho) else round(mov, 6)
+        nota = (faixa, len(cand), sum(PESO_RETIRAR.get(tipos[i], 1) for i in cand))
+        if melhor is None or nota < melhor[0]:
+            melhor = (nota, cand)
+    resolve(sk)
+    return melhor[1] if melhor else None
+
+
+def retirar_automaticas_em_conflito(sk, base_restricoes, base_geometria, geo_antes=None):
+    """Desenhou geometria nova e as restrições automáticas que vieram junto (tangente, vertical…) não
+    cabem no desenho: retira as novas que resolvem o conflito mexendo menos no que já existia (cada opção
+    é testada numa transação desfeita). Só mexe no que entrou depois de base_restricoes, e só se entrou
+    geometria nova. Devolve os textos das restrições retiradas (vazia se não mexeu)."""
+    if len(sk.Geometry) <= base_geometria or len(sk.Constraints) <= base_restricoes:
+        return []
+    escolha = None
+    try:
+        escolha = _escolher_retirada(sk, base_restricoes, base_geometria, geo_antes)
+    except Exception as exc:
+        FreeCAD.Console.PrintLog("Prumo: escolha da restrição: {}\n".format(exc))
+    if escolha:
+        doc = sk.Document
+        textos = [texto_restricao(sk, sk.Constraints[i]) for i in sorted(escolha)]
+        doc.openTransaction("Retirar relação automática")
+        try:
+            if geo_antes is not None:
+                sk.Geometry = [g.copy() for g in geo_antes]     # volta ao desenho de verdade
+            for i in sorted(escolha, reverse=True):
+                sk.delConstraint(i)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            return []
+        resolve(sk)
+        try:
+            doc.recompute()
+        except Exception:
+            pass
+        return textos
+    return _retirar_mais_recentes(sk, base_restricoes, base_geometria)
+
+
+def _retirar_mais_recentes(sk, base_restricoes, base_geometria):
     """Desenhou geometria nova e as restrições automáticas que vieram junto (tangente, horizontal…) não
     cabem no desenho: apaga as novas que estão no conflito, da mais recente para a mais antiga, até o
     esboço fechar. Só mexe no que entrou depois de base_restricoes, e só se entrou geometria nova.
@@ -296,6 +449,13 @@ def retirar_automaticas_em_conflito(sk, base_restricoes, base_geometria):
     return retiradas
 
 
+def _tirar_observador(obs):
+    try:
+        FreeCAD.removeDocumentObserver(obs)
+    except Exception:
+        pass
+
+
 # ----------------------------------------------------------------------------------- painel
 class PainelEsboco(QtWidgets.QWidget):
     def __init__(self, sk, parent=None):
@@ -320,6 +480,13 @@ class PainelEsboco(QtWidgets.QWidget):
         self.sk = sk
         self.assinatura = None
         self.base = None          # (restrições, geometria) da última vez que o esboço fechou
+        self.obs = ObservadorDoDesenho(sk)
+        try:
+            FreeCAD.addDocumentObserver(self.obs)
+            obs = self.obs
+            self.destroyed.connect(lambda *_a: _tirar_observador(obs))
+        except Exception:
+            pass
         self.aviso_retiradas = []
         self.aviso_assin = None
         lay = QtWidgets.QVBoxLayout(self)
@@ -462,7 +629,8 @@ class PainelEsboco(QtWidgets.QWidget):
         self.codigo = resolve(sk)
         if (self.codigo < 0 or problemas(sk)) and self.base is not None and \
                 _params().GetBool("RetirarAutomaticasEmConflito", True):
-            tiradas = retirar_automaticas_em_conflito(sk, *self.base)
+            tiradas = retirar_automaticas_em_conflito(sk, self.base[0], self.base[1],
+                                                      self.obs.geometria_antes(sk))
             if tiradas:
                 self.aviso_retiradas = tiradas
                 self.aviso_assin = None

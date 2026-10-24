@@ -8171,6 +8171,50 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             self._limpar_tela()
             fechar(doc)
 
+    def test_duas_verticais_automaticas_nao_jogam_os_circulos_longe(self):
+        """Caso relatado na 0.8.1: círculos de Ø50 e Ø30 com o centro só no eixo X; a linha de um ao outro
+        pega tangente + duas "Vertical" (alinhamento com os centros). O recálculo do FreeCAD com o conflito
+        jogava os círculos a bilhões de mm; o Prumo tem de voltar ao desenho e retirar o que menos mexe."""
+        import Part
+        import Sketcher
+        import PrumoPainelEsboco as E
+        E.instalar()
+        doc, body, sk, pad = self._cena("PrumoTesteDuasVerticais")
+        try:
+            s2 = body.newObject("Sketcher::SketchObject", "Circulos")
+            s2.AttachmentSupport = [(body.Origin.OriginFeatures[3], "")]
+            s2.MapMode = "FlatFace"
+            doc.recompute()
+            FreeCADGui.ActiveDocument.setEdit(s2.Name)
+            self._esp(0.8)
+            V, Z = FreeCAD.Vector, FreeCAD.Vector(0, 0, 1)
+            s2.addGeometry(Part.Circle(V(0, 0, 0), Z, 25))
+            s2.addConstraint(Sketcher.Constraint("Diameter", 0, 50))
+            s2.addConstraint(Sketcher.Constraint("PointOnObject", 0, 3, -1))
+            s2.addGeometry(Part.Circle(V(100, 0, 0), Z, 15))
+            s2.addConstraint(Sketcher.Constraint("PointOnObject", 1, 3, -1))
+            s2.addConstraint(Sketcher.Constraint("Diameter", 1, 30))
+            doc.recompute()
+            self._esp(0.8)
+            doc.openTransaction("Linha")
+            g = s2.addGeometry(Part.LineSegment(V(0, 25, 0), V(100, 15, 0)))
+            s2.addConstraint([Sketcher.Constraint("Tangent", g, 1, 0), Sketcher.Constraint("Vertical", g, 1, 0, 3),
+                              Sketcher.Constraint("PointOnObject", g, 2, 1), Sketcher.Constraint("Vertical", g, 2, 1, 3)])
+            doc.commitTransaction()
+            doc.recompute()                        # aqui o FreeCAD joga os círculos longe
+            self._esp(1.5)
+            self._painel_do_esboco(E)
+            self.assertEqual(E.resolve(s2), 0, "o esboço ficou sem solução")
+            c1, c2 = s2.getPoint(0, 3), s2.getPoint(1, 3)
+            self.assertLess(c1.Length, 5.0, "círculo 1 foi parar em %s" % c1)
+            self.assertLess((c2 - V(100, 0, 0)).Length, 5.0, "círculo 2 foi parar em %s" % c2)
+            tipos = [c.Type for c in s2.Constraints]
+            self.assertIn("Tangent", tipos, "a tangente (a intenção do desenho) devia ficar")
+            self.assertEqual(len(s2.Constraints), 7, "devia sair só uma restrição automática")
+        finally:
+            self._limpar_tela()
+            fechar(doc)
+
     def test_conflito_posto_a_mao_aparece_e_se_resolve(self):
         """Restrição posta pelo usuário (sem geometria nova) que entra em conflito: o painel avisa e o botão
         apaga a mais recente; nada é retirado sozinho."""
