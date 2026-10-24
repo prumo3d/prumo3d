@@ -9150,8 +9150,23 @@ class T71JuntaDaMontagem(unittest.TestCase):
     def tearDown(self):
         try:
             if FreeCADGui.Control.activeDialog():
+                # Cancelar de verdade: closeDialog não chama o reject da junta, e o filtro de seleção
+                # dela ficaria valendo para os testes seguintes
+                from PySide import QtWidgets
+                for bb in FreeCADGui.getMainWindow().findChildren(QtWidgets.QDialogButtonBox):
+                    for b in bb.buttons():
+                        if isinstance(b, QtWidgets.QPushButton) and b.isVisible() and \
+                                bb.buttonRole(b) == QtWidgets.QDialogButtonBox.RejectRole:
+                            b.click()
+                            break
+                self._esp(0.4)
+            if FreeCADGui.Control.activeDialog():
                 FreeCADGui.Control.closeDialog()
             FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        try:
+            FreeCADGui.Selection.removeSelectionGate()
         except Exception:
             pass
         fechar(self.doc)
@@ -9428,6 +9443,12 @@ class T74MaisSolidosEmCartoes(unittest.TestCase):
                 FreeCADGui.Selection.addSelection(sel, sub)
             else:
                 FreeCADGui.Selection.addSelection(sel)
+        # o primeiro comando depois de trocar de documento às vezes acha o comando ainda inativo
+        c = FreeCADGui.Command.get(cmd)
+        for _i in range(10):
+            if c is None or c.isActive():
+                break
+            self._esp(0.3)
         FreeCADGui.runCommand(cmd, 0)
         p = None
         for _i in range(25):
@@ -9435,7 +9456,16 @@ class T74MaisSolidosEmCartoes(unittest.TestCase):
             p = self.C.painel()
             if p is not None and type(p).__name__ == classe:
                 break
-        self.assertIsNotNone(p, "%s: o painel em cartões não apareceu" % cmd)
+        if p is None:
+            from PySide import QtWidgets
+            dlg = FreeCADGui.Control.activeDialog()
+            pan = self.C._painel_de_tarefas()
+            nomes = [w.objectName() for w in pan.findChildren(QtWidgets.QWidget) if w.objectName()][:25] \
+                if pan is not None else None
+            jan = [(type(w).__name__, w.windowTitle()) for w in QtWidgets.QApplication.topLevelWidgets()
+                   if w.isVisible()]
+            self.fail("%s: o painel em cartões não apareceu; tarefa=%s; ligado=%s; nomes=%s; janelas=%s; objs=%s"
+                      % (cmd, dlg, self.C.ligado(), nomes, jan, [o.TypeId for o in self.doc.Objects]))
         self.assertEqual(type(p).__name__, classe)
         self.assertFalse(p.quadro.isVisible(), "o formulário do FreeCAD devia ficar escondido")
         self.assertEqual(textos_com_problema(p), [])
