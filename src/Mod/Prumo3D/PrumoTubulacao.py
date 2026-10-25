@@ -1141,8 +1141,22 @@ if FreeCAD.GuiUp:
             res = getattr(self.obj.Proxy, "ultimo", None) or {}
             return res.get("segs", [])
 
+        def _vivo(self):
+            """O painel ainda está aberto e o objeto existe; senão para de observar a seleção."""
+            try:
+                import shiboken6
+                ok = (self.obj.Document.getObject(self.obj.Name) is not None and shiboken6.isValid(self.form)
+                      and bool(FreeCADGui.Control.activeDialog()))
+            except Exception:
+                ok = False
+            if not ok:
+                self._parar()
+            return ok
+
         def _da_vista(self):
             """Trechos escolhidos na vista (linhas do traçado) → cartão e tabela."""
+            if not self._vivo():
+                return
             if self._ocupado or self.obj.Caminho is None:
                 return
             nomes = []
@@ -1323,6 +1337,8 @@ if FreeCAD.GuiUp:
 
         # observador de seleção do FreeCAD
         def addSelection(self, doc, obj, sub, pnt):
+            if not self._vivo():
+                return
             try:
                 if self.obj.Caminho is not None and obj == self.obj.Caminho.Name and pnt:
                     self.ponto_clicado = FreeCAD.Vector(*pnt)
@@ -1331,10 +1347,12 @@ if FreeCAD.GuiUp:
             QtCore.QTimer.singleShot(0, self._da_vista)
 
         def removeSelection(self, doc, obj, sub):
-            QtCore.QTimer.singleShot(0, self._da_vista)
+            if self._vivo():
+                QtCore.QTimer.singleShot(0, self._da_vista)
 
         def clearSelection(self, doc):
-            QtCore.QTimer.singleShot(0, self._da_vista)
+            if self._vivo():
+                QtCore.QTimer.singleShot(0, self._da_vista)
 
         def _parar(self):
             if getattr(self, "_observando", False):
