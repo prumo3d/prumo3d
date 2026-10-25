@@ -27,15 +27,14 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.2 beta** (24/10/2026)
+**Versão atual: 0.9.3 beta** (25/10/2026)
 
-- **Comandos em cartões em todas as abas:** Peça, Sólidos, Montagem, Desenho e Simulação abrem painéis em
-  cartões, com botões de ícone, chaves liga/desliga e campos com unidade (N, MPa, N/mm, m/s²); o formulário
-  do FreeCAD continua a um clique.
-- **Preferências do Prumo** em uma janela só: tema claro ou escuro, painel lateral, esboço, unidades e
-  atualizações.
-- **Atualização pelo próprio programa**, com barra de progresso, velocidade e tempo que falta.
+- **Atualização automática corrigida:** depois de baixar, o Prumo fecha e o instalador abre com o pedido de
+  permissão do Windows (antes ele fechava e a instalação não começava).
+- **Verificar geometria e peso próprio em cartões**, completando os comandos de Sólidos e Simulação.
+- **Abre na aba Início**, com o Relatório e o console Python fechados (quem programa liga nas Preferências).
 
+Na 0.9.2: comandos em cartões em todas as abas, Preferências do Prumo e atualização com barra de progresso.
 Na 0.7 e na 0.6: painel lateral único (Árvore, Propriedades e a aba do comando) e propriedades em cartões.
 Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldável.
 

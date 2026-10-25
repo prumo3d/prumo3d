@@ -9,7 +9,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
-## Em desenvolvimento
+## 0.9.3 beta — 25/10/2026
 
 ### Melhorias
 
@@ -17,9 +17,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   sólidos, cascas, faces, arestas, vértices, volume e área.
 - **Peso próprio com painel:** criar pelo botão da faixa (ou editar com duplo clique) abre cartões com a
   direção da gravidade (−Z, +Z, ±X, ±Y) e a aceleração em m/s². Cancelar na criação desfaz.
+- **Abre na aba Início:** sem documento aberto, a faixa começa na aba Início (antes caía em Peça).
+- **Relatório e console Python fechados por padrão**, em qualquer tela. Quem programa liga em
+  Preferências → "Para quem programa".
 
 ### Correções
 
+- **Atualização automática:** depois de baixar, o Prumo fechava e o instalador não abria (o instalador pede
+  permissão de administrador e era aberto por um caminho que não mostra esse pedido). Agora um processo
+  à parte espera o Prumo fechar e abre o instalador com o pedido de permissão do Windows. Desistir de
+  fechar (na pergunta de salvar) não abre nada.
 - O último trecho que lia os quadros do jeito antigo (rolagem de janelas grandes) foi trocado, como o do
   botão OK na 0.9.2.
 
@@ -27,6 +34,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 - Verificar geometria de uma caixa (6 faces, 12 arestas, 1.000 mm³); peso próprio criado pela faixa, em −Y
   e 9,81 m/s², e reaberto para editar.
+- Atualização: comando que espera o Prumo fechar e abre o instalador pelo Windows; desistir de fechar não
+  abre nada. Abertura na aba Início; Relatório e console fechados e ligados pela Preferência.
 
 ## 0.9.2 beta — 24/10/2026
 
