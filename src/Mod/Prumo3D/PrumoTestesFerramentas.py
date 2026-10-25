@@ -6823,6 +6823,47 @@ class T53Tubulacao(unittest.TestCase):
         finally:
             FreeCADGui.Selection.clearSelection()
 
+    def test_esgoto_serie_normal_com_caimento(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        self.assertEqual(C.declividade_minima(75), 0.02)          # NBR 8160:1999, 4.2.3.2
+        self.assertEqual(C.declividade_minima(100), 0.01)
+        e = self._tracado([(0, 0, 0), (3000, 0, 0), (3000, 0, -1000)])
+        t = T.criar(e, dn=25)
+        t.Linha = "pvc-esgoto-sn"
+        self.doc.recompute()
+        self.assertIn("100 mm", t.getEnumerationsOfProperty("Diametro"))
+        t.Diametro = "100 mm"
+        self.doc.recompute()
+        segs = t.Proxy.ultimo["segs"]
+        self.assertAlmostEqual(segs[0][1].z, -30.0, 3)              # 1 % em 3 m
+        self.assertAlmostEqual(segs[1][0].z, -30.0, 3)              # a descida acompanha
+        self.assertEqual(t.Conexoes, ["1 × Joelho 90° esgoto série normal DN 100"])
+        self.assertFalse(any("declividade" in a for a in t.Avisos), t.Avisos)
+        self.assertTrue(t.Shape.isValid())
+        # DN 75: 2 %
+        t.Diametro = "75 mm"
+        self.doc.recompute()
+        self.assertAlmostEqual(t.Proxy.ultimo["segs"][0][1].z, -60.0, 3)
+        # sem caimento: avisa a declividade abaixo da mínima
+        t.Caimento = False
+        self.doc.recompute()
+        self.assertTrue(any("abaixo da mínima de 2 %" in a for a in t.Avisos), t.Avisos)
+        t.Caimento = True
+        # curva na horizontal com joelho 90°: a NBR pede até 45°
+        e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(2000, 0, 0), FreeCAD.Vector(2000, 2000, 0)]
+        self.doc.recompute()
+        self.assertTrue(any("4.2.3.3" in a for a in t.Avisos), t.Avisos)
+        # joelho 45°: medida marcada a conferir
+        e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(2000, 0, 0), FreeCAD.Vector(3000, 1000, 0)]
+        self.doc.recompute()
+        self.assertIn("1 × Joelho 45° esgoto série normal DN 75", t.Conexoes)
+        self.assertTrue(any("conferir" in a for a in t.Avisos), t.Avisos)
+        # água fria de novo: diâmetros da linha soldável
+        t.Linha = C.PADRAO
+        self.doc.recompute()
+        self.assertIn("25 mm", t.getEnumerationsOfProperty("Diametro"))
+
     def test_escolher_trechos_na_vista_e_aplicar_diametro(self):
         """Como na estrutura: clicar nas linhas do traçado escolhe os trechos (e vice-versa) e o diâmetro
         vale para todos de uma vez."""

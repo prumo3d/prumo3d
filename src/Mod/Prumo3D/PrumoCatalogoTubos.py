@@ -116,7 +116,87 @@ TIGRE_SOLDAVEL = {
     },
 }
 
-LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL}
+TIGRE_SOLDAVEL.setdefault("sufixo", "soldável")
+
+# Esgoto: ABNT NBR 8160:1999 – Sistemas prediais de esgoto sanitário – Projeto e execução (publicada em
+# 30/09/1999, em vigor, confirmada em 26/05/2022; conferido no catálogo ABNT em 25/10/2026).
+#   4.2.3.2: declividades mínimas recomendadas: 2 % para DN ≤ 75; 1 % para DN ≥ 100.
+#   4.2.5.2: declividade constante; máxima a considerar 5 %.
+#   4.2.3.3: mudanças de direção nos trechos horizontais com peças de ângulo central ≤ 45°.
+#   4.2.3.4: de horizontal para vertical (e vice-versa), peças com ângulo central ≤ 90°.
+NBR8160 = "ABNT NBR 8160:1999 (em vigor, confirmada em 26/05/2022)"
+
+
+def declividade_minima(dn):
+    """Declividade mínima recomendada (fração), NBR 8160:1999 item 4.2.3.2."""
+    return 0.02 if dn <= 75 else 0.01
+
+
+DECLIVIDADE_MAXIMA = 0.05       # NBR 8160:1999 item 4.2.5.2
+
+
+TIGRE_ESGOTO = {
+    "id": "pvc-esgoto-sn",
+    "nome": "PVC esgoto série normal (branco)",
+    "material": "PVC rígido",
+    "fabricante": "Tigre",
+    "sufixo": "esgoto série normal",
+    "rotulo_dn": "DN %d",
+    "esgoto": True,
+    "tol_ang": 3.5,            # o caimento (até 5 %) entorta os ângulos em até ~3°
+    "fonte": "Tigre, Catálogo Técnico Predial Esgoto (fev/2008), Série Normal, p. 09–15",
+    "norma": NBR8160,
+    "pressao": "Escoamento por gravidade",
+    "temperatura_max": "—",
+    "cor": (0.93, 0.93, 0.92),
+    "barra": 6000.0,
+    "diametros": (40, 50, 75, 100, 150, 200),
+    # Tubo série normal (p. 09): D externo, e parede, B bolsa da barra
+    "tubos": {
+        40: {"De": 40.0, "e": 1.2, "bolsa_tubo": 26.0},
+        50: {"De": 50.7, "e": 1.6, "bolsa_tubo": 42.0},
+        75: {"De": 75.5, "e": 1.7, "bolsa_tubo": 48.0},
+        100: {"De": 101.6, "e": 1.8, "bolsa_tubo": 55.0},
+        150: {"De": 150.0, "e": 2.5, "bolsa_tubo": 73.0},
+        200: {"De": 200.0, "e": 3.6, "bolsa_tubo": 77.0},
+    },
+    # bolsa das conexões: cota B da luva simples (p. 13), igual à B da junção simples (p. 12)
+    "bolsa": {40: 18.0, 50: 39.0, 75: 44.0, 100: 50.0, 150: 67.0, 200: 77.0},
+    # corpo para o desenho: D da luva de correr (p. 13) + 2 paredes de conexão (aproximado)
+    "corpo": {40: 46.0, 50: 58.0, 75: 84.0, 100: 111.0, 150: 162.0, 200: 213.0},
+    # Joelho 90° série normal (p. 10): A, centro até a face da bolsa (confere com C + B)
+    "joelho90": {40: 39.0, 50: 70.6, 75: 90.0, 100: 110.0, 150: 144.0, 200: 233.0},
+    # Joelho 45° série normal (p. 10): rótulos da tabela trocados; usada a 1ª linha como A
+    "joelho45": {40: 27.5, 50: 57.6, 75: 68.7, 100: 81.4, 150: 101.3, 200: 198.0},
+    # Tê série normal (p. 12): metade de H (comprimento total) na linha principal; B no ramal
+    "te": {40: 39.0, 50: 76.0, 75: 97.25, 100: 120.5, 150: 165.0, 200: 220.0},
+    "te_ramal": {40: 39.0, 50: 84.6, 75: 109.8, 100: 137.6, 150: 182.5, 200: 188.0},
+    "cruzeta": {},
+    # Luva simples (p. 13): comprimento total A
+    "luva": {40: 39.0, 50: 62.0, 75: 72.2, 100: 83.5, 150: 128.0, 200: 157.0},
+    "te_reducao": {},
+    "bucha_curta": {},
+    "bucha_longa": {},
+    # Redução excêntrica (p. 14): comprimento total A
+    "luva_reducao": {(75, 50): 108.5, (100, 50): 130.5, (100, 75): 122.0, (150, 100): 148.9, (200, 150): 163.5},
+    # Cap (p. 15): comprimento A
+    "cap": {40: 18.0, 50: 39.0, 75: 44.0, 100: 50.0, 150: 67.0, 200: 103.0},
+    "a_conferir": {
+        ("joelho45", 40): "rótulos da tabela do joelho 45° trocados no catálogo (B, D, e, L no lugar de A, B, C, D)",
+        ("joelho45", 50): "rótulos da tabela do joelho 45° trocados no catálogo",
+        ("joelho45", 75): "rótulos da tabela do joelho 45° trocados no catálogo",
+        ("joelho45", 100): "rótulos da tabela do joelho 45° trocados no catálogo",
+        ("joelho45", 150): "rótulos da tabela do joelho 45° trocados no catálogo",
+        ("joelho45", 200): "rótulos da tabela do joelho 45° trocados no catálogo",
+        ("te", 50): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+        ("te", 75): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+        ("te", 100): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+        ("te", 150): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+        ("te", 200): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+    },
+}
+
+LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_ESGOTO["id"]: TIGRE_ESGOTO}
 PADRAO = TIGRE_SOLDAVEL["id"]
 
 

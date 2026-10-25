@@ -154,6 +154,55 @@ def _vdir(chave, u=None):
     return FreeCAD.Vector(*DIRECOES[chave])
 
 
+def aplicar_caimento(segs, dns, L, ligado=True):
+    """Esgoto: inclina os trechos quase horizontais no sentido em que foram desenhados (do início para o fim),
+    com a declividade mínima da NBR 8160:1999 (4.2.3.2) pelo diâmetro; os pontos ligados descem juntos.
+    Devolve (trechos novos, avisos)."""
+    avisos = []
+    if not L.get("esgoto"):
+        return segs, avisos
+    nos, lig = _nos(segs)
+    dz = {}
+    novos = []
+    for i, ((a, b), (na, nb)) in enumerate(zip(segs, lig)):
+        h = FreeCAD.Vector(b.x - a.x, b.y - a.y, 0).Length
+        comp = (b - a).Length
+        if comp < 1e-6:
+            novos.append((a, b))
+            continue
+        horizontal = h > 1e-6 and abs(b.z - a.z) / h < 0.06
+        dmin = CAT.declividade_minima(dns[i])
+        za = dz.setdefault(na, 0.0)
+        if horizontal and ligado:
+            atual = (a.z - b.z) / h            # o que já desce no desenho
+            queda = max(0.0, dmin * h - (a.z - b.z)) if atual < dmin else 0.0
+            alvo = za - queda
+            if nb in dz and abs(dz[nb] - alvo) > 0.5:
+                avisos.append("Trecho %d: o caimento não fecha com o resto do traçado (diferença de %.0f mm); "
+                              "confira o sentido do desenho." % (i + 1, abs(dz[nb] - alvo)))
+            else:
+                dz[nb] = alvo
+        else:
+            dz.setdefault(nb, za)
+        novos.append((a, b))
+    out = []
+    for i, ((a, b), (na, nb)) in enumerate(zip(novos, lig)):
+        a2 = FreeCAD.Vector(a.x, a.y, a.z + dz.get(na, 0.0))
+        b2 = FreeCAD.Vector(b.x, b.y, b.z + dz.get(nb, 0.0))
+        h = FreeCAD.Vector(b2.x - a2.x, b2.y - a2.y, 0).Length
+        if h > 1e-6 and abs(b2.z - a2.z) / h < 0.06:
+            decl = (a2.z - b2.z) / h
+            dmin = CAT.declividade_minima(dns[i])
+            if decl < dmin - 1e-4:
+                avisos.append("Trecho %d: declividade de %.1f %%, abaixo da mínima de %.0f %% para DN %d "
+                              "(NBR 8160:1999, 4.2.3.2)." % (i + 1, decl * 100, dmin * 100, dns[i]))
+            elif decl > CAT.DECLIVIDADE_MAXIMA + 1e-4:
+                avisos.append("Trecho %d: declividade de %.1f %%, acima da máxima de 5 %% (NBR 8160:1999, "
+                              "4.2.5.2)." % (i + 1, decl * 100))
+        out.append((a2, b2))
+    return out, avisos
+
+
 def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None):
     """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria).
     registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}.
@@ -179,9 +228,11 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
             avisos.append("Diâmetro %s não existe na linha %s." % (d, L["nome"]))
             return {"tubos": [], "conexoes": [], "avisos": avisos, "linha": L, "nos": nos}
     bolsa = L["bolsa"]
+    tol = L.get("tol_ang", TOL_ANG)
+    suf = L.get("sufixo", "soldável")
 
     def nome_dn(d):
-        return "%d mm" % d
+        return L.get("rotulo_dn", "%d mm") % d
 
     def conferir(chave, k, peca):
         motivo = CAT.a_conferir(L, chave, k)
@@ -231,14 +282,14 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                 continue
             if tampar:
                 d = dns[s]
-                conexoes.append(_rec("Cap", "Cap soldável " + nome_dn(d), P,
+                conexoes.append(_rec("Cap", "Cap %s %s" % (suf, nome_dn(d)), P,
                                      [(s, pt, u, d, -(L["cap"][d] - bolsa[d]))], L["corpo"][d]))
             continue
         if n == 2:
             (s1, p1, u1), (s2, p2, u2) = its
             d1, d2 = dns[s1], dns[s2]
             desvio = 180.0 - _ang(u1, u2)
-            if desvio < TOL_ANG:
+            if desvio < tol:
                 if d1 == d2:
                     recuo[(s1, p1)] = recuo[(s2, p2)] = 0.0
                     continua.append(((s1, p1), (s2, p2)))
@@ -248,12 +299,12 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                     A = L["luva_reducao"][(D, d)]
                     folga = (A - bolsa[D] - bolsa[d]) / 2.0
                     pern = [(s, p, u, dd, (folga + bolsa[dd])) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
-                    conexoes.append(_rec("Luva de redução", "Luva de redução soldável %d × %d" % (D, d), P, pern,
+                    conexoes.append(_rec("Luva de redução", ("Redução %s %d × %d" % (suf, D, d)) if L.get("esgoto") else ("Luva de redução soldável %d × %d" % (D, d)), P, pern,
                                          L["corpo"][D]))
                 elif (D, d) in L["bucha_curta"] and D in L["luva"]:
                     A = L["luva"][D] / 2.0
                     pern = [(s, p, u, dd, A) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
-                    conexoes.append(_rec("Luva", "Luva soldável %s" % nome_dn(D), P, pern, L["corpo"][D],
+                    conexoes.append(_rec("Luva", "Luva %s %s" % (suf, nome_dn(D)), P, pern, L["corpo"][D],
                                          ["Bucha de redução soldável curta %d × %d" % (D, d)]))
                     conferir("bucha_curta", (D, d), "Bucha curta %d × %d" % (D, d))
                 else:
@@ -265,12 +316,17 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                     recuo[(s, p)] = cf - bolsa[dd]
                 continue
             for alvo, chave, rot in ((90.0, "joelho90", "Joelho 90°"), (45.0, "joelho45", "Joelho 45°")):
-                if abs(desvio - alvo) < TOL_ANG:
+                if abs(desvio - alvo) < tol:
                     D = max(d1, d2)
                     if D not in L[chave]:
                         avisos.append("%s de %s não está no catálogo (nó %d)." % (rot, nome_dn(D), k + 1))
                         break
                     cf = L[chave][D]
+                    conferir(chave, D, "%s %s" % (rot, nome_dn(D)))
+                    if L.get("esgoto") and chave == "joelho90" and abs(u1.z) < 0.2 and abs(u2.z) < 0.2:
+                        avisos.append("Nó %d: mudança de direção na horizontal com joelho 90°; a NBR 8160:1999 "
+                                      "(4.2.3.3) pede peças de até 45° (duas de 45°, ou curva de raio longo)."
+                                      % (k + 1))
                     extras = []
                     pern = []
                     for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2)):
@@ -282,7 +338,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                             conferir("bucha_curta", (D, dd), "Bucha curta %d × %d" % (D, dd))
                         pern.append((s, p, u, dd, cf))
                         recuo[(s, p)] = cf - bolsa[dd]
-                    conexoes.append(_rec(rot, "%s soldável %s" % (rot, nome_dn(D)), P, pern, L["corpo"][D], extras))
+                    conexoes.append(_rec(rot, "%s %s %s" % (rot, suf, nome_dn(D)), P, pern, L["corpo"][D], extras))
                     break
             else:
                 avisos.append("Nó %d: ângulo de %.1f° entre os trechos %d e %d não tem conexão no catálogo "
@@ -293,7 +349,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
             par = None
             for i in range(3):
                 for j in range(i + 1, 3):
-                    if 180.0 - _ang(its[i][2], its[j][2]) < TOL_ANG:
+                    if 180.0 - _ang(its[i][2], its[j][2]) < tol:
                         par = (i, j)
             if par is None:
                 avisos.append("Nó %d: três trechos sem dois alinhados — não há tê para essa geometria."
@@ -306,8 +362,8 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
             ang_r = _ang(ramal[2], corrida[0][2])
             dr = dns[ramal[0]]
             dc = [dns[c[0]] for c in corrida]
-            if abs(ang_r - 90.0) > TOL_ANG:
-                avisos.append("Nó %d: ramal a %.1f° da linha principal; o PVC soldável de água fria só tem "
+            if abs(ang_r - 90.0) > tol:
+                avisos.append("Nó %d: ramal a %.1f° da linha principal; esta linha só tem "
                               "tê a 90°." % (k + 1, ang_r))
                 for s, p, u in its:
                     recuo[(s, p)] = 0.0
@@ -321,8 +377,10 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                 D = dr
             extras = []
             if dr == D:
-                cf_c = cf_r = L["te"][D]
-                desc = "Tê soldável %s" % nome_dn(D)
+                cf_c = L["te"][D]
+                cf_r = L.get("te_ramal", {}).get(D, cf_c)
+                conferir("te", D, "Tê %s" % nome_dn(D))
+                desc = "Tê %s %s" % (suf, nome_dn(D))
                 rot = "Tê"
             elif (D, dr) in L["te_reducao"]:
                 A, B = L["te_reducao"][(D, dr)]
@@ -331,7 +389,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                 rot = "Tê de redução"
             else:
                 cf_c = cf_r = L["te"][D]
-                desc = "Tê soldável %s" % nome_dn(D)
+                desc = "Tê %s %s" % (suf, nome_dn(D))
                 rot = "Tê"
                 if (D, dr) in L["bucha_curta"]:
                     extras.append("Bucha de redução soldável curta %d × %d" % (D, dr))
@@ -350,18 +408,18 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
             continue
         if n == 4:
             ds = {dns[s] for s, p, u in its}
-            parceiro = [j for j in range(1, 4) if 180.0 - _ang(its[0][2], its[j][2]) < TOL_ANG]
+            parceiro = [j for j in range(1, 4) if 180.0 - _ang(its[0][2], its[j][2]) < tol]
             outros = [j for j in range(1, 4) if j not in parceiro]
             ok = (len(parceiro) == 1 and len(outros) == 2 and len(ds) == 1
-                  and 180.0 - _ang(its[outros[0]][2], its[outros[1]][2]) < TOL_ANG
-                  and abs(_ang(its[0][2], its[outros[0]][2]) - 90.0) < TOL_ANG)
+                  and 180.0 - _ang(its[outros[0]][2], its[outros[1]][2]) < tol
+                  and abs(_ang(its[0][2], its[outros[0]][2]) - 90.0) < tol)
             D = max(ds)
             if ok and D in L["cruzeta"]:
                 cf = L["cruzeta"][D]
                 pern = [(s, p, u, D, cf) for s, p, u in its]
                 for s, p, u, dd, c in pern:
                     recuo[(s, p)] = c - bolsa[dd]
-                conexoes.append(_rec("Cruzeta", "Cruzeta soldável %s" % nome_dn(D), P, pern, L["corpo"][D]))
+                conexoes.append(_rec("Cruzeta", "Cruzeta %s %s" % (suf, nome_dn(D)), P, pern, L["corpo"][D]))
             else:
                 avisos.append("Nó %d: cruzamento de 4 trechos sem cruzeta no catálogo para esse caso; "
                               "separe em dois tês." % (k + 1))
@@ -604,6 +662,10 @@ class Tubulacao:
             obj.addProperty("App::PropertyEnumeration", "Linha", "Tubulação", "Linha de tubos e conexões")
             obj.Linha = list(CAT.LINHAS)
             obj.Linha = CAT.PADRAO
+        elif list(obj.getEnumerationsOfProperty("Linha")) != list(CAT.LINHAS):
+            atual = str(obj.Linha)
+            obj.Linha = list(CAT.LINHAS)
+            obj.Linha = atual if atual in CAT.LINHAS else CAT.PADRAO
         if "Diametro" not in obj.PropertiesList:
             obj.addProperty("App::PropertyEnumeration", "Diametro", "Tubulação", "Diâmetro externo (DE) padrão")
             obj.Diametro = [_dn_txt(d) for d in CAT.linha(obj.Linha)["diametros"]]
@@ -611,6 +673,9 @@ class Tubulacao:
         add("App::PropertyStringList", "DiametrosTrechos", "Tubulação",
             "Diâmetro de trechos específicos: 'trecho: DE' (ex.: '3: 20')", [])
         add("App::PropertyBool", "TamparPontas", "Tubulação", "Põe cap nas pontas soltas", False)
+        add("App::PropertyBool", "Caimento", "Tubulação",
+            "Esgoto: inclina os trechos horizontais com a declividade mínima da NBR 8160 (no sentido do desenho)",
+            True)
         add("App::PropertyStringList", "Registros", "Tubulação",
             "Registros de esfera: 'trecho: distância do início até o centro (mm)' (ex.: '2: 300')", [])
         add("App::PropertyStringList", "Pontos", "Tubulação",
@@ -625,6 +690,27 @@ class Tubulacao:
     def onDocumentRestored(self, obj):
         obj.Proxy = self
         self._props(obj)
+
+    def onChanged(self, obj, prop):
+        """Trocar a linha troca a lista de diâmetros (mantém o atual se existir na linha nova)."""
+        if prop != "Linha" or "Diametro" not in obj.PropertiesList or "DiametrosTrechos" not in obj.PropertiesList:
+            return
+        L = CAT.linha(obj.Linha)
+        lista = [_dn_txt(d) for d in L["diametros"]]
+        if list(obj.getEnumerationsOfProperty("Diametro")) == lista:
+            return
+        atual = str(obj.Diametro)
+        obj.Diametro = lista
+        obj.Diametro = atual if atual in lista else lista[min(len(lista) - 1, len(lista) // 2)]
+        if FreeCAD.GuiUp and getattr(obj, "ViewObject", None) is not None:
+            try:
+                obj.ViewObject.ShapeColor = L["cor"]
+            except Exception:
+                pass
+        validos = set(L["diametros"])
+        obj.DiametrosTrechos = [x for x in obj.DiametrosTrechos
+                                if x.split(":")[1].replace("mm", "").strip().isdigit()
+                                and int(x.split(":")[1].replace("mm", "").strip()) in validos]
 
     def diametros(self, obj, n):
         padrao = int(str(obj.Diametro).split()[0])
@@ -672,6 +758,10 @@ class Tubulacao:
     def calcular(self, obj):
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
+        L = CAT.linha(obj.Linha)
+        if L.get("esgoto") and all(d in L["tubos"] for d in dns):
+            segs, av = aplicar_caimento(segs, dns, L, bool(getattr(obj, "Caimento", True)))
+            avisos += av
         res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj), self.pontos(obj))
         res["avisos"] = avisos + res["avisos"]
         res["segs"] = segs
@@ -854,6 +944,12 @@ if FreeCAD.GuiUp:
             self.cap.setChecked(bool(obj.TamparPontas))
             self.cap.toggled.connect(self._mudou)
             fl.addRow("", self.cap)
+            self.caimento = QtWidgets.QCheckBox("Caimento pela NBR 8160 (2 % até DN 75; 1 % de DN 100)")
+            self.caimento.setToolTip("Inclina os trechos horizontais no sentido em que foram desenhados")
+            self.caimento.setChecked(bool(getattr(obj, "Caimento", True)))
+            self.caimento.toggled.connect(self._mudou)
+            fl.addRow("", self.caimento)
+            self.caimento.setVisible(bool(CAT.linha(obj.Linha).get("esgoto")))
             raiz.addWidget(card_l)
             card_s, ls = P.bloco("Trechos escolhidos na vista", "selecao")
             self.lb_sel = QtWidgets.QLabel()
@@ -1141,6 +1237,8 @@ if FreeCAD.GuiUp:
                 self._encher_dn()
             self.obj.Diametro = _dn_txt(self.dn.currentData())
             self.obj.TamparPontas = self.cap.isChecked()
+            self.obj.Caimento = self.caimento.isChecked()
+            self.caimento.setVisible(bool(CAT.linha(self.obj.Linha).get("esgoto")))
             self._atualizar()
 
         def _dn_trecho(self, i, combo):
