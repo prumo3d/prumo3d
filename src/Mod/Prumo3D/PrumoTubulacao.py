@@ -386,9 +386,36 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None,
             ang_r = _ang(ramal[2], corrida[0][2])
             dr = dns[ramal[0]]
             dc = [dns[c[0]] for c in corrida]
+            jn = L.get("juncao") or {}
+            if (abs(ang_r - 45.0) < tol or abs(ang_r - 135.0) < tol) and jn:
+                # junção a 45°: o ramal aponta para montante (fica a 45° do lado de montante da linha)
+                if abs(ang_r - 45.0) < tol:
+                    mont, jus = corrida[0], corrida[1]
+                else:
+                    mont, jus = corrida[1], corrida[0]
+                D = max(dns[mont[0]], dns[jus[0]])
+                chave = (D, dr) if (D, dr) in jn else None
+                if chave is None:
+                    avisos.append("Nó %d: não há junção %d × %d no catálogo." % (k + 1, D, dr))
+                    for s, p, u in its:
+                        recuo[(s, p)] = 0.0
+                    continue
+                if dns[mont[0]] != dns[jus[0]]:
+                    avisos.append("Nó %d: a linha principal muda de diâmetro na junção; ponha a redução num trecho "
+                                  "próprio." % (k + 1))
+                A, C, c_r = jn[chave]
+                conferir("juncao", "todas", "Junção %s" % ("%d × %d" % chave))
+                pern = [(jus[0], jus[1], jus[2], dns[jus[0]], C), (mont[0], mont[1], mont[2], dns[mont[0]], A - C),
+                        (ramal[0], ramal[1], ramal[2], dr, c_r)]
+                for s, p, u, dd, cf in pern:
+                    recuo[(s, p)] = cf - bolsa[dd]
+                rot = "Junção simples"
+                desc = "Junção simples %s %s" % (suf, ("DN %d" % D) if D == dr else ("DN %d × %d" % (D, dr)))
+                conexoes.append(_rec(rot, desc, P, pern, L["corpo"][D]))
+                continue
             if abs(ang_r - 90.0) > tol:
                 avisos.append("Nó %d: ramal a %.1f° da linha principal; esta linha só tem "
-                              "tê a 90°." % (k + 1, ang_r))
+                              "%s." % (k + 1, ang_r, "tê a 90° e junção a 45°" if L.get("juncao") else "tê a 90°"))
                 for s, p, u in its:
                     recuo[(s, p)] = 0.0
                 continue

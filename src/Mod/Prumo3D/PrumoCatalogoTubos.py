@@ -181,6 +181,12 @@ TIGRE_ESGOTO = {
     "luva_reducao": {(75, 50): 108.5, (100, 50): 130.5, (100, 75): 122.0, (150, 100): 148.9, (200, 150): 163.5},
     # Cap (p. 15): comprimento A
     "cap": {40: 18.0, 50: 39.0, 75: 44.0, 100: 50.0, 150: 67.0, 200: 103.0},
+    # Junção simples série normal (p. 12): (D, d) -> (A, C, c). Leitura do desenho: A comprimento total da
+    # linha principal, C da face de saída (jusante) até o encontro dos eixos, c do encontro até a face do ramal.
+    "juncao": {(40, 40): (95.0, 27.0, 50.0), (50, 50): (159.5, 56.5, 64.0), (75, 50): (172.0, 50.0, 79.5),
+               (75, 75): (206.5, 68.0, 94.5), (100, 50): (185.0, 44.5, 100.0), (100, 75): (219.6, 61.6, 110.5),
+               (100, 100): (259.0, 80.0, 129.0), (150, 100): (282.0, 66.0, 164.0), (150, 150): (351.0, 99.0, 185.0),
+               (200, 200): (523.0, 115.0, 185.0)},
     # Caixas (p. 37, 38 e 57). O catálogo não dá legenda das letras: D/D1 tomado como diâmetro do corpo, A como
     # altura, D2 como saída e D3 como entrada.
     "caixas": {
@@ -194,6 +200,7 @@ TIGRE_ESGOTO = {
         "gordura": {"nome": "Caixa de gordura", "D": 312.0, "A": 591.0, "saida": 100, "entrada": 50},
     },
     "a_conferir": {
+        ("juncao", "todas"): "junção a 45°: centro até a face tirado do desenho (A, C e c), sem legenda das letras",
         ("caixa", "inspecao"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
         ("caixa", "gordura"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
         ("joelho45", 40): "rótulos da tabela do joelho 45° trocados no catálogo (B, D, e, L no lugar de A, B, C, D)",

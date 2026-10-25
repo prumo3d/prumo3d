@@ -6864,6 +6864,35 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertIn("25 mm", t.getEnumerationsOfProperty("Diametro"))
 
+    def test_juncao_45_no_esgoto(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        L = C.linha("pvc-esgoto-sn")
+        # linha principal desenhada de montante (x=0) para jusante; ramal chega a 45° pelo lado de montante
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (2000, 0, 0), (300, 700, 0), (1000, 0, 0)], quebras=[3])
+        t = T.criar(e, dn=25)
+        t.Linha = "pvc-esgoto-sn"
+        t.Diametro = "100 mm"
+        self.doc.recompute()
+        self.assertEqual(t.Conexoes, ["1 × Junção simples esgoto série normal DN 100"], t.Avisos)
+        A, Cj, c = L["juncao"][(100, 100)]
+        b = L["bolsa"][100]
+        cortes = {x["seg"]: x["corte"] for x in t.Proxy.ultimo["tubos"]}
+        self.assertAlmostEqual(cortes[0], 1000 - (A - Cj - b), delta=1.0)     # montante: lado comprido
+        self.assertAlmostEqual(cortes[1], 1000 - (Cj - b), delta=1.0)         # jusante: lado curto (C)
+        self.assertAlmostEqual(cortes[2], (700 ** 2 * 2) ** 0.5 - (c - b), delta=1.0)
+        self.assertTrue(any("junção" in a.lower() and "conferir" in a for a in t.Avisos), t.Avisos)
+        self.assertTrue(t.Shape.isValid())
+        # ramal de 75 numa linha de 100: junção 100 × 75
+        t.DiametrosTrechos = ["3: 75"]
+        self.doc.recompute()
+        self.assertIn("1 × Junção simples esgoto série normal DN 100 × 75", t.Conexoes)
+        # água fria não tem junção: avisa o ângulo
+        t.DiametrosTrechos = []
+        t.Linha = C.PADRAO
+        self.doc.recompute()
+        self.assertTrue(any("só tem tê a 90°" in a for a in t.Avisos), t.Avisos)
+
     def test_caixas_de_esgoto(self):
         import PrumoTubulacao as T
         e = self._tracado([(0, 0, 0), (2000, 0, 0), (2000, 0, 0), (2000, 1500, 0)], quebras=[2])

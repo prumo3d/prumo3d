@@ -30,6 +30,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Linha de água quente CPVC Aquatherm (Tigre, 15 a 114 mm)**: tubos em barras de 3 m, joelhos, tê, luva e
   cap do catálogo técnico Aquatherm (mai/2011); torneira na ponta com conector ou joelho de transição. O
   joelho 45° sai "a conferir" (o catálogo repete a tabela do joelho 90°).
+- **Junção a 45° no esgoto:** ramal chegando a 45° pelo lado de montante vira junção simples (DN 40 a 200,
+  inclusive 75 × 50, 100 × 50, 100 × 75 e 150 × 100), com o tubo cortado pelas medidas da junção. Centro até
+  a face tirado do desenho do catálogo, por isso "a conferir".
 - **Caixas de esgoto:** caixa sifonada (100 × 100 × 50, 150 × 150 × 50, 150 × 185 × 75), caixa de inspeção e
   caixa de gordura no nó de uma ponta do traçado; os trechos que chegam ali param na parede da caixa, e o
   Prumo avisa quando o diâmetro do tubo passa da saída ou das entradas da caixa. Medidas do catálogo de
