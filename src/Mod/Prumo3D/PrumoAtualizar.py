@@ -558,9 +558,30 @@ def comando_instalar_depois(caminho, pid):
             caminho]
 
 
-def _disparar(caminho, popen=None):
-    """Deixa rodando, fora do Prumo, o processo que abre o instalador depois que o Prumo fechar."""
+def _registrar(msg):
+    """Anota o que aconteceu na pasta da atualização (atualizacao.log), para achar o motivo se falhar."""
+    try:
+        import time
+        with open(os.path.join(pasta_download(), "atualizacao.log"), "a", encoding="utf-8") as f:
+            f.write("%s  %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except Exception:
+        pass
+
+
+def _disparar(caminho, popen=None, abrir=None):
+    """Abre o instalador. No Windows, pelo ShellExecute (os.startfile), que mostra o pedido de permissão do
+    Windows; o Prumo já aceitou fechar e termina logo em seguida, antes de o instalador copiar os arquivos.
+    Se o ShellExecute falhar, tenta pelo PowerShell esperando o Prumo fechar."""
     import subprocess
+    _registrar("abrir instalador: %s (existe=%s)" % (caminho, os.path.isfile(caminho)))
+    if sys.platform.startswith("win"):
+        abrir = abrir or getattr(os, "startfile", None)
+        try:
+            abrir(caminho)
+            _registrar("ShellExecute ok")
+            return True
+        except Exception as exc:
+            _registrar("ShellExecute falhou: %r" % (exc,))
     popen = popen or subprocess.Popen
     cmd = comando_instalar_depois(caminho, os.getpid())
     try:
@@ -569,25 +590,22 @@ def _disparar(caminho, popen=None):
             flags = 0x00000008 | 0x08000000 | 0x00000200   # DETACHED | NO_WINDOW | NEW_PROCESS_GROUP
         popen(cmd, close_fds=True, creationflags=flags, stdin=subprocess.DEVNULL,
               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _registrar("processo de espera iniciado: %s" % cmd[0])
         return True
     except Exception as exc:
-        FreeCAD.Console.PrintError("Prumo: não conseguiu agendar o instalador ({}); abrindo agora.\n".format(exc))
-        try:
-            if sys.platform.startswith("win"):
-                os.startfile(caminho)       # ShellExecute: também pede a permissão do Windows
-                return True
-        except Exception as exc2:
-            FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc2))
+        _registrar("processo de espera falhou: %r" % (exc,))
+        FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc))
         return False
 
 
-def instalar_ao_fechar(caminho, popen=None):
+def instalar_ao_fechar(caminho, popen=None, abrir=None):
     """Fecha o Prumo (ele pergunta se quer salvar) e, se fechou, abre o instalador logo depois.
     Se o usuário desistir de fechar, nada acontece."""
     mw = janela_principal()
     if mw is not None and not mw.close():
+        _registrar("fechamento cancelado pelo usuário")
         return False
-    return _disparar(caminho, popen)
+    return _disparar(caminho, popen, abrir)
 
 
 # ----------------------------------------------------------------------------------- verificação

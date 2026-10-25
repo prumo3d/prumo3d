@@ -13,6 +13,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Atualização automática (de novo):** da 0.9.3 para a 0.9.4 o Prumo baixou o instalador e fechou, mas o
+  instalador não abriu (o processo que esperava o Prumo fechar não chegou a abri-lo). Agora o instalador é
+  aberto pelo próprio Windows (com o pedido de permissão) logo depois que você aceita fechar o Prumo; o
+  caminho antigo fica só como reserva. Cada passo fica anotado em `atualizacao.log`, na pasta temporária
+  `Prumo3D-atualizacao`, para achar o motivo se algo falhar.
 - **Mensagens de erro das operações em português:** o FreeCAD mostrava o erro cru em inglês (ex.: "Failed to
   make thick solid" na casca). 121 mensagens de Peça, Sólidos e esboço agora aparecem em português,
   algumas com a dica do que tentar (casca: espessura menor, outra junção ou outras faces).

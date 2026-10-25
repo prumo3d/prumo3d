@@ -7659,6 +7659,35 @@ class T60Atualizacao(unittest.TestCase):
             sys.platform = antes
         self.assertIn("'C:\\Users\\D''Ávila\\x.exe'", cmd[-1])
 
+    def test_windows_abre_instalador_pelo_shellexecute(self):
+        """0.9.3 → 0.9.4: o processo de espera (PowerShell) não abriu o instalador no Windows do usuário.
+        Agora abre pelo ShellExecute (pedido de permissão do Windows) e só usa o PowerShell se ele falhar;
+        tudo fica anotado em atualizacao.log."""
+        import sys
+        import PrumoAtualizar as A
+        abertos, processos = [], []
+        antes = sys.platform
+        try:
+            sys.platform = "win32"
+            self.assertTrue(A._disparar("C:/x/inst.exe", popen=lambda *a, **k: processos.append(a),
+                                        abrir=lambda p: abertos.append(p)))
+            self.assertEqual(abertos, ["C:/x/inst.exe"])
+            self.assertEqual(processos, [])
+
+            def falha(p):
+                raise OSError("bloqueado")
+            self.assertTrue(A._disparar("C:/x/inst.exe", popen=lambda *a, **k: processos.append(a), abrir=falha))
+            self.assertEqual(len(processos), 1)
+            self.assertEqual(processos[0][0][0], "powershell.exe")
+        finally:
+            sys.platform = antes
+        import os
+        log = os.path.join(A.pasta_download(), "atualizacao.log")
+        with open(log, encoding="utf-8") as f:
+            txt = f.read()
+        self.assertIn("ShellExecute ok", txt)
+        self.assertIn("ShellExecute falhou", txt)
+
     def test_desistir_de_fechar_nao_abre_instalador(self):
         import PrumoAtualizar as A
         chamadas = []
