@@ -914,6 +914,11 @@ def install_translations():
         import PrumoI18n
 
         PrumoI18n.install()
+        try:
+            import PrumoErros
+            PrumoErros.instalar()       # erros das operações (texto cru do FreeCAD) em português
+        except Exception as exc:
+            FreeCAD.Console.PrintWarning("Prumo: tradução dos erros não aplicada: {}\n".format(exc))
         mw = FreeCADGui.getMainWindow()
         if mw is not None:
             mw.workbenchActivated.connect(PrumoI18n.on_workbench)

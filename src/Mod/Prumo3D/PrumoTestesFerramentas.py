@@ -9733,6 +9733,19 @@ class T73Preferencias(unittest.TestCase):
 
 
 
+
+    def test_erros_das_operacoes_em_portugues(self):
+        import PrumoErros as E
+        from PySide import QtCore, QtWidgets
+        self.assertIn("casca", E.traduzir("Failed to make thick solid"))
+        self.assertEqual(E.traduzir("Pad: Resulting shape is not a solid"), "A forma resultante não é um sólido.")
+        self.assertIsNone(E.traduzir("texto que não conheço"))
+        self.assertIsNotNone(E.instalar())
+        caixa = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning, "Input error", "Failed to make thick solid")
+        QtCore.QTimer.singleShot(300, caixa.accept)
+        caixa.exec_()
+        self.assertEqual(caixa.windowTitle(), "Erro de entrada")
+        self.assertIn("Não foi possível fazer a casca", caixa.text())
     def test_aba_tubulacao(self):
         import PrumoRibbon as R
         abas = {t["id"]: t for t in R.TABS}

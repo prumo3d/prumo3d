@@ -9,6 +9,14 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Mensagens de erro das operações em português:** o FreeCAD mostrava o erro cru em inglês (ex.: "Failed to
+  make thick solid" na casca). Cerca de 150 mensagens de Peça, Sólidos e esboço agora aparecem em português,
+  algumas com a dica do que tentar (casca: espessura menor, outra junção ou outras faces).
+
 ## 0.9.4 beta — 25/10/2026
 
 ### Melhorias
