@@ -181,7 +181,21 @@ TIGRE_ESGOTO = {
     "luva_reducao": {(75, 50): 108.5, (100, 50): 130.5, (100, 75): 122.0, (150, 100): 148.9, (200, 150): 163.5},
     # Cap (p. 15): comprimento A
     "cap": {40: 18.0, 50: 39.0, 75: 44.0, 100: 50.0, 150: 67.0, 200: 103.0},
+    # Caixas (p. 37, 38 e 57). O catálogo não dá legenda das letras: D/D1 tomado como diâmetro do corpo, A como
+    # altura, D2 como saída e D3 como entrada.
+    "caixas": {
+        "sifonada_100": {"nome": "Caixa sifonada 100 × 100 × 50", "D": 101.6, "A": 100.0, "saida": 50,
+                         "entrada": 40},
+        "sifonada_150": {"nome": "Caixa sifonada 150 × 150 × 50", "D": 144.8, "A": 155.0, "saida": 50,
+                         "entrada": 40},
+        "sifonada_150_75": {"nome": "Caixa sifonada 150 × 185 × 75", "D": 147.0, "A": 185.0, "saida": 75,
+                            "entrada": 40},
+        "inspecao": {"nome": "Caixa de inspeção", "D": 302.0, "A": 240.0, "saida": 100, "entrada": 100},
+        "gordura": {"nome": "Caixa de gordura", "D": 312.0, "A": 591.0, "saida": 100, "entrada": 50},
+    },
     "a_conferir": {
+        ("caixa", "inspecao"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
+        ("caixa", "gordura"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
         ("joelho45", 40): "rótulos da tabela do joelho 45° trocados no catálogo (B, D, e, L no lugar de A, B, C, D)",
         ("joelho45", 50): "rótulos da tabela do joelho 45° trocados no catálogo",
         ("joelho45", 75): "rótulos da tabela do joelho 45° trocados no catálogo",

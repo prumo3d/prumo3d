@@ -6864,6 +6864,48 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertIn("25 mm", t.getEnumerationsOfProperty("Diametro"))
 
+    def test_caixas_de_esgoto(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (2000, 0, 0), (2000, 0, 0), (2000, 1500, 0)], quebras=[2])
+        t = T.criar(e, dn=25)
+        t.Linha = "pvc-esgoto-sn"
+        t.Diametro = "50 mm"
+        t.Caixas = ["1: fim: sifonada_150"]
+        self.doc.recompute()
+        self.assertIn("1 × Caixa sifonada 150 × 150 × 50", t.Conexoes)
+        self.assertFalse(any("Joelho" in c for c in t.Conexoes), t.Conexoes)
+        tubos = t.Proxy.ultimo["tubos"]
+        # os dois trechos param na parede da caixa (raio 72,4 − 3)
+        self.assertTrue(all(abs(x["corte"] - (round((1500 if x["seg"] == 1 else 2000), 0) - 69.4)) < 25
+                            for x in tubos), [x["corte"] for x in tubos])
+        self.assertTrue(t.Shape.isValid())
+        # DN 100 chegando numa caixa de saída 50: avisa
+        t.Diametro = "100 mm"
+        self.doc.recompute()
+        self.assertTrue(any("chega tubo de DN 100" in a for a in t.Avisos), t.Avisos)
+        t.Caixas = ["1: fim: inspecao"]
+        self.doc.recompute()
+        self.assertIn("1 × Caixa de inspeção", t.Conexoes)
+        self.assertTrue(any("conferir" in a for a in t.Avisos), t.Avisos)
+        if not FreeCAD.GuiUp:
+            return
+        t.Caixas = []
+        self.doc.recompute()
+        pn = T.abrir_painel(t)
+        try:
+            self.assertTrue(pn.card_cx.isVisibleTo(pn.form))
+            pn.marcar_trechos([0])
+            pn.tipo_cx.setCurrentIndex(pn.tipo_cx.findData("sifonada_100"))
+            self.assertTrue(pn.por_caixa())
+            self.assertEqual(len(t.Caixas), 1)
+            self.assertEqual(pn.lista_cx.count(), 1)
+            pn.lista_cx.setCurrentRow(0)
+            pn.tirar_caixa()
+            self.assertEqual(len(t.Caixas), 0)
+            pn.accept()
+        finally:
+            FreeCADGui.Selection.clearSelection()
+
     def test_agua_quente_aquatherm(self):
         import PrumoTubulacao as T
         import PrumoCatalogoTubos as C

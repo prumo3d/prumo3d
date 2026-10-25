@@ -203,9 +203,11 @@ def aplicar_caimento(segs, dns, L, ligado=True):
     return out, avisos
 
 
-def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None):
+def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None, caixas=None):
     """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria).
     registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}.
+    caixas (esgoto): {(trecho, "inicio"|"fim"): tipo} — a caixa fica no nó dessa ponta e todos os trechos que
+    chegam nele param na parede dela.
     pontos (torneiras): {trecho: [(posição, direção)]}: posição em mm do início, ou "inicio"/"fim" (ponta
     solta); direção "+Z", "-Z", "±X", "±Y" ou "eixo" (na ponta, seguindo o tubo)."""
     L = CAT.linha(lid)
@@ -241,11 +243,32 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
             if msg not in avisos:
                 avisos.append(msg)
 
+    caixa_no = {}
+    for (s_, pt_), tipo in (caixas or {}).items():
+        if 0 <= s_ < len(lig):
+            caixa_no[lig[s_][0 if pt_ == "inicio" else 1]] = tipo
     for k, its in inc.items():
         P = nos[k]
         n = len(its)
         if n == 0:
             continue
+        if k in caixa_no:
+            cx = L.get("caixas", {}).get(caixa_no[k])
+            if cx is None:
+                avisos.append("Nó %d: a linha %s não tem a caixa \"%s\"." % (k + 1, L["nome"], caixa_no[k]))
+            else:
+                conferir("caixa", caixa_no[k], cx["nome"])
+                maior = max(dns[s_] for s_, p_, u_ in its)
+                if maior > max(cx["saida"], cx["entrada"]):
+                    avisos.append("Nó %d: %s tem saída DN %d e entradas DN %d; chega tubo de DN %d."
+                                  % (k + 1, cx["nome"], cx["saida"], cx["entrada"], maior))
+                horiz = [u_ for s_, p_, u_ in its if abs(u_.z) < 0.5]
+                for s_, p_, u_ in its:
+                    recuo[(s_, p_)] = cx["D"] / 2.0 - 3.0 if abs(u_.z) < 0.5 else 0.0
+                c = _rec("Caixa", cx["nome"], P, [], cx["D"])
+                c["caixa"] = cx
+                conexoes.append(c)
+                continue
         if n == 1:
             s, pt, u = its[0]
             recuo[(s, pt)] = 0.0
@@ -589,8 +612,20 @@ def solido_torneira(p, u):
     return corpo.fuse(bica).fuse(castelo)
 
 
+def solido_caixa(c):
+    """Caixa em volume simples: corpo cilíndrico com o fundo abaixo do eixo da saída."""
+    cx = c["caixa"]
+    P = c["no"]
+    fundo = P - FreeCAD.Vector(0, 0, cx["saida"] / 2.0 + 15.0)
+    ext = _cil(cx["D"] / 2.0, fundo, FreeCAD.Vector(0, 0, 1), cx["A"])
+    inn = _cil(cx["D"] / 2.0 - 3.0, fundo + FreeCAD.Vector(0, 0, 3.0), FreeCAD.Vector(0, 0, 1), cx["A"])
+    return ext.cut(inn)
+
+
 def solido_conexao(c, L):
     import Part
+    if c.get("caixa"):
+        return solido_caixa(c)
     P = c["no"]
     R = c["corpo"] / 2.0
     corpo = None
@@ -682,6 +717,9 @@ class Tubulacao:
         add("App::PropertyStringList", "Pontos", "Tubulação",
             "Torneiras: 'trecho: posição: direção' — posição em mm do início, ou inicio/fim (ponta solta); "
             "direção +Z, -Z, +X, -X, +Y, -Y ou eixo (ex.: '3: fim: eixo', '2: 800: +Z')", [])
+        add("App::PropertyStringList", "Caixas", "Tubulação",
+            "Esgoto: caixas no nó de uma ponta: 'trecho: inicio|fim: tipo' (tipos: sifonada_100, sifonada_150, "
+            "sifonada_150_75, inspecao, gordura)", [])
         add("App::PropertyStringList", "Conexoes", "Resultados", "Conexões (quantidade × peça)", [], ro=True)
         add("App::PropertyStringList", "ListaCorte", "Resultados", "Tubos por diâmetro e barras", [], ro=True)
         add("App::PropertyStringList", "Avisos", "Resultados", "Avisos do traçado", [], ro=True)
@@ -756,6 +794,18 @@ class Tubulacao:
             pts.setdefault(t, []).append((pos, dr))
         return pts
 
+    def caixas(self, obj):
+        cx = {}
+        for item in getattr(obj, "Caixas", []) or []:
+            partes = [x.strip() for x in item.split(":")]
+            if len(partes) < 3 or partes[1] not in ("inicio", "fim"):
+                continue
+            try:
+                cx[(int(partes[0]) - 1, partes[1])] = partes[2]
+            except ValueError:
+                continue
+        return cx
+
     def calcular(self, obj):
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
@@ -763,7 +813,8 @@ class Tubulacao:
         if L.get("esgoto") and all(d in L["tubos"] for d in dns):
             segs, av = aplicar_caimento(segs, dns, L, bool(getattr(obj, "Caimento", True)))
             avisos += av
-        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj), self.pontos(obj))
+        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj), self.pontos(obj),
+                     self.caixas(obj))
         res["avisos"] = avisos + res["avisos"]
         res["segs"] = segs
         res["dns"] = dns
@@ -1010,6 +1061,26 @@ if FreeCAD.GuiUp:
             bt_tirar.clicked.connect(self.tirar_ponto)
             lp.addWidget(bt_tirar)
             raiz.addWidget(card_p)
+            self.card_cx, lc = P.bloco("Caixas de esgoto", "furo")
+            dc = QtWidgets.QLabel("Escolha um trecho na vista: a caixa entra na ponta solta dele (ou no fim) e os "
+                                  "trechos que chegam ali param na parede da caixa.")
+            dc.setWordWrap(True)
+            dc.setObjectName("PrumoSub")
+            lc.addWidget(dc)
+            hc = QtWidgets.QHBoxLayout()
+            self.tipo_cx = QtWidgets.QComboBox()
+            hc.addWidget(self.tipo_cx, 1)
+            bt_cx = QtWidgets.QPushButton("Pôr caixa")
+            bt_cx.clicked.connect(self.por_caixa)
+            hc.addWidget(bt_cx)
+            lc.addLayout(hc)
+            self.lista_cx = QtWidgets.QListWidget()
+            self.lista_cx.setMaximumHeight(80)
+            lc.addWidget(self.lista_cx)
+            bt_tcx = QtWidgets.QPushButton("Tirar a caixa escolhida")
+            bt_tcx.clicked.connect(self.tirar_caixa)
+            lc.addWidget(bt_tcx)
+            raiz.addWidget(self.card_cx)
             card_t, lay = P.bloco("Trechos", "comprimento")
             raiz.addWidget(card_t)
             self.tabela = QtWidgets.QTableWidget(0, 4)
@@ -1165,6 +1236,47 @@ if FreeCAD.GuiUp:
                 onde = {"inicio": "no início", "fim": "no fim"}.get(pos, "a %s mm do início" % pos)
                 self.lista_pontos.addItem("Trecho %s, %s, saída %s" % (partes[0], onde, dr))
 
+        # ------------------------------------------------ caixas
+        def _encher_caixas(self):
+            L = CAT.linha(self.obj.Linha)
+            self.card_cx.setVisible(bool(L.get("caixas")))
+            atual = self.tipo_cx.currentData()
+            self.tipo_cx.blockSignals(True)
+            self.tipo_cx.clear()
+            for k, cx in (L.get("caixas") or {}).items():
+                self.tipo_cx.addItem(cx["nome"], k)
+            if atual is not None and self.tipo_cx.findData(atual) >= 0:
+                self.tipo_cx.setCurrentIndex(self.tipo_cx.findData(atual))
+            self.tipo_cx.blockSignals(False)
+            self.lista_cx.clear()
+            for x in self.obj.Caixas:
+                partes = [p.strip() for p in x.split(":")]
+                nome = (L.get("caixas") or {}).get(partes[2], {}).get("nome", partes[2]) if len(partes) > 2 else x
+                self.lista_cx.addItem("%s — trecho %s, %s" % (nome, partes[0], "no início" if partes[1] == "inicio"
+                                                              else "no fim"))
+
+        def por_caixa(self):
+            if not self.escolhidos or self.tipo_cx.currentData() is None:
+                return False
+            i = self.escolhidos[0]
+            soltas = self._pontas_soltas(i)
+            ponta = soltas[-1] if soltas else "fim"
+            itens = [x for x in self.obj.Caixas if not x.replace(" ", "").startswith("%d:%s:" % (i + 1, ponta))]
+            itens.append("%d: %s: %s" % (i + 1, ponta, self.tipo_cx.currentData()))
+            self.obj.Caixas = itens
+            idxs = list(self.escolhidos)
+            self._atualizar()
+            self.marcar_trechos(idxs)
+            return True
+
+        def tirar_caixa(self):
+            r = self.lista_cx.currentRow()
+            itens = list(self.obj.Caixas)
+            if 0 <= r < len(itens):
+                del itens[r]
+                self.obj.Caixas = itens
+                self._atualizar()
+
         def mesmo_diametro(self):
             res = getattr(self.obj.Proxy, "ultimo", None) or {}
             dns = res.get("dns", [])
@@ -1294,6 +1406,8 @@ if FreeCAD.GuiUp:
                 self._ocupado = False
             if hasattr(self, "lista_pontos"):
                 self._encher_pontos()
+            if hasattr(self, "lista_cx"):
+                self._encher_caixas()
             import PrumoPainel
             PrumoPainel.estreitar(self.form)
             html = ["<b>Conexões</b><br>" + ("<br>".join(self.obj.Conexoes) or "—"),
