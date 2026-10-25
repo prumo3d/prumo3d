@@ -98,6 +98,17 @@ TIGRE_SOLDAVEL = {
     "fonte_densidade": "Tigre, Ficha Técnica Tubería y Accesorios de PVC Línea Soldable (mai/2021): "
                         "\"peso específico del compuesto: 1,43 g/cm³\" (ficha da Tigre fora do Brasil; o catálogo "
                         "brasileiro não informa)",
+    # Pontos de uso (p. 12–14): peças com bucha de latão para rosquear torneira, registro ou chuveiro.
+    # Tê soldável e com bucha de latão na bolsa central (p. 14): A comprimento total, B centro até a face da
+    # bolsa com rosca
+    "te_bucha": {20: {"A": 54.0, "B": 27.0, "rosca": '1/2"'}, 25: {"A": 59.0, "B": 30.5, "rosca": '1/2"'},
+                 32: {"A": 72.0, "B": 35.5, "rosca": '3/4"'}},
+    # Joelho 90° soldável e com bucha de latão (p. 12): A centro até a face (as duas pernas)
+    "joelho_bucha": {20: {"A": 27.0, "rosca": '1/2"'}, 25: {"A": 31.0, "rosca": '1/2"'},
+                     32: {"A": 37.0, "rosca": '3/4"'}},
+    # Luva soldável e com bucha de latão (p. 13): A comprimento total (o tubo entra na bolsa de um lado)
+    "luva_bucha": {20: {"A": 31.0, "rosca": '1/2"'}, 25: {"A": 36.0, "rosca": '1/2"'},
+                   32: {"A": 47.6, "rosca": '1"'}},
     "a_conferir": {
         ("bucha_curta", (110, 85)): "A = 31 mm, menor que a bolsa de 110 (provável erro na tabela)",
         ("bucha_longa", (50, 25)): "A = 31 mm, fora da sequência da tabela",

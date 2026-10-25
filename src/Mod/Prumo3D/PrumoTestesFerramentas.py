@@ -6760,6 +6760,107 @@ class T53Tubulacao(unittest.TestCase):
         self.assertEqual(t.Conexoes, ["1 × Joelho 90° soldável 40 mm"])
         pn.accept()
 
+    def test_torneiras_na_ponta_e_no_meio(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        L = C.linha(C.PADRAO)
+        e = self._tracado([(0, 0, 0), (2000, 0, 0)])
+        t = T.criar(e, dn=25)
+        # ponta seguindo o tubo: luva com bucha; tubo vai até o fundo da bolsa
+        t.Pontos = ["1: fim: eixo"]
+        self.doc.recompute()
+        self.assertIn("1 × Luva soldável e com bucha de latão 25 × 1/2\"", t.Conexoes)
+        self.assertIn("1 × Torneira 1/2\" (representação simplificada)", t.Conexoes)
+        self.assertAlmostEqual(t.Proxy.ultimo["tubos"][0]["corte"], 2000.0, 3)
+        # ponta saindo para cima: joelho com bucha, o tubo para antes do joelho
+        t.Pontos = ["1: fim: +Z"]
+        self.doc.recompute()
+        self.assertIn("1 × Joelho 90° soldável e com bucha de latão 25 × 1/2\"", t.Conexoes)
+        jb = L["joelho_bucha"][25]
+        self.assertAlmostEqual(t.Proxy.ultimo["tubos"][0]["corte"], 2000 - (jb["A"] - L["bolsa"][25]), 3)
+        # no meio: tê com bucha corta o tubo em dois
+        t.Pontos = ["1: 800: +Y"]
+        self.doc.recompute()
+        self.assertIn("1 × Tê soldável e com bucha de latão 25 × 1/2\"", t.Conexoes)
+        tb = L["te_bucha"][25]
+        cortes = sorted(round(x["corte"], 2) for x in t.Proxy.ultimo["tubos"])
+        avanco = tb["A"] / 2 - L["bolsa"][25]
+        self.assertEqual(cortes, sorted([round(800 - avanco, 2), round(1200 - avanco, 2)]))
+        self.assertTrue(t.Shape.isValid())
+        self.assertFalse(t.Avisos)
+        # na direção do tubo, no meio, não dá: avisa
+        t.Pontos = ["1: 800: +X"]
+        self.doc.recompute()
+        self.assertTrue(any("direção do próprio tubo" in a for a in t.Avisos), t.Avisos)
+        # diâmetro sem peça com bucha no catálogo: avisa
+        t.Pontos = ["1: fim: eixo"]
+        t.Diametro = "50 mm"
+        self.doc.recompute()
+        self.assertTrue(any("bucha de latão de 50" in a for a in t.Avisos), t.Avisos)
+        if not FreeCAD.GuiUp:
+            return
+        t.Diametro = "25 mm"
+        t.Pontos = []
+        self.doc.recompute()
+        pn = T.abrir_painel(t)
+        try:
+            pn.marcar_trechos([0])
+            pn.dir_ponto.setCurrentIndex(pn.dir_ponto.findData("eixo"))
+            self.assertTrue(pn.torneira_na_ponta())
+            self.assertTrue(pn.torneira_na_ponta())           # a segunda vai para a outra ponta
+            self.assertFalse(pn.torneira_na_ponta())          # não sobra ponta
+            self.assertEqual(sorted(x.split(":")[1].strip() for x in t.Pontos), ["fim", "inicio"])
+            pn.dir_ponto.setCurrentIndex(pn.dir_ponto.findData("+Z"))
+            pn.ponto_clicado = FreeCAD.Vector(1000, 3, 0)
+            self.assertTrue(pn.torneira_no_ponto())
+            self.assertIn("1: 1000: +Z", list(t.Pontos))
+            self.assertEqual(pn.lista_pontos.count(), 3)
+            self.assertEqual(textos_com_problema(pn.form), [])
+            pn.lista_pontos.setCurrentRow(2)
+            pn.tirar_ponto()
+            self.assertEqual(len(t.Pontos), 2)
+            pn.accept()
+        finally:
+            FreeCADGui.Selection.clearSelection()
+
+    def test_escolher_trechos_na_vista_e_aplicar_diametro(self):
+        """Como na estrutura: clicar nas linhas do traçado escolhe os trechos (e vice-versa) e o diâmetro
+        vale para todos de uma vez."""
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0), (2000, 1000, 0)])
+        t = T.criar(e, dn=40)
+        segs = t.Proxy.ultimo["segs"]
+        self.assertEqual(T.trechos_das_arestas(e, segs, T.arestas_dos_trechos(e, segs, [0, 2])), [0, 2])
+        self.assertEqual(T.com_diametro(["2: 25"], [0, 1], 32, 40), ["1: 32", "2: 32"])
+        self.assertEqual(T.com_diametro(["1: 32", "3: 25"], [0], 40, 40), ["3: 25"])
+        if not FreeCAD.GuiUp:
+            return
+        pn = T.abrir_painel(t)
+        try:
+            # vista → painel
+            FreeCADGui.Selection.clearSelection()
+            for n in T.arestas_dos_trechos(e, segs, [1]):
+                FreeCADGui.Selection.addSelection(e, n)
+            pn._da_vista()
+            self.assertEqual(pn.escolhidos, [1])
+            self.assertIn("1 trecho: 2", pn.lb_sel.text())
+            # painel → vista
+            pn.marcar_trechos([0, 2])
+            nomes = [n for so in FreeCADGui.Selection.getSelectionEx("", 0) if so.Object is e
+                     for n in so.SubElementNames]
+            self.assertEqual(sorted(T.trechos_das_arestas(e, segs, nomes)), [0, 2])
+            self.assertEqual(sorted(ix.row() for ix in pn.tabela.selectionModel().selectedRows()), [0, 2])
+            # aplicar o diâmetro aos escolhidos
+            pn.dn_sel.setCurrentIndex(pn.dn_sel.findData(25))
+            pn.aplicar_selecionados()
+            self.assertEqual(list(t.DiametrosTrechos), ["1: 25", "3: 25"])
+            self.assertEqual(t.Proxy.ultimo["dns"], [25, 40, 25])
+            pn.mesmo_diametro()
+            self.assertEqual(pn.escolhidos, [0, 2])
+            pn.accept()
+        finally:
+            FreeCADGui.Selection.clearSelection()
+
 
 class T54ReferenciasAutomaticas(unittest.TestCase):
     """Geometria externa por padrão: arestas da face de apoio entram ao abrir; as não usadas saem."""

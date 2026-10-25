@@ -61,6 +61,61 @@ def segmentos_do_caminho(caminho):
     return segs, avisos
 
 
+def _arestas_globais(caminho):
+    """[(nome 'EdgeN', a, b)] das linhas retas do traçado, em coordenadas globais."""
+    import PrumoUtil
+    out = []
+    try:
+        sh = PrumoUtil.forma_global(caminho)
+    except Exception:
+        return out
+    for i, e in enumerate(sh.Edges):
+        if e.Length > 1e-6 and len(e.Vertexes) == 2:
+            out.append(("Edge%d" % (i + 1), FreeCAD.Vector(e.Vertexes[0].Point), FreeCAD.Vector(e.Vertexes[1].Point)))
+    return out
+
+
+def _mesma_linha(a, b, c, d):
+    return ((a - c).Length < TOL_NO and (b - d).Length < TOL_NO) or ((a - d).Length < TOL_NO and (b - c).Length < TOL_NO)
+
+
+def trechos_das_arestas(caminho, segs, nomes):
+    """Índices dos trechos que correspondem às arestas escolhidas na vista (Edge3 → trecho)."""
+    arestas = {n: (a, b) for n, a, b in _arestas_globais(caminho)}
+    out = []
+    for n in nomes:
+        if n not in arestas:
+            continue
+        a, b = arestas[n]
+        for i, (c, d) in enumerate(segs):
+            if i not in out and _mesma_linha(a, b, c, d):
+                out.append(i)
+    return sorted(out)
+
+
+def arestas_dos_trechos(caminho, segs, idxs):
+    """Nomes das arestas do traçado que formam os trechos dados (para marcar na vista)."""
+    out = []
+    arestas = _arestas_globais(caminho)
+    for i in idxs:
+        if not 0 <= i < len(segs):
+            continue
+        c, d = segs[i]
+        for n, a, b in arestas:
+            if _mesma_linha(a, b, c, d) and n not in out:
+                out.append(n)
+    return out
+
+
+def com_diametro(itens, idxs, d, padrao):
+    """Lista 'trecho: DE' com os trechos idxs passando a d (sem repetir o padrão)."""
+    alvo = {i + 1 for i in idxs}
+    novos = [x for x in itens if int(x.split(":")[0]) not in alvo]
+    if d != padrao:
+        novos += ["%d: %d" % (t, d) for t in sorted(alvo)]
+    return sorted(novos, key=lambda x: int(x.split(":")[0]))
+
+
 def _nos(segs):
     """Une as pontas próximas: (lista de pontos dos nós, [(no_a, no_b)] por segmento)."""
     nos = []
@@ -87,9 +142,23 @@ def _rec(nome, desc, no, pernas, corpo, extra=()):
     return {"tipo": nome, "desc": desc, "no": no, "pernas": pernas, "corpo": corpo, "extras": list(extra)}
 
 
-def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
+DIRECOES = {"+Z": (0, 0, 1), "-Z": (0, 0, -1), "+X": (1, 0, 0), "-X": (-1, 0, 0), "+Y": (0, 1, 0),
+            "-Y": (0, -1, 0)}
+NOMES_DIRECAO = {"+Z": "para cima", "-Z": "para baixo", "+X": "+X", "-X": "−X", "+Y": "+Y", "-Y": "−Y",
+                 "eixo": "seguindo o tubo"}
+
+
+def _vdir(chave, u=None):
+    if chave == "eixo" or chave not in DIRECOES:
+        return None
+    return FreeCAD.Vector(*DIRECOES[chave])
+
+
+def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None):
     """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria).
-    registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}."""
+    registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}.
+    pontos (torneiras): {trecho: [(posição, direção)]}: posição em mm do início, ou "inicio"/"fim" (ponta
+    solta); direção "+Z", "-Z", "±X", "±Y" ou "eixo" (na ponta, seguindo o tubo)."""
     L = CAT.linha(lid)
     nos, lig = _nos(segs)
     avisos = []
@@ -129,6 +198,37 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
         if n == 1:
             s, pt, u = its[0]
             recuo[(s, pt)] = 0.0
+            ponta = [dr for pos, dr in (pontos or {}).get(s, []) if pos == ("inicio" if pt == 0 else "fim")]
+            if ponta:
+                d = dns[s]
+                dv = _vdir(ponta[0])
+                if dv is not None and abs(dv.dot(u)) > 0.99:
+                    dv = None                     # na direção do próprio tubo: luva com bucha
+                if dv is None:
+                    if d not in L.get("luva_bucha", {}):
+                        avisos.append("Trecho %d: não há luva com bucha de latão de %d mm no catálogo (torneira "
+                                      "na ponta)." % (s + 1, d))
+                        continue
+                    lb = L["luva_bucha"][d]
+                    c = _rec("Luva com bucha", "Luva soldável e com bucha de latão %d × %s" % (d, lb["rosca"]), P,
+                             [(s, pt, u, d, -(lb["A"] - bolsa[d]))], L["corpo"][d],
+                             ["Torneira %s (representação simplificada)" % lb["rosca"]])
+                    c["torneira"] = (P - u * (lb["A"] - bolsa[d]), -u)
+                    conexoes.append(c)
+                else:
+                    if d not in L.get("joelho_bucha", {}):
+                        avisos.append("Trecho %d: não há joelho com bucha de latão de %d mm no catálogo (torneira "
+                                      "na ponta)." % (s + 1, d))
+                        continue
+                    jb = L["joelho_bucha"][d]
+                    dv = (dv - u * dv.dot(u)).normalize()
+                    c = _rec("Joelho com bucha", "Joelho 90° soldável e com bucha de latão %d × %s" % (d, jb["rosca"]),
+                             P, [(s, pt, u, d, jb["A"]), (-1, 9, dv, d, jb["A"])], L["corpo"][d],
+                             ["Torneira %s (representação simplificada)" % jb["rosca"]])
+                    c["torneira"] = (P + dv * jb["A"], dv)
+                    conexoes.append(c)
+                    recuo[(s, pt)] = jb["A"] - bolsa[d]
+                continue
             if tampar:
                 d = dns[s]
                 conexoes.append(_rec("Cap", "Cap soldável " + nome_dn(d), P,
@@ -296,6 +396,34 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
             cortes.append((pos - (A / 2.0 - bol), pos + (A / 2.0 - bol)))
             conexoes.append(_rec("Registro", "Registro de esfera soldável %d mm" % d, a + u * pos,
                                  [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0)], L["registro"][d]["corpo"]))
+        for pos, dr in (pontos or {}).get(s, []):
+            if pos in ("inicio", "fim"):
+                continue
+            d = dns[s]
+            if d not in L.get("te_bucha", {}):
+                avisos.append("Trecho %d: não há tê com bucha de latão de %d mm no catálogo (torneira no meio)."
+                              % (s + 1, d))
+                continue
+            tb_ = L["te_bucha"][d]
+            A, bol = tb_["A"], bolsa[d]
+            dv = _vdir(dr) or FreeCAD.Vector(0, 0, 1)
+            dv = dv - u * dv.dot(u)
+            if dv.Length < 1e-6:
+                avisos.append("Trecho %d: a torneira no meio não pode sair na direção do próprio tubo." % (s + 1))
+                continue
+            dv.normalize()
+            if pos - A / 2.0 < ra + 1.0 or pos + A / 2.0 > comp_seg - rb - 1.0:
+                avisos.append("Trecho %d: a torneira a %.0f mm do início não cabe entre as conexões."
+                              % (s + 1, pos))
+                continue
+            P = a + u * pos
+            cortes.append((pos - (A / 2.0 - bol), pos + (A / 2.0 - bol)))
+            c = _rec("Tê com bucha", "Tê soldável e com bucha de latão %d × %s" % (d, tb_["rosca"]), P,
+                     [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0), (-1, 9, dv, d, tb_["B"])], L["corpo"][d],
+                     ["Torneira %s (representação simplificada)" % tb_["rosca"]])
+            c["torneira"] = (P + dv * tb_["B"], dv)
+            conexoes.append(c)
+        cortes.sort()
         trechos_tubo = []
         ini = ra
         for c0, c1 in cortes:
@@ -390,6 +518,18 @@ def solido_tubo(t, L):
     return ext.cut(_cil(tb["De"] / 2.0 - tb["e"], t["ini"] - u * 0.1, u, comp + 0.2))
 
 
+def solido_torneira(p, u):
+    """Torneira de parede em volume simples (corpo, castelo e bica): só para ver no modelo."""
+    import Part
+    corpo = _cil(13.0, p, u, 45.0)
+    fim = p + u * 45.0
+    baixo = FreeCAD.Vector(0, 0, -1) if abs(u.z) < 0.9 else FreeCAD.Vector(1, 0, 0)
+    bica = _cil(6.0, fim - u * 12.0, baixo, 110.0)
+    cima = -baixo
+    castelo = _cil(9.0, fim - u * 25.0, cima, 35.0).fuse(Part.makeSphere(14.0, fim - u * 25.0 + cima * 40.0))
+    return corpo.fuse(bica).fuse(castelo)
+
+
 def solido_conexao(c, L):
     import Part
     P = c["no"]
@@ -409,6 +549,8 @@ def solido_conexao(c, L):
             furos.append(_cil(tb["De"] / 2.0, P + u * (cf - b), u, b + 0.5))
             furos.append(_cil(tb["De"] / 2.0 - tb["e"], P, u, cf))
         corpo = parte if corpo is None else corpo.fuse(parte)
+    if c.get("torneira"):
+        corpo = corpo.fuse(solido_torneira(*c["torneira"]))
     if c["tipo"] == "Registro":
         u = c["pernas"][0][2]
         cima = FreeCAD.Vector(0, 0, 1) if abs(u.z) < 0.9 else FreeCAD.Vector(1, 0, 0)
@@ -418,7 +560,7 @@ def solido_conexao(c, L):
         corpo = corpo.fuse(_cil(rg["corpo"] / 2.0 * 0.55, P, cima, rg["altura"]))
         alavanca = _cil(4.0, P + cima * (rg["altura"] - 4.0), u, rg["alavanca"] * 0.5)
         corpo = corpo.fuse(alavanca)
-    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução", "Registro"):
+    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução", "Registro", "Luva com bucha"):
         corpo = corpo.fuse(Part.makeSphere(R, P))
     for f in furos:
         corpo = corpo.cut(f)
@@ -471,6 +613,9 @@ class Tubulacao:
         add("App::PropertyBool", "TamparPontas", "Tubulação", "Põe cap nas pontas soltas", False)
         add("App::PropertyStringList", "Registros", "Tubulação",
             "Registros de esfera: 'trecho: distância do início até o centro (mm)' (ex.: '2: 300')", [])
+        add("App::PropertyStringList", "Pontos", "Tubulação",
+            "Torneiras: 'trecho: posição: direção' — posição em mm do início, ou inicio/fim (ponta solta); "
+            "direção +Z, -Z, +X, -X, +Y, -Y ou eixo (ex.: '3: fim: eixo', '2: 800: +Z')", [])
         add("App::PropertyStringList", "Conexoes", "Resultados", "Conexões (quantidade × peça)", [], ro=True)
         add("App::PropertyStringList", "ListaCorte", "Resultados", "Tubos por diâmetro e barras", [], ro=True)
         add("App::PropertyStringList", "Avisos", "Resultados", "Avisos do traçado", [], ro=True)
@@ -504,10 +649,30 @@ class Tubulacao:
                 continue
         return reg
 
+    def pontos(self, obj):
+        pts = {}
+        for item in getattr(obj, "Pontos", []) or []:
+            partes = [x.strip() for x in item.split(":")]
+            if len(partes) < 2:
+                continue
+            try:
+                t = int(partes[0]) - 1
+            except ValueError:
+                continue
+            pos = partes[1].lower()
+            if pos not in ("inicio", "fim"):
+                try:
+                    pos = float(pos.replace("mm", "").replace(",", "."))
+                except ValueError:
+                    continue
+            dr = partes[2] if len(partes) > 2 and partes[2] else ("eixo" if pos in ("inicio", "fim") else "+Z")
+            pts.setdefault(t, []).append((pos, dr))
+        return pts
+
     def calcular(self, obj):
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
-        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj))
+        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj), self.pontos(obj))
         res["avisos"] = avisos + res["avisos"]
         res["segs"] = segs
         res["dns"] = dns
@@ -690,6 +855,64 @@ if FreeCAD.GuiUp:
             self.cap.toggled.connect(self._mudou)
             fl.addRow("", self.cap)
             raiz.addWidget(card_l)
+            card_s, ls = P.bloco("Trechos escolhidos na vista", "selecao")
+            self.lb_sel = QtWidgets.QLabel()
+            self.lb_sel.setWordWrap(True)
+            ls.addWidget(self.lb_sel)
+            hs = QtWidgets.QHBoxLayout()
+            self.dn_sel = QtWidgets.QComboBox()
+            for d in CAT.linha(self.obj.Linha)["diametros"]:
+                self.dn_sel.addItem(_dn_txt(d), d)
+            hs.addWidget(self.dn_sel, 1)
+            self.bt_aplicar = QtWidgets.QPushButton("Aplicar aos escolhidos")
+            self.bt_aplicar.setToolTip("Clique nas linhas do traçado na vista (Ctrl para várias) e aplique o diâmetro")
+            self.bt_aplicar.clicked.connect(self.aplicar_selecionados)
+            hs.addWidget(self.bt_aplicar)
+            ls.addLayout(hs)
+            hb = QtWidgets.QHBoxLayout()
+            bt_todos = QtWidgets.QPushButton("Escolher todos")
+            bt_todos.clicked.connect(lambda: self.marcar_trechos(list(range(len(self._segs())))))
+            hb.addWidget(bt_todos)
+            bt_mesmo = QtWidgets.QPushButton("Mesmo diâmetro")
+            bt_mesmo.setToolTip("Escolhe todos os trechos com o diâmetro dos já escolhidos")
+            bt_mesmo.clicked.connect(self.mesmo_diametro)
+            hb.addWidget(bt_mesmo)
+            bt_limpar = QtWidgets.QPushButton("Limpar")
+            bt_limpar.clicked.connect(lambda: self.marcar_trechos([]))
+            hb.addWidget(bt_limpar)
+            ls.addLayout(hb)
+            raiz.addWidget(card_s)
+            self.escolhidos = []
+            self.ponto_clicado = None
+            card_p, lp = P.bloco("Torneiras", "furo")
+            dp = QtWidgets.QLabel("Escolha um trecho na vista: a torneira entra na ponta solta (luva ou joelho com "
+                                  "bucha de latão) ou no ponto clicado do trecho (tê com bucha, cortando o tubo).")
+            dp.setWordWrap(True)
+            dp.setObjectName("PrumoSub")
+            lp.addWidget(dp)
+            hd = QtWidgets.QHBoxLayout()
+            hd.addWidget(QtWidgets.QLabel("Saída"))
+            self.dir_ponto = QtWidgets.QComboBox()
+            for k in ("eixo", "+Z", "-Z", "+X", "-X", "+Y", "-Y"):
+                self.dir_ponto.addItem(NOMES_DIRECAO[k], k)
+            hd.addWidget(self.dir_ponto, 1)
+            lp.addLayout(hd)
+            hp = QtWidgets.QHBoxLayout()
+            self.bt_ponta = QtWidgets.QPushButton("Na ponta solta")
+            self.bt_ponta.clicked.connect(self.torneira_na_ponta)
+            hp.addWidget(self.bt_ponta)
+            self.bt_meio = QtWidgets.QPushButton("No ponto clicado")
+            self.bt_meio.setToolTip("Clique no trecho, na vista, onde a torneira deve ficar")
+            self.bt_meio.clicked.connect(self.torneira_no_ponto)
+            hp.addWidget(self.bt_meio)
+            lp.addLayout(hp)
+            self.lista_pontos = QtWidgets.QListWidget()
+            self.lista_pontos.setMaximumHeight(90)
+            lp.addWidget(self.lista_pontos)
+            bt_tirar = QtWidgets.QPushButton("Tirar a torneira escolhida")
+            bt_tirar.clicked.connect(self.tirar_ponto)
+            lp.addWidget(bt_tirar)
+            raiz.addWidget(card_p)
             card_t, lay = P.bloco("Trechos", "comprimento")
             raiz.addWidget(card_t)
             self.tabela = QtWidgets.QTableWidget(0, 4)
@@ -699,6 +922,8 @@ if FreeCAD.GuiUp:
             self.tabela.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
             self.tabela.verticalHeader().setVisible(False)
             self.tabela.setMinimumHeight(140)
+            self.tabela.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+            self.tabela.itemSelectionChanged.connect(self._linhas_da_tabela)
             lay.addWidget(self.tabela)
             card_m, lay = P.bloco("Lista de materiais", "quantidade")
             raiz.addWidget(card_m)
@@ -712,14 +937,188 @@ if FreeCAD.GuiUp:
             lay.addWidget(bt_copiar)
             P.adotar(self.form)
             self._atualizar()
+            FreeCADGui.Selection.addObserver(self)
+            self._observando = True
+            self._da_vista()
+
+        # ------------------------------------------------ seleção nos dois sentidos
+        def _segs(self):
+            res = getattr(self.obj.Proxy, "ultimo", None) or {}
+            return res.get("segs", [])
+
+        def _da_vista(self):
+            """Trechos escolhidos na vista (linhas do traçado) → cartão e tabela."""
+            if self._ocupado or self.obj.Caminho is None:
+                return
+            nomes = []
+            for so in FreeCADGui.Selection.getSelectionEx("", 0):
+                if so.Object is self.obj.Caminho:
+                    nomes += [n for n in so.SubElementNames if n.startswith("Edge")]
+            idxs = trechos_das_arestas(self.obj.Caminho, self._segs(), nomes)
+            self._mostrar_escolha(idxs)
+
+        def _mostrar_escolha(self, idxs):
+            self.escolhidos = idxs
+            n = len(idxs)
+            if n:
+                self.lb_sel.setText("%d trecho%s: %s" % (n, "s" if n > 1 else "",
+                                                        ", ".join(str(i + 1) for i in idxs[:12]) + ("…" if n > 12 else "")))
+            else:
+                self.lb_sel.setText("Nenhum: clique nas linhas do traçado na vista (Ctrl para várias) "
+                                    "ou nas linhas da tabela.")
+            self.bt_aplicar.setEnabled(bool(n))
+            self._ocupado = True
+            try:
+                self.tabela.clearSelection()
+                modo = self.tabela.selectionMode()
+                self.tabela.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+                for i in idxs:
+                    if i < self.tabela.rowCount():
+                        self.tabela.selectRow(i)
+                self.tabela.setSelectionMode(modo)
+            finally:
+                self._ocupado = False
+
+        def marcar_trechos(self, idxs):
+            """Escolhe os trechos na vista (e no cartão e na tabela)."""
+            caminho = self.obj.Caminho
+            self._ocupado = True
+            try:
+                FreeCADGui.Selection.clearSelection()
+                if caminho is not None:
+                    for n in arestas_dos_trechos(caminho, self._segs(), idxs):
+                        FreeCADGui.Selection.addSelection(caminho, n)
+            finally:
+                self._ocupado = False
+            self._mostrar_escolha(sorted(idxs))
+
+        def _linhas_da_tabela(self):
+            if self._ocupado:
+                return
+            idxs = sorted({ix.row() for ix in self.tabela.selectionModel().selectedRows()})
+            self.marcar_trechos(idxs)
+
+        # ------------------------------------------------ torneiras
+        def _pontas_soltas(self, i):
+            """'inicio'/'fim' das pontas do trecho i que não encostam em outro trecho."""
+            segs = self._segs()
+            if not 0 <= i < len(segs):
+                return []
+            out = []
+            for nome, p in (("inicio", segs[i][0]), ("fim", segs[i][1])):
+                outros = [j for j, (a, b) in enumerate(segs) if j != i and
+                          ((a - p).Length < TOL_NO or (b - p).Length < TOL_NO)]
+                if not outros:
+                    out.append(nome)
+            return out
+
+        def _gravar_pontos(self, itens):
+            self.obj.Pontos = itens
+            idxs = list(self.escolhidos)
+            self._atualizar()
+            self.marcar_trechos(idxs)
+
+        def torneira_na_ponta(self):
+            if not self.escolhidos:
+                return False
+            i = self.escolhidos[0]
+            soltas = self._pontas_soltas(i)
+            if not soltas:
+                self.lb_sel.setText("O trecho %d não tem ponta solta: use \"No ponto clicado\"." % (i + 1))
+                return False
+            ja = [x for x in self.obj.Pontos if x.split(":")[0].strip() == str(i + 1)]
+            livre = [p for p in soltas if not any(":" + p in x.replace(" ", "") for x in ja)]
+            if not livre:
+                return False
+            dr = self.dir_ponto.currentData()
+            self._gravar_pontos(list(self.obj.Pontos) + ["%d: %s: %s" % (i + 1, livre[-1], dr)])
+            return True
+
+        def torneira_no_ponto(self, pos=None):
+            if not self.escolhidos:
+                return False
+            i = self.escolhidos[0]
+            segs = self._segs()
+            if pos is None:
+                if self.ponto_clicado is None:
+                    self.lb_sel.setText("Clique no trecho, na vista, no ponto onde a torneira deve ficar.")
+                    return False
+                a, b = segs[i]
+                u = (b - a)
+                pos = max(0.0, min(u.Length, (self.ponto_clicado - a).dot(u.normalize())))
+            dr = self.dir_ponto.currentData()
+            if dr == "eixo":
+                dr = "+Z"
+            self._gravar_pontos(list(self.obj.Pontos) + ["%d: %.0f: %s" % (i + 1, pos, dr)])
+            return True
+
+        def tirar_ponto(self):
+            r = self.lista_pontos.currentRow()
+            itens = list(self.obj.Pontos)
+            if 0 <= r < len(itens):
+                del itens[r]
+                self._gravar_pontos(itens)
+
+        def _encher_pontos(self):
+            self.lista_pontos.clear()
+            for x in self.obj.Pontos:
+                partes = [p.strip() for p in x.split(":")]
+                pos = partes[1] if len(partes) > 1 else ""
+                dr = NOMES_DIRECAO.get(partes[2], partes[2]) if len(partes) > 2 else ""
+                onde = {"inicio": "no início", "fim": "no fim"}.get(pos, "a %s mm do início" % pos)
+                self.lista_pontos.addItem("Trecho %s, %s, saída %s" % (partes[0], onde, dr))
+
+        def mesmo_diametro(self):
+            res = getattr(self.obj.Proxy, "ultimo", None) or {}
+            dns = res.get("dns", [])
+            alvo = {dns[i] for i in self.escolhidos if i < len(dns)}
+            if alvo:
+                self.marcar_trechos([i for i, d in enumerate(dns) if d in alvo])
+
+        def aplicar_selecionados(self):
+            if not self.escolhidos:
+                return
+            d = self.dn_sel.currentData()
+            padrao = int(str(self.obj.Diametro).split()[0])
+            self.obj.DiametrosTrechos = com_diametro(list(self.obj.DiametrosTrechos), self.escolhidos, d, padrao)
+            idxs = list(self.escolhidos)
+            self._atualizar()
+            self.marcar_trechos(idxs)
+
+        # observador de seleção do FreeCAD
+        def addSelection(self, doc, obj, sub, pnt):
+            try:
+                if self.obj.Caminho is not None and obj == self.obj.Caminho.Name and pnt:
+                    self.ponto_clicado = FreeCAD.Vector(*pnt)
+            except Exception:
+                pass
+            QtCore.QTimer.singleShot(0, self._da_vista)
+
+        def removeSelection(self, doc, obj, sub):
+            QtCore.QTimer.singleShot(0, self._da_vista)
+
+        def clearSelection(self, doc):
+            QtCore.QTimer.singleShot(0, self._da_vista)
+
+        def _parar(self):
+            if getattr(self, "_observando", False):
+                try:
+                    FreeCADGui.Selection.removeObserver(self)
+                except Exception:
+                    pass
+                self._observando = False
 
         def _encher_dn(self):
             self._ocupado = True
             try:
                 self.dn.clear()
                 L = CAT.linha(self.linha.currentData())
+                if hasattr(self, "dn_sel"):
+                    self.dn_sel.clear()
                 for d in L["diametros"]:
                     self.dn.addItem(_dn_txt(d), d)
+                    if hasattr(self, "dn_sel"):
+                        self.dn_sel.addItem(_dn_txt(d), d)
                 atual = int(str(self.obj.Diametro).split()[0])
                 self.dn.setCurrentIndex(max(0, self.dn.findData(atual)))
             finally:
@@ -794,6 +1193,8 @@ if FreeCAD.GuiUp:
                     self.tabela.setCellWidget(i, 3, ed)
             finally:
                 self._ocupado = False
+            if hasattr(self, "lista_pontos"):
+                self._encher_pontos()
             import PrumoPainel
             PrumoPainel.estreitar(self.form)
             html = ["<b>Conexões</b><br>" + ("<br>".join(self.obj.Conexoes) or "—"),
@@ -810,12 +1211,14 @@ if FreeCAD.GuiUp:
             return QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
 
         def accept(self):
+            self._parar()
             self.doc.commitTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()
             return True
 
         def reject(self):
+            self._parar()
             self.doc.abortTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()

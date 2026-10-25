@@ -15,6 +15,13 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 - **Aba Tubulação:** a ferramenta saiu da aba Estruturas e ganhou aba própria, com Traçado (Esboço 3D e
   esboço plano), Tubos e conexões, e Conferir (verificar interferência, medir, lista de materiais).
+- **Tubulação: trechos escolhidos na vista**, como na estrutura soldada: clique nas linhas do traçado
+  (Ctrl para várias) e aplique o diâmetro a todas de uma vez; "Escolher todos", "Mesmo diâmetro" e a
+  tabela marcam os trechos na vista, e o que se escolhe na vista aparece marcado na tabela.
+- **Torneiras na tubulação:** na ponta solta (luva com bucha de latão seguindo o tubo, ou joelho com bucha
+  saindo para cima, para baixo ou para o lado) ou no ponto clicado do trecho (tê com bucha de latão, que
+  corta o tubo em dois e desconta as bolsas). A torneira aparece em volume simplificado e entra na lista
+  de materiais. Medidas das peças com bucha: catálogo Tigre de água fria (2008).
 
 ### Correções
 
