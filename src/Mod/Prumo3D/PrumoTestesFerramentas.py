@@ -6864,6 +6864,26 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertIn("25 mm", t.getEnumerationsOfProperty("Diametro"))
 
+    def test_agua_quente_aquatherm(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        L = C.linha("cpvc-aquatherm")
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0), (1500, 1500, 0)])
+        t = T.criar(e, dn=25)
+        t.Linha = "cpvc-aquatherm"
+        t.Diametro = "22 mm"
+        self.doc.recompute()
+        self.assertIn("1 × Joelho 90° Aquatherm 22 mm", t.Conexoes)
+        self.assertIn("1 × Joelho 45° Aquatherm 22 mm", t.Conexoes)
+        self.assertTrue(any("conferir" in a and "45°" in a for a in t.Avisos), t.Avisos)
+        av = L["joelho90"][22] - L["bolsa"][22]
+        self.assertAlmostEqual(t.Proxy.ultimo["tubos"][0]["corte"], 1000 - av, 3)
+        self.assertEqual(L["barra"], 3000.0)
+        t.Pontos = ["3: fim: eixo"]
+        self.doc.recompute()
+        self.assertIn("1 × Conector Aquatherm 22 × 1/2\"", t.Conexoes)
+        self.assertTrue(t.Shape.isValid())
+
     def test_escolher_trechos_na_vista_e_aplicar_diametro(self):
         """Como na estrutura: clicar nas linhas do traçado escolhe os trechos (e vice-versa) e o diâmetro
         vale para todos de uma vez."""

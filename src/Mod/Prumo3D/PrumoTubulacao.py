@@ -261,7 +261,8 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                                       "na ponta)." % (s + 1, d))
                         continue
                     lb = L["luva_bucha"][d]
-                    c = _rec("Luva com bucha", "Luva soldável e com bucha de latão %d × %s" % (d, lb["rosca"]), P,
+                    conferir("luva_bucha", d, "Peça da torneira de %s" % nome_dn(d))
+                    c = _rec("Luva com bucha", L.get("nome_luva_bucha", "Luva soldável e com bucha de latão %d × %s") % (d, lb["rosca"]), P,
                              [(s, pt, u, d, -(lb["A"] - bolsa[d]))], L["corpo"][d],
                              ["Torneira %s (representação simplificada)" % lb["rosca"]])
                     c["torneira"] = (P - u * (lb["A"] - bolsa[d]), -u)
@@ -273,7 +274,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                         continue
                     jb = L["joelho_bucha"][d]
                     dv = (dv - u * dv.dot(u)).normalize()
-                    c = _rec("Joelho com bucha", "Joelho 90° soldável e com bucha de latão %d × %s" % (d, jb["rosca"]),
+                    c = _rec("Joelho com bucha", L.get("nome_joelho_bucha", "Joelho 90° soldável e com bucha de latão %d × %s") % (d, jb["rosca"]),
                              P, [(s, pt, u, d, jb["A"]), (-1, 9, dv, d, jb["A"])], L["corpo"][d],
                              ["Torneira %s (representação simplificada)" % jb["rosca"]])
                     c["torneira"] = (P + dv * jb["A"], dv)
@@ -476,7 +477,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None)
                 continue
             P = a + u * pos
             cortes.append((pos - (A / 2.0 - bol), pos + (A / 2.0 - bol)))
-            c = _rec("Tê com bucha", "Tê soldável e com bucha de latão %d × %s" % (d, tb_["rosca"]), P,
+            c = _rec("Tê com bucha", L.get("nome_te_bucha", "Tê soldável e com bucha de latão %d × %s") % (d, tb_["rosca"]), P,
                      [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0), (-1, 9, dv, d, tb_["B"])], L["corpo"][d],
                      ["Torneira %s (representação simplificada)" % tb_["rosca"]])
             c["torneira"] = (P + dv * tb_["B"], dv)

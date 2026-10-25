@@ -196,7 +196,56 @@ TIGRE_ESGOTO = {
     },
 }
 
-LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_ESGOTO["id"]: TIGRE_ESGOTO}
+_AQ = (15, 22, 28, 35, 42, 54, 73, 89, 114)
+TIGRE_AQUATHERM = {
+    "id": "cpvc-aquatherm",
+    "nome": "CPVC Aquatherm água quente (bege)",
+    "material": "CPVC",
+    "fabricante": "Tigre",
+    "sufixo": "Aquatherm",
+    "fonte": "Tigre, Aquatherm® Catálogo Técnico Predial (TG-135-11, mai/2011), p. 21–25",
+    "norma": "não conferida (a checar)",
+    "pressao": "ver catálogo Aquatherm",
+    "temperatura_max": "ver catálogo Aquatherm",
+    "cor": (0.93, 0.87, 0.72),
+    "barra": 3000.0,
+    "diametros": _AQ,
+    # Tubo Aquatherm (p. 21): DE e parede e
+    "tubos": {d: {"De": De, "e": e, "bolsa_tubo": 0.0} for d, De, e in (
+        (15, 15.0, 1.6), (22, 22.0, 2.0), (28, 28.0, 2.5), (35, 34.9, 3.2), (42, 41.3, 3.8), (54, 54.0, 4.9),
+        (73, 73.0, 6.5), (89, 88.9, 7.9), (114, 114.3, 10.2))},
+    # bolsa: cota B da luva e do joelho (p. 22)
+    "bolsa": dict(zip(_AQ, (13.0, 18.0, 23.0, 28.0, 33.0, 43.0, 44.4, 47.6, 58.7))),
+    "corpo": dict(zip(_AQ, (19.0, 27.0, 34.0, 42.0, 50.0, 64.0, 84.0, 101.0, 128.0))),   # aproximado, só desenho
+    # Joelho 90° (p. 22): A centro até a face; igual à cota C do tê (p. 23)
+    "joelho90": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.6, 93.6, 115.8))),
+    # Joelho 45° (p. 22): o catálogo repete a tabela do joelho 90°
+    "joelho45": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.6, 93.6, 115.8))),
+    # Tê (p. 23): C centro até a face (A = 2C)
+    "te": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.5, 93.6, 117.4))),
+    "cruzeta": {},
+    # Luva (p. 22): comprimento total A
+    "luva": dict(zip(_AQ, (29.0, 39.0, 49.0, 59.0, 69.0, 89.0, 93.7, 100.1, 122.2))),
+    "te_reducao": {},
+    "bucha_curta": {},
+    "bucha_longa": {},
+    "luva_reducao": {},
+    # Cap (p. 23): A
+    "cap": dict(zip(_AQ, (13.0, 18.0, 23.0, 28.0, 33.0, 43.0, 44.4, 47.6, 58.7))),
+    # Pontos de uso: joelho 90° de transição (p. 24): A; conector (p. 24): B comprimento
+    "joelho_bucha": {15: {"A": 27.0, "rosca": '1/2"'}, 22: {"A": 30.5, "rosca": '1/2"'},
+                     28: {"A": 38.2, "rosca": '1"'}},
+    "luva_bucha": {15: {"A": 33.0, "rosca": '1/2"'}, 22: {"A": 37.5, "rosca": '1/2"'},
+                   28: {"A": 64.0, "rosca": '1"'}},
+    "nome_luva_bucha": "Conector Aquatherm %d × %s",
+    "nome_joelho_bucha": "Joelho 90° de transição Aquatherm %d × %s",
+    "a_conferir": dict([(("joelho45", d), "o catálogo Aquatherm repete a tabela do joelho 90° no joelho 45°")
+                        for d in _AQ] + [(("luva_bucha", d), "comprimento do conector (cota B) usado como total")
+                                         for d in (15, 22, 28)]),
+}
+
+LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_AQUATHERM["id"]: TIGRE_AQUATHERM,
+          TIGRE_ESGOTO["id"]: TIGRE_ESGOTO}
 PADRAO = TIGRE_SOLDAVEL["id"]
 
 

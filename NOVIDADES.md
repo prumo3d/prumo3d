@@ -27,6 +27,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   sentido em que foram desenhados: 2 % até DN 75 e 1 % a partir de DN 100 (ABNT NBR 8160:1999, 4.2.3.2);
   aviso acima de 5 % (4.2.5.2) e em curva na horizontal com joelho 90° (4.2.3.3). Joelho 45° e tê de esgoto
   saem com aviso "a conferir" (rótulos trocados na tabela do catálogo).
+- **Linha de água quente CPVC Aquatherm (Tigre, 15 a 114 mm)**: tubos em barras de 3 m, joelhos, tê, luva e
+  cap do catálogo técnico Aquatherm (mai/2011); torneira na ponta com conector ou joelho de transição. O
+  joelho 45° sai "a conferir" (o catálogo repete a tabela do joelho 90°).
 
 ### Correções
 
