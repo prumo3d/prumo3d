@@ -27,15 +27,13 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.4 beta** (25/10/2026)
+**Versão atual: 0.9.5 beta** (25/10/2026)
 
-- **Tubulação com aba própria e três linhas Tigre:** água fria soldável, água quente CPVC Aquatherm e esgoto
-  série normal, com caimento automático pela NBR 8160, junção a 45° e caixas sifonada, de inspeção e de
-  gordura.
-- **Torneiras** na ponta solta ou no ponto clicado do trecho (o tubo é cortado sozinho), e trechos
-  escolhidos na vista para mudar o diâmetro de vários de uma vez.
+- **Atualização automática:** o instalador agora é aberto pelo próprio Windows, com o pedido de permissão,
+  logo depois que você aceita fechar o Prumo; cada passo fica anotado em `atualizacao.log`.
+- **Mensagens de erro em português:** 121 erros de Peça, Sólidos e esboço, alguns com dica do que tentar.
 
-Na 0.9.3: atualização automática corrigida, verificar geometria e peso próprio em cartões.
+Na 0.9.4: aba Tubulação com água fria, água quente e esgoto Tigre, torneiras e caixas.
 Na 0.9.2: comandos em cartões em todas as abas, Preferências do Prumo e atualização com barra de progresso.
 Na 0.7 e na 0.6: painel lateral único (Árvore, Propriedades e a aba do comando) e propriedades em cartões.
 Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldável.
