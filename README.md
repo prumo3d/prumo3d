@@ -318,21 +318,17 @@ versão em português pelo seletor de idioma):
 - [Bancadas de trabalho](https://wiki.freecad.org/Workbenches)
 - [Programação em Python](https://wiki.freecad.org/Power_users_hub)
 
-Code signing policy (assinatura de código)
-------------------------------------------
+Assinatura digital e privacidade
+--------------------------------
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
-[SignPath Foundation](https://signpath.org/).
-
-- **O que é assinado:** o instalador do Windows de cada versão, compilado deste repositório nas
-  máquinas do GitHub Actions.
-- **Committers e revisores:** [membros com escrita no repositório](https://github.com/prumo3d/prumo3d/graphs/contributors)
-- **Aprovadores:** [proprietários da organização prumo3d](https://github.com/orgs/prumo3d/people)
+- **Assinatura:** os instaladores ainda não têm assinatura digital; o Windows mostra o aviso de "editor
+  desconhecido" (clique em **Mais informações → Executar assim mesmo**). Cada arquivo tem o código
+  SHA-256 ao lado, para conferir que veio daqui.
 - **Privacidade:** o Prumo 3D não envia informação sobre você nem sobre seus arquivos. A única conexão
   automática é a procura de versão nova (uma vez por dia, na página pública de versões no GitHub), que
   pode ser desligada em Preferências.
 
-Detalhes: [política de assinatura de código](docs/assinatura-de-codigo.md).
+Detalhes: [assinatura e privacidade](docs/assinatura-de-codigo.md).
 
 Licença
 -------

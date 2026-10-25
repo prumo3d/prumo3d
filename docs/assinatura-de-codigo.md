@@ -1,26 +1,14 @@
-# Code signing policy (política de assinatura de código)
+# Assinatura de código e privacidade
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
-[SignPath Foundation](https://signpath.org/).
+## Situação da assinatura
 
-Assinatura de código gratuita fornecida pela SignPath.io, com certificado da SignPath Foundation.
+Os instaladores do Prumo 3D **ainda não são assinados digitalmente**. O pedido ao programa gratuito da
+SignPath Foundation (25/10/2026) não foi aprovado por enquanto: o programa exige um projeto com mais
+visibilidade pública (estrelas, contribuidores, citações externas). Até haver assinatura, o Windows mostra
+o aviso de "editor desconhecido"; cada arquivo da página de versões tem o código SHA-256 ao lado.
 
-## O que é assinado
-
-- O instalador do Windows (`Prumo3D_<versão>-Windows-x86_64-py311-installer.exe`) de cada versão
-  publicada na [página de versões](https://github.com/prumo3d/prumo3d/releases).
-- Só é assinado o que é compilado a partir deste repositório, nas máquinas do GitHub Actions
-  (fluxo [`publicar.yml`](../.github/workflows/publicar.yml)). Nada compilado fora dele é assinado.
-- Bibliotecas de terceiros incluídas no pacote (FreeCAD, Qt, Python, OpenCASCADE e as demais) não são
-  assinadas por este projeto; ficam como os seus autores as distribuem.
-
-## Papéis da equipe
-
-- Committers e revisores (committers and reviewers): [membros com escrita no repositório](https://github.com/prumo3d/prumo3d/graphs/contributors)
-- Aprovadores (approvers): [proprietários da organização prumo3d](https://github.com/orgs/prumo3d/people)
-
-Cada versão só é assinada depois de aprovada manualmente por um aprovador na SignPath. Todos os
-membros usam autenticação em dois fatores no GitHub e na SignPath.
+O fluxo de publicação já tem a etapa de assinatura pronta (job "Assinar o instalador"), desligada até que
+um serviço de assinatura seja configurado.
 
 ## Privacidade (privacy policy)
 
@@ -40,7 +28,7 @@ releases page, with no user data), which can be turned off in Preferences.
 
 ## Configuração na SignPath (para os mantenedores)
 
-Depois que a SignPath aprovar o projeto:
+Se a assinatura pela SignPath for contratada (ou o projeto for aprovado no programa gratuito):
 
 1. No GitHub, em **Settings → Secrets and variables → Actions**:
    - segredo `SIGNPATH_API_TOKEN`: token de um usuário da SignPath com permissão de enviar pedidos;
