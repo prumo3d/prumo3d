@@ -14,7 +14,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 ### Correções
 
 - **Mensagens de erro das operações em português:** o FreeCAD mostrava o erro cru em inglês (ex.: "Failed to
-  make thick solid" na casca). Cerca de 150 mensagens de Peça, Sólidos e esboço agora aparecem em português,
+  make thick solid" na casca). 121 mensagens de Peça, Sólidos e esboço agora aparecem em português,
   algumas com a dica do que tentar (casca: espessura menor, outra junção ou outras faces).
 
 ## 0.9.4 beta — 25/10/2026
