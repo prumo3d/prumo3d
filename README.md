@@ -29,14 +29,15 @@ Novidades
 
 **Versão atual: 0.9.2 beta** (24/10/2026)
 
-- **Painéis dos comandos em cartões:** Extrusão, Cavidade, Furo, Revolução, Ranhura, Arredondar, Chanfro,
-  Padrão linear, Padrão circular e Espelhar, com botões de ícone, chaves liga/desliga e campos com
-  unidade; o formulário do FreeCAD continua a um clique.
-- **Assistentes, tutorial e guia como abas do painel lateral**, e mais telas no padrão novo.
+- **Comandos em cartões em todas as abas:** Peça, Sólidos, Montagem, Desenho e Simulação abrem painéis em
+  cartões, com botões de ícone, chaves liga/desliga e campos com unidade (N, MPa, N/mm, m/s²); o formulário
+  do FreeCAD continua a um clique.
+- **Preferências do Prumo** em uma janela só: tema claro ou escuro, painel lateral, esboço, unidades e
+  atualizações.
+- **Atualização pelo próprio programa**, com barra de progresso, velocidade e tempo que falta.
 
-Na 0.6.0: painel lateral novo (Árvore, Propriedades, Aparência), aba do esboço com relações e
-atualização opcional pelo Ajuda → Sobre. Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação**
-de PVC soldável.
+Na 0.7 e na 0.6: painel lateral único (Árvore, Propriedades e a aba do comando) e propriedades em cartões.
+Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldável.
 
 [Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
 
@@ -146,9 +147,19 @@ Todos os recursos
 * **Árvore do modelo** Se o painel da árvore for fechado sem querer, o botão Início → Árvore do modelo
   traz de volta. Objetos novos ganham nome em português (Extrusão, Cavidade, Corpo).
 
-* **Painéis visuais e seleção nos dois sentidos** Painéis de tarefa no estilo PropertyManager (mensagem,
-  seções com ícone, dica por campo) e caixas de seleção que aceitam selecionar antes ou depois de chamar
-  o comando; booleanas e comandos do Prumo pedem a seleção quando chamados sem ela.
+* **Painel lateral único** Árvore, Propriedades e a aba do comando em andamento num só painel, com as abas
+  no alto. A peça ou operação selecionada aparece em cartões, com o nome editável e as medidas que
+  importam.
+
+* **Comandos em cartões** Mais de 50 comandos do FreeCAD ganharam painel no padrão Prumo: extrusão,
+  cavidade, furo, revolução, arredondar, chanfro, padrões e multitransformação, hélice, loft, varredura,
+  primitivas e booleana (Peça); extrusão, revolução, espelhar, escala, arestas, deslocamento, espessura,
+  transição e varredura (Sólidos); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
+  balão, hachura e texto formatado (Desenho); material, fixação, força, pressão, deslocamento imposto,
+  mola, peso próprio e malha (Simulação). O formulário original continua a um clique.
+
+* **Painéis visuais e seleção nos dois sentidos** Caixas de seleção que aceitam selecionar antes ou depois
+  de chamar o comando; booleanas e comandos do Prumo pedem a seleção quando chamados sem ela.
 
 * **Propriedades da peça, variantes e modelos com regras** Código/denominação/revisão/material na lista
   de materiais e na legenda (que acompanha a peça); tabela de variantes P/M/G ligada às cotas; placa
@@ -200,7 +211,13 @@ Todos os recursos
 
 * **Peças padronizadas** Parafusos, porcas e arruelas métricas para inserir no modelo.
 
-* **Visual próprio** Tema claro, ícones redesenhados e tela de abertura do Prumo 3D.
+* **Visual próprio** Temas claro e escuro, ícones redesenhados e tela de abertura do Prumo 3D.
+
+* **Preferências do Prumo** Uma janela em cartões com o que importa (tema, aparência, painel lateral,
+  esboço, unidades em português e atualizações), cada opção gravando na hora.
+
+* **Atualização pelo programa** Procura versão nova ao abrir (no máximo uma vez por dia, pode desligar),
+  baixa com barra de progresso, confere o arquivo e instala ao fechar o Prumo.
 
 * **Testes automatizados** Um conjunto de testes confere tradução, aparência, assistente de simulação e
   comportamento da interface a cada versão.
