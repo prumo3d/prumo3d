@@ -9482,6 +9482,48 @@ class T73Preferencias(unittest.TestCase):
 
     _esp = T62PainelDeComando._esp
 
+
+    def test_abrir_cai_na_aba_inicio(self):
+        import PrumoInicio
+        import PrumoRibbon
+        rb = PrumoRibbon._state.get("ribbon")
+        if rb is None or FreeCAD.listDocuments():
+            self.skipTest("sem faixa ou com documento aberto")
+        FreeCADGui.activateWorkbench("PartDesignWorkbench")
+        self._esp(0.4)
+        PrumoInicio.show()
+        self._esp(0.3)
+        PrumoInicio._faixa_no_inicio()
+        self._esp(0.3)
+        self.assertEqual(rb._tabs[rb.tabbar.currentIndex()]["id"], "inicio")
+
+    def test_preferencia_mostra_relatorio_e_console(self):
+        import PrumoPreferencias as P
+        from PySide import QtWidgets
+        g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+        tinha = "ModoDistribuicao" in g.GetBools()
+        antes = g.GetBool("ModoDistribuicao", True)
+        try:
+            FreeCADGui.runCommand("Prumo_Preferencias", 0)
+            self._esp(0.6)
+            j = P._estado["janela"]
+            sw = j.campos["programacao"]
+            self.assertFalse(sw.isChecked(), "por padrão Relatório e console ficam fechados")
+            sw.setChecked(True)
+            self._esp(0.3)
+            rel = FreeCADGui.getMainWindow().findChild(QtWidgets.QDockWidget, "Report view")
+            self.assertFalse(g.GetBool("ModoDistribuicao", True))
+            if rel is not None:
+                self.assertTrue(rel.isVisible())
+            sw.setChecked(False)
+            self._esp(0.3)
+            if rel is not None:
+                self.assertFalse(rel.isVisible())
+        finally:
+            if tinha:
+                g.SetBool("ModoDistribuicao", antes)
+            else:
+                g.RemBool("ModoDistribuicao")
     def test_abre_e_grava(self):
         import PrumoPreferencias as P
         FreeCADGui.runCommand("Prumo_Preferencias", 0)

@@ -649,6 +649,27 @@ def startup():
         return
     if not FreeCAD.listDocuments():
         show()
+        # abrir o programa cai na aba Início da faixa (não na bancada de partida, Peça); repete depois
+        # que o FreeCAD termina de restaurar a bancada
+        for atraso in (0, 1500, 3500):
+            QtCore.QTimer.singleShot(atraso, _faixa_no_inicio)
+
+
+def _faixa_no_inicio():
+    """Põe a faixa na aba Início se a tela inicial está na frente e nenhum documento foi aberto."""
+    try:
+        if FreeCAD.listDocuments():
+            return
+        area = _mdi()
+        sub = area.activeSubWindow() if area is not None else None
+        if sub is not None and not _is_start(sub):
+            return
+        import PrumoRibbon
+        rb = PrumoRibbon._state.get("ribbon")
+        if rb is not None and rb.tab_index("inicio") >= 0:
+            rb.select_tab("inicio")
+    except Exception as exc:
+        FreeCAD.Console.PrintLog("Prumo: faixa no Início: {}\n".format(exc))
 
 
 class CmdInicio:
