@@ -44,6 +44,20 @@ Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldáve
 O que o Prumo 3D tem de diferente
 ---------------------------------
 
+### Comandos em cartões e programa que se atualiza sozinho
+
+Mais de 50 comandos do FreeCAD abrem num painel lateral único, em cartões: botões com ícone no lugar de
+listas, chaves liga/desliga, campos com unidade (mm, N, MPa, N/mm, m/s²) e o que foi escolhido na vista
+sempre à mostra. Vale para Peça, Sólidos, Montagem, Desenho e Simulação; o formulário original continua a
+um clique. As **Preferências do Prumo** reúnem numa janela o que importa: tema claro ou escuro, painel
+lateral, esboço, unidades em português e atualizações.
+
+**Atualização automática:** ao abrir (no máximo uma vez por dia), o Prumo procura versão nova na página
+de versões. Se houver, mostra as novidades e, com um clique em "Atualizar agora", baixa o instalador com
+barra de progresso, velocidade e tempo que falta, confere o arquivo pelo código SHA-256, fecha o programa
+(perguntando se quer salvar) e abre a instalação. Também dá para procurar na hora em Ajuda → Sobre o Prumo 3D → "Verificar atualizações"
+ou desligar a procura nas Preferências.
+
 ### Estruturas metálicas calculadas pelas normas brasileiras
 
 Desenhe o esqueleto, escolha os perfis (W, HP, U, I, cantoneiras, tubos e metalon de catálogos
@@ -93,7 +107,8 @@ clique.
 | | Prumo 3D |
 |---|---|
 | Idioma | Tudo em português, inclusive propriedades e listas |
-| Interface | Faixa de ferramentas por abas, painéis visuais, tela inicial, tutoriais e guia para quem vem do SolidWorks ou ZW3D |
+| Interface | Faixa de ferramentas por abas, comandos em cartões no painel lateral, tela inicial, tutoriais e guia para quem vem do SolidWorks ou ZW3D |
+| Atualização | Avisa quando sai versão nova, baixa com barra de progresso, confere o arquivo e instala ao fechar |
 | Estruturas | Perfis brasileiros, cantos, reforços, soldas, lista de corte, cálculo pela NBR 8800:2024 e NBR 8681:2025 |
 | Simulação | Assistentes passo a passo para elementos finitos e para estruturas, com pendências e relatório em PDF |
 | Vasos | Formulário ASME VIII-1, teste de pressão, desenho cotado |
@@ -220,8 +235,10 @@ Todos os recursos
 * **Preferências do Prumo** Uma janela em cartões com o que importa (tema, aparência, painel lateral,
   esboço, unidades em português e atualizações), cada opção gravando na hora.
 
-* **Atualização pelo programa** Procura versão nova ao abrir (no máximo uma vez por dia, pode desligar),
-  baixa com barra de progresso, confere o arquivo e instala ao fechar o Prumo.
+* **Atualização automática** Procura versão nova ao abrir (no máximo uma vez por dia, pode desligar nas
+  Preferências) ou na hora, em Ajuda → Sobre o Prumo 3D → "Verificar atualizações". "Atualizar agora" baixa com barra de progresso, velocidade
+  e tempo que falta, confere o arquivo (SHA-256), fecha o Prumo perguntando se quer salvar e abre o
+  instalador. No Linux, baixa o AppImage novo e indica onde ficou.
 
 * **Testes automatizados** Mais de 500 testes conferem, a cada versão, tradução, aparência, os painéis
   em cartões, as ferramentas de ponta a ponta (esboço, peça, estruturas, simulação) e os cálculos.
