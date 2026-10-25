@@ -12,8 +12,12 @@
 Cada arquivo tem um `-SHA256.txt` com o código de verificação. Nem todos os formatos saem em toda
 versão de teste.
 
-Os instaladores ainda não têm assinatura digital: o Windows mostra o aviso de "editor desconhecido".
-Clique em **Mais informações → Executar assim mesmo**.
+Enquanto o instalador não sai assinado, o Windows mostra o aviso de "editor desconhecido": clique em
+**Mais informações → Executar assim mesmo**.
+
+**Code signing policy:** free code signing provided by [SignPath.io](https://about.signpath.io/),
+certificate by [SignPath Foundation](https://signpath.org/). Papéis da equipe e privacidade na
+[política de assinatura de código](https://github.com/prumo3d/prumo3d/blob/main/docs/assinatura-de-codigo.md).
 
 ### Roteiro de teste (15 minutos)
 
