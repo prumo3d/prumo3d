@@ -9499,6 +9499,28 @@ class T73Preferencias(unittest.TestCase):
     _esp = T62PainelDeComando._esp
 
 
+
+    def test_aba_tubulacao(self):
+        import PrumoRibbon as R
+        abas = {t["id"]: t for t in R.TABS}
+        self.assertIn("tubulacao", abas)
+        cmds = [c for _n, itens in abas["tubulacao"]["panels"] for c, _t, _r in itens]
+        self.assertIn("Prumo_Tubulacao", cmds)
+        self.assertIn("Prumo_Esboco3D", cmds)
+        est = [c for _n, itens in abas["estruturas"]["panels"] for c, _t, _r in itens]
+        self.assertNotIn("Prumo_Tubulacao", est, "a tubulação saiu da aba Estruturas")
+        ids = [t["id"] for t in R.TABS]
+        self.assertEqual(ids.index("tubulacao"), ids.index("estruturas") + 1)
+        for c in cmds:
+            for nome in c.split("|"):
+                self.assertIn(nome, FreeCADGui.listCommands(), "comando inexistente na aba Tubulação: " + nome)
+        rb = R._state.get("ribbon")
+        if rb is not None:
+            rb.select_tab("tubulacao")
+            self._esp(4.0)          # a abertura (que põe a faixa no Início) não tira a aba que o usuário escolheu
+            self._esp(1.0)
+            self.assertEqual(rb._tabs[rb.tabbar.currentIndex()]["id"], "tubulacao")
+            rb.select_tab("inicio")
     def test_abrir_cai_na_aba_inicio(self):
         import PrumoInicio
         import PrumoRibbon

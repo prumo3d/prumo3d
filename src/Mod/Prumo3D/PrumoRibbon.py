@@ -223,9 +223,6 @@ TABS = [
             ("Prumo_TrocarPerfil", S, "Trocar perfil"), ("Prumo_AtualizarEstrutura", S, "Atualizar estrutura"),
             ("Prumo_SecaoPersonalizada", S, "Seção personalizada"),
         ]),
-        ("Tubulação", [
-            ("Prumo_Tubulacao", L, "Tubulação"),
-        ]),
         ("Reforços e ligações", [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
             ("Prumo_PlacaBase", L, "Placa de\nbase"),
@@ -247,6 +244,18 @@ TABS = [
             ("Std_Measure", S, "Medir"),
         ]),
         ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),
+    ]},
+    {"id": "tubulacao", "label": "Tubulação", "wb": None, "panels": [
+        ("Traçado", [
+            ("Prumo_Esboco3D", L, "Esboço\n3D"), ("Sketcher_NewSketch", L, "Esboço\nplano"),
+        ]),
+        ("Tubulação", [
+            ("Prumo_Tubulacao", L, "Tubos e\nconexões"),
+        ]),
+        ("Conferir", [
+            ("Prumo_Interferencia", L, "Verificar\ninterferência"), ("Std_Measure", S, "Medir"),
+            ("Prumo_ListaMateriais", S, "Lista de materiais"),
+        ]),
     ]},
     {"id": "vasos", "label": "Vasos", "wb": None, "panels": [
         ("Vaso de pressão", [

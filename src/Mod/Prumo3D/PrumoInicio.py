@@ -667,6 +667,10 @@ def _faixa_no_inicio():
         import PrumoRibbon
         rb = PrumoRibbon._state.get("ribbon")
         if rb is not None and rb.tab_index("inicio") >= 0:
+            atual = rb._tabs[rb.tabbar.currentIndex()] if rb.tabbar.currentIndex() >= 0 else {}
+            # aba sem bancada (Estruturas, Tubulação…) só fica na frente se o usuário clicou nela: não tira
+            if atual.get("id") != "inicio" and atual.get("wb") is None:
+                return
             rb.select_tab("inicio")
     except Exception as exc:
         FreeCAD.Console.PrintLog("Prumo: faixa no Início: {}\n".format(exc))

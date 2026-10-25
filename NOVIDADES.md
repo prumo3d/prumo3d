@@ -9,6 +9,17 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Aba Tubulação:** a ferramenta saiu da aba Estruturas e ganhou aba própria, com Traçado (Esboço 3D e
+  esboço plano), Tubos e conexões, e Conferir (verificar interferência, medir, lista de materiais).
+
+### Correções
+
+- Clicar numa aba logo ao abrir o programa não volta mais sozinho para a aba Início.
+
 ## 0.9.3 beta — 25/10/2026
 
 ### Melhorias

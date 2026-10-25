@@ -127,7 +127,7 @@ Todos os recursos
   que a tradução oficial do FreeCAD ainda não cobre.
 
 * **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Sólidos,
-  Montagem, Desenho, Estruturas, Chapa, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
+  Montagem, Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
   sozinha ao editar um esboço.
 
 * **Tela inicial** Começa uma peça, montagem, desenho técnico, esboço ou planilha com um clique e mostra os
