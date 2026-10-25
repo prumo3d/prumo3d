@@ -19,6 +19,15 @@
 #   Windows: instalador (.exe) e versão portátil (.7z)
 #   Linux:   AppImage (arquivo único, roda sem instalar)
 #
+# Assinatura do instalador do Windows (SignPath Foundation, grátis para código aberto):
+#   - liga sozinha quando a variável do repositório SIGNPATH_ORGANIZATION_ID existe (Settings → Secrets
+#     and variables → Actions → Variables) e o segredo SIGNPATH_API_TOKEN está cadastrado;
+#   - o instalador sobe sem assinatura, o pedido vai para a SignPath e alguém do projeto aprova lá
+#     (exigência deles: aprovação manual de cada versão). O job "Assinar" espera até 6 h;
+#   - assinado, ele substitui o instalador sem assinatura na versão publicada (e a soma SHA-256 é refeita).
+#   - sem as variáveis, nada muda: publica sem assinatura, como antes.
+#   Política de assinatura: docs/assinatura-de-codigo.md.
+
 # Baseado no fluxo de publicação do FreeCAD (rattler-build + pixi).
 
 name: Publicar versão
@@ -91,6 +100,9 @@ jobs:
   pacotes:
     name: Pacote ${{ matrix.target }}
     needs: planejar
+    outputs:
+      # só o pacote do Windows preenche (matriz: o valor do job win-64 é o que fica)
+      instalador-id: ${{ steps.instalador.outputs.artifact-id }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.planejar.outputs.matriz) }}
@@ -243,20 +255,92 @@ jobs:
             package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.AppImage
             package/rattler-build/${{ matrix.pasta }}/Prumo3D_*-SHA256.txt
 
+      - name: Instalador para assinar (SignPath)
+        id: instalador
+        if: runner.environment == 'github-hosted' && matrix.target == 'win-64' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: instalador-sem-assinatura
+          if-no-files-found: error
+          retention-days: 3
+          path: package/rattler-build/${{ matrix.pasta }}/Prumo3D_*-installer.exe
+
+  assinar:
+    name: Assinar o instalador (SignPath)
+    needs: pacotes
+    if: vars.SIGNPATH_ORGANIZATION_ID != '' && needs.pacotes.outputs.instalador-id != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 380
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Pedir a assinatura e esperar a aprovação
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'prumo3d' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIG_SLUG || 'instalador' }}
+          github-artifact-id: ${{ needs.pacotes.outputs.instalador-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 21600
+          output-artifact-directory: assinado
+
+      - name: Conferir a assinatura e refazer a soma SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq osslsigncode >/dev/null
+          cd assinado
+          ls -la
+          for f in Prumo3D_*-installer.exe; do
+            # sem assinatura nenhuma: para (o pedido devolveu o arquivo errado)
+            osslsigncode extract-signature -in "$f" -out /tmp/assinatura.der >/dev/null \
+              || { echo "o instalador $f voltou sem assinatura"; exit 1; }
+            osslsigncode verify -in "$f" >> "$GITHUB_STEP_SUMMARY" 2>&1 || echo "aviso: verify não confirmou a cadeia de $f"
+            sha256sum "$f" > "$f-SHA256.txt"
+          done
+
+      - name: Guardar o instalador assinado
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: instalador-assinado
+          if-no-files-found: error
+          retention-days: 3
+          path: assinado/Prumo3D_*
+
   publicar:
     name: Publicar na página de versões
-    needs: pacotes
-    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event.inputs.versao != '')
+    needs: [pacotes, assinar]
+    # "assinar" pulado (SignPath não configurada) não impede a publicação; falhou ou foi recusado, impede
+    if: >-
+      !cancelled() && needs.pacotes.result == 'success' &&
+      (needs.assinar.result == 'success' || needs.assinar.result == 'skipped') &&
+      (startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event.inputs.versao != ''))
     runs-on: ubuntu-latest
     steps:
       - name: Baixar o código
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Juntar os arquivos
+      - name: Baixar os pacotes
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
-          path: arquivos
-          merge-multiple: true
+          path: baixados
+
+      - name: Juntar os arquivos (o instalador assinado, se houver, substitui o sem assinatura)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p arquivos
+          for d in baixados/prumo3d-*; do cp -v "$d"/* arquivos/; done
+          if [ -d baixados/instalador-assinado ]; then
+            cp -v baixados/instalador-assinado/* arquivos/
+            echo "Instalador do Windows: assinado (SignPath)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Instalador do Windows: sem assinatura" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Criar a versão
         shell: bash

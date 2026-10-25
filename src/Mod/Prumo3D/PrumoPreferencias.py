@@ -71,6 +71,7 @@ class JanelaPreferencias(QtWidgets.QDialog):
         self._grupo("Esboço", "esboco", ESBOCO)
         self._unidades()
         self._atualizacao()
+        self._programacao()
         col.addStretch(1)
         lay.addWidget(area, 1)
         rod = QtWidgets.QHBoxLayout()
@@ -94,6 +95,25 @@ class JanelaPreferencias(QtWidgets.QDialog):
             sw.toggled.connect(lambda on, k=chave: _p().SetBool(k, bool(on)))
             c.linha(rotulo + (" (vale ao reabrir)" if reabrir else ""), sw)
             self.campos[chave] = sw
+        self.col.addWidget(c)
+        return c
+
+    def _programacao(self):
+        """Relatório e console Python: fechados para quem só desenha; quem programa liga aqui."""
+        c = UI.Cartao("Para quem programa", "comando")
+        g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D")
+        sw = UI.Interruptor(not g.GetBool("ModoDistribuicao", True))
+
+        def mudar(on):
+            g.SetBool("ModoDistribuicao", not bool(on))
+            try:
+                import PrumoGui
+                PrumoGui.apply_modo_distribuicao(not bool(on))
+            except Exception:
+                pass
+        sw.toggled.connect(mudar)
+        c.linha("Mostrar Relatório e console Python", sw)
+        self.campos["programacao"] = sw
         self.col.addWidget(c)
         return c
 

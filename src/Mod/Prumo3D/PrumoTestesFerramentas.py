@@ -6300,14 +6300,18 @@ class T50ConferirEsboco(unittest.TestCase):
         antes = g.GetBool("ModoDistribuicao", False)
         mw = FreeCADGui.getMainWindow()
         console = mw.findChild(QtWidgets.QDockWidget, "Python console")
-        if console is None:
+        relatorio = mw.findChild(QtWidgets.QDockWidget, "Report view")
+        if console is None or relatorio is None:
             self.skipTest("sem o painel do console")
         vis = console.isVisible()
+        vis_r = relatorio.isVisible()
         try:
             g.RemBool("ModoDistribuicao")
             console.setVisible(True)
+            relatorio.setVisible(True)
             PrumoGui.apply_modo_distribuicao()
             self.assertFalse(console.isVisible(), "o console Python deve começar fechado")
+            self.assertFalse(relatorio.isVisible(), "o Relatório deve começar fechado (qualquer tela)")
             g.SetBool("ModoDistribuicao", False)        # desligado de propósito: quem programa vê o console
             PrumoGui.apply_modo_distribuicao()
             self.assertTrue(console.isVisible())
@@ -6317,6 +6321,7 @@ class T50ConferirEsboco(unittest.TestCase):
             else:
                 g.RemBool("ModoDistribuicao")
             console.setVisible(vis)
+            relatorio.setVisible(vis_r)
 
     def _esperar(self, ms):
         from PySide import QtCore, QtWidgets
@@ -7380,6 +7385,51 @@ class T59PadraoVisualNosPaineis(unittest.TestCase):
 class T60Atualizacao(unittest.TestCase):
     """Atualização opcional pela página de versões: comparação, escolha, download conferido, avisos."""
 
+
+    def test_instalador_abre_depois_de_fechar_com_permissao(self):
+        """No Windows o instalador pede administrador: tem de ir pelo Start-Process (UAC), esperando o
+        Prumo fechar; Popen direto falhava (WinError 740) e o Prumo fechava sem instalar."""
+        import sys
+        import PrumoAtualizar as A
+        antes = sys.platform
+        try:
+            sys.platform = "win32"
+            cmd = A.comando_instalar_depois(r"C:\Users\Ana\Downloads\Prumo3D_0.9.3-beta-installer.exe", 4321)
+        finally:
+            sys.platform = antes
+        self.assertEqual(cmd[0], "powershell.exe")
+        script = cmd[-1]
+        self.assertIn("Wait-Process -Id 4321", script)
+        self.assertIn("Start-Process -FilePath 'C:\\Users\\Ana\\Downloads\\Prumo3D_0.9.3-beta-installer.exe'", script)
+        self.assertLess(script.index("Wait-Process"), script.index("Start-Process"))
+        # aspas simples no caminho não quebram o comando
+        try:
+            sys.platform = "win32"
+            cmd = A.comando_instalar_depois(r"C:\Users\D'Ávila\x.exe", 1)
+        finally:
+            sys.platform = antes
+        self.assertIn("'C:\\Users\\D''Ávila\\x.exe'", cmd[-1])
+
+    def test_desistir_de_fechar_nao_abre_instalador(self):
+        import PrumoAtualizar as A
+        chamadas = []
+        antigo = A.janela_principal
+
+        class Falsa:
+            def __init__(self, fecha):
+                self.fecha = fecha
+
+            def close(self):
+                return self.fecha
+        try:
+            A.janela_principal = lambda: Falsa(False)
+            self.assertFalse(A.instalar_ao_fechar("/tmp/x.exe", popen=lambda *a, **k: chamadas.append(a)))
+            self.assertEqual(chamadas, [])
+            A.janela_principal = lambda: Falsa(True)
+            self.assertTrue(A.instalar_ao_fechar("/tmp/x.exe", popen=lambda *a, **k: chamadas.append(a)))
+            self.assertEqual(len(chamadas), 1)
+        finally:
+            A.janela_principal = antigo
     def setUp(self):
         import PrumoAtualizar as A
         self.A = A

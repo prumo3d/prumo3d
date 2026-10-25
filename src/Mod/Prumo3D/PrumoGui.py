@@ -749,19 +749,15 @@ DEV_DOCKS = ("Python console", "Report view")
 def apply_modo_distribuicao(on=None):
     """Esconde (ou mostra) console Python e Relatório, que o usuário final não usa.
 
-    Sem escolha do usuário (menu Prumo → Modo distribuição): o console Python começa sempre fechado
-    (confunde quem está começando); o Relatório começa fechado só em tela de notebook. Com o modo
-    distribuição desligado de propósito, os dois aparecem (uso de quem programa)."""
+    Sem escolha do usuário (menu Prumo → Modo distribuição, ou Preferências → "Mostrar Relatório e
+    console Python"): os dois começam fechados. Com o modo distribuição desligado de propósito, os dois
+    aparecem (uso de quem programa)."""
     mw = FreeCADGui.getMainWindow()
     if mw is None:
         return
-    if on is None and "ModoDistribuicao" not in _params().GetBools():
-        import PrumoRibbon
-        esconder = {"Python console": True, "Report view": PrumoRibbon.tela_pequena()}
-    else:
-        if on is None:
-            on = _params().GetBool("ModoDistribuicao", False)
-        esconder = {n: bool(on) for n in DEV_DOCKS}
+    if on is None:
+        on = _params().GetBool("ModoDistribuicao", True)
+    esconder = {n: bool(on) for n in DEV_DOCKS}
     for dock in mw.findChildren(QtWidgets.QDockWidget):
         if dock.objectName() in esconder:
             dock.setVisible(not esconder[dock.objectName()])
@@ -773,11 +769,11 @@ class CmdModoDistribuicao:
             "Pixmap": ICON_PATH,
             "MenuText": "Modo distribuição",
             "ToolTip": "Liga/desliga o modo para usuário final: esconde o console Python e o Relatório",
-            "Checkable": _params().GetBool("ModoDistribuicao", False),
+            "Checkable": _params().GetBool("ModoDistribuicao", True),
         }
 
     def Activated(self, checked=None):
-        on = bool(checked) if checked is not None else not _params().GetBool("ModoDistribuicao", False)
+        on = bool(checked) if checked is not None else not _params().GetBool("ModoDistribuicao", True)
         _params().SetBool("ModoDistribuicao", on)
         apply_modo_distribuicao(on)
 

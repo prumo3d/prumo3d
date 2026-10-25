@@ -541,29 +541,53 @@ Baixador = JanelaDownload      # nome antigo
 _vivos = []
 
 
-def instalar_ao_fechar(caminho):
-    """Abre o instalador quando o Prumo terminar de fechar (se o usuário cancelar o fechamento, nada)."""
-    QtCore, QtGui, QtWidgets = _qt()
-    app = QtWidgets.QApplication.instance()
+def comando_instalar_depois(caminho, pid):
+    """Comando que espera o Prumo (pid) terminar de fechar e então abre o instalador.
 
-    def abrir():
-        import subprocess
+    No Windows o instalador pede administrador: subprocess.Popen direto falha (WinError 740, "requer
+    elevação") e o Prumo fechava sem instalar nada. Start-Process usa o ShellExecute, que mostra o pedido
+    de permissão do Windows (UAC) normalmente."""
+    if sys.platform.startswith("win"):
+        alvo = caminho.replace("'", "''")
+        script = ("Wait-Process -Id {pid} -ErrorAction SilentlyContinue; "
+                  "Start-Sleep -Milliseconds 500; "
+                  "Start-Process -FilePath '{alvo}'").format(pid=int(pid), alvo=alvo)
+        return ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden", "-Command", script]
+    return ["/bin/sh", "-c", 'while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; exec "$0"'.format(pid=int(pid)),
+            caminho]
+
+
+def _disparar(caminho, popen=None):
+    """Deixa rodando, fora do Prumo, o processo que abre o instalador depois que o Prumo fechar."""
+    import subprocess
+    popen = popen or subprocess.Popen
+    cmd = comando_instalar_depois(caminho, os.getpid())
+    try:
+        flags = 0
+        if sys.platform.startswith("win"):
+            flags = 0x00000008 | 0x08000000 | 0x00000200   # DETACHED | NO_WINDOW | NEW_PROCESS_GROUP
+        popen(cmd, close_fds=True, creationflags=flags, stdin=subprocess.DEVNULL,
+              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception as exc:
+        FreeCAD.Console.PrintError("Prumo: não conseguiu agendar o instalador ({}); abrindo agora.\n".format(exc))
         try:
-            subprocess.Popen([caminho], close_fds=True,
-                             creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
-        except Exception as exc:
-            FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc))
+            if sys.platform.startswith("win"):
+                os.startfile(caminho)       # ShellExecute: também pede a permissão do Windows
+                return True
+        except Exception as exc2:
+            FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc2))
+        return False
 
-    app.aboutToQuit.connect(abrir)
+
+def instalar_ao_fechar(caminho, popen=None):
+    """Fecha o Prumo (ele pergunta se quer salvar) e, se fechou, abre o instalador logo depois.
+    Se o usuário desistir de fechar, nada acontece."""
     mw = janela_principal()
     if mw is not None and not mw.close():
-        # fechamento cancelado (ex.: o usuário desistiu na pergunta de salvar)
-        try:
-            app.aboutToQuit.disconnect(abrir)
-        except Exception:
-            pass
         return False
-    return True
+    return _disparar(caminho, popen)
 
 
 # ----------------------------------------------------------------------------------- verificação
