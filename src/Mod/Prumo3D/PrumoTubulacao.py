@@ -114,6 +114,13 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
     def nome_dn(d):
         return "%d mm" % d
 
+    def conferir(chave, k, peca):
+        motivo = CAT.a_conferir(L, chave, k)
+        if motivo:
+            msg = "%s: medida a conferir no catálogo (%s)." % (peca, motivo)
+            if msg not in avisos:
+                avisos.append(msg)
+
     for k, its in inc.items():
         P = nos[k]
         n = len(its)
@@ -148,6 +155,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
                     pern = [(s, p, u, dd, A) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
                     conexoes.append(_rec("Luva", "Luva soldável %s" % nome_dn(D), P, pern, L["corpo"][D],
                                          ["Bucha de redução soldável curta %d × %d" % (D, d)]))
+                    conferir("bucha_curta", (D, d), "Bucha curta %d × %d" % (D, d))
                 else:
                     avisos.append("Redução %d × %d no nó %d: não há peça no catálogo (faça em etapas)."
                                   % (D, d, k + 1))
@@ -171,6 +179,7 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
                                 avisos.append("%s %d com ramal de %d no nó %d: falta bucha %d × %d no "
                                               "catálogo." % (rot, D, dd, k + 1, D, dd))
                             extras.append("Bucha de redução soldável curta %d × %d" % (D, dd))
+                            conferir("bucha_curta", (D, dd), "Bucha curta %d × %d" % (D, dd))
                         pern.append((s, p, u, dd, cf))
                         recuo[(s, p)] = cf - bolsa[dd]
                     conexoes.append(_rec(rot, "%s soldável %s" % (rot, nome_dn(D)), P, pern, L["corpo"][D], extras))
@@ -226,8 +235,10 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None):
                 rot = "Tê"
                 if (D, dr) in L["bucha_curta"]:
                     extras.append("Bucha de redução soldável curta %d × %d" % (D, dr))
+                    conferir("bucha_curta", (D, dr), "Bucha curta %d × %d" % (D, dr))
                 elif (D, dr) in L["bucha_longa"]:
                     extras.append("Bucha de redução soldável longa %d × %d" % (D, dr))
+                    conferir("bucha_longa", (D, dr), "Bucha longa %d × %d" % (D, dr))
                     cf_r += L["bucha_longa"][(D, dr)] - bolsa[D]
                 else:
                     avisos.append("Nó %d: ramal %d num tê de %d sem bucha no catálogo." % (k + 1, dr, D))

@@ -12,7 +12,7 @@ Cada linha (sistema) traz as medidas que o traçado automático precisa, em mm:
 - luva: comprimento total A.
 
 As medidas vêm do catálogo do fabricante indicado em "fonte". Itens marcados em "a_conferir" saíram com
-valor duvidoso na tabela de origem (erro de impressão provável) e são usados com aviso.
+valor duvidoso na tabela de origem (erro de impressão provável): o traçado usa e avisa.
 """
 
 TIGRE_SOLDAVEL = {
@@ -52,8 +52,10 @@ TIGRE_SOLDAVEL = {
     "joelho45": {20: 22.3, 25: 24.5, 32: 29.5, 40: 35.5, 50: 42.5, 60: 49.5, 75: 60.0, 85: 67.5, 110: 85.5},
     # Tê soldável (p. 14): cota B (centro até a face)
     "te": {20: 27.0, 25: 32.0, 32: 39.0, 40: 47.0, 50: 57.0, 60: 71.3, 75: 87.2, 85: 97.7, 110: 124.0},
-    # Cruzeta soldável (p. 10): só 20 e 50 mm; cota A
-    "cruzeta": {20: 32.0, 50: 57.0},
+    # Cruzeta soldável (p. 10): cota A. A tabela de 2008 chama a primeira de "20", mas a mesma linha traz
+    # D = 25, B = 18,5 (bolsa de 25) e o código 22090259, que no Catálogo Predial 2022 é a cruzeta de 25 mm
+    # (lá só existem 25 e 50): é a de 25
+    "cruzeta": {25: 32.0, 50: 57.0},
     # Luva soldável (p. 13): comprimento total A
     "luva": {20: 35.0, 25: 42.0, 32: 48.0, 40: 56.0, 50: 67.0, 60: 80.0, 75: 102.0, 85: 102.0, 110: 130.0},
     # Tê de redução soldável (p. 14): (A, B)
@@ -91,10 +93,15 @@ TIGRE_SOLDAVEL = {
         50: {"A": 138.2, "bolsa": 31.0, "corpo": 96.0, "altura": 96.5, "alavanca": 140.0},
         60: {"A": 165.1, "bolsa": 36.0, "corpo": 115.0, "altura": 107.0, "alavanca": 170.0},
     },
+    # massa específica do composto de PVC (para massa dos tubos e conexões)
+    "densidade": 1430.0,    # kg/m³
+    "fonte_densidade": "Tigre, Ficha Técnica Tubería y Accesorios de PVC Línea Soldable (mai/2021): "
+                        "\"peso específico del compuesto: 1,43 g/cm³\" (ficha da Tigre fora do Brasil; o catálogo "
+                        "brasileiro não informa)",
     "a_conferir": {
         ("bucha_curta", (110, 85)): "A = 31 mm, menor que a bolsa de 110 (provável erro na tabela)",
         ("bucha_longa", (50, 25)): "A = 31 mm, fora da sequência da tabela",
-        ("cruzeta", 20): "na tabela, D = 25 para a cruzeta de 20",
+        ("bucha_longa", (75, 50)): "na tabela, a linha 75 × 50 repete D = 85, d = 60 e A = 95,1 da 85 × 60",
     },
 }
 
@@ -104,6 +111,11 @@ PADRAO = TIGRE_SOLDAVEL["id"]
 
 def linha(lid):
     return LINHAS.get(lid) or LINHAS[PADRAO]
+
+
+def a_conferir(L, chave, k):
+    """Motivo, se a medida (chave, k) da linha está marcada como a conferir; senão None."""
+    return (L.get("a_conferir") or {}).get((chave, k))
 
 
 def nomes():

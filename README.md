@@ -154,7 +154,7 @@ Todos os recursos
 * **Comandos em cartões** Mais de 50 comandos do FreeCAD ganharam painel no padrão Prumo: extrusão,
   cavidade, furo, revolução, arredondar, chanfro, padrões e multitransformação, hélice, loft, varredura,
   primitivas e booleana (Peça); extrusão, revolução, espelhar, escala, arestas, deslocamento, espessura,
-  transição e varredura (Sólidos); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
+  transição, varredura e verificar geometria (Sólidos); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
   balão, hachura e texto formatado (Desenho); material, fixação, força, pressão, deslocamento imposto,
   mola, peso próprio e malha (Simulação). O formulário original continua a um clique.
 
@@ -184,6 +184,10 @@ Todos os recursos
 * **Régua de histórico** Uma régua amarela na própria árvore do modelo, logo abaixo da última operação do
   corpo: arraste para cima e o modelo recua até ali (as operações de baixo ficam esmaecidas); as novas
   operações entram no ponto da régua. Duplo clique volta ao modelo completo.
+
+* **Relações automáticas que não cabem** Ao cotar, se uma relação posta sozinha pelo esboço (vertical,
+  horizontal, tangente) entra em conflito, o Prumo retira a que menos mexe no desenho, avisa qual foi e
+  deixa desfazer. Conflito posto à mão aparece destacado para você decidir.
 
 * **Conferência do esboço** Ao concluir um esboço, o Prumo avisa de pontas quase encostadas, pontas soltas
   num perfil e elementos de tamanho zero, e corrige com um clique (o problema do "esboço aberto").
@@ -219,8 +223,8 @@ Todos os recursos
 * **Atualização pelo programa** Procura versão nova ao abrir (no máximo uma vez por dia, pode desligar),
   baixa com barra de progresso, confere o arquivo e instala ao fechar o Prumo.
 
-* **Testes automatizados** Um conjunto de testes confere tradução, aparência, assistente de simulação e
-  comportamento da interface a cada versão.
+* **Testes automatizados** Mais de 500 testes conferem, a cada versão, tradução, aparência, os painéis
+  em cartões, as ferramentas de ponta a ponta (esboço, peça, estruturas, simulação) e os cálculos.
 
 * **Base sólida** Tudo o que o FreeCAD oferece continua disponível: núcleo geométrico OpenCASCADE, cena 3D
   Coin3D, interface Qt e programação em Python.

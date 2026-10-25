@@ -6691,6 +6691,22 @@ class T53Tubulacao(unittest.TestCase):
         t = T.criar(e, dn=50)
         self.assertEqual(t.Conexoes, ["1 × Cruzeta soldável 50 mm"])
 
+    def test_cruzeta_de_25_e_dados_a_conferir_avisam(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        L = C.linha(C.PADRAO)
+        self.assertIn(25, L["cruzeta"])
+        self.assertNotIn(20, L["cruzeta"], "a 'cruzeta de 20' da tabela de 2008 é a de 25 (código 22090259)")
+        self.assertAlmostEqual(L["densidade"], 1430.0)
+        # tê de 110 com ramal de 85: não há tê de redução, entra a bucha curta 110 × 85 (medida duvidosa)
+        segs = [(V(0, 0, 0), V(1000, 0, 0)), (V(1000, 0, 0), V(2000, 0, 0)), (V(1000, 0, 0), V(1000, 800, 0))]
+        r = T.montar(segs, [110, 110, 85])
+        self.assertTrue(any("110 × 85" in a and "conferir" in a for a in r["avisos"]), r["avisos"])
+        # um tê sem medida duvidosa não avisa nada
+        r = T.montar(segs, [50, 50, 50])
+        self.assertFalse(r["avisos"])
+
     def test_registro_divide_o_tubo(self):
         import PrumoTubulacao as T
         import PrumoCatalogoTubos as C
