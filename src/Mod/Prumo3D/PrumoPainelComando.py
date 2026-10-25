@@ -2387,11 +2387,12 @@ class EncaixeFixacao:
 
     def _passo(self):
         panel = _painel_de_tarefas() if ligado() else None
-        if panel is not None and self.MARCA == "PrumoGeoSel":
-            # o seletor de geometria do FEM (Python) não tem nome de objeto: marca as instâncias
+        classe_fc = CLASSES_SEM_NOME.get(self.MARCA)
+        if panel is not None and classe_fc:
             for w in panel.findChildren(QtWidgets.QWidget):
-                if type(w).__name__ == "GeometryElementsSelection" and w.objectName() != "PrumoGeoSel":
-                    w.setObjectName("PrumoGeoSel")
+                if w.objectName() != self.MARCA and (w.metaObject().className() == classe_fc or
+                                                     type(w).__name__ == classe_fc):
+                    w.setObjectName(self.MARCA)
         quadro = _quadro_do_formulario(panel, self.MARCA) if panel is not None else None
         if quadro is None:
             if self.painel is not None:
@@ -3818,7 +3819,11 @@ class PainelSecoesPipe(_Escolhas):
 
 # quadros secundários (aparecem junto do painel principal): marca → classe
 SECUNDARIOS = [("comboBoxMode", "PainelOrientacaoPipe"), ("comboBoxScaling", "PainelSecoesPipe"),
-               ("PrumoGeoSel", "PainelOndeVale")]
+               ("PrumoGeoSel", "PainelOndeVale"), ("PrumoChecaGeo", "PainelChecaGeometria")]
+
+# quadros do FreeCAD sem nome de objeto: o encaixe dá o nome pela classe (metaObject) antes de procurar
+CLASSES_SEM_NOME = {"PrumoGeoSel": "GeometryElementsSelection",
+                    "PrumoChecaGeo": "PartGui::TaskCheckGeometryResults"}
 
 
 CLASSES = {"PartDesign::Pad": "PainelComando", "PartDesign::Pocket": "PainelComando",
@@ -3904,6 +3909,214 @@ class Encaixe:
 _estado = {"encaixe": None}
 
 
+# ----------------------------------------------------------------------------------- Verificar geometria
+class PainelChecaGeometria(_Base):
+    """Sólidos → Verificar geometria: resumo em cartões acima dos resultados do FreeCAD (a lista de defeitos
+    continua lá, para clicar e achar na vista). O resumo é calculado aqui, direto das formas."""
+
+    TITULO = "Verificar geometria"
+
+    def _objetos(self):
+        if getattr(self, "_objs", None) is None:
+            objs = []
+            for so in FreeCADGui.Selection.getSelectionEx():
+                o = so.Object
+                if o is not None and hasattr(o, "Shape") and o not in objs:
+                    objs.append(o)
+            self._objs = objs
+        return [o for o in self._objs if _vivo_obj(o)]
+
+    def _problemas(self):
+        tv = self.quadro.findChild(QtWidgets.QTreeView) if self.quadro is not None else None
+        m = tv.model() if tv is not None else None
+        if m is None:
+            return 0
+        n = 0
+        for i in range(m.rowCount()):
+            n += max(1, m.rowCount(m.index(i, 0)))
+        return n
+
+    def estado(self):
+        return {"objs": tuple(o.Name for o in self._objetos()), "prob": self._problemas()}
+
+    def montar(self):
+        e = self.estado()
+        self.assinatura = tuple(sorted(e.items()))
+        self._limpar()
+        self.campos = {}
+        objs = self._objetos()
+        if not objs:
+            self._fim()
+            self.completo.hide()
+            return
+        for i, o in enumerate(objs[:6]):
+            sh = o.Shape
+            ok = bool(sh.isValid()) if not sh.isNull() else False
+            c = UI.Cartao(o.Label, "solido")
+            st = QtWidgets.QLabel("✓ Geometria válida" if ok else "✗ Geometria com defeito — veja a lista abaixo")
+            st.setObjectName("PrumoSub")
+            st.setStyleSheet("font-weight: 600; color: %s;" % ("#1E7B34" if ok else "#B3261E"))
+            c.widget(st)
+            self.campos["estado%d" % i] = st
+            for rot, n in (("Sólidos", len(sh.Solids)), ("Cascas", len(sh.Shells)), ("Faces", len(sh.Faces)),
+                           ("Arestas", len(sh.Edges)), ("Vértices", len(sh.Vertexes))):
+                lb = QtWidgets.QLabel(_br(n, 0))
+                c.linha(rot, lb)
+                self.campos["%s%d" % (rot.lower(), i)] = lb
+            if sh.Solids:
+                lb = QtWidgets.QLabel("{} mm³".format(_br(sh.Volume, 1)))
+                c.linha("Volume", lb)
+                self.campos["volume%d" % i] = lb
+            if sh.Faces:
+                c.linha("Área", QtWidgets.QLabel("{} mm²".format(_br(sh.Area, 1))))
+            self.lay.addWidget(c)
+        self._fim()
+        self.completo.hide()
+
+    def dica_extra(self):
+        n = self._problemas()
+        return ("{} item(ns) na lista de defeitos abaixo: clique em um para ver onde fica.".format(n)) if n else ""
+
+    def precisa_do_formulario(self):
+        return True
+
+    def mostrar_formulario(self):
+        # o FreeCAD esconde o quadro de resultados na página de ajustes: o resumo acompanha
+        if self.quadro is not None and shiboken.isValid(self.quadro):
+            self.setVisible(not self.quadro.isHidden())
+        self.dica.mostrar(self.dica_extra())
+
+
+def _vivo_obj(o):
+    try:
+        return o.Document is not None and o.Name is not None
+    except Exception:
+        return False
+
+
+# ----------------------------------------------------------------------------------- Peso próprio
+DIRECOES_GRAVIDADE = [("0,0,-1", "−Z (para baixo)", "seta_baixo"), ("0,0,1", "+Z", "seta_cima"),
+                      ("0,-1,0", "−Y", None), ("0,1,0", "+Y", None), ("-1,0,0", "−X", None), ("1,0,0", "+X", None)]
+
+
+def _chave_direcao(v):
+    try:
+        n = FreeCAD.Vector(v)
+        if n.Length == 0:
+            return None
+        n.normalize()
+    except Exception:
+        return None
+    for k, _t, _i in DIRECOES_GRAVIDADE:
+        x, y, z = (float(c) for c in k.split(","))
+        if (n - FreeCAD.Vector(x, y, z)).Length < 1e-6:
+            return k
+    return None
+
+
+class PainelPesoProprio(QtWidgets.QWidget):
+    """Simulação → Peso próprio: direção da gravidade e aceleração (o FreeCAD não tem painel para isso)."""
+
+    TITULO = "Peso próprio"
+
+    def __init__(self, obj, parent=None):
+        super().__init__(parent)
+        self.obj = obj
+        self.setObjectName("PrumoUI")
+        self.setWindowTitle("Peso próprio")
+        self.setProperty("prumo_titulo", self.TITULO)
+        self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
+        self.setStyleSheet(UI.qss() + UI.tema("#PrumoUI { background: transparent; }"))
+        lay = QtWidgets.QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        self.campos = {}
+        c = UI.Cartao("Gravidade", "seta_baixo")
+        atual = _chave_direcao(obj.GravityDirection)
+        seg = UI.Segmentado(DIRECOES_GRAVIDADE, atual or "0,0,-1", colunas=2)
+        c.widget(seg)
+        self.campos["direcao"] = seg
+        self.outra = None
+        if atual is None:
+            d = obj.GravityDirection
+            self.outra = QtWidgets.QLabel("Hoje está em ({:.3g}; {:.3g}; {:.3g}). Escolha uma acima para trocar."
+                                          .format(d.x, d.y, d.z))
+            self.outra.setObjectName("PrumoSub")
+            self.outra.setWordWrap(True)
+            c.widget(self.outra)
+            seg.grupo.setExclusive(False)
+            for b in seg.botoes.values():
+                b.setChecked(False)
+            seg.grupo.setExclusive(True)
+        g = obj.GravityAcceleration.getValueAs("m/s^2").Value
+        num = UI.CampoNumero(g, "m/s²", casas=5, minimo=0.0)
+        c.linha("Aceleração", num)
+        self.campos["aceleracao"] = num
+        lay.addWidget(c)
+        lay.addWidget(UI.Dica("O peso vem da densidade do material de cada sólido."))
+        lay.addStretch(1)
+
+    def aplicar(self):
+        k = self.campos["direcao"].valor()
+        if k is not None:
+            x, y, z = (float(c) for c in k.split(","))
+            self.obj.GravityDirection = FreeCAD.Vector(x, y, z)
+        self.obj.GravityAcceleration = FreeCAD.Units.Quantity("%r m/s^2" % float(self.campos["aceleracao"].value()))
+
+
+class TarefaPesoProprio:
+    def __init__(self, obj):
+        self.obj = obj
+        self.form = PainelPesoProprio(obj)
+
+    def getStandardButtons(self):
+        def v(b):
+            return b.value if hasattr(b, "value") else int(b)
+        return v(QtWidgets.QDialogButtonBox.Ok) | v(QtWidgets.QDialogButtonBox.Cancel)
+
+    # como as tarefas do FEM: criado pela faixa, a transação de criação está aberta — o OK grava junto
+    # e o Cancelar desfaz a criação
+    def accept(self):
+        doc = self.obj.Document
+        if not doc.HasPendingTransaction:
+            doc.openTransaction("Peso próprio")
+        self.form.aplicar()
+        doc.recompute()
+        FreeCADGui.ActiveDocument.resetEdit()
+        doc.commitTransaction()
+        return True
+
+    def reject(self):
+        doc = self.obj.Document
+        doc.abortTransaction()
+        FreeCADGui.ActiveDocument.resetEdit()
+        doc.recompute()
+        return True
+
+
+def _peso_proprio_editavel():
+    """Peso próprio ganha painel: duplo clique abre os cartões; criar pela faixa já abre o painel."""
+    try:
+        from femviewprovider import view_constraint_selfweight as V
+        from femviewprovider import view_base_femobject as B
+        from femcommands import commands as K
+        from femcommands.manager import CommandManager
+    except Exception:
+        return
+    if getattr(V.VPConstraintSelfWeight, "_prumo", False):
+        return
+
+    def setEdit(self, vobj, mode=0):
+        return B.VPBaseFemObject.setEdit(self, vobj, mode, TarefaPesoProprio, hide_mesh=False)
+
+    def Activated(self):
+        self.do_activated = "add_obj_on_gui_set_edit"
+        return CommandManager.Activated(self)
+    V.VPConstraintSelfWeight.setEdit = setEdit
+    K._ConstraintSelfWeight.Activated = Activated
+    V.VPConstraintSelfWeight._prumo = True
+
+
 def instalar():
     if _estado["encaixe"] is None:
         _estado["encaixe"] = Encaixe()
@@ -3915,6 +4128,7 @@ def instalar():
         _estado["extras"] = [EncaixeFixacao(m, c) for m, c in SECUNDARIOS]
     for e in _estado["extras"]:
         e.iniciar()
+    _peso_proprio_editavel()
     return _estado["encaixe"]
 
 

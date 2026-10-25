@@ -9,6 +9,25 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Verificar geometria:** resumo em cartões acima da lista do FreeCAD — geometria válida ou com defeito,
+  sólidos, cascas, faces, arestas, vértices, volume e área.
+- **Peso próprio com painel:** criar pelo botão da faixa (ou editar com duplo clique) abre cartões com a
+  direção da gravidade (−Z, +Z, ±X, ±Y) e a aceleração em m/s². Cancelar na criação desfaz.
+
+### Correções
+
+- O último trecho que lia os quadros do jeito antigo (rolagem de janelas grandes) foi trocado, como o do
+  botão OK na 0.9.2.
+
+### Testes
+
+- Verificar geometria de uma caixa (6 faces, 12 arestas, 1.000 mm³); peso próprio criado pela faixa, em −Y
+  e 9,81 m/s², e reaberto para editar.
+
 ## 0.9.2 beta — 24/10/2026
 
 ### Melhorias

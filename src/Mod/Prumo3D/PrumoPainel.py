@@ -420,11 +420,12 @@ def caber_na_tela(dlg, margem=0.92):
                max(dlg.minimumWidth(), hint.width()) > maxw)
     if not precisa or lay is None or getattr(dlg, "_rolavel", False):
         return False
+    # só takeAt (o item passa a ser do Python): itemAt deixaria invólucros que o PySide depois confunde
+    # com outro objeto no mesmo endereço (ver PrumoUI.widgets_do_layout)
     itens = []
-    for i in range(lay.count()):
-        itens.append((lay.itemAt(i), lay.stretch(i) if isinstance(lay, QtWidgets.QBoxLayout) else 0))
-    for _i in range(lay.count()):
-        lay.takeAt(0)
+    while lay.count():
+        st = lay.stretch(0) if isinstance(lay, QtWidgets.QBoxLayout) else 0
+        itens.append((lay.takeAt(0), st))
     corpo = QtWidgets.QWidget()
     nova = QtWidgets.QVBoxLayout(corpo)
     nova.setContentsMargins(0, 0, 6, 0)

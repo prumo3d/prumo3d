@@ -9372,6 +9372,37 @@ class T72SimulacaoEmCartoes(unittest.TestCase):
         self.assertTrue(self._ok())
         self.assertEqual([(o.Name, list(sub)) for o, sub in self.mat.References], [("Caixa", ["Solid1"])])
 
+    def _painel_peso(self):
+        for _i in range(20):
+            self._esp(0.2)
+            ws = [w for w in FreeCADGui.getMainWindow().findChildren(self.C.PainelPesoProprio) if w.isVisible()]
+            if ws:
+                return ws[0]
+        return None
+
+    def test_peso_proprio_criado_pela_faixa_abre_painel(self):
+        import FemGui
+        FemGui.setActiveAnalysis(self.doc.getObject("Estudo"))
+        FreeCADGui.runCommand("FEM_ConstraintSelfWeight", 0)
+        p = self._painel_peso()
+        self.assertIsNotNone(p, "criar o peso próprio devia abrir o painel em cartões")
+        self.assertEqual(textos_com_problema(p), [])
+        self.assertEqual(p.campos["direcao"].valor(), "0,0,-1")
+        p.campos["direcao"].definir("0,-1,0", silencioso=False)
+        p.campos["aceleracao"].setValue(9.81)
+        self._esp(0.3)
+        self.assertTrue(self._ok())
+        pp = [o for o in self.doc.Objects if hasattr(o, "GravityDirection")]
+        self.assertEqual(len(pp), 1)
+        self.assertAlmostEqual(pp[0].GravityDirection.y, -1.0, places=6)
+        self.assertAlmostEqual(pp[0].GravityAcceleration.getValueAs("m/s^2").Value, 9.81, places=6)
+        # duplo clique (editar) abre de novo, com o que foi gravado
+        FreeCADGui.ActiveDocument.setEdit(pp[0].Name)
+        p = self._painel_peso()
+        self.assertIsNotNone(p, "editar o peso próprio devia abrir o painel")
+        self.assertEqual(p.campos["direcao"].valor(), "0,-1,0")
+        FreeCADGui.Control.closeDialog()
+
     def test_unidade_interna(self):
         """Confere a conversão que os cartões usam (se o FreeCAD mudar a unidade interna, o teste avisa)."""
         q = FreeCAD.Units.Quantity("250 N")
@@ -9493,6 +9524,31 @@ class T74MaisSolidosEmCartoes(unittest.TestCase):
         ob = self._novo("Part::Thickness")
         self.assertEqual(len(ob), 1)
         self.assertAlmostEqual(float(ob[0].Value), -1.5, places=4)
+
+    def test_verificar_geometria_resumo(self):
+        g = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Part/CheckGeometry")
+        antes = g.GetBool("AutoRun", False)
+        g.SetBool("AutoRun", True)
+        try:
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(self.caixa)
+            FreeCADGui.runCommand("Part_CheckGeometry", 0)
+            p = None
+            for _i in range(25):
+                self._esp(0.2)
+                p = self.C.painel_secundario("PainelChecaGeometria")
+                if p is not None and "estado0" in p.campos:
+                    break
+            self.assertIsNotNone(p, "o resumo da verificação não apareceu")
+            self.assertEqual(textos_com_problema(p), [])
+            self.assertIn("válida", p.campos["estado0"].text())
+            self.assertEqual(p.campos["faces0"].text(), "6")
+            self.assertEqual(p.campos["arestas0"].text(), "12")
+            self.assertEqual(p.campos["volume0"].text(), "1.000 mm³")
+            self.assertTrue(p.quadro.isVisible(), "a lista de defeitos do FreeCAD continua à vista")
+        finally:
+            g.SetBool("AutoRun", antes)
+            FreeCADGui.Control.closeDialog()
 
     def _circulos(self):
         c1 = self.doc.addObject("Part::Circle", "Base")
