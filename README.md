@@ -27,13 +27,15 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.3 beta** (25/10/2026)
+**Versão atual: 0.9.4 beta** (25/10/2026)
 
-- **Atualização automática corrigida:** depois de baixar, o Prumo fecha e o instalador abre com o pedido de
-  permissão do Windows (antes ele fechava e a instalação não começava).
-- **Verificar geometria e peso próprio em cartões**, completando os comandos de Sólidos e Simulação.
-- **Abre na aba Início**, com o Relatório e o console Python fechados (quem programa liga nas Preferências).
+- **Tubulação com aba própria e três linhas Tigre:** água fria soldável, água quente CPVC Aquatherm e esgoto
+  série normal, com caimento automático pela NBR 8160, junção a 45° e caixas sifonada, de inspeção e de
+  gordura.
+- **Torneiras** na ponta solta ou no ponto clicado do trecho (o tubo é cortado sozinho), e trechos
+  escolhidos na vista para mudar o diâmetro de vários de uma vez.
 
+Na 0.9.3: atualização automática corrigida, verificar geometria e peso próprio em cartões.
 Na 0.9.2: comandos em cartões em todas as abas, Preferências do Prumo e atualização com barra de progresso.
 Na 0.7 e na 0.6: painel lateral único (Árvore, Propriedades e a aba do comando) e propriedades em cartões.
 Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldável.
@@ -182,9 +184,11 @@ Todos os recursos
 * **Chapa e montagem** Fator K por material e planificação em DXF; verificar interferência; copiar
   projeto (Pack and Go). Guia "vindo do SolidWorks / ZW3D" com a equivalência dos comandos.
 
-* **Tubulação** Tubos e conexões de PVC soldável sobre o traçado: joelhos, tês, reduções, cruzetas,
-  caps e registros escolhidos pelo catálogo do fabricante, tubo cortado descontando as bolsas, lista de
-  corte em barras e itens na lista de materiais.
+* **Tubulação** Aba própria, com três linhas do catálogo Tigre: água fria (PVC soldável), água quente
+  (CPVC Aquatherm) e esgoto (série normal). Joelhos, tês, junções a 45°, reduções, cruzetas, caps,
+  registros, torneiras e caixas de esgoto saem sozinhos sobre o traçado; o tubo é cortado descontando as
+  bolsas, o esgoto ganha caimento pela NBR 8160 e a lista de corte em barras vai para a lista de materiais.
+  Os trechos se escolhem clicando na vista, como na estrutura soldada.
 
 * **Esboço 3D** Linhas no espaço, ponto a ponto: clique na vista (Tab troca o plano XY, YZ, ZX) ou
   digite as coordenadas; encaixa em vértices, faz ramais e curvas nos cantos. Restrições ao longo de
