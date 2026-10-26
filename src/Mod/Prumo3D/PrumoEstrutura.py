@@ -284,6 +284,12 @@ def ligacoes(eds, i):
                 encontros.append((j, _dir(o, True)))
             elif (pb - p).Length < 1e-4:
                 encontros.append((j, _dir(o, False)))
+        # Prumo: ponta que cai no meio de outra barra encosta nela mesmo quando outras barras também chegam
+        # ali (diagonais de treliça em K / N): a que passa manda; as que chegam juntas se recortam entre si
+        passa = [j for j, o in enumerate(eds) if j != i and o is not None and _ponto_interior(p, o)]
+        if passa and encontros:
+            res.append(Ligacao("topo_T", passa[0], outros=encontros))
+            continue
         if len(encontros) == 1:
             j, b = encontros[0]
             if abs(a.dot(b) + 1) < 1e-6:
@@ -301,6 +307,29 @@ def ligacoes(eds, i):
         else:
             res.append(Ligacao("livre"))
     return res
+
+
+def cruzamentos(eds):
+    """Linhas do esqueleto que se cruzam pelo meio (nenhuma termina ali): as barras passariam uma por dentro
+    da outra. Devolve os avisos."""
+    av = []
+    for i in range(len(eds)):
+        for j in range(i + 1, len(eds)):
+            a, b = eds[i], eds[j]
+            if a is None or b is None or not (_reta(a) and _reta(b)):
+                continue
+            try:
+                d, pares, _info = a.distToShape(b)
+            except Exception:
+                continue
+            if d > 1e-4 or not pares:
+                continue
+            p = pares[0][0]
+            if _ponto_interior(p, a) and _ponto_interior(p, b):
+                av.append("Linhas %d e %d se cruzam no meio: as barras passam uma por dentro da outra. "
+                          "Divida uma das linhas no ponto do cruzamento (a que passa fica inteira)."
+                          % (i + 1, j + 1))
+    return av
 
 
 def angulo_corte(normal_plano, t):
@@ -564,6 +593,14 @@ def calcular_barra(est, i, eds=None):
                 sol = _maior_pedaco(sol.cut(_contorno_cheio(est, eds, j, normal)), e)
             else:
                 corte_reto(k, j)
+            # outras barras que chegam no mesmo ponto: a de menor índice fica inteira
+            for jj, _d in lig.outros:
+                if jj > i:
+                    continue
+                sj = Secao(est, eds, jj, normal)
+                bruto = solido_bruto(eds[jj], sj.it, sj.giro, (sj.du, sj.dv), normal, 0.0, 0.0, sj.espelhar,
+                                     sj.centro)
+                sol = _maior_pedaco(sol.cut(bruto), e)
         elif lig.tipo == "multipla":
             passantes, _col = _no_multiplo(eds, i, k, lig)
             if i in passantes:
@@ -640,7 +677,15 @@ class Estrutura:
         self._props(obj)
 
     def execute(self, obj):
-        pass
+        if "Avisos" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyStringList", "Avisos", "Estrutura", "Situações a conferir no esqueleto")
+            obj.setEditorMode("Avisos", 1)
+        try:
+            av = cruzamentos(arestas(obj.Esqueleto)) if obj.Esqueleto else []
+        except Exception:
+            av = []
+        if list(obj.Avisos) != av:
+            obj.Avisos = av
 
     def onChanged(self, obj, prop):
         if prop in ("Esqueleto", "Perfil", "Rotacao", "Alinhamento", "Uniao", "Material",
@@ -1463,6 +1508,11 @@ class DialogoEstrutura(QtWidgets.QDialog):
                                        "2. Para outro perfil em algumas linhas, crie um grupo e ponha as linhas "
                                        "nele. 3. Confira os cantos e o material.")
         lay.addWidget(self.mensagem)
+        # linhas que se cruzam pelo meio: as barras passariam uma por dentro da outra
+        self.aviso_cruz = P.Mensagem()
+        cruz = cruzamentos(self.eds)
+        self.aviso_cruz.mostrar(" ".join(cruz), "erro") if cruz else self.aviso_cruz.setVisible(False)
+        lay.addWidget(self.aviso_cruz)
         topo = QtWidgets.QHBoxLayout()
         topo.setSpacing(10)
         # grupos

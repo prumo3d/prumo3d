@@ -10496,6 +10496,68 @@ class T76RoteiroDaPeca(unittest.TestCase):
         self.assertGreater(rev.Shape.Volume, 1000.0)
 
 
+class T77RoteirosDaEstrutura(unittest.TestCase):
+    """Roteiro de uso das estruturas soldadas: os esqueletos comuns (quadro, T pela ponta e pelo meio, treliça
+    em K e em N, diagonal no canto, ângulo fora de 90°, tubo quadrado) saem com barras válidas e SEM material
+    sobreposto entre barras; cruzamento no meio avisa (no objeto e na janela)."""
+
+    def _caso(self, pares, perfil="W 150 x 13,0", uniao="Meia-esquadria"):
+        import itertools
+        import PrumoEstrutura as E
+        doc = novo_doc("PrumoRoteiroEstrutura")
+        self.addCleanup(fechar, doc)
+        sk = esboco_linhas(doc, pares)
+        g = E.criar(doc, sk, perfil, uniao=uniao)
+        doc.recompute()
+        barras = E.barras_de(g)
+        self.assertEqual(len(barras), len(pares))
+        for b in barras:
+            self.assertTrue(b.Shape.isValid() and b.Shape.Volume > 0, b.Label)
+        sob = []
+        for a, b in itertools.combinations(barras, 2):
+            if a.Shape.BoundBox.intersect(b.Shape.BoundBox):
+                v = a.Shape.common(b.Shape).Volume
+                if v > 1.0:
+                    sob.append((a.Label, b.Label, round(v)))
+        return g, sob
+
+    def test_esqueletos_comuns_sem_sobreposicao(self):
+        import PrumoPerfis
+        Q = [((0, 0), (2000, 0)), ((2000, 0), (2000, 1000)), ((2000, 1000), (0, 1000)), ((0, 1000), (0, 0))]
+        casos = {
+            "quadro meia-esquadria": (Q, {}),
+            "quadro de topo": (Q, {"uniao": "Topo"}),
+            "T pela ponta": ([((0, 0), (1000, 0)), ((1000, 0), (2000, 0)), ((1000, 0), (1000, 1000))], {}),
+            "T no meio": ([((0, 0), (2000, 0)), ((1000, 1000), (1000, 0))], {}),
+            "diagonal no canto": ([((0, 0), (2000, 0)), ((2000, 0), (2000, 1000)), ((0, 0), (2000, 1000))], {}),
+            "treliça em K": ([((0, 0), (2000, 0)), ((0, 1000), (2000, 1000)), ((1000, 0), (0, 1000)),
+                              ((1000, 0), (2000, 1000))], {}),
+            "treliça em N": ([((0, 0), (3000, 0)), ((0, 1000), (3000, 1000)), ((0, 0), (1500, 1000)),
+                              ((1500, 1000), (3000, 0)), ((1500, 0), (1500, 1000))], {}),
+            "cruzamento com uma linha dividida": ([((0, 0), (2000, 0)), ((1000, -1000), (1000, 0)),
+                                                   ((1000, 0), (1000, 1000))], {}),
+            "canto a 60°": ([((0, 0), (1000, 0)), ((1000, 0), (1500, 866))], {}),
+            "tubo quadrado": (Q, {"perfil": PrumoPerfis.nomes("TQ")[5]}),
+        }
+        for nome, (pares, kw) in casos.items():
+            g, sob = self._caso(pares, **kw)
+            self.assertEqual(sob, [], "%s: barras com material sobreposto" % nome)
+            self.assertEqual(list(getattr(g, "Avisos", [])), [], nome)
+
+    def test_cruzamento_no_meio_avisa(self):
+        import PrumoEstrutura as E
+        g, _sob = self._caso([((0, 0), (2000, 0)), ((1000, -1000), (1000, 1000))])
+        self.assertTrue(any("se cruzam no meio" in a for a in g.Avisos), g.Avisos)
+        if FreeCAD.GuiUp:
+            dlg = E.DialogoEstrutura(g.Esqueleto)
+            try:
+                self.assertTrue(dlg.aviso_cruz.isVisibleTo(dlg))
+                self.assertIn("Divida uma das linhas", dlg.aviso_cruz.text())
+            finally:
+                dlg.reject()
+                dlg.deleteLater()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -10514,4 +10576,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
-           T75RoteirosDoEsboco, T76RoteiroDaPeca]
+           T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura]

@@ -17,13 +17,20 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   agora recebem a cruzeta (antes um atravessava o outro sem peça e sem aviso).
 - **Tubulação, tubos encostados sem conexão:** quando dois tubos se encostam ou se atravessam sem nó em comum
   (por exemplo, cruzando a poucos milímetros de altura), aparece o aviso com os trechos e a sobreposição.
+- **Estruturas, diagonal chegando no meio de outra barra (treliça em K/N):** a diagonal entrava dentro da barra
+  principal (material sobreposto). Agora encosta na face dela, e as diagonais que chegam no mesmo ponto se
+  recortam entre si.
+- **Estruturas, linhas que se cruzam no meio:** as barras passavam uma por dentro da outra sem aviso; agora a
+  estrutura avisa (na janela e no objeto) para dividir uma das linhas no cruzamento.
 - **Aviso de curva sem peça mais claro:** "a linha muda de direção em 60°" no lugar do ângulo entre os trechos.
 
 ### Testes
 
 - **Roteiros de uso automáticos:** 17 traçados comuns de tubulação (T pela ponta e pelo meio, cruzeta, joelhos,
-  reduções, esgoto, Aquatherm, cruzamentos) e 5 roteiros de esboço feitos com o mouse (linha entre quadrantes,
-  quadrante a ponto livre, ponto médio, interseção, polilinha) passam a rodar em toda versão.
+  reduções, esgoto, Aquatherm, cruzamentos) 5 roteiros de esboço feitos com o mouse (linha entre quadrantes,
+  quadrante a ponto livre, ponto médio, interseção, polilinha), uma peça feita do zero pela faixa
+  (extrusão, cavidade, furo, arredondamento, chanfro, padrão, revolução) e 10 esqueletos comuns de estrutura
+  (sem material sobreposto entre barras) passam a rodar em toda versão.
 
 ## 0.9.9 beta — 26/10/2026
 
