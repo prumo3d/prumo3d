@@ -825,14 +825,18 @@ int DrawSketchHandler::seekAutoConstraint(
 
     // Prumo 3D: ponto capturado por um ímã (quadrante, ponto médio, interseção) gera as restrições
     // que mantêm o ponto ali; a pré-seleção do cursor pode estar em outra curva e é ignorada
-    if (!seekKeyPointAutoConstraint(suggestedConstraints, Pos, type)) {
+    const bool keyPoint = seekKeyPointAutoConstraint(suggestedConstraints, Pos, type);
+    if (!keyPoint) {
         seekPreselectionAutoConstraint(suggestedConstraints, Pos, Dir, type);
     }
 
     if (Dir.Length() > 1e-8 && type != AutoConstraint::CURVE) {
         seekAlignmentAutoConstraint(suggestedConstraints, Dir);
 
-        if (type != AutoConstraint::VERTEX_NO_TANGENCY) {
+        // Prumo: ponto preso num ímã já está definido; uma tangência sugerida junto (a linha entre dois
+        // quadrantes costuma passar quase tangente ao círculo) sobra, o diagnóstico acusa redundância e o
+        // FreeCAD descarta TODAS as restrições automáticas, deixando a linha solta
+        if (type != AutoConstraint::VERTEX_NO_TANGENCY && !keyPoint) {
             seekTangentAutoConstraint(suggestedConstraints, Pos, Dir);
         }
     }

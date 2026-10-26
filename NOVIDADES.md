@@ -13,6 +13,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Esboço, linha ligada a pontos-ímã ficava solta:** uma linha entre dois quadrantes (por exemplo, a de baixo
+  de dois círculos) passa quase tangente a um deles; o esboço sugeria também essa tangência, que sobrava
+  junto com os pontos fixos, e o FreeCAD descartava todas as restrições automáticas da linha. Agora ponto
+  capturado por ímã (quadrante, ponto médio, interseção) não ganha tangência sugerida, e a linha sai
+  totalmente definida quando os círculos estão.
 - **Notebook com escala de 150–200 %:** a janela pedia no mínimo ~1500 px de largura (a linha das abas da
   faixa não encolhia, e cresceu com a aba Tubulação), mais que a tela útil, e o Windows avisava "Unable to
   set geometry". Agora as abas rolam com setas quando falta espaço e a janela cabe em telas a partir de
