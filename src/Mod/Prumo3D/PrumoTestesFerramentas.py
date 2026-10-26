@@ -10302,6 +10302,39 @@ class T75RoteirosDoEsboco(unittest.TestCase):
         self.assertTrue(sorted(fim) == [1, 2], (novas, sk.Geometry[-1].StartPoint, sk.Geometry[-1].EndPoint))
         self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints)
 
+    def test_linha_de_construcao_duas_vezes_nao_prende_o_modo(self):
+        # clicar duas vezes em "Linha de construção" e sair: o desenho seguinte tem de ser geometria normal
+        import Part
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        sk.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(100, 0, 0)))
+        self._editar(sk)
+        FreeCADGui.runCommand("Sketcher_CreateConstructionLine", 0)
+        self._esp(200)
+        FreeCADGui.runCommand("Sketcher_CreateConstructionLine", 0)
+        self._esp(200)
+        self._tecla(QtCore.Qt.Key_Escape)          # sai da ferramenta (um Esc a mais fecharia o esboço)
+        self.assertIsNotNone(FreeCADGui.ActiveDocument.getInEdit())
+        self._linha((10.0, 40.0), (90.0, 70.0))
+        self.doc.recompute()
+        self.assertEqual(len(sk.Geometry), 2)
+        self.assertFalse(sk.getConstruction(1), "a linha normal saiu como construção (modo preso)")
+
+    def test_alternar_construcao_nao_passa_para_o_proximo_esboco(self):
+        import Part
+        sk1 = self.doc.addObject("Sketcher::SketchObject", "Primeiro")
+        self._editar(sk1)
+        FreeCADGui.runCommand("Sketcher_ToggleConstruction", 0)     # usuário liga o modo construção
+        self._esp(200)
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(300)
+        sk2 = self.doc.addObject("Sketcher::SketchObject", "Segundo")
+        sk2.addGeometry(Part.LineSegment(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(100, 0, 0)))
+        self._editar(sk2)
+        self._linha((10.0, 40.0), (90.0, 70.0))
+        self.doc.recompute()
+        self.assertEqual(len(sk2.Geometry), 2)
+        self.assertFalse(sk2.getConstruction(1), "o modo construção do esboço anterior passou para este")
+
     def test_polilinha_pelos_quadrantes(self):
         sk = self._circulos()
         self._editar(sk)
@@ -10400,7 +10433,23 @@ class T76RoteiroDaPeca(unittest.TestCase):
                  and o.TypeId not in ("PartDesign::Body",)]
         self.assertTrue(novos, "%s não criou a operação" % cmd)
         f = novos[-1]
-        self.assertFalse("Invalid" in f.State or "Error" in f.State, (cmd, f.State))
+        if "Invalid" in f.State or "Error" in f.State:
+            perfil = getattr(f, "Profile", None)
+            sk = perfil[0] if isinstance(perfil, tuple) else perfil
+            diag = {"cmd": cmd, "estado": f.State, "erro": f.getStatusString() if hasattr(f, "getStatusString") else "",
+                    "props": {k: str(getattr(f, k)) for k in ("Type", "Length", "Reversed", "Midplane")
+                              if k in f.PropertiesList}}
+            if sk is not None and hasattr(sk, "Geometry"):
+                diag["esboco"] = {"geo": [(g.TypeId, str(getattr(g, "StartPoint", "")), str(getattr(g, "EndPoint", "")))
+                                          for g in sk.Geometry],
+                                  "constr": [(c.Type, c.First, c.FirstPos, c.Second, c.SecondPos) for c in sk.Constraints],
+                                  "fios": [(w.isClosed(), len(w.Edges)) for w in sk.Shape.Wires],
+                                  "placement": str(sk.Placement), "suporte": str(sk.AttachmentSupport),
+                                  "construcao": [sk.getConstruction(k) for k in range(len(sk.Geometry))],
+                                  "estado": sk.State, "nulo": sk.Shape.isNull(), "arestas": len(sk.Shape.Edges),
+                                  "status": sk.getStatusString(), "doc_ativo": FreeCAD.ActiveDocument.Name,
+                                  "doc": self.doc.Name, "em_edicao": str(FreeCADGui.ActiveDocument.getInEdit())}
+            self.fail("operação inválida: %r" % diag)
         self.assertTrue(f.Shape.isValid(), cmd)
         return f
 

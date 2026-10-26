@@ -13,6 +13,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Esboço preso no modo construção:** o "Alternar construção" (no menu da Linha) é global no FreeCAD e ficava
+  ligado para os esboços seguintes; o retângulo saía como construção e a extrusão falhava sem explicação.
+  Agora todo esboço abre no modo normal. Clicar duas vezes seguidas em "Linha de construção" também
+  deixava o modo preso; corrigido.
 - **Tubulação, tubos cruzando pelo meio:** dois trechos que se cruzam no mesmo plano, sem que nenhum termine ali,
   agora recebem a cruzeta (antes um atravessava o outro sem peça e sem aviso).
 - **Tubulação, tubos encostados sem conexão:** quando dois tubos se encostam ou se atravessam sem nó em comum

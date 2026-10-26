@@ -224,14 +224,20 @@ bool CmdSketcherCreateLine::isActive()
 class DrawSketchHandlerConstructionLine: public DrawSketchHandlerLine
 {
 public:
+    // Clicar de novo na ferramenta cria a nova antes de destruir a anterior: o modo original é guardado
+    // só pela primeira (contador), senão a segunda guardaria "construção" e o esboço ficaria preso nela.
     DrawSketchHandlerConstructionLine()
-        : previousMode(geometryCreationMode)
     {
+        if (active()++ == 0) {
+            savedMode() = geometryCreationMode;
+        }
         setMode(GeometryCreationMode::Construction);
     }
     ~DrawSketchHandlerConstructionLine() override
     {
-        setMode(previousMode);
+        if (--active() == 0) {
+            setMode(savedMode());
+        }
     }
 
 private:
@@ -243,7 +249,16 @@ private:
             static_cast<int>(mode)
         );
     }
-    GeometryCreationMode previousMode;
+    static int& active()
+    {
+        static int n = 0;
+        return n;
+    }
+    static GeometryCreationMode& savedMode()
+    {
+        static GeometryCreationMode m = GeometryCreationMode::Normal;
+        return m;
+    }
 };
 
 DEF_STD_CMD_A(CmdSketcherCreateConstructionLine)

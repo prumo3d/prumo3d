@@ -48,6 +48,8 @@
 #include <Base/ServiceProvider.h>
 #include <Base/Vector3D.h>
 #include <Gui/Application.h>
+#include <Gui/Command.h>
+#include "GeometryCreationMode.h"
 #include <Gui/BitmapFactory.h>
 #include <Gui/CommandT.h>
 #include <Gui/Control.h>
@@ -86,6 +88,11 @@
 FC_LOG_LEVEL_INIT("Sketch", true, true)
 
 using namespace SketcherGui;
+
+namespace SketcherGui
+{
+extern GeometryCreationMode geometryCreationMode;  // CommandCreateGeo.cpp
+}
 using namespace Sketcher;
 namespace sp = std::placeholders;
 
@@ -3470,6 +3477,15 @@ bool ViewProviderSketch::setEdit(int ModNum)
 
     if(sketch->isFreezed()) {
         return false; // Disallow edit of a frozen sketch
+    }
+
+    // Prumo 3D: todo esboço abre no modo de geometria normal. O "Alternar construção" do FreeCAD é global e
+    // ficava ligado para os esboços seguintes (retângulo saía como construção e a extrusão falhava); a linha
+    // de construção tem ferramenta própria.
+    if (geometryCreationMode != GeometryCreationMode::Normal) {
+        geometryCreationMode = GeometryCreationMode::Normal;
+        Gui::Application::Instance->commandManager().updateCommands(
+            "ToggleConstruction", static_cast<int>(geometryCreationMode));
     }
 
     if (!sketch->evaluateConstraints()) {
