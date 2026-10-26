@@ -10318,6 +10318,184 @@ class T75RoteirosDoEsboco(unittest.TestCase):
         self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints)
 
 
+class T76RoteiroDaPeca(unittest.TestCase):
+    """Roteiro de uma peça do zero, pelos comandos da faixa (como o projetista faz): esboço desenhado com o
+    mouse, extrusão, cavidade, furo, arredondamento, chanfro, padrão e revolução. Cada passo abre o painel em
+    cartões, o OK grava e a peça continua um sólido válido com o volume esperado."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+    _vp = T75RoteirosDoEsboco._vp
+    _tela = T75RoteirosDoEsboco._tela
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelComando as C
+        C.instalar()
+        self.C = C
+        FreeCADGui.activateWorkbench("PartDesignWorkbench")
+        self.doc = novo_doc("PrumoRoteiroPeca")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.body = self.doc.addObject("PartDesign::Body", "Body")
+        FreeCADGui.ActiveDocument.ActiveView.setActiveObject("pdbody", self.body)
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    # ------------------------------------------------ apoio
+    def _mover(self, x, y):
+        vp = self._vp()
+        p = self._tela(x, y)
+        QtWidgets.QApplication.sendEvent(vp, QtGui.QMouseEvent(
+            QtCore.QEvent.MouseMove, QtCore.QPointF(p), QtCore.QPointF(vp.mapToGlobal(p)), QtCore.Qt.NoButton,
+            QtCore.Qt.NoButton, QtCore.Qt.NoModifier))
+        self._esp(0.08)
+
+    def _clicar(self, x, y):
+        for k in range(3):
+            self._mover(x + (2 - k) * 0.5, y + (2 - k) * 0.5)
+        vp = self._vp()
+        p = self._tela(x, y)
+        g = QtCore.QPointF(vp.mapToGlobal(p))
+        for tipo in (QtCore.QEvent.MouseButtonPress, QtCore.QEvent.MouseButtonRelease):
+            bts = QtCore.Qt.LeftButton if tipo == QtCore.QEvent.MouseButtonPress else QtCore.Qt.NoButton
+            QtWidgets.QApplication.sendEvent(vp, QtGui.QMouseEvent(tipo, QtCore.QPointF(p), g, QtCore.Qt.LeftButton,
+                                                                   bts, QtCore.Qt.NoModifier))
+            self._esp(0.12)
+
+    def _esc(self):
+        vp = self._vp()
+        for tipo in (QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease):
+            QtWidgets.QApplication.sendEvent(vp, QtGui.QKeyEvent(tipo, QtCore.Qt.Key_Escape, QtCore.Qt.NoModifier))
+        self._esp(0.2)
+
+    def _comando(self, cmd, *sel):
+        FreeCADGui.Selection.clearSelection()
+        for item in sel:
+            if isinstance(item, tuple):
+                FreeCADGui.Selection.addSelection(self.doc.Name, item[0].Name, item[1])
+            else:
+                FreeCADGui.Selection.addSelection(item)
+        antes = set(o.Name for o in self.doc.Objects)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(1.5)
+        self.assertIsNotNone(FreeCADGui.Control.activeDialog(), "%s: o painel não abriu" % cmd)
+        self.assertEqual(textos_com_problema(self.C.painel()) if self.C.painel() else [], [], cmd)
+        self.assertTrue(self._ok(), cmd)
+        self._esp(0.5)
+        self.doc.recompute()
+        novos = [o for o in self.doc.Objects if o.Name not in antes and o.TypeId.startswith("PartDesign::")
+                 and o.TypeId not in ("PartDesign::Body",)]
+        self.assertTrue(novos, "%s não criou a operação" % cmd)
+        f = novos[-1]
+        self.assertFalse("Invalid" in f.State or "Error" in f.State, (cmd, f.State))
+        self.assertTrue(f.Shape.isValid(), cmd)
+        return f
+
+    def _esboco(self, nome, suporte=None, geos=()):
+        import Part
+        sk = self.body.newObject("Sketcher::SketchObject", nome)
+        if suporte is None:
+            sk.AttachmentSupport = [(self.doc.getObject("XY_Plane") or self.body.Origin.OriginFeatures[3], "")]
+        else:
+            sk.AttachmentSupport = [suporte]
+        sk.MapMode = "FlatFace"
+        for g in geos:
+            sk.addGeometry(g)
+        self.doc.recompute()
+        return sk
+
+    def _face_de_cima(self, feat):
+        zmax = max(f.CenterOfMass.z for f in feat.Shape.Faces)
+        for i, f in enumerate(feat.Shape.Faces):
+            if abs(f.CenterOfMass.z - zmax) < 1e-6 and abs(abs(f.normalAt(0, 0).z) - 1) < 1e-6:
+                return "Face%d" % (i + 1)
+        self.fail("face de cima não encontrada")
+
+    # ------------------------------------------------ roteiro
+    def test_peca_do_zero(self):
+        import math
+        import Part
+        import Sketcher
+        V = FreeCAD.Vector
+        # 1) retângulo 40 × 30 desenhado com o mouse e cotado
+        sk = self._esboco("Base")
+        FreeCADGui.ActiveDocument.setEdit(sk.Name)
+        self._esp(0.8)
+        FreeCADGui.SendMsgToActiveView("ViewFit")
+        v = FreeCADGui.ActiveDocument.ActiveView
+        v.getCameraNode().height.setValue(120)
+        self._esp(0.4)
+        FreeCADGui.runCommand("Sketcher_CreateRectangle", 0)
+        self._esp(0.3)
+        self._clicar(0.0, 0.0)          # canto na origem
+        self._clicar(40.0, 30.0)
+        self._esc()
+        self._esc()
+        self.assertEqual(len(sk.Geometry), 4, "o retângulo não saiu com 4 linhas")
+        sk.addConstraint(Sketcher.Constraint("DistanceX", 0, 1, 0, 2, 40))
+        sk.addConstraint(Sketcher.Constraint("DistanceY", 1, 1, 1, 2, 30))
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(0.4)
+        self.assertTrue(sk.FullyConstrained, "retângulo com canto na origem e duas cotas devia ficar definido")
+        # 2) extrusão (10 mm, o padrão)
+        pad = self._comando("PartDesign_Pad", sk)
+        self.assertAlmostEqual(pad.Shape.Volume, 40 * 30 * float(pad.Length), delta=1e-3)
+        # 3) cavidade circular na face de cima
+        top = self._face_de_cima(pad)
+        sk2 = self._esboco("Bolso", (pad, top), [Part.Circle(V(10, 10, 0), V(0, 0, 1), 4)])
+        vol0 = self.body.Shape.Volume
+        poc = self._comando("PartDesign_Pocket", sk2)
+        self.assertLess(self.body.Shape.Volume, vol0 - 1.0, "a cavidade não tirou material")
+        # 4) furo a partir de um círculo
+        top = self._face_de_cima(poc)
+        sk3 = self._esboco("Furo", (poc, top), [Part.Circle(V(30, 20, 0), V(0, 0, 1), 3)])
+        vol1 = self.body.Shape.Volume
+        self._comando("PartDesign_Hole", sk3)
+        self.assertLess(self.body.Shape.Volume, vol1 - 1.0, "o furo não tirou material")
+        # 5) arredondamento das 4 arestas verticais
+        tip = self.body.Tip
+        verts = ["Edge%d" % (i + 1) for i, e in enumerate(tip.Shape.Edges)
+                 if e.Curve.TypeId == "Part::GeomLine" and abs(abs(e.Curve.Direction.z) - 1) < 1e-9
+                 and e.Length > 9.9 and (abs(e.Vertexes[0].X) < 1e-6 or abs(e.Vertexes[0].X - 40) < 1e-6)
+                 and (abs(e.Vertexes[0].Y) < 1e-6 or abs(e.Vertexes[0].Y - 30) < 1e-6)]
+        self.assertEqual(len(verts), 4, verts)
+        vol2 = self.body.Shape.Volume
+        fil = self._comando("PartDesign_Fillet", *[(tip, n) for n in verts])
+        self.assertLess(self.body.Shape.Volume, vol2, "o arredondamento não mudou a peça")
+        # 6) chanfro numa aresta de cima
+        tip = self.body.Tip
+        zmax = tip.Shape.BoundBox.ZMax
+        cima = ["Edge%d" % (i + 1) for i, e in enumerate(tip.Shape.Edges)
+                if e.Curve.TypeId == "Part::GeomLine" and abs(e.BoundBox.ZMin - zmax) < 1e-6 and e.Length > 20]
+        self.assertTrue(cima)
+        self._comando("PartDesign_Chamfer", (tip, cima[0]))
+        # 7) padrão linear da cavidade
+        self._comando("PartDesign_LinearPattern", poc)
+        # 8) revolução de um perfil separado
+        body2 = self.doc.addObject("PartDesign::Body", "Eixo")
+        FreeCADGui.ActiveDocument.ActiveView.setActiveObject("pdbody", body2)
+        self.body = body2
+        perfil = [Part.LineSegment(V(0, 0, 0), V(10, 0, 0)), Part.LineSegment(V(10, 0, 0), V(10, 20, 0)),
+                  Part.LineSegment(V(10, 20, 0), V(0, 20, 0)), Part.LineSegment(V(0, 20, 0), V(0, 0, 0))]
+        sk4 = self._esboco("Perfil", (body2.Origin.OriginFeatures[4], ""), perfil)
+        rev = self._comando("PartDesign_Revolution", sk4)
+        self.assertGreater(rev.Shape.Volume, 1000.0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -10336,4 +10514,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
-           T75RoteirosDoEsboco]
+           T75RoteirosDoEsboco, T76RoteiroDaPeca]
