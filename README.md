@@ -27,11 +27,11 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.8 beta** (26/10/2026)
+**Versão atual: 0.9.9 beta** (26/10/2026)
 
-- **Esboço:** linha ligada a quadrantes e outros pontos-ímã sai totalmente definida.
-- **Notebook com escala de 150–200 %:** a janela cabe na tela; as abas da faixa rolam quando falta espaço.
+- **Tubulação:** ramal que chega no meio da linha principal ganha o tê (ou a junção, no esgoto).
 
+Na 0.9.8: linha ligada a pontos-ímã do esboço sai definida e a janela cabe em notebook com escala alta.
 Na 0.9.7: atualização automática segura (o instalador espera o Prumo fechar).
 Na 0.9.6: peças com mais volume na vista 3D e medidas da Tubulação conferidas com as fichas da Tigre.
 Na 0.9.5: atualização automática pelo Windows e mensagens de erro em português.
