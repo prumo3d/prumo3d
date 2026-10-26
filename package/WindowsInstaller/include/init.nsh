@@ -125,19 +125,8 @@ Function .onInit
    !define LIBRARY_X64
   ${endif}
 
-  # Check that FreeCAD is not currently running
-  Push $R0
-  Push $R1
-  ${FindProc} $R0 ${BIN_FREECAD}
-  ${FindProc} $R1 ${BIN_FREECADCMD}
-  # if running result is '0', if not running it is '1'
-  ${if} $R0 == "0"
-  ${orif} $R1 == "0"
-   MessageBox MB_OK|MB_ICONSTOP "$(UnInstallRunning)" /SD IDOK
-   Abort
-  ${endif}
-  Pop $R1
-  Pop $R0
+  # Prumo aberto: espera ele fechar (até 60 s) antes de seguir; ver EsperarFecharApp em utils.nsh
+  ${EsperarFecharApp} ini
 
   # initialize the multi-user installer UI
   !insertmacro MULTIUSER_INIT

@@ -311,3 +311,32 @@ FunctionEnd
   Pop ${result}
 !macroend
 !define FindProc `!insertmacro _FindProc`
+
+# Espera o Prumo fechar (a atualização automática abre o instalador logo depois que o usuário aceita
+# fechar o programa, e o processo ainda leva alguns segundos para sair e soltar os arquivos da pasta).
+# Até 60 s; se ainda estiver aberto, pergunta Tentar de novo / Cancelar. Cancelar encerra o instalador
+# sem mexer em nada.
+!macro _EsperarFecharApp ID
+  Push $R0
+  Push $R1
+  Push $R2
+  esperar_inicio_${ID}:
+  StrCpy $R2 0
+  esperar_laco_${ID}:
+    ${FindProc} $R0 ${BIN_FREECAD}
+    ${FindProc} $R1 ${BIN_FREECADCMD}
+    ${if} $R0 != "0"
+    ${andif} $R1 != "0"
+      Goto esperar_fim_${ID}
+    ${endif}
+    Sleep 1000
+    IntOp $R2 $R2 + 1
+    IntCmp $R2 60 0 esperar_laco_${ID} 0
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(UnInstallRunning)" /SD IDCANCEL IDRETRY esperar_inicio_${ID}
+  Quit
+  esperar_fim_${ID}:
+  Pop $R2
+  Pop $R1
+  Pop $R0
+!macroend
+!define EsperarFecharApp `!insertmacro _EsperarFecharApp`

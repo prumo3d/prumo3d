@@ -17,10 +17,15 @@ Section -ProgramFiles SecProgramFiles
   SetDetailsPrint textonly
   ${If} $RemoveInstDir == "true"
     ${DetailPrintToBoth} "Cleaning install folder '$INSTDIR'"
+    # antes de apagar, garante que o Prumo já saiu (senão sobra metade da pasta e a instalação quebra)
+    ${EsperarFecharApp} limpar
+    limpar_pasta:
     ClearErrors
     RMDir /r "$INSTDIR"
     ${If} ${Errors}
-      MessageBox MB_OK|MB_ICONSTOP "$(RMInstDirFailed)" /SD IDOK
+      # algum arquivo ainda preso: espera um pouco e oferece tentar de novo em vez de abortar no meio
+      Sleep 2000
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(RMInstDirFailed)" /SD IDCANCEL IDRETRY limpar_pasta
       Abort
     ${EndIf}
   ${EndIf}

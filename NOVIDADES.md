@@ -9,6 +9,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Atualização automática quebrava a instalação:** da 0.9.5 para a 0.9.6 o instalador abriu (pelo pedido
+  de permissão do Windows), mas o Prumo ainda estava terminando de fechar. O instalador começou a apagar a
+  pasta antiga, encontrou arquivos presos, parou no meio e deixou a instalação incompleta. Agora o
+  instalador espera o Prumo sair de vez (até 60 s) antes de mexer na pasta e, se algum arquivo ainda
+  estiver preso, oferece "Tentar de novo" em vez de abortar.
+
 ## 0.9.6 beta — 25/10/2026
 
 ### Correções
