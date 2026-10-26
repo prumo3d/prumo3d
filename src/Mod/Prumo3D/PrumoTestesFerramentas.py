@@ -9775,6 +9775,23 @@ class T73Preferencias(unittest.TestCase):
         caixa.exec_()
         self.assertEqual(caixa.windowTitle(), "Erro de entrada")
         self.assertIn("Não foi possível fazer a casca", caixa.text())
+    def test_luz_e_acabamento_das_pecas(self):
+        import PrumoEstilo as S
+        S.apply_background(force=True)
+        v = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View")
+        luz = v.GetGroup("LightSources")
+        self.assertEqual(luz.GetString("HeadlightDirection"), S.DIRECOES_LUZ["HeadlightDirection"])
+        self.assertEqual(luz.GetInt("AmbientLightIntensity"), S.LUZES_3D["AmbientLightIntensity"])
+        self.assertTrue(luz.GetBool("EnableBacklight") and luz.GetBool("EnableFillLight"))
+        doc = FreeCAD.newDocument("Luz")
+        try:
+            import Part
+            o = doc.addObject("Part::Feature", "Bloco"); o.Shape = Part.makeBox(10, 10, 10); doc.recompute()
+            m = o.ViewObject.ShapeAppearance[0]
+            self.assertAlmostEqual(m.Shininess, S.BRILHO_PECA / 100.0, places=2, msg="brilho acetinado nas peças novas")
+            self.assertGreater(m.SpecularColor[0], 0.4)
+        finally:
+            FreeCAD.closeDocument(doc.Name)
     def test_aba_tubulacao(self):
         import PrumoRibbon as R
         abas = {t["id"]: t for t in R.TABS}

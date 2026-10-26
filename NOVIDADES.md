@@ -9,6 +9,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Melhorias
+
+- **Peças com mais volume na vista 3D:** iluminação nova, com luz principal de cima, preenchimento da
+  esquerda e uma luz lateral mais fraca da direita, presas à câmera. Cada face fica com um tom e o
+  acabamento padrão das peças novas passou a acetinado, com brilho visível em furos, tubos e
+  arredondamentos. Peças já existentes mantêm o acabamento salvo no arquivo.
+
 ## 0.9.5 beta — 25/10/2026
 
 ### Correções

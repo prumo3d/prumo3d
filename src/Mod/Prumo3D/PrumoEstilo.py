@@ -39,10 +39,20 @@ FUNDO_3D = "#EEF0F3"    # vista 3D, cor única (legado)
 # fundo da vista 3D em degradê suave (topo → base): dá profundidade sem chamar atenção
 DEGRADE_3D = ("#FFFFFF", "#D5DEE8")
 DEGRADE_3D_ESC = ("#2B333D", "#111419")
-# luzes da vista 3D (intensidade em %): principal, contraluz, preenchimento e ambiente
-LUZES_3D = {"HeadlightIntensity": 100, "BacklightIntensity": 60, "FillLightIntensity": 45,
-            "AmbientLightIntensity": 15}
-VISUAL_VERSAO = 3
+# luzes da vista 3D (intensidade em %), presas à câmera: principal de cima e da esquerda, preenchimento
+# da esquerda e de baixo, e a "contraluz" do FreeCAD usada como luz lateral da direita, mais fraca. Assim
+# cada face tem um tom (cima clara, laterais em dois tons) e a peça ganha volume.
+LUZES_3D = {"HeadlightIntensity": 85, "BacklightIntensity": 35, "FillLightIntensity": 45,
+            "AmbientLightIntensity": 22}
+# direção em que a luz anda, no referencial da câmera (x direita, y cima, z para fora da tela)
+DIRECOES_LUZ = {"HeadlightDirection": "(0.3,-0.75,-0.59)", "FillLightDirection": "(0.7,0.2,-0.69)",
+                "BacklightDirection": "(-0.75,0.1,-0.65)"}
+# acabamento padrão das peças novas: brilho acetinado (o padrão do FreeCAD, 90 %, dá um ponto de brilho
+# minúsculo e a peça parece fosca e chapada)
+BRILHO_PECA = 30            # %
+ESPECULAR_PECA = "#737373"  # cor do reflexo (cinza ~45 %)
+AMBIENTE_PECA = "#666666"   # cor sob a luz ambiente (cinza ~40 %)
+VISUAL_VERSAO = 4
 PECA = "#9EBDCA"        # cor padrão das peças (azul acinzentado)
 ARESTA = "#1E2A38"      # arestas das peças
 
@@ -291,6 +301,11 @@ def apply_background(force=False):
     luz.SetBool("EnableFillLight", True)
     for k, val in LUZES_3D.items():
         luz.SetInt(k, val)
+    for k, val in DIRECOES_LUZ.items():
+        luz.SetString(k, val)
+    v.SetInt("DefaultShapeShininess", BRILHO_PECA)
+    v.SetUnsigned("DefaultSpecularColor", _rgba_uint(ESPECULAR_PECA))
+    v.SetUnsigned("DefaultAmbientColor", _rgba_uint(AMBIENTE_PECA))
     p.SetBool("CoresVista2", True)
     p.SetInt("VisualVista", VISUAL_VERSAO)
     p.SetString("TemaFundo", nome_tema)
