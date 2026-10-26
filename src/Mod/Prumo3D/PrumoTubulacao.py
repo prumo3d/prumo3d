@@ -203,7 +203,99 @@ def aplicar_caimento(segs, dns, L, ligado=True):
     return out, avisos
 
 
-def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None, caixas=None):
+def dividir_em_tes(segs, dns, registros=None, pontos=None, caixas=None):
+    """Ramal que termina no meio de outro trecho (ligação em T desenhada sem quebrar a linha principal):
+    divide o trecho principal nesse ponto para o nó receber o tê. Devolve (segs, dns, registros, pontos,
+    caixas, origem), com origem[i] = (trecho original, distância do início dele até o início do pedaço i);
+    as posições de registros e torneiras passam para o pedaço certo."""
+    cortes = {}
+    for i, (a, b) in enumerate(segs):
+        comp = (b - a).Length
+        if comp < 3 * TOL_NO:
+            continue
+        u = (b - a) * (1.0 / comp)
+        for j, (c, d) in enumerate(segs):
+            if j == i:
+                continue
+            for p in (c, d):
+                t = (p - a).dot(u)
+                if TOL_NO < t < comp - TOL_NO and (a + u * t - p).Length < TOL_NO:
+                    lst = cortes.setdefault(i, [])
+                    if all(abs(t - x) > TOL_NO for x in lst):
+                        lst.append(t)
+    if not cortes:
+        return segs, dns, registros, pontos, caixas, [(i, 0.0) for i in range(len(segs))]
+    nsegs, ndns, origem = [], [], []
+    pedacos = {}            # trecho original -> [(índice novo, início, fim)]
+    for i, (a, b) in enumerate(segs):
+        comp = (b - a).Length
+        u = (b - a) * (1.0 / comp) if comp > 0 else FreeCAD.Vector()
+        ts = [0.0] + sorted(cortes.get(i, [])) + [comp]
+        for t0, t1 in zip(ts[:-1], ts[1:]):
+            pedacos.setdefault(i, []).append((len(nsegs), t0, t1))
+            nsegs.append((a + u * t0, a + u * t1))
+            ndns.append(dns[i])
+            origem.append((i, t0))
+
+    def onde(i, pos):
+        for k, t0, t1 in pedacos[i]:
+            if pos <= t1 + 1e-9:
+                return k, pos - t0
+        k, t0, _t1 = pedacos[i][-1]
+        return k, pos - t0
+    nreg = None
+    if registros:
+        nreg = {}
+        for i, lst in registros.items():
+            for pos in lst:
+                k, q = onde(i, pos)
+                nreg.setdefault(k, []).append(q)
+    npon = None
+    if pontos:
+        npon = {}
+        for i, lst in pontos.items():
+            for pos, dr in lst:
+                if pos == "inicio":
+                    k, q = pedacos[i][0][0], pos
+                elif pos == "fim":
+                    k, q = pedacos[i][-1][0], pos
+                else:
+                    k, q = onde(i, pos)
+                npon.setdefault(k, []).append((q, dr))
+    ncx = None
+    if caixas:
+        ncx = {}
+        for (i, ponta), tipo in caixas.items():
+            k = pedacos[i][0][0] if ponta == "inicio" else pedacos[i][-1][0]
+            ncx[(k, ponta)] = tipo
+    return nsegs, ndns, nreg, npon, ncx, origem
+
+
+def _voltar_trechos(res, origem):
+    """Devolve a numeração dos trechos do traçado original nos tubos, nas peças e nos avisos."""
+    if all(o == (i, 0.0) for i, o in enumerate(origem)):
+        return res
+    for t in res.get("tubos", []):
+        t["pedaco"] = t["seg"]
+        t["seg"] = origem[t["seg"]][0]
+    for pc in res.get("pecas", []):
+        pc["trechos"] = sorted(set(origem[n - 1][0] + 1 for n in pc["trechos"]))
+    import re
+    res["avisos"] = [re.sub(r"Trecho (\d+)", lambda m: "Trecho %d" % (origem[int(m.group(1)) - 1][0] + 1)
+                            if int(m.group(1)) - 1 < len(origem) else m.group(0), a) for a in res["avisos"]]
+    return res
+
+
+def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None, caixas=None, origem=None):
+    """Traçado + diâmetros → tubos, conexões (inclusive o tê de um ramal que chega no meio de um trecho),
+    avisos e lista de corte. Ver _montar."""
+    segs, dns, registros, pontos, caixas, org2 = dividir_em_tes(segs, dns, registros, pontos, caixas)
+    if origem is not None:
+        org2 = [(origem[i][0], origem[i][1] + t0) for i, t0 in org2]
+    return _voltar_trechos(_montar(segs, dns, lid, tampar, registros, pontos, caixas), org2)
+
+
+def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None, caixas=None):
     """Traçado + diâmetros → tubos, conexões, avisos e lista de corte (sem geometria).
     registros: {trecho (0…): [distância do início do trecho até o centro do registro, mm]}.
     caixas (esgoto): {(trecho, "inicio"|"fim"): tipo} — a caixa fica no nó dessa ponta e todos os trechos que
@@ -865,15 +957,23 @@ class Tubulacao:
     def calcular(self, obj):
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
+        segs_orig, dns_orig = list(segs), list(dns)      # o painel trabalha com os trechos do traçado
         L = CAT.linha(obj.Linha)
+        # ramal no meio de um trecho: divide antes do caimento, para o ponto do tê descer junto
+        segs, dns, reg, pon, cx, origem = dividir_em_tes(segs, dns, self.registros(obj), self.pontos(obj),
+                                                         self.caixas(obj))
         if L.get("esgoto") and all(d in L["tubos"] for d in dns):
             segs, av = aplicar_caimento(segs, dns, L, bool(getattr(obj, "Caimento", True)))
             avisos += av
-        res = montar(segs, dns, obj.Linha, obj.TamparPontas, self.registros(obj), self.pontos(obj),
-                     self.caixas(obj))
+        res = montar(segs, dns, obj.Linha, obj.TamparPontas, reg, pon, cx, origem=origem)
         res["avisos"] = avisos + res["avisos"]
-        res["segs"] = segs
-        res["dns"] = dns
+        # o painel trabalha com um trecho por linha do traçado: junta de volta os pedaços (já com caimento)
+        juntos = {}
+        for k, (i, _t0) in enumerate(origem):
+            a, b = segs[k]
+            juntos[i] = (juntos[i][0], b) if i in juntos else (a, b)
+        res["segs"] = [juntos.get(i, sg) for i, sg in enumerate(segs_orig)]
+        res["dns"] = dns_orig
         return res
 
     def execute(self, obj):

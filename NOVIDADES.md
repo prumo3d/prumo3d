@@ -9,6 +9,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Tubulação, ramal no meio do trecho sem tê:** quando o ramal terminava no meio da linha principal (desenhada
+  como um trecho só), o tubo do ramal só encostava no principal, sem conexão. Agora a linha principal é
+  dividida nesse ponto e entra o tê (ou a junção, no esgoto); diâmetros, registros, torneiras e caixas
+  continuam com a numeração dos trechos do traçado.
+
 ## 0.9.8 beta — 26/10/2026
 
 ### Correções

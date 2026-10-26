@@ -6900,6 +6900,28 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertTrue(any("só tem tê a 90°" in a for a in t.Avisos), t.Avisos)
 
+    def test_ramal_no_meio_do_trecho_ganha_te(self):
+        import PrumoTubulacao as T
+        # linha principal num trecho só; o ramal termina no meio dela (sem quebra no traçado)
+        e = self._tracado([(0, 0, 0), (2000, 0, 0), (1000, 800, 0), (1000, 0, 0)], quebras=[2])
+        t = T.criar(e, dn=25)
+        self.doc.recompute()
+        self.assertIn("1 × Tê soldável 25 mm", t.Conexoes, t.Avisos)
+        tubos = t.Proxy.ultimo["tubos"]
+        self.assertEqual(sorted(x["seg"] for x in tubos), [0, 0, 1], "pedaços continuam com o número do trecho")
+        self.assertEqual(len(t.Proxy.ultimo["segs"]), 2, "o painel vê os dois trechos do traçado")
+        self.assertTrue(t.Shape.isValid())
+        # diâmetro por trecho e registro continuam valendo com a numeração do traçado
+        t.DiametrosTrechos = ["2: 20"]
+        self.doc.recompute()
+        self.assertTrue(any("Tê de redução" in c or "Bucha" in c or "bucha" in c for c in t.Conexoes), t.Conexoes)
+        # esgoto com caimento: o ponto do tê desce junto com a linha principal
+        t.DiametrosTrechos = []
+        t.Linha = "pvc-esgoto-sn"
+        t.Diametro = "100 mm"
+        self.doc.recompute()
+        self.assertTrue(any("Tê esgoto" in c or "Junção" in c for c in t.Conexoes), (t.Conexoes, t.Avisos))
+        self.assertTrue(t.Shape.isValid())
     def test_juncoes_de_todas_as_bitolas_desenham_valido(self):
         import PrumoTubulacao as T
         import PrumoCatalogoTubos as C
