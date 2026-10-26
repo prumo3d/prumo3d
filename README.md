@@ -27,11 +27,12 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.7 beta** (26/10/2026)
+**Versão atual: 0.9.8 beta** (26/10/2026)
 
-- **Atualização automática segura:** o instalador espera o Prumo fechar de vez antes de trocar os arquivos
-  e oferece "Tentar de novo" se algum arquivo ainda estiver preso.
+- **Esboço:** linha ligada a quadrantes e outros pontos-ímã sai totalmente definida.
+- **Notebook com escala de 150–200 %:** a janela cabe na tela; as abas da faixa rolam quando falta espaço.
 
+Na 0.9.7: atualização automática segura (o instalador espera o Prumo fechar).
 Na 0.9.6: peças com mais volume na vista 3D e medidas da Tubulação conferidas com as fichas da Tigre.
 Na 0.9.5: atualização automática pelo Windows e mensagens de erro em português.
 Na 0.9.4: aba Tubulação com água fria, água quente e esgoto Tigre, torneiras e caixas.
