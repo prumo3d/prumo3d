@@ -30,7 +30,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   reduções, esgoto, Aquatherm, cruzamentos) 5 roteiros de esboço feitos com o mouse (linha entre quadrantes,
   quadrante a ponto livre, ponto médio, interseção, polilinha), uma peça feita do zero pela faixa
   (extrusão, cavidade, furo, arredondamento, chanfro, padrão, revolução) e 10 esqueletos comuns de estrutura
-  (sem material sobreposto entre barras) passam a rodar em toda versão.
+  (sem material sobreposto entre barras) e uma chapa dobrada do zero (base, aba, planificação, DXF) passam a
+  rodar em toda versão, no mesmo programa que vai para a página de versões.
 
 ## 0.9.9 beta — 26/10/2026
 

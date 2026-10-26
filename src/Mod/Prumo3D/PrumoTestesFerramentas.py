@@ -10558,6 +10558,87 @@ class T77RoteirosDaEstrutura(unittest.TestCase):
                 dlg.deleteLater()
 
 
+class T78RoteiroDaChapa(unittest.TestCase):
+    """Roteiro de uma chapa dobrada pelos comandos da faixa: parede base a partir do perfil, aba numa aresta,
+    planificação e DXF. Cada passo abre o painel, o OK grava e o resultado é sólido válido; a planificação
+    fica plana com a espessura da chapa."""
+
+    _esp = T62PainelDeComando._esp
+    _ok = T62PainelDeComando._ok
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        FreeCADGui.activateWorkbench("SMWorkbench")
+        self.doc = novo_doc("PrumoRoteiroChapa")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self._fechar_janelas)
+        self.timer.start()
+
+    def tearDown(self):
+        self.timer.stop()
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def _comando(self, cmd, *sel):
+        FreeCADGui.Selection.clearSelection()
+        for item in sel:
+            if isinstance(item, tuple):
+                FreeCADGui.Selection.addSelection(self.doc.Name, item[0].Name, item[1])
+            else:
+                FreeCADGui.Selection.addSelection(item)
+        antes = set(o.Name for o in self.doc.Objects)
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(2.0)
+        self.assertIsNotNone(FreeCADGui.Control.activeDialog(), "%s: o painel não abriu" % cmd)
+        self.assertTrue(self._ok(), cmd)
+        self._esp(0.8)
+        self.doc.recompute()
+        novos = [o for o in self.doc.Objects if o.Name not in antes and hasattr(o, "Shape")]
+        self.assertTrue(novos, "%s não criou nada" % cmd)
+        f = novos[-1]
+        self.assertTrue(f.Shape.isValid() and f.Shape.Volume > 0, cmd)
+        self.assertFalse("Invalid" in f.State or "Error" in f.State, (cmd, f.State))
+        return f
+
+    def test_chapa_dobrada_do_zero(self):
+        import Part
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Perfil")
+        sk.Placement = FreeCAD.Placement(V(), FreeCAD.Rotation(V(1, 0, 0), 90))
+        for a, b in (((0, 40), (0, 0)), ((0, 0), (100, 0)), ((100, 0), (100, 40))):
+            sk.addGeometry(Part.LineSegment(V(a[0], a[1], 0), V(b[0], b[1], 0)))
+        self.doc.recompute()
+        base = self._comando("SheetMetal_AddBase", sk)
+        self.assertGreaterEqual(len([f for f in base.Shape.Faces if f.Surface.__class__.__name__ == "Cylinder"]), 4,
+                                "perfil em U devia ter duas dobras")
+        zmax = base.Shape.BoundBox.ZMax
+        cima = [i for i, e in enumerate(base.Shape.Edges)
+                if abs(e.BoundBox.ZMin - zmax) < 1e-6 and e.BoundBox.XMax < 5 and e.Length > 5]
+        self.assertTrue(cima, "aresta de cima da aba não encontrada")
+        aba = self._comando("SheetMetal_AddWall", (base, "Edge%d" % (cima[0] + 1)))
+        self.assertGreater(aba.Shape.Volume, base.Shape.Volume)
+        maior = max(range(len(aba.Shape.Faces)), key=lambda i: aba.Shape.Faces[i].Area)
+        plan = self._comando("SheetMetal_Unfold", (aba, "Face%d" % (maior + 1)))
+        bb = plan.Shape.BoundBox
+        esp = float(getattr(base, "Thickness", 0) or 0)
+        self.assertAlmostEqual(min(bb.XLength, bb.YLength, bb.ZLength), esp, places=2, msg="planificação não é plana")
+        self.assertAlmostEqual(plan.Shape.Volume, aba.Shape.Volume, delta=0.02 * aba.Shape.Volume)
+        # DXF da planificação
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(aba)
+        FreeCADGui.runCommand("Prumo_ChapaDXF", 0)
+        self._esp(1.5)
+        self.assertIsNotNone(FreeCADGui.Control.activeDialog(), "Planificar em DXF não abriu o painel")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -10576,4 +10657,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
-           T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura]
+           T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
+           T78RoteiroDaChapa]
