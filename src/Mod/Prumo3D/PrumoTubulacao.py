@@ -223,6 +223,35 @@ def dividir_em_tes(segs, dns, registros=None, pontos=None, caixas=None):
                     lst = cortes.setdefault(i, [])
                     if all(abs(t - x) > TOL_NO for x in lst):
                         lst.append(t)
+    # dois trechos que se cruzam pelo meio (nenhum termina ali): divide os dois, e o nó recebe a cruzeta
+    for i in range(len(segs)):
+        a, b = segs[i]
+        li = (b - a).Length
+        if li < 3 * TOL_NO:
+            continue
+        ui = (b - a) * (1.0 / li)
+        for j in range(i + 1, len(segs)):
+            c, d = segs[j]
+            lj = (d - c).Length
+            if lj < 3 * TOL_NO:
+                continue
+            uj = (d - c) * (1.0 / lj)
+            n = ui.cross(uj)
+            if n.Length < 1e-6:
+                continue                    # paralelos
+            w = a - c
+            bb = ui.dot(uj)
+            den = 1.0 - bb * bb
+            ti = (bb * uj.dot(w) - ui.dot(w)) / den
+            tj = (uj.dot(w) - bb * ui.dot(w)) / den
+            if not (TOL_NO < ti < li - TOL_NO and TOL_NO < tj < lj - TOL_NO):
+                continue
+            if ((a + ui * ti) - (c + uj * tj)).Length > TOL_NO:
+                continue                    # passam um por cima do outro, sem se tocar
+            for k, t in ((i, ti), (j, tj)):
+                lst = cortes.setdefault(k, [])
+                if all(abs(t - x) > TOL_NO for x in lst):
+                    lst.append(t)
     if not cortes:
         return segs, dns, registros, pontos, caixas, [(i, 0.0) for i in range(len(segs))]
     nsegs, ndns, origem = [], [], []
@@ -292,7 +321,57 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None,
     segs, dns, registros, pontos, caixas, org2 = dividir_em_tes(segs, dns, registros, pontos, caixas)
     if origem is not None:
         org2 = [(origem[i][0], origem[i][1] + t0) for i, t0 in org2]
-    return _voltar_trechos(_montar(segs, dns, lid, tampar, registros, pontos, caixas), org2)
+    res = _voltar_trechos(_montar(segs, dns, lid, tampar, registros, pontos, caixas), org2)
+    res["avisos"] += _interferencias(segs, dns, lid, org2)
+    return res
+
+
+def _dist_segmentos(a, b, c, d):
+    """Menor distância entre os segmentos ab e cd (3D)."""
+    u, v, w = b - a, d - c, a - c
+    A, B, C, D, E = u.dot(u), u.dot(v), v.dot(v), u.dot(w), v.dot(w)
+    den = A * C - B * B
+    sN, sD, tN, tD = 0.0, den, 0.0, den
+    if den < 1e-9:
+        sN, sD, tN, tD = 0.0, 1.0, E, C
+    else:
+        sN, tN = B * E - C * D, A * E - B * D
+        if sN < 0:
+            sN, tN, tD = 0.0, E, C
+        elif sN > sD:
+            sN, tN, tD = sD, E + B, C
+    if tN < 0:
+        tN = 0.0
+        sN, sD = (0.0, sD) if -D < 0 else ((sD, sD) if -D > A else (-D, A))
+    elif tN > tD:
+        tN = tD
+        sN, sD = (0.0, sD) if (-D + B) < 0 else ((sD, sD) if (-D + B) > A else (-D + B, A))
+    sc = 0.0 if abs(sN) < 1e-12 else sN / sD
+    tc = 0.0 if abs(tN) < 1e-12 else tN / tD
+    return ((w + u * sc) - v * tc).Length
+
+
+def _interferencias(segs, dns, lid, origem):
+    """Tubos que se encostam ou se atravessam sem conexão entre eles (trechos sem nó em comum)."""
+    L = CAT.linha(lid)
+    nos, lig = _nos(segs)
+    av = []
+    vistos = set()
+    for i in range(len(segs)):
+        for j in range(i + 1, len(segs)):
+            if set(lig[i]) & set(lig[j]):
+                continue
+            ti, tj = L["tubos"].get(dns[i]), L["tubos"].get(dns[j])
+            if not ti or not tj:
+                continue
+            folga = _dist_segmentos(segs[i][0], segs[i][1], segs[j][0], segs[j][1]) - (ti["De"] + tj["De"]) / 2.0
+            if folga < 0:
+                par = tuple(sorted((origem[i][0] + 1, origem[j][0] + 1)))
+                if par[0] != par[1] and par not in vistos:
+                    vistos.add(par)
+                    av.append("Trechos %d e %d se encostam ou se atravessam sem conexão (sobreposição de %.0f mm): "
+                              "ligue-os num ponto ou afaste-os." % (par[0], par[1], -folga))
+    return av
 
 
 def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None, caixas=None):
@@ -457,8 +536,9 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     conexoes.append(_rec(rot, "%s %s %s" % (rot, suf, nome_dn(D)), P, pern, L["corpo"][D], extras))
                     break
             else:
-                avisos.append("Nó %d: ângulo de %.1f° entre os trechos %d e %d não tem conexão no catálogo "
-                              "(use 90° ou 45°)." % (k + 1, 180.0 - desvio, s1 + 1, s2 + 1))
+                avisos.append("Nó %d: a linha muda de direção em %.0f° entre os trechos %d e %d e não há "
+                              "conexão para isso no catálogo (use curvas de 90° ou 45°)."
+                              % (k + 1, desvio, s1 + 1, s2 + 1))
                 recuo[(s1, p1)] = recuo[(s2, p2)] = 0.0
             continue
         if n == 3:

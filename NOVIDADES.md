@@ -9,6 +9,22 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Tubulação, tubos cruzando pelo meio:** dois trechos que se cruzam no mesmo plano, sem que nenhum termine ali,
+  agora recebem a cruzeta (antes um atravessava o outro sem peça e sem aviso).
+- **Tubulação, tubos encostados sem conexão:** quando dois tubos se encostam ou se atravessam sem nó em comum
+  (por exemplo, cruzando a poucos milímetros de altura), aparece o aviso com os trechos e a sobreposição.
+- **Aviso de curva sem peça mais claro:** "a linha muda de direção em 60°" no lugar do ângulo entre os trechos.
+
+### Testes
+
+- **Roteiros de uso automáticos:** 17 traçados comuns de tubulação (T pela ponta e pelo meio, cruzeta, joelhos,
+  reduções, esgoto, Aquatherm, cruzamentos) e 5 roteiros de esboço feitos com o mouse (linha entre quadrantes,
+  quadrante a ponto livre, ponto médio, interseção, polilinha) passam a rodar em toda versão.
+
 ## 0.9.9 beta — 26/10/2026
 
 ### Correções

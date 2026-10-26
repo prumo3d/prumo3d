@@ -14,9 +14,9 @@ import FreeCAD
 import FreeCADGui
 
 try:
-    from PySide import QtCore, QtWidgets
+    from PySide import QtCore, QtGui, QtWidgets
 except ImportError:  # pragma: no cover
-    QtCore = QtWidgets = None
+    QtCore = QtGui = QtWidgets = None
 
 
 # ======================================================================= modelos de teste
@@ -6670,7 +6670,7 @@ class T53Tubulacao(unittest.TestCase):
         t.DiametrosTrechos = []
         self.doc.recompute()
         self.assertEqual(t.Conexoes, [])
-        self.assertTrue(any("ângulo" in a for a in t.Avisos))
+        self.assertTrue(any("muda de direção" in a for a in t.Avisos), t.Avisos)
 
     def test_trecho_longo_emenda_e_continuo(self):
         import PrumoTubulacao as T
@@ -6900,6 +6900,61 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertTrue(any("só tem tê a 90°" in a for a in t.Avisos), t.Avisos)
 
+    def test_cenarios_comuns_de_tracado(self):
+        """Roteiro de uso: os traçados que um projetista desenha no dia a dia saem com a peça certa,
+        sólido válido e sem aviso indevido (ou com o aviso certo)."""
+        import PrumoTubulacao as T
+        V = FreeCAD.Vector
+
+        def S(a, b):
+            return (V(*a), V(*b))
+        casos = [
+            # nome, trechos, diâmetros, linha, conexões esperadas, trecho do aviso esperado (ou None)
+            ("T pela ponta", [S((0, 0, 0), (1000, 0, 0)), S((1000, 0, 0), (2000, 0, 0)),
+                              S((1000, 0, 0), (1000, 800, 0))], [25] * 3, None, ["Tê soldável 25 mm"], None),
+            ("T no meio", [S((0, 0, 0), (2000, 0, 0)), S((1000, 800, 0), (1000, 0, 0))], [25] * 2, None,
+             ["Tê soldável 25 mm"], None),
+            ("T no meio, ramal saindo", [S((0, 0, 0), (2000, 0, 0)), S((1000, 0, 0), (1000, 800, 0))], [25] * 2,
+             None, ["Tê soldável 25 mm"], None),
+            ("dois ramais no meio", [S((0, 0, 0), (2000, 0, 0)), S((1000, 800, 0), (1000, 0, 0)),
+                                     S((1000, -800, 0), (1000, 0, 0))], [25] * 3, None,
+             ["Cruzeta soldável 25 mm"], None),
+            ("X cruzando", [S((0, 0, 0), (2000, 0, 0)), S((1000, -800, 0), (1000, 800, 0))], [25] * 2, None,
+             ["Cruzeta soldável 25 mm"], None),
+            ("dois T no mesmo trecho", [S((0, 0, 0), (3000, 0, 0)), S((1000, 800, 0), (1000, 0, 0)),
+                                        S((2000, 800, 0), (2000, 0, 0))], [25] * 3, None,
+             ["Tê soldável 25 mm", "Tê soldável 25 mm"], None),
+            ("T subindo (3D)", [S((0, 0, 0), (2000, 0, 0)), S((1000, 0, 0), (1000, 0, 1000))], [25] * 2, None,
+             ["Tê soldável 25 mm"], None),
+            ("joelho 90", [S((0, 0, 0), (1000, 0, 0)), S((1000, 0, 0), (1000, 1000, 0))], [25] * 2, None,
+             ["Joelho 90° soldável 25 mm"], None),
+            ("joelho 45", [S((0, 0, 0), (1000, 0, 0)), S((1000, 0, 0), (1700, 700, 0))], [25] * 2, None,
+             ["Joelho 45° soldável 25 mm"], None),
+            ("redução em linha", [S((0, 0, 0), (1000, 0, 0)), S((1000, 0, 0), (2000, 0, 0))], [32, 25], None,
+             ["Luva de redução soldável 32 × 25"], None),
+            ("T de redução no meio", [S((0, 0, 0), (2000, 0, 0)), S((1000, 800, 0), (1000, 0, 0))], [32, 25],
+             None, ["Tê de redução soldável 32 × 25"], None),
+            ("esgoto: T no meio", [S((0, 0, 0), (2000, 0, 0)), S((1000, 800, 0), (1000, 0, 0))], [100, 100],
+             "pvc-esgoto-sn", ["Tê esgoto série normal DN 100"], None),
+            ("esgoto: junção no meio", [S((0, 0, 0), (2000, 0, 0)), S((300, 700, 0), (1000, 0, 0))], [100, 100],
+             "pvc-esgoto-sn", ["Junção simples esgoto série normal DN 100"], None),
+            ("Aquatherm: T no meio", [S((0, 0, 0), (2000, 0, 0)), S((1000, 800, 0), (1000, 0, 0))], [22, 22],
+             "cpvc-aquatherm", ["Tê Aquatherm 22 mm"], None),
+            ("curva de 60° avisa", [S((0, 0, 0), (1000, 0, 0)), S((1000, 0, 0), (1500, 866, 0))], [25] * 2, None,
+             [], "muda de direção em 60°"),
+            ("cruzam por cima sem tocar", [S((0, 0, 0), (2000, 0, 0)), S((1000, -800, 100), (1000, 800, 100))],
+             [25] * 2, None, [], None),
+            ("encostam sem conexão avisa", [S((0, 0, 0), (2000, 0, 0)), S((1000, -800, 15), (1000, 800, 15))],
+             [25] * 2, None, [], "se encostam"),
+        ]
+        for nome, segs, dns, lid, esperado, aviso in casos:
+            r = T.montar(segs, dns, lid or "pvc-soldavel-af")
+            self.assertEqual(sorted(c["desc"] for c in r["conexoes"]), sorted(esperado), (nome, r["avisos"]))
+            self.assertTrue(T.forma(r).isValid(), nome)
+            if aviso:
+                self.assertTrue(any(aviso in a for a in r["avisos"]), (nome, r["avisos"]))
+            else:
+                self.assertFalse(r["avisos"], nome)
     def test_ramal_no_meio_do_trecho_ganha_te(self):
         import PrumoTubulacao as T
         # linha principal num trecho só; o ramal termina no meio dela (sem quebra no traçado)
@@ -10088,6 +10143,181 @@ class T74MaisSolidosEmCartoes(unittest.TestCase):
         self.assertAlmostEqual(ob[0].Shape.Volume, 3.141592653589793 * 100 * 40, delta=1.0)
 
 
+class T75RoteirosDoEsboco(unittest.TestCase):
+    """Roteiros de uso do esboço com o mouse de verdade (ferramenta de linha clicando em pontos-ímã):
+    o que o projetista faz no dia a dia tem de sair definido, sem ele precisar conferir."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not FreeCAD.GuiUp or "Sketcher_CreateConstructionLine" not in FreeCADGui.listCommands():
+            raise unittest.SkipTest("precisa do esboço compilado do Prumo (pontos-ímã)")
+
+    def setUp(self):
+        self.doc = FreeCAD.newDocument("RoteiroEsboco")
+
+    def tearDown(self):
+        try:
+            self._tecla(QtCore.Qt.Key_Escape)
+            if FreeCADGui.ActiveDocument and FreeCADGui.ActiveDocument.getInEdit():
+                FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        FreeCAD.closeDocument(self.doc.Name)
+
+    # ------------------------------------------------ mouse e teclado na vista
+    def _esp(self, ms=150):
+        t = time.time()
+        while time.time() - t < ms / 1000.0:
+            FreeCADGui.updateGui()
+            QtCore.QThread.msleep(10)
+
+    def _vp(self):
+        return FreeCADGui.ActiveDocument.ActiveView.graphicsView().viewport()
+
+    def _tela(self, x, y):
+        v = FreeCADGui.ActiveDocument.ActiveView
+        px, py = v.getPointOnViewport(FreeCAD.Vector(x, y, 0))
+        return QtCore.QPoint(int(round(px)), int(round(self._vp().height() - py)))
+
+    def _mover(self, x, y):
+        vp = self._vp()
+        p = self._tela(x, y)
+        ev = QtGui.QMouseEvent(QtCore.QEvent.MouseMove, QtCore.QPointF(p), QtCore.QPointF(vp.mapToGlobal(p)),
+                               QtCore.Qt.NoButton, QtCore.Qt.NoButton, QtCore.Qt.NoModifier)
+        QtWidgets.QApplication.sendEvent(vp, ev)
+        self._esp(80)
+
+    def _clicar(self, x, y):
+        for k in range(4):                      # chega perto aos poucos, como o mouse de verdade
+            self._mover(x + (3 - k) * 0.4, y + (3 - k) * 0.4)
+        self._mover(x, y)
+        vp = self._vp()
+        p = self._tela(x, y)
+        g = QtCore.QPointF(vp.mapToGlobal(p))
+        for tipo in (QtCore.QEvent.MouseButtonPress, QtCore.QEvent.MouseButtonRelease):
+            bts = QtCore.Qt.LeftButton if tipo == QtCore.QEvent.MouseButtonPress else QtCore.Qt.NoButton
+            QtWidgets.QApplication.sendEvent(vp, QtGui.QMouseEvent(tipo, QtCore.QPointF(p), g, QtCore.Qt.LeftButton,
+                                                                   bts, QtCore.Qt.NoModifier))
+            self._esp(120)
+
+    def _tecla(self, k):
+        vp = self._vp()
+        for tipo in (QtCore.QEvent.KeyPress, QtCore.QEvent.KeyRelease):
+            QtWidgets.QApplication.sendEvent(vp, QtGui.QKeyEvent(tipo, k, QtCore.Qt.NoModifier))
+        self._esp(150)
+
+    def _editar(self, sk):
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(sk.Name)
+        self._esp(600)
+        FreeCADGui.SendMsgToActiveView("ViewFit")
+        self._esp(400)
+
+    def _linha(self, p1, p2, cmd="Sketcher_CreateLine"):
+        FreeCADGui.runCommand(cmd, 0)
+        self._esp(300)
+        self._clicar(*p1)
+        self._clicar(*p2)
+        self._esp(200)
+        self._tecla(QtCore.Qt.Key_Escape)
+
+    def _circulos(self, definidos=True):
+        import Part
+        import Sketcher
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        V, Z = FreeCAD.Vector, FreeCAD.Vector(0, 0, 1)
+        c1 = sk.addGeometry(Part.Circle(V(-150, 0, 0), Z, 50))
+        c2 = sk.addGeometry(Part.Circle(V(-150, 0, 0), Z, 30))
+        c3 = sk.addGeometry(Part.Circle(V(0, 0, 0), Z, 35))
+        c4 = sk.addGeometry(Part.Circle(V(0, 0, 0), Z, 15))
+        if definidos:
+            C = Sketcher.Constraint
+            for c in (C("Coincident", c1, 3, c2, 3), C("Coincident", c3, 3, -1, 1), C("Coincident", c4, 3, -1, 1),
+                      C("PointOnObject", c1, 3, -1), C("DistanceX", c1, 3, -1, 1, 150)):
+                sk.addConstraint(c)
+            for g, d in ((c1, 100), (c2, 60), (c3, 70), (c4, 30)):
+                sk.addConstraint(C("Diameter", g, d))
+        return sk
+
+    def _novas(self, sk, nc):
+        return [(c.Type, c.First, c.FirstPos, c.Second) for c in sk.Constraints[nc:]]
+
+    # ------------------------------------------------ roteiros
+    def test_linha_entre_quadrantes_de_circulos_definidos_fica_definida(self):
+        sk = self._circulos()
+        self._editar(sk)
+        nc = len(sk.Constraints)
+        self._linha((-150.4, -50.6), (0.5, -35.4))
+        self.doc.recompute()
+        g = sk.Geometry[-1]
+        self.assertAlmostEqual(g.StartPoint.x, -150.0, 3)
+        self.assertAlmostEqual(g.StartPoint.y, -50.0, 3)
+        self.assertAlmostEqual(g.EndPoint.y, -35.0, 3)
+        self.assertEqual(len(sk.Constraints) - nc, 4, self._novas(sk, nc))
+        self.assertTrue(sk.FullyConstrained, self._novas(sk, nc))
+        self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints)
+
+    def test_linha_entre_quadrantes_de_cima_alinhados(self):
+        # dois círculos iguais: a linha pelos quadrantes de cima é horizontal e tangente aos dois
+        import Part
+        import Sketcher
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        V, Z, C = FreeCAD.Vector, FreeCAD.Vector(0, 0, 1), Sketcher.Constraint
+        a = sk.addGeometry(Part.Circle(V(0, 0, 0), Z, 30))
+        b = sk.addGeometry(Part.Circle(V(120, 0, 0), Z, 30))
+        for c in (C("Coincident", a, 3, -1, 1), C("PointOnObject", b, 3, -1), C("DistanceX", -1, 1, b, 3, 120),
+                  C("Diameter", a, 60), C("Equal", a, b)):
+            sk.addConstraint(c)
+        self._editar(sk)
+        nc = len(sk.Constraints)
+        self._linha((0.4, 30.5), (120.4, 30.5))
+        self.doc.recompute()
+        self.assertGreater(len(sk.Constraints), nc, "a linha ficou sem nenhuma restrição")
+        self.assertTrue(sk.FullyConstrained, self._novas(sk, nc))
+        self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints, self._novas(sk, nc))
+
+    def test_linha_do_quadrante_a_ponto_livre(self):
+        sk = self._circulos()
+        self._editar(sk)
+        nc = len(sk.Constraints)
+        self._linha((-150.4, -50.6), (-60.0, -80.0))
+        self.doc.recompute()
+        tipos = sorted(t for t, _f, pos, _s in self._novas(sk, nc) if pos == 1)
+        self.assertEqual(tipos, ["PointOnObject", "Vertical"], self._novas(sk, nc))
+
+    def test_linha_no_ponto_medio_e_na_intersecao(self):
+        import Part
+        sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        V = FreeCAD.Vector
+        sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(100, 0, 0)))
+        sk.addGeometry(Part.LineSegment(V(60, -40, 0), V(60, 90, 0)))
+        sk.addGeometry(Part.LineSegment(V(0, 60, 0), V(100, 60, 0)))
+        self._editar(sk)
+        nc = len(sk.Constraints)
+        self._linha((50.3, 0.4), (60.4, 59.6))     # ponto médio da 1ª linha -> interseção das outras duas
+        self.doc.recompute()
+        novas = self._novas(sk, nc)
+        self.assertIn("Symmetric", [t for t, *_r in novas], novas)
+        fim = [s for t, f, pos, s in novas if t == "PointOnObject" and pos == 2]
+        self.assertTrue(sorted(fim) == [1, 2], (novas, sk.Geometry[-1].StartPoint, sk.Geometry[-1].EndPoint))
+        self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints)
+
+    def test_polilinha_pelos_quadrantes(self):
+        sk = self._circulos()
+        self._editar(sk)
+        nc = len(sk.Constraints)
+        FreeCADGui.runCommand("Sketcher_CreatePolyline", 0)
+        self._esp(300)
+        for p in ((-150.4, -50.6), (0.5, -35.4), (35.4, 0.5)):
+            self._clicar(*p)
+        self._tecla(QtCore.Qt.Key_Escape)
+        self._tecla(QtCore.Qt.Key_Escape)
+        self.doc.recompute()
+        self.assertGreaterEqual(len(sk.Geometry), 6)
+        self.assertTrue(sk.FullyConstrained, self._novas(sk, nc))
+        self.assertFalse(sk.RedundantConstraints or sk.ConflictingConstraints)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -10105,4 +10335,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T62PainelDeComando, T63FerramentasDePontaAPonta, T64TextosNasTelas,
            T65MaisPaineisDeComando, T66PainelDeVistas, T67CorteEDetalhe,
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
-           T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes]
+           T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
+           T75RoteirosDoEsboco]
