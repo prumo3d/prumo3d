@@ -27,12 +27,12 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.6 beta** (25/10/2026)
+**Versão atual: 0.9.7 beta** (26/10/2026)
 
-- **Peças com mais volume na vista 3D:** luz de três pontos presa à câmera e acabamento acetinado.
-- **Tubulação com medidas conferidas:** junção a 45° de esgoto corrigida, joelho 45° Aquatherm, caixas e
-  buchas conferidos com as fichas da Tigre.
+- **Atualização automática segura:** o instalador espera o Prumo fechar de vez antes de trocar os arquivos
+  e oferece "Tentar de novo" se algum arquivo ainda estiver preso.
 
+Na 0.9.6: peças com mais volume na vista 3D e medidas da Tubulação conferidas com as fichas da Tigre.
 Na 0.9.5: atualização automática pelo Windows e mensagens de erro em português.
 Na 0.9.4: aba Tubulação com água fria, água quente e esgoto Tigre, torneiras e caixas.
 Na 0.9.2: comandos em cartões em todas as abas, Preferências do Prumo e atualização com barra de progresso.
