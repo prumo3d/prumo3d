@@ -358,6 +358,10 @@ RIBBON_QSS = """
     color: #003A70; background: #FFFFFF; font-weight: 600;
     border-top: 3px solid #F7BE00; border-left: 1px solid #DCE4EC; border-right: 1px solid #DCE4EC;
 }
+#PrumoTabRow QTabBar QToolButton { background: #FFFFFF; border: 1px solid #C9D5E2; border-radius: 4px;
+    width: 18px; margin: 5px 1px; padding: 0; }
+#PrumoTabRow QTabBar QToolButton:hover { background: #EAF1F8; border-color: #7FA3C9; }
+#PrumoTabRow QTabBar QToolButton:disabled { background: #F5F8FC; border-color: #E3EAF2; }
 #PrumoBrand { color: #003A70; font-weight: 700; font-size: 10.5pt; padding: 0 14px 0 8px; }
 #PrumoContent { background: #FFFFFF; border: none; border-bottom: 1px solid #DCE4EC; }
 #PrumoContent > QWidget, #PrumoPage, #PrumoCol { background: #FFFFFF; }
@@ -1003,9 +1007,11 @@ class PrumoRibbon(QtWidgets.QWidget):
         self.tabbar = QtWidgets.QTabBar()
         self.tabbar.setDrawBase(False)
         self.tabbar.setExpanding(False)
-        self.tabbar.setUsesScrollButtons(False)
+        # tela estreita (notebook com escala de 150–200 %): as abas rolam em vez de impor largura mínima à
+        # janela (sem isso a janela pedia ~1500 px e o Windows não conseguia encaixá-la na tela)
+        self.tabbar.setUsesScrollButtons(True)
         self.tabbar.setElideMode(QtCore.Qt.ElideNone)
-        self.tabbar.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.tabbar.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
         self.tabbar.setFocusPolicy(QtCore.Qt.NoFocus)
         for t in self._tabs:
             self.tabbar.addTab(t["label"])

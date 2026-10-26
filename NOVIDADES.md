@@ -9,6 +9,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Notebook com escala de 150–200 %:** a janela pedia no mínimo ~1500 px de largura (a linha das abas da
+  faixa não encolhia, e cresceu com a aba Tubulação), mais que a tela útil, e o Windows avisava "Unable to
+  set geometry". Agora as abas rolam com setas quando falta espaço e a janela cabe em telas a partir de
+  ~600 px de largura.
+
 ## 0.9.7 beta — 26/10/2026
 
 ### Correções
