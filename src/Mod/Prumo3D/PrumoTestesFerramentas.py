@@ -6699,10 +6699,15 @@ class T53Tubulacao(unittest.TestCase):
         self.assertIn(25, L["cruzeta"])
         self.assertNotIn(20, L["cruzeta"], "a 'cruzeta de 20' da tabela de 2008 é a de 25 (código 22090259)")
         self.assertAlmostEqual(L["densidade"], 1430.0)
-        # tê de 110 com ramal de 85: não há tê de redução, entra a bucha curta 110 × 85 (medida duvidosa)
+        # bucha curta 110 × 85: o erro de impressão (A = 31) foi trocado pela ficha do produto (49 mm)
+        self.assertAlmostEqual(L["bucha_curta"][(110, 85)], 49.0)
+        self.assertAlmostEqual(L["bucha_longa"][(75, 50)], 86.0)
+        self.assertFalse(L["a_conferir"])
         segs = [(V(0, 0, 0), V(1000, 0, 0)), (V(1000, 0, 0), V(2000, 0, 0)), (V(1000, 0, 0), V(1000, 800, 0))]
         r = T.montar(segs, [110, 110, 85])
-        self.assertTrue(any("110 × 85" in a and "conferir" in a for a in r["avisos"]), r["avisos"])
+        self.assertFalse(any("conferir" in a for a in r["avisos"]), r["avisos"])
+        # dado ainda duvidoso avisa: conector Aquatherm 28 × 1"
+        self.assertIsNotNone(C.a_conferir(C.linha("cpvc-aquatherm"), "luva_bucha", 28))
         # um tê sem medida duvidosa não avisa nada
         r = T.montar(segs, [50, 50, 50])
         self.assertFalse(r["avisos"])
@@ -6854,11 +6859,11 @@ class T53Tubulacao(unittest.TestCase):
         e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(2000, 0, 0), FreeCAD.Vector(2000, 2000, 0)]
         self.doc.recompute()
         self.assertTrue(any("4.2.3.3" in a for a in t.Avisos), t.Avisos)
-        # joelho 45°: medida marcada a conferir
+        # joelho 45°: medida conferida pela geometria (sem aviso)
         e.Pontos = [FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(2000, 0, 0), FreeCAD.Vector(3000, 1000, 0)]
         self.doc.recompute()
         self.assertIn("1 × Joelho 45° esgoto série normal DN 75", t.Conexoes)
-        self.assertTrue(any("conferir" in a for a in t.Avisos), t.Avisos)
+        self.assertFalse(any("conferir" in a for a in t.Avisos), t.Avisos)
         # água fria de novo: diâmetros da linha soldável
         t.Linha = C.PADRAO
         self.doc.recompute()
@@ -6880,8 +6885,10 @@ class T53Tubulacao(unittest.TestCase):
         cortes = {x["seg"]: x["corte"] for x in t.Proxy.ultimo["tubos"]}
         self.assertAlmostEqual(cortes[0], 1000 - (A - Cj - b), delta=1.0)     # montante: lado comprido
         self.assertAlmostEqual(cortes[1], 1000 - (Cj - b), delta=1.0)         # jusante: lado curto (C)
-        self.assertAlmostEqual(cortes[2], (700 ** 2 * 2) ** 0.5 - (c - b), delta=1.0)
-        self.assertTrue(any("junção" in a.lower() and "conferir" in a for a in t.Avisos), t.Avisos)
+        # ramal: c vai até o fundo da bolsa, então o tubo para exatamente a c do encontro dos eixos
+        self.assertAlmostEqual(cortes[2], (700 ** 2 * 2) ** 0.5 - c, delta=1.0)
+        self.assertAlmostEqual(A - Cj, c + b, delta=0.5, msg="montante = ramal na junção de diâmetros iguais")
+        self.assertFalse(any("conferir" in a for a in t.Avisos), t.Avisos)
         self.assertTrue(t.Shape.isValid())
         # ramal de 75 numa linha de 100: junção 100 × 75
         t.DiametrosTrechos = ["3: 75"]
@@ -6893,6 +6900,20 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertTrue(any("só tem tê a 90°" in a for a in t.Avisos), t.Avisos)
 
+    def test_juncoes_de_todas_as_bitolas_desenham_valido(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        L = C.linha("pvc-esgoto-sn")
+        for (D, d) in L["juncao"]:
+            for cai in (False, True):
+                segs = [(V(0, 0, 0), V(1000, 0, 0)), (V(1000, 0, 0), V(2000, 0, 0)), (V(300, 700, 0), V(1000, 0, 0))]
+                dns = [D, D, d]
+                if cai:
+                    segs, _av = T.aplicar_caimento(segs, dns, L, True)
+                r = T.montar(segs, dns, "pvc-esgoto-sn")
+                self.assertTrue(T.forma(r).isValid(), "junção %s caimento=%s" % ((D, d), cai))
+                self.assertFalse([a for a in r["avisos"] if a.startswith("Desenho")], r["avisos"])
     def test_caixas_de_esgoto(self):
         import PrumoTubulacao as T
         e = self._tracado([(0, 0, 0), (2000, 0, 0), (2000, 0, 0), (2000, 1500, 0)], quebras=[2])
@@ -6915,7 +6936,7 @@ class T53Tubulacao(unittest.TestCase):
         t.Caixas = ["1: fim: inspecao"]
         self.doc.recompute()
         self.assertIn("1 × Caixa de inspeção", t.Conexoes)
-        self.assertTrue(any("conferir" in a for a in t.Avisos), t.Avisos)
+        self.assertFalse(any("conferir" in a for a in t.Avisos), t.Avisos)
         if not FreeCAD.GuiUp:
             return
         t.Caixas = []
@@ -6946,7 +6967,11 @@ class T53Tubulacao(unittest.TestCase):
         self.doc.recompute()
         self.assertIn("1 × Joelho 90° Aquatherm 22 mm", t.Conexoes)
         self.assertIn("1 × Joelho 45° Aquatherm 22 mm", t.Conexoes)
-        self.assertTrue(any("conferir" in a and "45°" in a for a in t.Avisos), t.Avisos)
+        self.assertFalse(any("conferir" in a for a in t.Avisos), t.Avisos)
+        self.assertLess(L["joelho45"][22], L["joelho90"][22], "o 45° não repete mais a tabela do 90°")
+        for d in L["diametros"]:
+            self.assertLess(L["joelho45"][d], L["joelho90"][d])
+            self.assertGreater(L["joelho45"][d], L["bolsa"][d])
         av = L["joelho90"][22] - L["bolsa"][22]
         self.assertAlmostEqual(t.Proxy.ultimo["tubos"][0]["corte"], 1000 - av, 3)
         self.assertEqual(L["barra"], 3000.0)

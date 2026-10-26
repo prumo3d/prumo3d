@@ -68,12 +68,12 @@ TIGRE_SOLDAVEL = {
     # Bucha de redução soldável curta (p. 10): fica toda dentro da bolsa maior
     "bucha_curta": {
         (25, 20): 18.5, (32, 25): 22.0, (40, 32): 26.0, (50, 40): 31.0, (60, 50): 36.0, (75, 60): 43.5,
-        (85, 75): 48.5, (110, 85): 31.0,
+        (85, 75): 48.5, (110, 85): 49.0,
     },
     # Bucha de redução soldável longa (p. 10)
     "bucha_longa": {
-        (32, 20): 44.0, (40, 20): 51.6, (40, 25): 51.8, (50, 20): 55.8, (50, 25): 31.0, (50, 32): 61.3,
-        (60, 25): 70.5, (60, 32): 70.9, (60, 40): 71.3, (60, 50): 71.8, (75, 50): 95.1, (85, 60): 95.1,
+        (32, 20): 44.0, (40, 20): 51.6, (40, 25): 51.8, (50, 20): 55.8, (50, 25): 65.0, (50, 32): 61.3,
+        (60, 25): 70.5, (60, 32): 70.9, (60, 40): 71.3, (60, 50): 71.8, (75, 50): 86.0, (85, 60): 95.1,
         (110, 60): 140.0, (110, 75): 130.0,
     },
     # Luva de redução soldável (p. 13): comprimento total A
@@ -109,11 +109,12 @@ TIGRE_SOLDAVEL = {
     # Luva soldável e com bucha de latão (p. 13): A comprimento total (o tubo entra na bolsa de um lado)
     "luva_bucha": {20: {"A": 31.0, "rosca": '1/2"'}, 25: {"A": 36.0, "rosca": '1/2"'},
                    32: {"A": 47.6, "rosca": '1"'}},
-    "a_conferir": {
-        ("bucha_curta", (110, 85)): "A = 31 mm, menor que a bolsa de 110 (provável erro na tabela)",
-        ("bucha_longa", (50, 25)): "A = 31 mm, fora da sequência da tabela",
-        ("bucha_longa", (75, 50)): "na tabela, a linha 75 × 50 repete D = 85, d = 60 e A = 95,1 da 85 × 60",
-    },
+    # Três linhas da tabela de 2008 vinham com erro de impressão (bucha curta 110 × 85 com A = 31; bucha longa
+    # 50 × 25 com A = 31; bucha longa 75 × 50 repetindo a linha 85 × 60). Trocadas pelo comprimento da ficha do
+    # produto Tigre no varejo (Telhanorte, consultado em 25/10/2026: 4,9 cm, 6,5 cm e 8,6 cm), que confere com o
+    # catálogo nas peças vizinhas (curta 85 × 75: 4,9 cm × 48,5 mm; curta 60 × 50: 3,6 cm × 36 mm; longa
+    # 50 × 32: 6,1 cm × 61,3 mm; longa 60 × 50: 7,2 cm × 71,8 mm).
+    "a_conferir": {},
 }
 
 TIGRE_SOLDAVEL.setdefault("sufixo", "soldável")
@@ -145,7 +146,8 @@ TIGRE_ESGOTO = {
     "esgoto": True,
     "tol_ang": 3.5,            # o caimento (até 5 %) entorta os ângulos em até ~3°
     "fonte": "Tigre, Catálogo Técnico Predial Esgoto (fev/2008), Série Normal, p. 09–15",
-    "norma": NBR8160,
+    "norma": NBR8160 + "; tubos e conexões: ABNT NBR 5688:2018 (publicada em 19/12/2018, em vigor, confirmada em "
+                       "13/12/2023 e em revisão pela ABNT; conferido no catálogo ABNT em 25/10/2026)",
     "pressao": "Escoamento por gravidade",
     "temperatura_max": "—",
     "cor": (0.93, 0.93, 0.92),
@@ -166,9 +168,13 @@ TIGRE_ESGOTO = {
     "corpo": {40: 46.0, 50: 58.0, 75: 84.0, 100: 111.0, 150: 162.0, 200: 213.0},
     # Joelho 90° série normal (p. 10): A, centro até a face da bolsa (confere com C + B)
     "joelho90": {40: 39.0, 50: 70.6, 75: 90.0, 100: 110.0, 150: 144.0, 200: 233.0},
-    # Joelho 45° série normal (p. 10): rótulos da tabela trocados; usada a 1ª linha como A
+    # Joelho 45° série normal (p. 10): a tabela vem com os rótulos B, D, e, L no lugar de A, B, C, D. A 1ª linha
+    # é o centro até a face: descontada a bolsa, sobra 0,41 (tan 22,5°) do recuo do joelho 90°, como manda a
+    # geometria (DN 150: 67 + 0,41 × 77 = 99 contra 101,3). Só o DN 200 (198) foge da conta (daria ~142).
     "joelho45": {40: 27.5, 50: 57.6, 75: 68.7, 100: 81.4, 150: 101.3, 200: 198.0},
-    # Tê série normal (p. 12): metade de H (comprimento total) na linha principal; B no ramal
+    # Tê série normal (p. 12): metade de H (comprimento total) na linha principal; B, centro até a face, no
+    # ramal (no DN 40 as três valem 39, igual ao joelho 90°; B como comprimento sem a bolsa daria o ramal maior
+    # que a linha, o que não existe nas peças pequenas)
     "te": {40: 39.0, 50: 76.0, 75: 97.25, 100: 120.5, 150: 165.0, 200: 220.0},
     "te_ramal": {40: 39.0, 50: 84.6, 75: 109.8, 100: 137.6, 150: 182.5, 200: 188.0},
     "cruzeta": {},
@@ -181,14 +187,19 @@ TIGRE_ESGOTO = {
     "luva_reducao": {(75, 50): 108.5, (100, 50): 130.5, (100, 75): 122.0, (150, 100): 148.9, (200, 150): 163.5},
     # Cap (p. 15): comprimento A
     "cap": {40: 18.0, 50: 39.0, 75: 44.0, 100: 50.0, 150: 67.0, 200: 103.0},
-    # Junção simples série normal (p. 12): (D, d) -> (A, C, c). Leitura do desenho: A comprimento total da
-    # linha principal, C da face de saída (jusante) até o encontro dos eixos, c do encontro até a face do ramal.
+    # Junção simples série normal (p. 12): (D, d) -> (A, C, c). A comprimento total da linha principal, C da
+    # face de saída (jusante) até o encontro dos eixos, c do encontro até o FUNDO da bolsa do ramal. Prova: nas
+    # junções de diâmetros iguais, montante (A − C) = c + bolsa, como pede a geometria da junção a 45°
+    # (40: 68 = 50 + 18; 50: 103 = 64 + 39; 75: 138,5 = 94,5 + 44; 100: 179 = 129 + 50; 150: 252 = 185 + 67).
+    # A 200 × 200 não fecha (408 contra 262): provável erro de impressão.
     "juncao": {(40, 40): (95.0, 27.0, 50.0), (50, 50): (159.5, 56.5, 64.0), (75, 50): (172.0, 50.0, 79.5),
                (75, 75): (206.5, 68.0, 94.5), (100, 50): (185.0, 44.5, 100.0), (100, 75): (219.6, 61.6, 110.5),
                (100, 100): (259.0, 80.0, 129.0), (150, 100): (282.0, 66.0, 164.0), (150, 150): (351.0, 99.0, 185.0),
                (200, 200): (523.0, 115.0, 185.0)},
-    # Caixas (p. 37, 38 e 57). O catálogo não dá legenda das letras: D/D1 tomado como diâmetro do corpo, A como
-    # altura, D2 como saída e D3 como entrada.
+    # Caixas (p. 37, 38 e 57). O catálogo não dá legenda das letras: D/D1 é o diâmetro do corpo, A a altura, D2
+    # a saída e D3 a entrada. Conferido: nas sifonadas o nome traz as mesmas medidas (100 × 100, 150 × 185), e a
+    # ficha Tigre atual (AECweb, 25/10/2026) dá a caixa de gordura com 558 × 300 mm, entrada DN 50 e saída
+    # DN 100, e a de inspeção com 218 × 300 mm: diâmetro ~300 e altura, como aqui (modelos de outra edição).
     "caixas": {
         "sifonada_100": {"nome": "Caixa sifonada 100 × 100 × 50", "D": 101.6, "A": 100.0, "saida": 50,
                          "entrada": 40},
@@ -200,20 +211,9 @@ TIGRE_ESGOTO = {
         "gordura": {"nome": "Caixa de gordura", "D": 312.0, "A": 591.0, "saida": 100, "entrada": 50},
     },
     "a_conferir": {
-        ("juncao", "todas"): "junção a 45°: centro até a face tirado do desenho (A, C e c), sem legenda das letras",
-        ("caixa", "inspecao"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
-        ("caixa", "gordura"): "letras da tabela sem legenda no catálogo (D1 tomado como diâmetro, A como altura)",
-        ("joelho45", 40): "rótulos da tabela do joelho 45° trocados no catálogo (B, D, e, L no lugar de A, B, C, D)",
-        ("joelho45", 50): "rótulos da tabela do joelho 45° trocados no catálogo",
-        ("joelho45", 75): "rótulos da tabela do joelho 45° trocados no catálogo",
-        ("joelho45", 100): "rótulos da tabela do joelho 45° trocados no catálogo",
-        ("joelho45", 150): "rótulos da tabela do joelho 45° trocados no catálogo",
-        ("joelho45", 200): "rótulos da tabela do joelho 45° trocados no catálogo",
-        ("te", 50): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
-        ("te", 75): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
-        ("te", 100): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
-        ("te", 150): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
-        ("te", 200): "tê de esgoto: centro até a face tirado de H/2 e B (interpretação do desenho)",
+        ("joelho45", 200): "joelho 45° DN 200: o catálogo dá 198 mm, fora da geometria das outras bitolas (~142)",
+        ("juncao", (200, 200)): "junção 200 × 200: as cotas do catálogo não fecham entre si (provável erro de "
+                                "impressão)",
     },
 }
 
@@ -225,7 +225,9 @@ TIGRE_AQUATHERM = {
     "fabricante": "Tigre",
     "sufixo": "Aquatherm",
     "fonte": "Tigre, Aquatherm® Catálogo Técnico Predial (TG-135-11, mai/2011), p. 21–25",
-    "norma": "não conferida (a checar)",
+    "norma": "ABNT NBR 15884-1:2010 Versão Corrigida:2011 (tubos; publicada em 21/10/2010, confirmada em "
+             "08/12/2023) e ABNT NBR 15884-2:2011 (conexões; publicada em 27/10/2011, confirmada em 02/05/2024), "
+             "ambas em vigor e em revisão pela ABNT; conferido no catálogo ABNT em 25/10/2026",
     "pressao": "ver catálogo Aquatherm",
     "temperatura_max": "ver catálogo Aquatherm",
     "cor": (0.93, 0.87, 0.72),
@@ -240,8 +242,11 @@ TIGRE_AQUATHERM = {
     "corpo": dict(zip(_AQ, (19.0, 27.0, 34.0, 42.0, 50.0, 64.0, 84.0, 101.0, 128.0))),   # aproximado, só desenho
     # Joelho 90° (p. 22): A centro até a face; igual à cota C do tê (p. 23)
     "joelho90": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.6, 93.6, 115.8))),
-    # Joelho 45° (p. 22): o catálogo repete a tabela do joelho 90°
-    "joelho45": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.6, 93.6, 115.8))),
+    # Joelho 45° (o catálogo de 2011 repete a tabela do joelho 90°): cota A da página do produto no site da
+    # Tigre (consultada em 25/10/2026). Nas bitolas 35, 42 e 54 o site dá 64, 75 e 98, maiores que o centro até
+    # a face do próprio joelho 90° (47, 55, 72): não pode ser o centro até a face. Nessas três fica a estimativa
+    # pela geometria das outras bitolas (bolsa + 1,2 × raio × tan 22,5°), marcada a conferir.
+    "joelho45": dict(zip(_AQ, (18.0, 24.0, 30.0, 37.0, 43.0, 56.0, 61.9, 66.7, 84.1))),
     # Tê (p. 23): C centro até a face (A = 2C)
     "te": dict(zip(_AQ, (23.0, 31.0, 39.0, 47.0, 55.0, 72.0, 82.5, 93.6, 117.4))),
     "cruzeta": {},
@@ -254,15 +259,18 @@ TIGRE_AQUATHERM = {
     # Cap (p. 23): A
     "cap": dict(zip(_AQ, (13.0, 18.0, 23.0, 28.0, 33.0, 43.0, 44.4, 47.6, 58.7))),
     # Pontos de uso: joelho 90° de transição (p. 24): A; conector (p. 24): B comprimento
+    # joelho de transição conferido no site da Tigre (25/10/2026): A = 27; 30,5; 38,3
     "joelho_bucha": {15: {"A": 27.0, "rosca": '1/2"'}, 22: {"A": 30.5, "rosca": '1/2"'},
-                     28: {"A": 38.2, "rosca": '1"'}},
-    "luva_bucha": {15: {"A": 33.0, "rosca": '1/2"'}, 22: {"A": 37.5, "rosca": '1/2"'},
+                     28: {"A": 38.3, "rosca": '1"'}},
+    # conector: comprimento total da ficha do produto no varejo (Telhanorte, 25/10/2026): 15 × 1/2" 4,6 cm;
+    # 22 × 1/2" 5,6 cm. O 28 × 1" não tem a medida publicada: fica a cota do catálogo, a conferir.
+    "luva_bucha": {15: {"A": 46.0, "rosca": '1/2"'}, 22: {"A": 56.0, "rosca": '1/2"'},
                    28: {"A": 64.0, "rosca": '1"'}},
     "nome_luva_bucha": "Conector Aquatherm %d × %s",
     "nome_joelho_bucha": "Joelho 90° de transição Aquatherm %d × %s",
-    "a_conferir": dict([(("joelho45", d), "o catálogo Aquatherm repete a tabela do joelho 90° no joelho 45°")
-                        for d in _AQ] + [(("luva_bucha", d), "comprimento do conector (cota B) usado como total")
-                                         for d in (15, 22, 28)]),
+    "a_conferir": dict([(("joelho45", d), "joelho 45° Aquatherm %d: o site da Tigre dá uma cota maior que a do "
+                                          "joelho 90°; usada estimativa pela geometria" % d) for d in (35, 42, 54)]
+                       + [(("luva_bucha", 28), "conector 28 × 1\": comprimento total não publicado pela Tigre")]),
 }
 
 LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_AQUATHERM["id"]: TIGRE_AQUATHERM,

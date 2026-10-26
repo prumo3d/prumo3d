@@ -11,6 +11,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Correções
+
+- **Tubulação, medidas conferidas:** a junção a 45° de esgoto estava com o ramal curto (a cota c vai até o
+  fundo da bolsa, não até a face: confirmado porque, nas junções de diâmetros iguais, montante = c + bolsa
+  em todas as bitolas). Joelho 45° e tê de esgoto conferidos pela geometria; caixas conferidas com a ficha
+  atual da Tigre. Joelho 45° Aquatherm com as cotas do site da Tigre (o catálogo de 2011 repetia o 90°),
+  conectores Aquatherm com o comprimento real, e três buchas soldáveis com erro de impressão corrigidas
+  (110 × 85, 50 × 25 e 75 × 50). Normas dos tubos conferidas na ABNT: NBR 5688:2018 (esgoto) e
+  NBR 15884-1/-2 (CPVC), em vigor. Seguem avisando só o joelho 45° e a junção de DN 200 de esgoto, o joelho
+  45° Aquatherm de 35, 42 e 54 e o conector Aquatherm 28 × 1".
+- **Junções desenhadas sempre válidas:** com caimento, algumas junções saíam com sólido inválido.
+
 ### Melhorias
 
 - **Peças com mais volume na vista 3D:** iluminação nova, com luz principal de cima, preenchimento da

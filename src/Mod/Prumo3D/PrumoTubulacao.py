@@ -404,9 +404,10 @@ def montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None,
                     avisos.append("Nó %d: a linha principal muda de diâmetro na junção; ponha a redução num trecho "
                                   "próprio." % (k + 1))
                 A, C, c_r = jn[chave]
-                conferir("juncao", "todas", "Junção %s" % ("%d × %d" % chave))
+                conferir("juncao", chave, "Junção %s" % ("%d × %d" % chave))
+                # c vai do encontro dos eixos ao fundo da bolsa do ramal: centro até a face = c + bolsa
                 pern = [(jus[0], jus[1], jus[2], dns[jus[0]], C), (mont[0], mont[1], mont[2], dns[mont[0]], A - C),
-                        (ramal[0], ramal[1], ramal[2], dr, c_r)]
+                        (ramal[0], ramal[1], ramal[2], dr, c_r + bolsa[dr])]
                 for s, p, u, dd, cf in pern:
                     recuo[(s, p)] = cf - bolsa[dd]
                 rot = "Junção simples"
@@ -650,11 +651,39 @@ def solido_caixa(c):
 
 
 def solido_conexao(c, L):
-    import Part
+    """Sólido da conexão. Em junções o corpo do ramal pode ficar quase tangente à bolsa vizinha e a operação
+    booleana sair inválida (sobretudo com caimento): refaz com o corpo 4 % mais grosso e, se preciso, mais fino."""
     if c.get("caixa"):
         return solido_caixa(c)
+    s = None
+    for k in (1.0, 1.04, 0.96, 1.08):
+        s = _solido_conexao(c, L, k)
+        if s.isValid() and s.Volume > 0:
+            return s
+    # último recurso: cada perna furada separadamente, juntas num composto (só desenho; volume aproximado)
+    import Part
+    P, R = c["no"], c["corpo"] / 2.0
+    pecas, miolo = [], []
+    for _s, _p, u, dd, cf in c["pernas"]:
+        tb, b = L["tubos"][dd], L["bolsa"][dd]
+        if cf <= 0:
+            continue
+        ri = tb["De"] / 2.0 - tb["e"]
+        perna = _cil(R, P, u, cf).cut(_cil(tb["De"] / 2.0, P + u * (cf - b), u, b + 0.5)).cut(_cil(ri, P, u, cf))
+        pecas.append(perna)
+        miolo.append(_cil(ri, P, u, cf))
+    esf = Part.makeSphere(R, P)
+    for m in miolo:
+        esf = esf.cut(m)
+    pecas.append(esf)
+    comp = Part.makeCompound([x for x in pecas if x.isValid()])
+    return comp
+
+
+def _solido_conexao(c, L, k=1.0):
+    import Part
     P = c["no"]
-    R = c["corpo"] / 2.0
+    R = c["corpo"] / 2.0 * k
     corpo = None
     furos = []
     for s, pt, u, dd, cf in c["pernas"]:
