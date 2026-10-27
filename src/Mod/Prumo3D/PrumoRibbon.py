@@ -358,6 +358,10 @@ RIBBON_QSS = """
     color: #003A70; background: #FFFFFF; font-weight: 600;
     border-top: 3px solid #F7BE00; border-left: 1px solid #DCE4EC; border-right: 1px solid #DCE4EC;
 }
+#PrumoTabRow[compacto="1"] QTabBar::tab { padding: 7px 11px 6px 11px; }
+#PrumoTabRow[compacto="2"] QTabBar::tab { padding: 7px 8px 6px 8px; }
+#PrumoTabRow[compacto="3"] QTabBar::tab { padding: 7px 6px 6px 6px; font-size: 9.5pt; }
+#PrumoTabRow[compacto="4"] QTabBar::tab { padding: 7px 5px 6px 5px; font-size: 9pt; }
 #PrumoTabRow QTabBar QToolButton { background: #FFFFFF; border: 1px solid #C9D5E2; border-radius: 4px;
     width: 18px; margin: 5px 1px; padding: 0; }
 #PrumoTabRow QTabBar QToolButton:hover { background: #EAF1F8; border-color: #7FA3C9; }
@@ -1019,8 +1023,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         self.tabbar.tabBarDoubleClicked.connect(self._toggle_collapse)
         rl.addWidget(self.tabbar)
         rl.addStretch(1)
-        rl.addWidget(self._build_quick())
+        self._quick_box = self._build_quick()
+        rl.addWidget(self._quick_box)
         lay.addWidget(row)
+        # tela estreita: as abas aparecem com o nome inteiro; a linha se compacta por etapas (setas só em
+        # janela pequena demais para qualquer arranjo)
+        self._row, self._brand, self._brand_html, self._nivel_linha = row, brand, brand.text(), -1
+        row.installEventFilter(self)
 
         # Área de conteúdo
         self.content = QtWidgets.QScrollArea()
@@ -1132,6 +1141,7 @@ class PrumoRibbon(QtWidgets.QWidget):
             if acts:
                 b = RibbonButton(acts[:1], S, "", box)
                 b._cmd = name
+                b.setProperty("prumo_dispensavel", name in ("Std_Undo", "Std_Redo", "Std_Measure"))
                 b.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
                 b.setIconSize(QtCore.QSize(18, 18))
                 b.setFixedSize(28, 28)
@@ -1144,6 +1154,47 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._collapse_btn = col
         hl.addWidget(col)
         return box
+
+    # ------------------------------------------------------------------ linha das abas em tela estreita
+    def eventFilter(self, obj, ev):
+        if obj is getattr(self, "_row", None) and ev.type() == QtCore.QEvent.Resize:
+            QtCore.QTimer.singleShot(0, self._ajustar_linha)
+        return super().eventFilter(obj, ev)
+
+    def _aplicar_nivel(self, n):
+        row = self._row
+        row.setProperty("compacto", str(n))
+        if n >= 2:
+            self._brand.setText(self._brand_html.replace("Prumo 3D</td>", "</td>")
+                                if "<img" in self._brand_html else "")
+            self._brand.setToolTip("Prumo 3D")
+        else:
+            self._brand.setText(self._brand_html)
+        for b in self._quick_box.findChildren(QtWidgets.QToolButton):
+            if b.property("prumo_dispensavel"):
+                b.setVisible(n < 4)
+        for w in (row, self.tabbar):
+            w.style().unpolish(w)
+            w.style().polish(w)
+        self.tabbar.updateGeometry()
+        for i in range(self.tabbar.count()):
+            self.tabbar.setTabText(i, self.tabbar.tabText(i))      # recalcula a largura das abas
+        row.layout().invalidate()
+
+    def _ajustar_linha(self):
+        row = getattr(self, "_row", None)
+        if row is None or not row.isVisible():
+            return
+        larg = row.width()
+        escolhido = 4
+        for n in range(5):
+            self._aplicar_nivel(n)
+            if row.layout().sizeHint().width() <= larg:
+                escolhido = n
+                break
+        if escolhido != self._nivel_linha or row.layout().sizeHint().width() > larg:
+            self._nivel_linha = escolhido
+        self.tabbar.setUsesScrollButtons(row.layout().sizeHint().width() > larg)
 
     def _fill_wb_menu(self, menu):
         menu.clear()

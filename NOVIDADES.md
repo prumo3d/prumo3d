@@ -9,6 +9,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Abas da faixa com o nome inteiro em tela de notebook:** em vez das setas de rolagem, a linha das abas se
+  compacta por etapas (menos espaço entre as abas, marca só com o ícone, letra um pouco menor e, por último,
+  Desfazer/Refazer/Medir saem do acesso rápido). As setas ficam só para janela pequena demais.
+- **Painel lateral voltava para a aba errada ao fechar um comando:** se a aba era trocada logo depois de fechar
+  outro comando, a troca não era lembrada. Agora vale sempre a última aba olhada.
+
 ## 0.9.11 beta — 27/10/2026
 
 ### Correções

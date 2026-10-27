@@ -589,6 +589,13 @@ def _instalar_abas_novas(mw, ds, no_inicio=False):
             if prop.isVisible():
                 prop.raise_()
         d.visibilityChanged.connect(lambda vis: vis and atualizar(forcar=True))
+    # lembra, na hora em que muda, a aba em uso fora de comando (o tique de 400 ms podia perder uma troca
+    # feita logo antes de abrir um comando, e ao fechar o comando voltava para a aba errada)
+    for nome in (ARVORE, PROPRIEDADES, APARENCIA):
+        d = ds.get(nome)
+        if d is not None and not d.property("prumo_lembra_aba"):
+            d.setProperty("prumo_lembra_aba", True)
+            d.visibilityChanged.connect(lambda vis, n=nome: vis and _lembrar_aba(n))
     if not _estado.get("observando"):
         _estado["observando"] = True
         obs = PrumoInspetor.Observador(lambda: atualizar())
@@ -596,6 +603,12 @@ def _instalar_abas_novas(mw, ds, no_inicio=False):
         FreeCADGui.Selection.addObserver(obs)
         FreeCAD.addDocumentObserver(obs)
         atualizar(forcar=True)
+
+
+def _lembrar_aba(nome):
+    # a última aba (Árvore, Propriedades ou Aparência) que ficou à vista é a de voltar quando o comando
+    # fechar; vale também durante o fechamento de um comando anterior
+    _estado["antes"] = nome
 
 
 def _visivel(d):
