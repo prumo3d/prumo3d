@@ -11,15 +11,40 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Novidades
+
+- **Tudo em abas, sem o menu de bancadas:** o botão de trocar bancada ao lado da marca saiu. Cada área tem a sua
+  aba; entraram duas novas:
+  - **BIM:** projeto (terreno, edifício, nível), paredes, lajes, pilares, vigas, portas, janelas, escadas,
+    telhados, cotas, cortes, folhas e quantitativos/IFC.
+  - **Superfícies:** preencher por arestas ou seções, estender face, curva de concordância, loft, varredura e
+    superfície regrada.
+- **Esboço › Inserir** (o que antes só a bancada Draft fazia):
+  - **Texto:** escreve um texto como linhas e curvas do esboço, pronto para extrudar, cortar ou gravar. Fonte
+    Poppins ou qualquer fonte instalada, altura da letra maiúscula em mm, espaço entre letras, posição e giro.
+  - **Importar DXF:** traz linhas, arcos, círculos e curvas de um DXF para o esboço, com a unidade do desenho
+    (mm, cm, m, pol), escala e opção de levar para a origem. Pontas que se tocam já saem ligadas.
+  - **Matriz em caminho:** repete uma peça ao longo de um esboço, arame, hélice ou arestas, com quantidade,
+    orientação e recuos no início e no fim.
+  - Texto e DXF vão para o esboço em edição (sem tirar o esboço do lugar), para o esboço selecionado ou para um
+    esboço novo.
+- **Aba Peça › Sólidos completo:** primitivas soltas (cubo, cilindro, esfera, cone, toro, tubo), extrudar, girar,
+  loft, varredura, superfície regrada, face de esboços, arredondar, chanfrar, casca, espelhar e booleanas.
+- **Bancadas fora de vista:** Desenho 2D (Draft), Malhas, Usinagem (CAM) e Engenharia reversa não aparecem mais.
+  Quem usa alguma delas religa em Ferramentas › Preferências › Bancadas e ela ganha uma aba.
+
 ### Correções
 
 - **Abas da faixa com o nome inteiro em tela de notebook:** em vez das setas de rolagem, a linha das abas se
   compacta por etapas (menos espaço entre as abas, marca só com o ícone, letra um pouco menor e, por último,
-  Desfazer/Refazer/Medir saem do acesso rápido). As setas ficam só para janela pequena demais.
+  Desfazer/Refazer/Medir saem do acesso rápido). Conferido com 1100, 1280, 1366, 1440 e 1600 px de largura,
+  em todas as abas. As setas ficam só para janela pequena demais.
 - **Aba Peça:** o Sólido (primitivas de adicionar material) passa para o grupo Sólidos, com ícone grande; o
   Subtrair fica com ícone pequeno, como Unir e Interseção.
 - **Painel lateral voltava para a aba errada ao fechar um comando:** se a aba era trocada logo depois de fechar
   outro comando, a troca não era lembrada. Agora vale sempre a última aba olhada.
+- **Aba BIM sem janela de boas-vindas** (em inglês, com predefinições do FreeCAD) na primeira vez, e sem
+  fechamento do programa ao fechar um documento depois de usar a aba BIM.
 
 ## 0.9.11 beta — 27/10/2026
 

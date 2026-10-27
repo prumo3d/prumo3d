@@ -889,6 +889,7 @@ def register_commands():
                                  FreeCADGui.addCommand("Prumo_DesenhoVaso", m.CmdDesenhoVaso()),
                                  FreeCADGui.addCommand("Prumo_TesteVaso", m.CmdTesteVaso()))),
                              ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
+                             ("PrumoInserirEsboco", lambda m: m.registrar_comandos()),
                              ("PrumoContexto", lambda m: m.registrar_comandos())):
         try:
             registro(__import__(modulo))
@@ -922,8 +923,44 @@ def install_translations():
         mw = FreeCADGui.getMainWindow()
         if mw is not None:
             mw.workbenchActivated.connect(PrumoI18n.on_workbench)
+            mw.workbenchActivated.connect(proteger_plano_de_trabalho)
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: tradução não aplicada: {}\n".format(exc))
+
+
+def proteger_plano_de_trabalho(_nome=None):
+    """A bancada BIM liga o observador do plano de trabalho do Draft, que atualiza a grade quando a vista
+    ativa muda. Fechando um documento, essa atualização pode pegar a vista que está sendo destruída e
+    derrubar o programa (getCameraNode numa vista morta). No Prumo o BIM é uma aba e continua ativo nas
+    abas sem bancada própria: a atualização passa a esperar o fechamento terminar e só roda se a vista
+    ativa ainda for de um documento aberto."""
+    import sys
+    wp = sys.modules.get("WorkingPlane")
+    if wp is None or getattr(wp, "_prumo_protegido", False) or not hasattr(wp, "_update_gui"):
+        return False
+    original = wp._update_gui
+
+    def _vista_viva():
+        try:
+            gd = FreeCADGui.ActiveDocument
+            if gd is None or gd.Document.Name not in FreeCAD.listDocuments():
+                return False
+            v = gd.ActiveView
+            return v is not None and "View3DInventor" in str(type(v))
+        except Exception:
+            return False
+
+    def _rodar():
+        if _vista_viva():
+            original()
+
+    def _update_gui_seguro():
+        from PySide import QtCore
+        QtCore.QTimer.singleShot(150, _rodar)
+
+    wp._update_gui = _update_gui_seguro
+    wp._prumo_protegido = True
+    return True
 
 
 def _start_ribbon():
@@ -966,9 +1003,12 @@ class _ManipuladorMenu:
 
 # Bancadas que não vêm ligadas no Prumo (o usuário religa em Preferências → Geral → Bancadas).
 # O padrão do FreeCAD já desliga Test, Inspection, Robot e OpenSCAD.
-BANCADAS_DESLIGADAS = ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench")
+# Draft, Malhas, Usinagem e Engenharia reversa saem de vista: no Prumo tudo fica nas abas da faixa (o código do
+# Draft continua instalado: texto, DXF e matriz em caminho do Esboço e a aba BIM usam ele por baixo).
+BANCADAS_DESLIGADAS = ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "DraftWorkbench", "MeshWorkbench",
+                       "CAMWorkbench", "ReverseEngineeringWorkbench")
 DESLIGADAS_FREECAD = "NoneWorkbench,TestWorkbench,InspectionWorkbench,RobotWorkbench,OpenSCADWorkbench"
-VERSAO_BANCADAS = 1
+VERSAO_BANCADAS = 2
 
 
 def bancadas_desligadas():
@@ -978,8 +1018,11 @@ def bancadas_desligadas():
 
 
 def aplicar_bancadas_padrao():
-    """Uma vez por perfil: desliga Materiais, Nuvem de pontos e Robótica. Se o usuário religar
+    """Uma vez por perfil (a cada versão da lista): desliga as bancadas sem aba. Se o usuário religar
     depois, fica religada (a marca de versão impede repetir)."""
+    # BIM virou aba: a janela de boas-vindas da bancada BIM (só em inglês, com predefinições do FreeCAD
+    # puro) não aparece na primeira vez que a aba é aberta
+    FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").SetBool("FirstTime", False)
     p = FreeCAD.ParamGet(PARAM_PATH)
     if p.GetInt("BancadasPadrao", 0) >= VERSAO_BANCADAS:
         return False

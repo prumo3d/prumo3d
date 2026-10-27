@@ -816,14 +816,17 @@ class T09Interface(unittest.TestCase):
         finally:
             FreeCAD.closeDocument(doc.Name)
 
-    def test_seletor_de_bancadas_apos_a_marca(self):
+    def test_sem_seletor_de_bancadas_na_faixa(self):
+        """Tudo pelas abas: a linha das abas começa na marca e não tem o botão de trocar bancada."""
         from PySide import QtWidgets
         rb = self._faixa()
         linha = rb.findChild(QtWidgets.QWidget, "PrumoTabRow")
         lay = linha.layout()
         import PrumoUI
         nomes = [w.objectName() for _i, w in PrumoUI.widgets_do_layout(lay)]
-        self.assertEqual(nomes[:2], ["PrumoBrand", "PrumoWbBtn"], nomes)
+        self.assertEqual(nomes[0], "PrumoBrand", nomes)
+        self.assertNotIn("PrumoWbBtn", nomes)
+        self.assertIsNone(rb.findChild(QtWidgets.QToolButton, "PrumoWbBtn"))
 
     def test_menu_de_bancadas_lista_bancadas(self):
         from PySide import QtWidgets

@@ -6,6 +6,7 @@ Entram no conjunto do comando "Testes automáticos" (PrumoTestes).
 """
 import math
 import os
+import shutil
 import tempfile
 import time
 import unittest
@@ -2919,9 +2920,12 @@ class T31Bancadas(unittest.TestCase):
         self.pp.RemInt("BancadasPadrao")
         self.assertTrue(self.G.aplicar_bancadas_padrao())
         dis = self.G.bancadas_desligadas()
-        for n in ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "TestWorkbench"):
+        for n in ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "TestWorkbench", "DraftWorkbench",
+                  "MeshWorkbench", "CAMWorkbench", "ReverseEngineeringWorkbench"):
             self.assertIn(n, dis)
         self.assertNotIn("MaterialWorkbench", self.wb.GetString("Ordered"))
+        self.assertFalse(FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").GetBool("FirstTime", True),
+                         "a boas-vindas do BIM não pode travar a primeira abertura da aba")
         self.assertNotIn("PartDesignWorkbench", dis)
 
     def test_religada_pelo_usuario_continua_ligada(self):
@@ -10694,6 +10698,313 @@ class T78RoteiroDaChapa(unittest.TestCase):
         self.assertIsNotNone(FreeCADGui.Control.activeDialog(), "Planificar em DXF não abriu o painel")
 
 
+class T79InserirNoEsboco(unittest.TestCase):
+    """Esboço › Inserir (o que antes pedia a bancada Draft): texto em geometria, DXF e matriz em caminho; as
+    abas BIM e Superfícies; Draft, Malhas, Usinagem e Engenharia reversa fora de vista."""
+
+    _esp = T62PainelDeComando._esp
+    _fechar_janelas = T63FerramentasDePontaAPonta._fechar_janelas
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoInserirEsboco
+        self.M = PrumoInserirEsboco
+        self.doc = novo_doc("PrumoInserir")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        FreeCADGui.Selection.clearSelection()
+        self.tmp = tempfile.mkdtemp(prefix="prumo_dxf_")
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.ActiveDocument is not None and FreeCADGui.ActiveDocument.getInEdit() is not None:
+                FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        for j in QtWidgets.QApplication.topLevelWidgets():
+            if j.objectName() == "PrumoJanelaPainel" and j.isVisible():
+                j.reject()
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _dxf(self, nome="peca.dxf"):
+        """DXF de teste: chapa 100 × 50 com um furo ⌀40 no centro."""
+        import Part
+        import importDXF
+        V = FreeCAD.Vector
+        d = FreeCAD.newDocument("PrumoDXFOrigem", hidden=True, temp=True)
+        try:
+            o = d.addObject("Part::Feature", "Chapa")
+            o.Shape = Part.Compound([Part.makePolygon([V(0, 0, 0), V(100, 0, 0), V(100, 50, 0), V(0, 50, 0),
+                                                       V(0, 0, 0)]),
+                                     Part.makeCircle(20, V(50, 25, 0))])
+            caminho = os.path.join(self.tmp, nome)
+            importDXF.export([o], caminho)
+        finally:
+            FreeCAD.closeDocument(d.Name)
+            FreeCAD.setActiveDocument(self.doc.Name)
+        return caminho
+
+    def _fechado_e_valido(self, sk):
+        self.doc.recompute()
+        self.assertFalse("Invalid" in sk.State or "Error" in sk.State, sk.State)
+        self.assertEqual(sk.solve(), 0, "o esboço não resolve")
+        self.assertTrue(sk.Shape.Wires)
+        for w in sk.Shape.Wires:
+            self.assertTrue(w.isClosed(), "contorno aberto no esboço %s" % sk.Label)
+
+    # ---- texto
+    def test_texto_vira_esboco_novo_e_fecha_contornos(self):
+        pn = self.M.PainelTexto()
+        self.assertIsNone(pn.alvo)
+        pn.texto.setPlainText("Prumo 3D")
+        self.assertIsNone(pn.pendencia())
+        self.assertTrue(pn.accept())
+        sk = pn.resultado_esboco
+        self.assertEqual(sk.TypeId, "Sketcher::SketchObject")
+        self.assertGreater(sk.GeometryCount, 20)
+        self._fechado_e_valido(sk)
+        # extruda: as letras viram sólido
+        ext = self.doc.addObject("Part::Extrusion", "Ext")
+        ext.Base = sk
+        ext.Dir = FreeCAD.Vector(0, 0, 2)
+        ext.Solid = True
+        self.doc.recompute()
+        self.assertTrue(ext.Shape.isValid())
+        self.assertGreater(ext.Shape.Volume, 0)
+
+    def test_altura_e_posicao_do_texto(self):
+        ar = self.M.arestas_do_texto("H", None, 20.0, 0.0, 30.0, 40.0, 0.0)
+        import Part
+        bb = Part.Compound(ar).BoundBox
+        self.assertAlmostEqual(bb.YLength, 20.0, delta=0.05)
+        self.assertAlmostEqual(bb.YMin, 40.0, delta=0.5)
+        self.assertGreater(bb.XMin, 30.0 - 0.01)
+        ar = self.M.arestas_do_texto("H", None, 20.0, 0.0, 0.0, 0.0, 90.0)
+        bb = Part.Compound(ar).BoundBox
+        self.assertAlmostEqual(bb.XLength, 20.0, delta=0.05, msg="girado 90° a altura fica na horizontal")
+        duas = Part.Compound(self.M.arestas_do_texto("A\nB", None, 10.0)).BoundBox
+        self.assertGreater(duas.YLength, 20.0, "duas linhas")
+
+    def test_texto_vazio_e_fonte_inexistente(self):
+        pn = self.M.PainelTexto()
+        pn.texto.setPlainText("   ")
+        self.assertIn("Digite", pn.pendencia())
+        self.assertFalse(pn.accept())
+        pn.close()
+        with self.assertRaises(ValueError):
+            self.M.arestas_do_texto("A", "/nao/existe.ttf", 10)
+        self.assertIn("Poppins Regular", self.M.fontes())
+
+    def test_texto_no_esboco_em_edicao_nao_muda_o_lugar_dele(self):
+        import Part
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Tampa")
+        pl = FreeCAD.Placement(V(10, 20, 30), FreeCAD.Rotation(V(1, 0, 0), 90))
+        sk.Placement = pl
+        sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(80, 0, 0)))
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(sk)
+        self._esp(1.0)
+        pn = self.M.PainelTexto()
+        self.assertEqual(pn.alvo, sk)
+        pn.mostrar()
+        self._esp(0.5)
+        self.assertIsNotNone(getattr(pn, "janela", None), "com o esboço em edição o painel abre em janela")
+        self.assertTrue(pn.janela.isVisible())
+        pn.texto.setPlainText("OK")
+        pn.x.setValue(5)
+        pn.y.setValue(5)
+        pn.janela.findChild(QtWidgets.QDialogButtonBox).button(QtWidgets.QDialogButtonBox.Ok).click()
+        self._esp(0.5)
+        import shiboken6
+        self.assertFalse(shiboken6.isValid(pn.janela) and pn.janela.isVisible(), "a janela devia fechar")
+        self.assertGreater(sk.GeometryCount, 5)
+        self.assertTrue(sk.Placement.isSame(pl, 1e-9), "o esboço não pode sair do lugar")
+        self.assertEqual(self.doc.getObjectsByLabel("Texto"), [], "não devia criar outro esboço")
+        self.assertIs(FreeCADGui.ActiveDocument.getInEdit().Object, sk, "continua editando o esboço")
+        FreeCADGui.ActiveDocument.resetEdit()
+
+    def test_comando_texto_abre_painel(self):
+        FreeCADGui.runCommand("Prumo_TextoEsboco", 0)
+        self._esp(1.0)
+        dlg = FreeCADGui.Control.activeDialog()
+        self.assertTrue(dlg, "o painel do texto não abriu")
+        FreeCADGui.Control.closeDialog()
+
+    # ---- DXF
+    def test_dxf_vira_esboco_com_furo(self):
+        caminho = self._dxf()
+        pn = self.M.PainelDXF(caminho)
+        self.assertIsNone(pn.pendencia())
+        self.assertTrue(pn.accept())
+        sk = pn.resultado_esboco
+        self._fechado_e_valido(sk)
+        circ = [g for g in sk.Geometry if g.TypeId == "Part::GeomCircle"]
+        self.assertEqual(len(circ), 1)
+        self.assertAlmostEqual(circ[0].Radius, 20.0, places=4)
+        bb = sk.Shape.BoundBox
+        self.assertAlmostEqual(bb.XLength, 100.0, places=3)
+        self.assertAlmostEqual(bb.YLength, 50.0, places=3)
+        self.assertEqual(len(self.doc.Objects), 1, "nada além do esboço fica no projeto: %s" %
+                         [o.Name for o in self.doc.Objects])
+        self.assertNotIn("PrumoDXF", " ".join(FreeCAD.listDocuments()))
+
+    def test_dxf_em_centimetros_e_na_origem(self):
+        caminho = self._dxf()
+        pn = self.M.PainelDXF(caminho)
+        pn.unidade.setCurrentIndex(1)       # cm
+        pn.origem.setChecked(True)
+        self.assertTrue(pn.accept())
+        sk = pn.resultado_esboco
+        bb = sk.Shape.BoundBox
+        self.assertAlmostEqual(bb.XLength, 1000.0, places=2)
+        self.assertAlmostEqual(bb.XMin, 0.0, places=4)
+        self.assertAlmostEqual(bb.YMin, 0.0, places=4)
+
+    def test_dxf_no_esboco_selecionado(self):
+        import Part
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Base")
+        sk.Placement = FreeCAD.Placement(V(0, 0, 15), FreeCAD.Rotation())
+        sk.addGeometry(Part.Circle(V(300, 300, 0), V(0, 0, 1), 5))
+        self.doc.recompute()
+        caminho = self._dxf()
+        FreeCADGui.Selection.addSelection(sk)
+        pn = self.M.PainelDXF(caminho)
+        self.assertIs(pn.alvo, sk)
+        self.assertTrue(pn.accept())
+        self.assertEqual(len([g for g in sk.Geometry if g.TypeId == "Part::GeomCircle"]), 2)
+        self.assertAlmostEqual(sk.Shape.BoundBox.ZMin, 15.0, places=6)
+
+    def test_dxf_sem_arquivo(self):
+        pn = self.M.PainelDXF("")
+        self.assertIn("Escolha", pn.pendencia())
+        pn.caminho.setText(os.path.join(self.tmp, "nao.dxf"))
+        self.assertIn("não encontrado", pn.pendencia())
+        pn.close()
+
+    # ---- matriz em caminho
+    def _base_e_caminho(self):
+        import Part
+        V = FreeCAD.Vector
+        cx = self.doc.addObject("Part::Box", "Bloco")
+        cx.Length = cx.Width = cx.Height = 5
+        sk = self.doc.addObject("Sketcher::SketchObject", "Trajeto")
+        sk.addGeometry(Part.ArcOfCircle(Part.Circle(V(0, 0, 0), V(0, 0, 1), 100), 0, math.pi))
+        self.doc.recompute()
+        return cx, sk
+
+    def test_matriz_em_caminho_pelo_painel(self):
+        cx, sk = self._base_e_caminho()
+        FreeCADGui.Selection.addSelection(cx)
+        FreeCADGui.Selection.addSelection(sk)
+        FreeCADGui.runCommand("Prumo_MatrizCaminho", 0)
+        self._esp(1.5)
+        dlg = FreeCADGui.Control.activeDialog()
+        self.assertTrue(dlg, "o painel não abriu")
+        import PrumoPainel
+        pn = PrumoPainel._ATIVO.get("painel")
+        self.assertEqual(pn.base.valores(), [cx])
+        self.assertIs(pn.caminho.valores()[0][0], sk)
+        pn.qtd.setValue(6)
+        self._esp(0.6)
+        self.assertTrue(pn.accept())
+        FreeCADGui.Control.closeDialog()
+        self._esp(0.5)
+        self.doc.recompute()
+        arr = [o for o in self.doc.Objects if o.Label.startswith("Matriz em caminho")]
+        self.assertEqual(len(arr), 1, [o.Label for o in self.doc.Objects])
+        a = arr[0]
+        self.assertEqual(a.Count, 6)
+        self.assertTrue(a.Shape.isValid())
+        self.assertAlmostEqual(a.Shape.Volume, 6 * 125.0, delta=1.0)
+        bb = a.Shape.BoundBox
+        self.assertGreater(bb.XLength, 190.0, "as cópias vão de uma ponta à outra do arco")
+
+    def test_matriz_esboco_selecionado_vai_para_caminho(self):
+        cx, sk = self._base_e_caminho()
+        FreeCADGui.Selection.addSelection(sk)     # só o caminho, antes de abrir
+        pn = self.M.PainelMatrizCaminho()
+        self.assertEqual(pn.base.valores(), [], "esboço não é peça para copiar")
+        self.assertIs(pn.caminho.valores()[0][0], sk)
+        pn.close()
+
+    def test_matriz_peca_e_caminho_iguais(self):
+        cx, _sk = self._base_e_caminho()
+        with self.assertRaises(ValueError):
+            self.M.matriz_no_caminho(cx, cx)
+
+    # ---- faixa
+    def test_aba_esboco_tem_inserir(self):
+        import PrumoRibbon as R
+        esb = [t for t in R.TABS if t["id"] == "esboco"][0]
+        grupos = dict(esb["panels"])
+        self.assertIn("Inserir", grupos)
+        cmds = [c for c, _t, _r in grupos["Inserir"]]
+        self.assertEqual(cmds, ["Prumo_TextoEsboco", "Prumo_ImportarDXF", "Prumo_MatrizCaminho"])
+        for c in cmds:
+            self.assertIn(c, FreeCADGui.listCommands())
+            self.assertTrue(FreeCADGui.Command.get(c).getInfo()["pixmap"])
+
+    def test_abas_bim_e_superficies(self):
+        import PrumoRibbon as R
+        ids = [t["id"] for t in R.TABS]
+        self.assertIn("bim", ids)
+        self.assertIn("superficies", ids)
+        self.assertLess(ids.index("bim"), ids.index("prumo"))
+        self.assertLess(ids.index("superficies"), ids.index("prumo"))
+        for wb in ("BIMWorkbench", "SurfaceWorkbench"):
+            FreeCADGui.activateWorkbench(wb)
+            self._esp(1.0)
+        todos = FreeCADGui.listCommands()
+        for aba in ("bim", "superficies"):
+            t = [x for x in R.TABS if x["id"] == aba][0]
+            for _p, itens in t["panels"]:
+                for c, _t, _r in itens:
+                    for nome in c.split("|"):
+                        self.assertIn(nome, todos, "comando inexistente na aba %s: %s" % (aba, nome))
+        rb = R._state.get("ribbon")
+        if rb is not None:
+            rotulos = [rb.tabbar.tabText(i) for i in range(rb.tabbar.count())]
+            self.assertIn("BIM", rotulos)
+            self.assertIn("Superfícies", rotulos)
+            self.assertFalse(any("Desenho 2D" in r or "Malhas" in r for r in rotulos), rotulos)
+            rb.select_tab("bim", user=True)
+            self._esp(1.0)
+            self.assertEqual(FreeCADGui.activeWorkbench().name(), "BIMWorkbench")
+            self.assertIsNone(QtWidgets.QApplication.activeModalWidget(), "nenhuma janela travando a aba BIM")
+        FreeCADGui.activateWorkbench("PartDesignWorkbench")
+
+    def test_solidos_da_peca_completo(self):
+        import PrumoRibbon as R
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        sol = dict(peca["panels"])["Sólidos"]
+        nomes = "|".join(c for c, _t, _r in sol).split("|")
+        for c in ("Part_Box", "Part_Cylinder", "Part_Extrude", "Part_Revolve", "Part_Loft", "Part_Sweep",
+                  "Part_Fillet", "Part_Chamfer", "Part_Thickness", "Part_Mirror", "Part_Cut", "Part_Fuse"):
+            self.assertIn(c, nomes)
+        self.assertEqual(sol[0][:2], ("PartDesign_CompPrimitiveAdditive", "L"))
+        self.assertTrue(all(s == "S" for _c, s, _r in sol[1:]), "só o Sólido fica grande")
+
+    def test_bim_funciona_sem_a_bancada_draft(self):
+        import PrumoGui
+        self.assertIn("DraftWorkbench", PrumoGui.BANCADAS_DESLIGADAS)
+        import Arch
+        import Draft
+        V = FreeCAD.Vector
+        linha = Draft.make_line(V(0, 0, 0), V(3000, 0, 0))
+        parede = Arch.makeWall(linha, width=150, height=2800)
+        self.doc.recompute()
+        self.assertTrue(parede.Shape.isValid())
+        self.assertAlmostEqual(parede.Shape.Volume, 3000 * 150 * 2800, delta=1.0)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -10713,4 +11024,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
-           T78RoteiroDaChapa]
+           T78RoteiroDaChapa, T79InserirNoEsboco]

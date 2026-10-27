@@ -31,7 +31,7 @@ WB_NAMES = {
     "PrumoWorkbench": "Prumo",
     "SMWorkbench": "Chapa metálica",
     "DraftWorkbench": "Desenho 2D",
-    "BIMWorkbench": "BIM / Arquitetura",
+    "BIMWorkbench": "BIM",
     "CAMWorkbench": "Usinagem (CAM)",
     "FemWorkbench": "Simulação (FEM)",
     "InspectionWorkbench": "Inspeção",
@@ -109,6 +109,10 @@ TABS = [
         ("Referências", [
             ("Sketcher_CompExternal", S, "Geometria externa"), ("Prumo_ReferenciasAuto", S, "Referências automáticas"),
         ]),
+        ("Inserir", [
+            ("Prumo_TextoEsboco", L, "Texto"), ("Prumo_ImportarDXF", L, "Importar\nDXF"),
+            ("Prumo_MatrizCaminho", L, "Matriz em\ncaminho"),
+        ]),
         ("Padrão", [
             ("Sketcher_Translate", L, "Padrão\nlinear"), ("Sketcher_Rotate", L, "Padrão\ncircular"),
             ("Sketcher_Symmetry", L, "Espelhar"),
@@ -144,6 +148,11 @@ TABS = [
         ("Sólidos", [
             ("PartDesign_CompPrimitiveAdditive", L, "Sólido"),
             ("Part_Cut", S, "Subtrair"), ("Part_Fuse", S, "Unir"), ("Part_Common", S, "Interseção"),
+            ("Part_Box|Part_Cylinder|Part_Sphere|Part_Cone|Part_Torus|Part_Tube|Part_Primitives", S,
+             "Primitivas soltas"),
+            ("Part_Extrude|Part_Revolve|Part_Loft|Part_Sweep|Part_RuledSurface|Part_MakeFace", S,
+             "Extrudar / girar sólido"),
+            ("Part_Fillet|Part_Chamfer|Part_Thickness|Part_Mirror|Part_Boolean", S, "Acabamento de sólido"),
             ("Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools", S, "Juntar / dividir"),
             ("Part_Section|Part_CrossSections|Part_ProjectionOnSurface", S, "Seção / projeção"),
             ("Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder", S, "Escala / offset"),
@@ -325,6 +334,48 @@ TABS = [
         ("7 · Resultados", [("FEM_ResultShow", L, "Ver\nresultados"), ("FEM_PostFilterWarp", S, "Deformada"),
                             ("FEM_PostFilterClipScalar", S, "Recorte por valor"), ("FEM_PostFilterDataAlongLine", S, "Gráfico ao longo de linha"),
                             ("FEM_ResultsPurge", S, "Limpar resultados")]),
+    ]},
+    {"id": "superficies", "label": "Superfícies", "wb": "SurfaceWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
+        ("Superfície", [
+            ("Surface_Filling", L, "Preencher"), ("Surface_GeomFillSurface", L, "Pelas\narestas"),
+            ("Surface_Sections", S, "Por seções"), ("Surface_ExtendFace", S, "Estender face"),
+            ("Surface_BlendCurve", S, "Curva de concordância"), ("Surface_CurveOnMesh", S, "Curva sobre malha"),
+        ]),
+        ("Formas", [
+            ("Part_Loft", L, "Loft"), ("Part_Sweep", L, "Varredura"), ("Part_RuledSurface", S, "Superfície regrada"),
+            ("Part_MakeFace", S, "Face de esboços"), ("Part_Builder", S, "Montar sólido de faces"),
+        ]),
+        ("Conferir", [("Part_CheckGeometry", S, "Verificar geometria"), ("Std_Measure", S, "Medir")]),
+    ]},
+    {"id": "bim", "label": "BIM", "wb": "BIMWorkbench", "panels": [
+        ("Projeto", [
+            ("BIM_ProjectManager", L, "Novo\nprojeto"), ("Arch_Site|Arch_Building|Arch_Level|Arch_Space", S,
+                                                         "Terreno / edifício / nível"),
+            ("BIM_Setup", S, "Configurar BIM"),
+        ]),
+        ("Desenhar", [
+            ("BIM_Sketch", L, "Esboço"),
+            ("Draft_Line|Draft_Wire|Draft_Rectangle|Draft_Circle|Draft_Arc|Draft_Polygon", L, "Linhas"),
+            ("BIM_Extrude", S, "Extrudar"), ("Draft_Move|Draft_Rotate|BIM_Copy|Draft_Mirror", S, "Mover / copiar"),
+            ("Draft_OrthoArray|Draft_PolarArray|Draft_PathArray", S, "Matrizes"),
+        ]),
+        ("Elementos", [
+            ("Arch_Wall", L, "Parede"), ("BIM_Slab", L, "Laje"), ("BIM_Column", S, "Pilar"), ("BIM_Beam", S, "Viga"),
+            ("BIM_Door", S, "Porta"), ("Arch_Window", S, "Janela"), ("Arch_Stairs", S, "Escada"),
+            ("Arch_Roof", S, "Telhado"), ("Arch_Pipe|Arch_PipeConnector", S, "Tubo"),
+            ("Arch_Equipment", S, "Equipamento"),
+            ("Arch_CurtainWall|Arch_Panel|Arch_Frame|Arch_Truss|Arch_Rebar|Arch_Fence", S, "Mais elementos"),
+        ]),
+        ("Anotar", [
+            ("BIM_DimensionAligned|BIM_DimensionHorizontal|BIM_DimensionVertical", L, "Cota"),
+            ("BIM_Text|BIM_Leader|Draft_Label", S, "Texto e chamada"), ("Arch_SectionPlane", S, "Plano de corte"),
+            ("Arch_Axis|Arch_AxisSystem|Arch_Grid", S, "Eixos e grade"),
+            ("BIM_TDPage|BIM_TDView|BIM_Create2DViews", S, "Folha e vistas"),
+        ]),
+        ("Dados", [
+            ("BIM_Layers", S, "Camadas"), ("BIM_Material", S, "Materiais"), ("Arch_Schedule", S, "Quantitativos"),
+            ("BIM_IfcElements|BIM_IfcProperties|BIM_IfcQuantities|BIM_Classification", S, "IFC"),
+        ]),
     ]},
     {"id": "prumo", "label": "Prumo", "wb": None, "panels": [
         ("Prumo", [
@@ -1001,14 +1052,8 @@ class PrumoRibbon(QtWidgets.QWidget):
             brand.setText("Prumo 3D")
         brand.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
         rl.addWidget(brand)
-        rl.addWidget(self._build_wb_button())
-        sep = QtWidgets.QFrame()
-        sep.setObjectName("PrumoWbSep")
-        sep.setFrameShape(QtWidgets.QFrame.VLine)
-        sep.setFixedHeight(20)
+        # sem seletor de bancadas: tudo fica nas abas (as bancadas sem aba saem de vista no Prumo)
         rl.addSpacing(4)
-        rl.addWidget(sep)
-        rl.addSpacing(2)
         self.tabbar = QtWidgets.QTabBar()
         self.tabbar.setDrawBase(False)
         self.tabbar.setExpanding(False)
@@ -1075,26 +1120,7 @@ class PrumoRibbon(QtWidgets.QWidget):
             if 0 <= idx < len(self._tabs):
                 self.build(self._tabs[idx])
 
-    # ---- seletor de bancadas (logo após a marca)
-    def _build_wb_button(self):
-        b = QtWidgets.QToolButton()
-        b.setObjectName("PrumoWbBtn")
-        b.setText("Bancadas")
-        b.setToolTip("Trocar de bancada de trabalho")
-        b.setPopupMode(QtWidgets.QToolButton.InstantPopup)
-        b.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
-        b.setCursor(QtCore.Qt.PointingHandCursor)
-        try:
-            import PrumoEstilo
-            b.setStyleSheet("QToolButton::menu-indicator { image: url(%s); }" % PrumoEstilo._url("chev_down.svg"))
-        except Exception:
-            pass
-        menu = QtWidgets.QMenu(b)
-        menu.aboutToShow.connect(lambda m=menu: self._fill_wb_menu(m))
-        b.setMenu(menu)
-        self._wb_btn = b
-        return b
-
+    # ---- (sem seletor de bancadas na faixa: cada bancada usada no Prumo tem sua aba)
     def _rotulo_bancada(self, name):
         b = getattr(self, "_wb_btn", None)
         if b is None:
@@ -1190,12 +1216,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         escolhido = 4
         for n in range(5):
             self._aplicar_nivel(n)
-            if row.layout().sizeHint().width() <= larg:
+            if row.layout().sizeHint().width() + 6 <= larg:
                 escolhido = n
                 break
-        if escolhido != self._nivel_linha or row.layout().sizeHint().width() > larg:
-            self._nivel_linha = escolhido
-        self.tabbar.setUsesScrollButtons(row.layout().sizeHint().width() > larg)
+        self._nivel_linha = escolhido
+        # setas sempre permitidas: só aparecem se nem o nível mais compacto couber (janela muito
+        # estreita). Desligá-las faria a linha das abas impor largura mínima à janela inteira.
+        self.tabbar.setUsesScrollButtons(True)
 
     def _fill_wb_menu(self, menu):
         menu.clear()
@@ -1239,6 +1266,9 @@ class PrumoRibbon(QtWidgets.QWidget):
         return -1
 
     def _on_tab_changed(self, idx):
+        if idx >= 0:
+            # a aba ativa (em negrito) é mais larga: confere de novo se a linha cabe sem setas
+            QtCore.QTimer.singleShot(0, self._ajustar_linha)
         if self._building or idx < 0:
             return
         tab = self._tabs[idx]
