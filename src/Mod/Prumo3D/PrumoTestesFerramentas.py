@@ -8428,6 +8428,13 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
         mw = FreeCADGui.getMainWindow()
         for _ in range(3):
             self._fechar_janelas()
+            # comandos do BIM/Draft esperam cliques na vista: cancela como o Esc faz
+            cmd_draft = getattr(FreeCAD, "activeDraftCommand", None)
+            if cmd_draft is not None:
+                try:
+                    cmd_draft.finish()
+                except Exception:
+                    FreeCAD.activeDraftCommand = None
             try:
                 if FreeCADGui.Control.activeDialog():
                     FreeCADGui.Control.closeDialog()
@@ -8485,6 +8492,7 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
         import PrumoRibbon
         erros, rodados = [], 0
         doc = None
+        vistos = set()       # comando que aparece em duas abas roda uma vez só
         for tab in PrumoRibbon.TABS:
             wb = tab.get("wb")
             for extra in (tab.get("wb_extra") or []) + ([wb] if wb else []):
@@ -8503,8 +8511,9 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
             # selecionar antes disso derruba o FreeCAD (observador de seleção já apagado)
             self._esp(0.8)
             for cmd in self._comandos_da_aba(tab):
-                if cmd in self.NAO_RODAR or cmd not in FreeCADGui.listCommands():
+                if cmd in self.NAO_RODAR or cmd in vistos or cmd not in FreeCADGui.listCommands():
                     continue
+                vistos.add(cmd)
                 if doc is None or doc.Name not in FreeCAD.listDocuments() or not self._vivo(pad):
                     if doc is not None and doc.Name in FreeCAD.listDocuments():
                         fechar(doc)

@@ -17,8 +17,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   aba; entraram duas novas:
   - **BIM:** projeto (terreno, edifício, nível), paredes, lajes, pilares, vigas, portas, janelas, escadas,
     telhados, cotas, cortes, folhas e quantitativos/IFC.
-  - **Superfícies:** preencher por arestas ou seções, estender face, curva de concordância, loft, varredura e
-    superfície regrada.
+  - **Superfícies:** preencher por arestas ou seções, estender face, curva de concordância, curva sobre malha e
+    sólido a partir de faces (loft, varredura e regrada ficam na aba Peça).
 - **Esboço › Inserir** (o que antes só a bancada Draft fazia):
   - **Texto:** escreve um texto como linhas e curvas do esboço, pronto para extrudar, cortar ou gravar. Fonte
     Poppins ou qualquer fonte instalada, altura da letra maiúscula em mm, espaço entre letras, posição e giro.
@@ -31,7 +31,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Aba Peça › Sólidos completo:** primitivas soltas (cubo, cilindro, esfera, cone, toro, tubo), extrudar, girar,
   loft, varredura, superfície regrada, face de esboços, arredondar, chanfrar, casca, espelhar e booleanas.
 - **Bancadas fora de vista:** Desenho 2D (Draft), Malhas, Usinagem (CAM) e Engenharia reversa não aparecem mais.
-  Quem usa alguma delas religa em Ferramentas › Preferências › Bancadas e ela ganha uma aba.
+  Quem usa alguma delas religa nas Preferências (página das bancadas) e abre pelo menu Vista › Bancada; ela
+  ganha uma aba enquanto estiver em uso.
 
 ### Correções
 

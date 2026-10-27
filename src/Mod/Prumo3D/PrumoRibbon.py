@@ -341,11 +341,11 @@ TABS = [
             ("Surface_Sections", S, "Por seções"), ("Surface_ExtendFace", S, "Estender face"),
             ("Surface_BlendCurve", S, "Curva de concordância"), ("Surface_CurveOnMesh", S, "Curva sobre malha"),
         ]),
-        ("Formas", [
-            ("Part_Loft", L, "Loft"), ("Part_Sweep", L, "Varredura"), ("Part_RuledSurface", S, "Superfície regrada"),
-            ("Part_MakeFace", S, "Face de esboços"), ("Part_Builder", S, "Montar sólido de faces"),
+        # loft, varredura, regrada e face de esboços ficam na aba Peça › Sólidos (um lugar só para cada ferramenta)
+        ("Fechar", [
+            ("Part_Builder", L, "Sólido das\nfaces"), ("Part_CheckGeometry", S, "Verificar geometria"),
+            ("Std_Measure", S, "Medir"),
         ]),
-        ("Conferir", [("Part_CheckGeometry", S, "Verificar geometria"), ("Std_Measure", S, "Medir")]),
     ]},
     {"id": "bim", "label": "BIM", "wb": "BIMWorkbench", "panels": [
         ("Projeto", [
@@ -364,7 +364,7 @@ TABS = [
             ("BIM_Door", S, "Porta"), ("Arch_Window", S, "Janela"), ("Arch_Stairs", S, "Escada"),
             ("Arch_Roof", S, "Telhado"), ("Arch_Pipe|Arch_PipeConnector", S, "Tubo"),
             ("Arch_Equipment", S, "Equipamento"),
-            ("Arch_CurtainWall|Arch_Panel|Arch_Frame|Arch_Truss|Arch_Rebar|Arch_Fence", S, "Mais elementos"),
+            ("Arch_CurtainWall|Arch_Panel|Arch_Frame|Arch_Rebar|Arch_Fence", S, "Mais elementos"),
         ]),
         ("Anotar", [
             ("BIM_DimensionAligned|BIM_DimensionHorizontal|BIM_DimensionVertical", L, "Cota"),
