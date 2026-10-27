@@ -16,6 +16,8 @@ A preferência PainelLateralUnico (Mod/Prumo3D) desligada devolve o arranjo do F
 abertura.
 """
 
+import time
+
 import FreeCAD
 import FreeCADGui
 from PySide import QtCore, QtGui, QtWidgets
@@ -476,7 +478,7 @@ def _comando(ds, no_inicio):
         # lembra a aba em uso antes do comando (o FreeCAD já troca de aba ao abrir o comando,
         # antes desta função ver a mudança)
         atual = aba_atual()
-        if atual in (ARVORE, PROPRIEDADES, APARENCIA):
+        if atual in (ARVORE, PROPRIEDADES, APARENCIA) and not _saida_do_comando():
             _estado["antes"] = atual
     if not ativa and not no_inicio and tar.isVisible() and not tar.isFloating():
         tar.hide()        # sem comando não há aba de comando (nem a que o FreeCAD deixa aberta ao montar)
@@ -596,6 +598,10 @@ def _instalar_abas_novas(mw, ds, no_inicio=False):
         if d is not None and not d.property("prumo_lembra_aba"):
             d.setProperty("prumo_lembra_aba", True)
             d.visibilityChanged.connect(lambda vis, n=nome: vis and _lembrar_aba(n))
+    tar = ds.get(TAREFA)
+    if tar is not None and not tar.property("prumo_marca_saida"):
+        tar.setProperty("prumo_marca_saida", True)
+        tar.visibilityChanged.connect(lambda vis: vis or _estado.__setitem__("tarefa_saiu", time.monotonic()))
     if not _estado.get("observando"):
         _estado["observando"] = True
         obs = PrumoInspetor.Observador(lambda: atualizar())
@@ -605,9 +611,17 @@ def _instalar_abas_novas(mw, ds, no_inicio=False):
         atualizar(forcar=True)
 
 
+def _saida_do_comando():
+    """True logo depois que a aba do comando sumiu: nesse instante o Qt põe à vista a aba vizinha sozinho,
+    e isso não é escolha do usuário."""
+    return _estado.get("ativa") and time.monotonic() - _estado.get("tarefa_saiu", -10.0) < 0.6
+
+
 def _lembrar_aba(nome):
-    # a última aba (Árvore, Propriedades ou Aparência) que ficou à vista é a de voltar quando o comando
-    # fechar; vale também durante o fechamento de um comando anterior
+    # a última aba (Árvore, Propriedades ou Aparência) que o usuário pôs à vista é a de voltar quando o
+    # comando fechar; vale também logo depois de fechar um comando anterior
+    if _saida_do_comando():
+        return
     _estado["antes"] = nome
 
 
