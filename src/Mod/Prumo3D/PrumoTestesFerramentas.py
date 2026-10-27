@@ -10172,6 +10172,13 @@ class T75RoteirosDoEsboco(unittest.TestCase):
             raise unittest.SkipTest("precisa do esboço compilado do Prumo (pontos-ímã)")
 
     def setUp(self):
+        # sem gerenciador de janelas (Xvfb) a janela pode ter crescido além da tela em testes anteriores
+        # (painel alto aberto): a parte de baixo da vista fica fora da tela e não recebe o mouse
+        mw = FreeCADGui.getMainWindow()
+        tela = mw.screen().availableGeometry()
+        if mw.width() > tela.width() or mw.height() > tela.height():
+            mw.setGeometry(tela)
+            self._esp(400)
         self.doc = FreeCAD.newDocument("RoteiroEsboco")
 
     def tearDown(self):
