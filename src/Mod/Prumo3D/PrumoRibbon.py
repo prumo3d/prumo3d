@@ -1067,8 +1067,9 @@ class PrumoRibbon(QtWidgets.QWidget):
             self.tabbar.addTab(t["label"])
         self.tabbar.currentChanged.connect(self._on_tab_changed)
         self.tabbar.tabBarDoubleClicked.connect(self._toggle_collapse)
-        rl.addWidget(self.tabbar)
-        rl.addStretch(1)
+        # a barra de abas fica com todo o espaço que sobra (as abas continuam à esquerda): a aba ativa, em
+        # negrito, cresce sem empurrar a última para fora
+        rl.addWidget(self.tabbar, 1)
         self._quick_box = self._build_quick()
         rl.addWidget(self._quick_box)
         lay.addWidget(row)
@@ -1216,7 +1217,9 @@ class PrumoRibbon(QtWidgets.QWidget):
         escolhido = 4
         for n in range(5):
             self._aplicar_nivel(n)
-            if row.layout().sizeHint().width() + 6 <= larg:
+            # folga para a aba ativa (em negrito, mais larga): o nível não muda ao trocar de aba, senão a
+            # faixa mudaria de tamanho e a vista 3D pularia debaixo do mouse
+            if row.layout().sizeHint().width() + 30 <= larg:
                 escolhido = n
                 break
         self._nivel_linha = escolhido
@@ -1266,9 +1269,6 @@ class PrumoRibbon(QtWidgets.QWidget):
         return -1
 
     def _on_tab_changed(self, idx):
-        if idx >= 0:
-            # a aba ativa (em negrito) é mais larga: confere de novo se a linha cabe sem setas
-            QtCore.QTimer.singleShot(0, self._ajustar_linha)
         if self._building or idx < 0:
             return
         tab = self._tabs[idx]

@@ -10990,6 +10990,31 @@ class T79InserirNoEsboco(unittest.TestCase):
             self.assertIsNone(QtWidgets.QApplication.activeModalWidget(), "nenhuma janela travando a aba BIM")
         FreeCADGui.activateWorkbench("PartDesignWorkbench")
 
+    def test_trocar_de_aba_nao_muda_a_altura_da_faixa(self):
+        """O nível de compactação da linha das abas depende só da largura da janela: trocar de aba (a ativa
+        fica em negrito) não pode mudar a faixa de tamanho, senão a vista 3D pula debaixo do mouse."""
+        import PrumoRibbon as R
+        rb = R._state.get("ribbon")
+        if rb is None:
+            self.skipTest("faixa Prumo não instalada nesta sessão")
+        mw = FreeCADGui.getMainWindow()
+        tam0 = mw.size()
+        try:
+            for larg in (1366, 1600):
+                mw.resize(larg, 900)
+                self._esp(0.8)
+                nivel, alt = rb._nivel_linha, rb.height()
+                for aba in ("inicio", "esboco", "peca", "superficies", "prumo"):
+                    rb.select_tab(aba)
+                    self._esp(0.3)
+                    self.assertEqual((rb._nivel_linha, rb.height()), (nivel, alt), "%d px, aba %s" % (larg, aba))
+                    tb = rb.tabbar
+                    self.assertLessEqual(tb.tabRect(tb.count() - 1).right(), tb.width(),
+                                         "%d px, aba %s: última aba cortada" % (larg, aba))
+        finally:
+            mw.resize(tam0)
+            rb.select_tab("inicio")
+
     def test_solidos_da_peca_completo(self):
         import PrumoRibbon as R
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
