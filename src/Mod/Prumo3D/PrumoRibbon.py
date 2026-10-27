@@ -124,7 +124,7 @@ TABS = [
         ("Adicionar material", [
             ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
             ("PartDesign_AdditiveLoft", S, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
-            ("PartDesign_AdditiveHelix", S, "Hélice"), ("PartDesign_CompPrimitiveAdditive", S, "Sólido"),
+            ("PartDesign_AdditiveHelix", S, "Hélice"),
         ]),
         ("Remover material", [
             ("PartDesign_Pocket", L, "Cavidade"), ("PartDesign_Hole", L, "Furo"),
@@ -142,7 +142,8 @@ TABS = [
         ]),
         # Sólidos (bancada Part): só o que não tem igual no PartDesign
         ("Sólidos", [
-            ("Part_Cut", L, "Subtrair"), ("Part_Fuse", S, "Unir"), ("Part_Common", S, "Interseção"),
+            ("PartDesign_CompPrimitiveAdditive", L, "Sólido"),
+            ("Part_Cut", S, "Subtrair"), ("Part_Fuse", S, "Unir"), ("Part_Common", S, "Interseção"),
             ("Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools", S, "Juntar / dividir"),
             ("Part_Section|Part_CrossSections|Part_ProjectionOnSurface", S, "Seção / projeção"),
             ("Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder", S, "Escala / offset"),
