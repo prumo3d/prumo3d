@@ -27,13 +27,13 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.10 beta** (27/10/2026)
+**Versão atual: 0.9.11 beta** (27/10/2026)
 
-- **Esboço:** todo esboço abre no modo normal (o modo construção não "vaza" mais de um esboço para outro).
-- **Tubulação:** cruzeta em trechos que se cruzam e aviso de tubos encostados sem conexão.
-- **Estruturas:** diagonal de treliça no meio da barra encosta na face; cruzamento no meio avisa.
-- **Testes de uso:** roteiros automáticos de esboço, peça, estrutura, chapa e tubulação a cada versão.
+- **Instalador seguro:** troca a pasta da versão anterior de uma vez (renomeando) e só apaga a antiga no fim;
+  se algo estiver preso, a versão instalada continua intacta.
 
+Na 0.9.10: esboço sempre no modo normal, cruzeta e avisos na tubulação, treliças nas estruturas e roteiros de
+uso automáticos.
 Na 0.9.9: tê no ramal que chega no meio da linha principal.
 Na 0.9.8: linha ligada a pontos-ímã do esboço sai definida e a janela cabe em notebook com escala alta.
 Na 0.9.7: atualização automática segura (o instalador espera o Prumo fechar).

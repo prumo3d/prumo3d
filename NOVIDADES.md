@@ -9,7 +9,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
-## Em desenvolvimento
+## 0.9.11 beta — 27/10/2026
 
 ### Correções
 
