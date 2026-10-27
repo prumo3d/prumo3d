@@ -92,3 +92,5 @@ Var StartmenuFolder
 Var String
 Var UserList
 Var LangName
+Var PastaAntiga
+Var Presos

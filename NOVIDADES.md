@@ -9,6 +9,17 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
 - `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Instalador não quebra mais a instalação anterior:** ele apagava a pasta antiga arquivo por arquivo; se algum
+  arquivo estivesse preso (antivírus, Explorer, outro programa rodando de dentro da pasta), parava no meio e
+  deixava o Prumo inutilizável. Agora: espera também qualquer programa rodando de dentro da pasta (e diz qual,
+  se não fechar); renomeia a pasta antiga de uma vez (se algo estiver preso, nada é apagado e a versão
+  instalada continua funcionando); instala a nova numa pasta limpa e só então apaga a antiga (o que estiver
+  preso sai na próxima reinicialização). Se a instalação for interrompida, a versão anterior volta ao lugar.
+
 ## 0.9.10 beta — 27/10/2026
 
 ### Correções

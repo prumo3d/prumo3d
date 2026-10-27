@@ -15,17 +15,31 @@ Section -ProgramFiles SecProgramFiles
   # this is recommended in docs when working with many small files
   # https://nsis.sourceforge.io/Reference/SetDetailsPrint
   SetDetailsPrint textonly
+  StrCpy $PastaAntiga ""
   ${If} $RemoveInstDir == "true"
     ${DetailPrintToBoth} "Cleaning install folder '$INSTDIR'"
-    # antes de apagar, garante que o Prumo já saiu (senão sobra metade da pasta e a instalação quebra)
+    # Prumo 3D: a pasta antiga NUNCA é apagada aos pedaços (arquivo preso no meio deixava meia instalação).
+    # 1) espera o Prumo e qualquer programa rodando de dentro dela; 2) renomeia a pasta inteira de uma vez:
+    # se algo estiver preso a renomeação falha sem mexer em nada e a instalação antiga segue funcionando;
+    # 3) a versão nova entra na pasta limpa e a antiga é apagada no fim (ou na próxima reinicialização).
     ${EsperarFecharApp} limpar
-    limpar_pasta:
+    ${EsperarPastaLivre} "$INSTDIR" limpar
+    StrCpy $PastaAntiga "$INSTDIR.antiga"
+    ${If} ${FileExists} "$PastaAntiga\*.*"
+      RMDir /r /REBOOTOK "$PastaAntiga"
+      ${If} ${FileExists} "$PastaAntiga\*.*"
+        System::Call "kernel32::GetTickCount()i.r0"
+        StrCpy $PastaAntiga "$INSTDIR.antiga-$0"
+      ${EndIf}
+    ${EndIf}
+    renomear_pasta:
     ClearErrors
-    RMDir /r "$INSTDIR"
+    Rename "$INSTDIR" "$PastaAntiga"
     ${If} ${Errors}
-      # algum arquivo ainda preso: espera um pouco e oferece tentar de novo em vez de abortar no meio
+      ${ProcessosDaPasta} "$INSTDIR" $0 $Presos
       Sleep 2000
-      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(RMInstDirFailed)" /SD IDCANCEL IDRETRY limpar_pasta
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(RMInstDirFailed)$\r$\n$\r$\nA versão instalada continua intacta.$\r$\nProgramas usando a pasta: $Presos" /SD IDCANCEL IDRETRY renomear_pasta
+      StrCpy $PastaAntiga ""
       Abort
     ${EndIf}
   ${EndIf}
@@ -80,4 +94,19 @@ Section -ProgramFiles SecProgramFiles
   DetailPrint "Writing uninstaller to '$INSTDIR'"
   WriteUninstaller "$INSTDIR\${SETUP_UNINSTALLER}"
 
+  # versão nova no lugar: apaga a antiga (o que estiver preso sai na próxima reinicialização)
+  ${If} $PastaAntiga != ""
+    DetailPrint "Removing previous version '$PastaAntiga'"
+    RMDir /r /REBOOTOK "$PastaAntiga"
+  ${EndIf}
+
 SectionEnd
+
+# instalação interrompida depois de renomear a pasta antiga: devolve a versão anterior ao lugar
+Function .onInstFailed
+  ${If} $PastaAntiga != ""
+  ${AndIf} ${FileExists} "$PastaAntiga\*.*"
+    RMDir /r "$INSTDIR"
+    Rename "$PastaAntiga" "$INSTDIR"
+  ${EndIf}
+FunctionEnd
