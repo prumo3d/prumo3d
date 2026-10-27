@@ -7737,6 +7737,12 @@ class T60Atualizacao(unittest.TestCase):
     """Atualização opcional pela página de versões: comparação, escolha, download conferido, avisos."""
 
 
+    def test_versao_de_dois_digitos_e_mais_nova(self):
+        import PrumoAtualizar as A
+        self.assertTrue(A.mais_nova("v0.9.10-beta", "v0.9.9-beta"), "0.9.10 tem de vir depois de 0.9.9")
+        self.assertFalse(A.mais_nova("0.9.9-beta", "0.9.10-beta"))
+        self.assertTrue(A.mais_nova("1.0.0", "0.9.10-beta"))
+
     def test_instalador_abre_depois_de_fechar_com_permissao(self):
         """No Windows o instalador pede administrador: tem de ir pelo Start-Process (UAC), esperando o
         Prumo fechar; Popen direto falhava (WinError 740) e o Prumo fechava sem instalar."""
