@@ -1069,6 +1069,12 @@ class _ObservadorEdicao:
         if obj is None or obj.TypeId != "Sketcher::SketchObject":
             return
         nome, doc = obj.Name, obj.Document.Name
+        try:   # guarda contra restrição a mais: começa a contar daqui
+            import PrumoGuardaEsboco
+            PrumoGuardaEsboco.instalar()
+            PrumoGuardaEsboco.ao_editar(obj)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: guarda do esboço: {}\n".format(exc))
         QtCore.QTimer.singleShot(120, lambda: _referencias_ao_entrar(doc, nome))
 
     def slotResetEdit(self, vp):

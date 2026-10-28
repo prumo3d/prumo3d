@@ -11293,6 +11293,37 @@ class T80MontagemComoSolidWorks(unittest.TestCase):
         task.reject()
         FreeCADGui.Control.closeDialog()
 
+    def test_erro_da_tangente_traz_o_conserto(self):
+        """Duas faces planas na Tangente: o aviso vem com o botão "Usar Coincidente", que grava na hora."""
+        task = self._junta("tangente", (self.base, "Face6"), (self.bloco, "Face5"))
+        self.assertFalse(task.accept())
+        bt = task._prumo_conserto
+        self.assertFalse(bt.isHidden())
+        self.assertEqual(bt.text(), "Usar Coincidente")
+        bt.click()
+        self._esp(0.6)
+        self.assertFalse(FreeCADGui.Control.activeDialog(), "gravou e fechou o painel")
+        js = [j for j in self.asm.Group[0].Group if getattr(j, "PrumoRestricao", "") == "coincidente"]
+        self.assertEqual(len(js), 1)
+        self.assertEqual(js[0].Label, "Coincidente")
+
+    def test_montagem_sem_peca_fixa_oferece_fixar(self):
+        jg = self.asm.Group[0]
+        for g in [g for g in jg.Group if hasattr(g, "ObjectToGround")]:
+            self.doc.removeObject(g.Name)
+        self.doc.recompute()
+        self.assertEqual(self.M.pecas_fixas(self.asm), [])
+        task = self._junta("coincidente", (self.base, "Face6"), (self.bloco, "Face5"))
+        self.assertIn("Nenhuma peça está fixa", task.ultimo_aviso)
+        bt = task._prumo_conserto
+        self.assertFalse(bt.isHidden())
+        bt.click()
+        self._esp(0.3)
+        self.assertEqual(len(self.M.pecas_fixas(self.asm)), 1)
+        self.assertTrue(bt.isHidden())
+        task.reject()
+        FreeCADGui.Control.closeDialog()
+
     def test_coincidente_encosta_faces(self):
         task = self._junta("coincidente", (self.base, "Face6"), (self.bloco, "Face5"))
         self.assertTrue(task.accept())
@@ -11604,6 +11635,26 @@ class T82MontagemComoSolidCraft(unittest.TestCase):
         self.assertIn("folga de 0,50 mm", r[0].texto)
         self.assertEqual(I.verificar([a, b], folga=0.4), [])
 
+    def test_componentes_dos_solidos(self):
+        """STEP de um corpo só com várias peças: cada sólido vira um componente da montagem, no lugar."""
+        import Part
+        V = FreeCAD.Vector
+        c = Part.makeCompound([Part.makeBox(10, 10, 10), Part.makeBox(10, 10, 10, V(30, 0, 0)),
+                               Part.makeCylinder(5, 20, V(60, 5, 0))])
+        imp = self.doc.addObject("Part::Feature", "Importado")
+        imp.Shape = c
+        self.doc.recompute()
+        novas = self.M.componentes_dos_solidos(imp, self.asm)
+        self.assertEqual(len(novas), 3)
+        for o in novas:
+            self.assertIs(self.M.montagem_de(o), self.asm)
+            self.assertEqual(len(o.Shape.Solids), 1)
+        self.assertAlmostEqual(sum(o.Shape.Volume for o in novas), c.Volume, places=3)
+        self.assertAlmostEqual(novas[1].Shape.BoundBox.XMin, 30.0, places=6, msg="ficou no lugar")
+        self.assertFalse(imp.Visibility)
+        with self.assertRaises(ValueError):
+            self.M.componentes_dos_solidos(novas[0])
+
     def test_procurar_comando(self):
         import PrumoBuscaComandos as B
         itens = B.indice()
@@ -11792,6 +11843,79 @@ class T83FaixaDoMomento(unittest.TestCase):
         cotas = [o for o in page.Views if o.isDerivedFrom("TechDraw::DrawViewDimension")]
         self.assertEqual(sorted(round(d.getRawValue(), 3) for d in cotas), [20.0, 40.0, 80.0])
 
+class T84EsbocoNaoSuperRestringe(unittest.TestCase):
+    """Restrição a mais no esboço: cota que sobra vira referência, geométrica que sobra não entra; o aviso diz
+    o que aconteceu e "Aplicar mesmo assim" volta atrás. Fora da edição, nada muda (scripts continuam livres)."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import Part
+        import Sketcher
+        import PrumoGuardaEsboco as G
+        self.G, self.Sk = G, Sketcher
+        G.instalar()
+        self.doc = novo_doc("PrumoGuarda")
+        V = FreeCAD.Vector
+        self.sk = self.doc.addObject("Sketcher::SketchObject", "Esboco")
+        self.sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(100, 0, 0)))
+        self.sk.addConstraint(Sketcher.Constraint("Horizontal", 0))
+        self.sk.addConstraint(Sketcher.Constraint("DistanceX", 0, 1, 0, 2, 100.0))
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(self.sk)
+        self._esp(0.8)
+        self.G.ao_editar(self.sk)     # (o observador do Prumo já faz isso; aqui garante a ordem no teste)
+
+    def tearDown(self):
+        try:
+            FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        a = self.G._estado.get("aviso")
+        if a is not None:
+            try:
+                a.fechar()
+            except RuntimeError:
+                pass
+        fechar(self.doc)
+
+    def test_cota_a_mais_vira_referencia(self):
+        self.sk.addConstraint(self.Sk.Constraint("Distance", 0, 100.0))
+        self._esp(0.5)
+        self.assertEqual(len(self.sk.Constraints), 3)
+        self.assertFalse(self.sk.Constraints[2].Driving, "virou cota de referência")
+        self.assertEqual(self.sk.solve(), 0, "esboço sem conflito")
+        a = self.G._estado["aviso"]
+        self.assertIsNotNone(a)
+        self.assertIn("referência", a.texto.text())
+
+    def test_geometrica_a_mais_nao_entra_e_aplicar_mesmo_assim_volta(self):
+        self.sk.addConstraint(self.Sk.Constraint("Horizontal", 0))
+        self._esp(0.5)
+        self.assertEqual(len(self.sk.Constraints), 2, "a horizontal repetida não entrou")
+        a = self.G._estado["aviso"]
+        self.assertIn("não foi aplicada", a.texto.text())
+        a.bt_desfazer.click()
+        self._esp(0.3)
+        self.assertEqual(len(self.sk.Constraints), 3, "aplicada mesmo assim, como a pessoa pediu")
+        self.assertNotEqual(self.sk.solve(), 0)
+
+    def test_conflito_de_cota(self):
+        self.sk.addConstraint(self.Sk.Constraint("Distance", 0, 120.0))
+        self._esp(0.5)
+        self.assertFalse(self.sk.Constraints[2].Driving)
+        self.assertEqual(self.sk.solve(), 0)
+        self.assertAlmostEqual(self.sk.Geometry[0].length(), 100.0, places=6, msg="a medida antiga manda")
+
+    def test_fora_da_edicao_nao_mexe(self):
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(0.4)
+        self.sk.addConstraint(self.Sk.Constraint("Horizontal", 0))
+        self._esp(0.4)
+        self.assertEqual(len(self.sk.Constraints), 3)
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -11813,4 +11937,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
-           T83FaixaDoMomento]
+           T83FaixaDoMomento, T84EsbocoNaoSuperRestringe]

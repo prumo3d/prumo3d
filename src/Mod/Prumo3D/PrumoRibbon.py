@@ -172,6 +172,7 @@ TABS = [
             ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Prumo_EditarMontagem", L, "Abrir\nmontagem"),
             ("Assembly_Insert", L, "Inserir\ncomponente"),
             ("Assembly_InsertNewPart", S, "Nova peça aqui"), ("Prumo_PadraoComponentes", S, "Padrão de componentes"),
+            ("Prumo_ComponentesDosSolidos", S, "Componentes dos sólidos"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
             ("Prumo_Massa", S, "Propriedades de massa"), ("Prumo_Propriedades", S, "Propriedades da peça"),
@@ -1565,7 +1566,7 @@ INICIO_DA_ABA = {
                 "Crie a folha (Folha ABNT) ou abra uma que já existe: as vistas, cotas e anotações aparecem "
                 "com a folha aberta."),
     "montagem": ("montagem", {"Assembly_CreateAssembly", "Prumo_EditarMontagem", "Prumo_ListaMateriais",
-                              "Prumo_Massa", "Prumo_Interferencia"},
+                              "Prumo_Massa", "Prumo_Interferencia", "Prumo_ComponentesDosSolidos"},
                  "Crie uma montagem ou abra a que já existe: as restrições aparecem com a montagem aberta."),
     "simulacao": ("estudo", {"Prumo_AssistenteFEM", "Prumo_AssistenteEstrutura", "Prumo_AnaliseEstrutura",
                              "FEM_Analysis"},

@@ -94,19 +94,82 @@ def iniciar_junta(chave):
     original = task.accept
 
     def accept():
-        if chave == "tangente" and getattr(task, "jType", "Distance") == "Distance":
+        if task.prumo_restricao == "tangente" and getattr(task, "jType", "Distance") == "Distance":
             msg = conferir_tangente(_tipos_das_refs(getattr(task, "refs", [])))
             if msg:
-                _avisar(task, msg)
+                conserto = None
+                if "Coincidente" in msg:
+                    # o erro já traz o conserto: as mesmas faces, como Coincidente
+                    conserto = ("Usar Coincidente", lambda: _trocar_e_gravar(task, "coincidente", original))
+                _avisar(task, msg, conserto)
                 return False
         return original()
 
     task.accept = accept
     task.prumo_restricao = chave
+    asm = getattr(task, "assembly", None)
+    if asm is not None and not pecas_fixas(asm):
+        comps = [o for o in asm.Group if o.TypeId != "Assembly::JointGroup" and hasattr(o, "Placement")
+                 and not o.TypeId.startswith("Assembly::")]
+        if comps:
+            _avisar(task, "Nenhuma peça está fixa: ao resolver, a montagem inteira pode se mover.",
+                    ("Fixar %s" % comps[0].Label, lambda: _fixar(task, asm, comps[0])), tipo="info")
     return task
 
 
-def _avisar(task, msg):
+def pecas_fixas(asm):
+    """Componentes fixos da montagem (juntas "Fixar peça")."""
+    try:
+        import UtilsAssembly
+        grupo = UtilsAssembly.getJointGroup(asm)
+        return [g.ObjectToGround for g in grupo.Group if getattr(g, "ObjectToGround", None) is not None]
+    except Exception:
+        return []
+
+
+def _fixar(task, asm, comp):
+    import JointObject
+    import UtilsAssembly
+    grupo = UtilsAssembly.getJointGroup(asm)
+    g = grupo.newObject("App::FeaturePython", "Fixa")
+    JointObject.GroundedJoint(g, comp)
+    if FreeCAD.GuiUp:
+        try:
+            JointObject.ViewProviderGroundedJoint(g.ViewObject)
+        except Exception:
+            pass
+    asm.Document.recompute()
+    lb = getattr(task, "_prumo_aviso", None)
+    if lb is not None:
+        lb.mostrar("%s está fixa: as outras peças se ajustam a ela." % comp.Label, "ok")
+        bt = getattr(task, "_prumo_conserto", None)
+        if bt is not None:
+            bt.setVisible(False)
+    return g
+
+
+def _trocar_e_gravar(task, chave, original):
+    """Troca a restrição do painel aberto (ex.: Tangente -> Coincidente) e grava."""
+    rotulo, _d = JUNTAS[chave]
+    task.prumo_restricao = chave
+    task.jointName = rotulo
+    try:
+        task.joint.Label = rotulo
+        task.joint.PrumoRestricao = chave
+    except Exception:
+        pass
+    ok = original()
+    FreeCAD.Console.PrintLog("Prumo: troca para %s gravada: %s\n" % (rotulo, ok))
+    if ok:
+        # fecha depois que o clique do botão (que está dentro do painel) terminar
+        from PySide import QtCore
+        QtCore.QTimer.singleShot(0, FreeCADGui.Control.closeDialog)
+        return True
+    return False
+
+
+def _avisar(task, msg, conserto=None, tipo="erro"):
+    """Mensagem no alto do painel da junta; com conserto=(texto, função), um botão que resolve na hora."""
     FreeCAD.Console.PrintWarning("Prumo: %s\n" % msg)
     try:
         from PySide import QtWidgets
@@ -116,8 +179,24 @@ def _avisar(task, msg):
             lb = P.Mensagem(msg)
             task.form.layout().insertWidget(0, lb)
             task._prumo_aviso = lb
-        lb.mostrar(msg, "erro") if hasattr(lb, "mostrar") else lb.setText(msg)
+        lb.mostrar(msg, tipo) if hasattr(lb, "mostrar") else lb.setText(msg)
         lb.setVisible(True)
+        bt = getattr(task, "_prumo_conserto", None)
+        if conserto is not None:
+            if bt is None:
+                bt = QtWidgets.QPushButton()
+                bt.setObjectName("PrumoConserto")
+                task.form.layout().insertWidget(1, bt)
+                task._prumo_conserto = bt
+            try:
+                bt.clicked.disconnect()
+            except Exception:
+                pass
+            bt.setText(conserto[0])
+            bt.clicked.connect(lambda *_a, f=conserto[1]: f())
+            bt.setVisible(True)
+        elif bt is not None:
+            bt.setVisible(False)
         QtWidgets.QApplication.processEvents()
     except Exception:
         pass
@@ -507,6 +586,54 @@ def travar_juntos(componentes):
 
 def _global_comp(asm, comp):
     return _global_da_montagem(asm) * comp.Placement
+
+
+# ----------------------------------------------------------------------------------- componentes dos sólidos
+def solidos_de(obj):
+    try:
+        return list(obj.Shape.Solids)
+    except Exception:
+        return []
+
+
+def componentes_dos_solidos(obj, montagem=None):
+    """Separa um objeto com vários sólidos (STEP de um corpo só, composto) em uma peça para cada sólido, no
+    mesmo lugar, com o mesmo material e a mesma cor. O original fica escondido (Desfazer volta tudo).
+    Com `montagem`, as peças novas já entram nela, prontas para as restrições."""
+    solidos = solidos_de(obj)
+    if len(solidos) < 2:
+        raise ValueError("“%s” tem um sólido só: já é uma peça." % obj.Label)
+    doc = obj.Document
+    novas = []
+    cor = None
+    try:
+        cor = obj.ViewObject.ShapeAppearance if FreeCAD.GuiUp else None
+    except Exception:
+        cor = None
+    for k, sol in enumerate(solidos, 1):
+        destino = montagem if montagem is not None else doc
+        o = destino.newObject("Part::Feature", "Peca") if montagem is not None else \
+            doc.addObject("Part::Feature", "Peca")
+        # o sólido vem em coordenadas globais: a peça nova guarda a forma no lugar e Placement neutro
+        o.Shape = sol
+        o.Label = "%s %d" % (obj.Label, k)
+        if hasattr(obj, "Material") and "Material" in o.PropertiesList:
+            try:
+                o.Material = obj.Material
+            except Exception:
+                pass
+        if cor is not None:
+            try:
+                o.ViewObject.ShapeAppearance = cor
+            except Exception:
+                pass
+        novas.append(o)
+    try:
+        obj.Visibility = False
+    except Exception:
+        pass
+    doc.recompute()
+    return novas
 
 
 # ----------------------------------------------------------------------------------- interface
@@ -913,6 +1040,46 @@ if FreeCAD.GuiUp:
         def Activated(self):
             PainelPadrao().mostrar()
 
+    class CmdComponentesDosSolidos:
+        def GetResources(self):
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("padrao_componentes.svg"), "MenuText": "Componentes dos sólidos",
+                    "ToolTip": "Um STEP (ou objeto) com vários sólidos vira uma peça para cada sólido, no lugar, "
+                               "prontas para receber restrições."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None
+
+        def Activated(self):
+            import PrumoSelecao
+            import UtilsAssembly
+
+            def varios(obj, subs):
+                return [(obj.Label, obj)] if len(solidos_de(obj)) > 1 else []
+
+            def fazer(objs):
+                asm = UtilsAssembly.activeAssembly()
+                doc = FreeCAD.ActiveDocument
+                doc.openTransaction("Componentes dos sólidos")
+                try:
+                    n = []
+                    for o in objs:
+                        n += componentes_dos_solidos(o, asm)
+                except ValueError as ex:
+                    doc.abortTransaction()
+                    QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Componentes dos sólidos",
+                                                      str(ex))
+                    return []
+                doc.commitTransaction()
+                return n
+            sel = [s.Object for s in FreeCADGui.Selection.getSelectionEx() if len(solidos_de(s.Object)) > 1]
+            if sel:
+                return fazer(sel)
+            return PrumoSelecao.pedir("Componentes dos sólidos",
+                                      "Escolha o objeto com vários sólidos (um STEP importado, por exemplo): "
+                                      "cada sólido vira uma peça.", [("Objeto", varios, 1, None)],
+                                      lambda objs: fazer(objs))
+
     def registrar_comandos():
         try:
             import Draft_rc  # noqa: F401  (ícones das matrizes)
@@ -926,3 +1093,4 @@ if FreeCAD.GuiUp:
         FreeCADGui.addCommand("Prumo_MoverJunta", CmdMoverJunta())
         FreeCADGui.addCommand("Prumo_TravarJuntos", CmdTravarJuntos())
         FreeCADGui.addCommand("Prumo_EditarMontagem", CmdEditarMontagem())
+        FreeCADGui.addCommand("Prumo_ComponentesDosSolidos", CmdComponentesDosSolidos())
