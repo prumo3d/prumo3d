@@ -46,9 +46,14 @@ def montar(versao, raiz=RAIZ):
         fixa = f.read().strip()
     titulo, corpo = da_versao(novidades, versao)
     corpo = re.sub(r"(?m)^### ", "#### ", corpo)
-    return ("## Prumo 3D %s\n\n### Novidades desta versão\n\n%s\n\n"
+    aviso = ""
+    if "-" in versao.strip().lstrip("vV"):      # beta, rc...: versão de teste
+        aviso = ("> **Versão de teste (%s):** guarde cópia dos seus arquivos e não use ainda em projeto com "
+                 "prazo. Relatos de problema são muito bem-vindos (veja \"Como relatar um problema\").\n\n"
+                 % versao.strip().lstrip("vV").split("-", 1)[1])
+    return ("## Prumo 3D %s\n\n%s### Novidades desta versão\n\n%s\n\n"
             "Histórico completo: [NOVIDADES.md](https://github.com/prumo3d/prumo3d/blob/main/NOVIDADES.md)\n\n"
-            "%s\n" % (titulo, corpo or "Correções e ajustes.", fixa))
+            "%s\n" % (titulo, aviso, corpo or "Correções e ajustes.", fixa))
 
 
 if __name__ == "__main__":

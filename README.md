@@ -27,11 +27,10 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.12 beta** (27/10/2026)
+**Versão atual: 1.0.0** (28/10/2026), a primeira versão final.
 
-- **Tudo em abas:** sem o menu de bancadas; abas novas BIM e Superfícies, e o grupo Sólidos da Peça completo.
-- **Esboço › Inserir:** texto em linhas e curvas, importar DXF e matriz ao longo de um caminho.
-
+Na 0.9.12: tudo em abas (sem o menu de bancadas), abas novas BIM e Superfícies, grupo Sólidos da Peça
+completo e, no Esboço, texto em linhas e curvas, importar DXF e matriz ao longo de um caminho.
 Na 0.9.11: instalador seguro (troca a pasta da versão anterior de uma vez e só apaga a antiga no fim).
 Na 0.9.10: esboço sempre no modo normal, cruzeta e avisos na tubulação, treliças nas estruturas e roteiros de
 uso automáticos.
@@ -54,7 +53,7 @@ O que o Prumo 3D tem de diferente
 
 Mais de 50 comandos do FreeCAD abrem num painel lateral único, em cartões: botões com ícone no lugar de
 listas, chaves liga/desliga, campos com unidade (mm, N, MPa, N/mm, m/s²) e o que foi escolhido na vista
-sempre à mostra. Vale para Peça, Sólidos, Montagem, Desenho e Simulação; o formulário original continua a
+sempre à mostra. Vale para Peça, Montagem, Desenho e Simulação; o formulário original continua a
 um clique. As **Preferências do Prumo** reúnem numa janela o que importa: tema claro ou escuro, painel
 lateral, esboço, unidades em português e atualizações.
 
@@ -104,9 +103,23 @@ Folhas A0 a A4 com legenda brasileira (responsável técnico, CREA/CFT, ART, 1º
 materiais ligada ao modelo, e chapa metálica com fator K por material e planificação em DXF num
 clique.
 
-| Folha ABNT | Chapa dobrada |
+![Folha ABNT com vistas e lista de materiais](.github/images/prumo/folha-abnt.png)
+
+### Todas as abas, em português
+
+Cada área tem a sua aba na faixa de ferramentas: não há menu de bancadas para trocar.
+
+| Esboço com relações em cartões | Peça |
 |---|---|
-| ![Folha ABNT com vistas e lista de materiais](.github/images/prumo/folha-abnt.png) | ![Chapa metálica dobrada](.github/images/prumo/chapa-metalica.png) |
+| ![Aba Esboço com o painel de relações](.github/images/prumo/aba-esboco.png) | ![Aba Peça com um suporte](.github/images/prumo/aba-peca.png) |
+
+| Tubulação de PVC com tês e joelhos | BIM: paredes, laje, porta e janelas |
+|---|---|
+| ![Aba Tubulação com o painel da linha](.github/images/prumo/aba-tubulacao.png) | ![Aba BIM com uma casa simples](.github/images/prumo/aba-bim.png) |
+
+| Superfícies | Chapa metálica |
+|---|---|
+| ![Aba Superfícies com uma superfície preenchida](.github/images/prumo/aba-superficies.png) | ![Chapa metálica dobrada](.github/images/prumo/chapa-metalica.png) |
 
 ### Em resumo
 
@@ -123,7 +136,7 @@ clique.
 | Base | FreeCAD 1.1: OpenCASCADE, Coin3D, Qt e Python, com tudo o que o FreeCAD oferece |
 
 > [!IMPORTANT]
-> Versão beta, para testar. Os cálculos ajudam no projeto, mas não substituem a análise e a
+> Os cálculos ajudam no projeto, mas não substituem a análise e a
 > responsabilidade técnica de um profissional habilitado (com ART). Itens fora do escopo de cada
 > verificação aparecem como aviso no próprio programa e na memória de cálculo.
 
@@ -133,9 +146,10 @@ Todos os recursos
 * **Tudo em português** Menus, painéis, nomes de propriedades e opções de listas traduzidos, inclusive termos
   que a tradução oficial do FreeCAD ainda não cobre.
 
-* **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Sólidos,
-  Montagem, Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação e Prumo), com ícones grandes e rótulos claros. A aba Esboço aparece
-  sozinha ao editar um esboço.
+* **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Montagem,
+  Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação, Superfícies, BIM e Prumo), com ícones
+  grandes e rótulos claros, sem menu de bancadas. A aba Esboço aparece sozinha ao editar um esboço, e em
+  tela de notebook a linha das abas se compacta para mostrar os nomes inteiros.
 
 * **Tela inicial** Começa uma peça, montagem, desenho técnico, esboço ou planilha com um clique e mostra os
   arquivos recentes.
@@ -175,7 +189,7 @@ Todos os recursos
 * **Comandos em cartões** Mais de 50 comandos do FreeCAD ganharam painel no padrão Prumo: extrusão,
   cavidade, furo, revolução, arredondar, chanfro, padrões e multitransformação, hélice, loft, varredura,
   primitivas e booleana (Peça); extrusão, revolução, espelhar, escala, arestas, deslocamento, espessura,
-  transição, varredura e verificar geometria (Sólidos); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
+  transição, varredura e verificar geometria (grupo Sólidos da Peça); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
   balão, hachura e texto formatado (Desenho); material, fixação, força, pressão, deslocamento imposto,
   mola, peso próprio e malha (Simulação). O formulário original continua a um clique.
 

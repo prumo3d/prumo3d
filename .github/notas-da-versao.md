@@ -1,6 +1,3 @@
-> **Versão beta:** feita para testar. Guarde cópia dos seus arquivos e não use ainda em projeto com
-> prazo. Relatos de problema são muito bem-vindos (veja "Como relatar um problema").
-
 ### Como baixar
 
 | Sistema | Arquivo | Como usar |
@@ -9,13 +6,12 @@
 | Windows (portátil) | `Prumo3D_…-Windows-….7z` | Descompacte e abra `bin\Prumo3D.exe`. Não precisa instalar. |
 | Linux (64 bits) | `Prumo3D_…-Linux-….AppImage` | Marque como executável (`chmod +x`) e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
 
-Cada arquivo tem um `-SHA256.txt` com o código de verificação. Nem todos os formatos saem em toda
-versão de teste.
+Cada arquivo tem um `-SHA256.txt` com o código de verificação.
 
 Os instaladores ainda não têm assinatura digital: o Windows mostra o aviso de "editor desconhecido".
 Clique em **Mais informações → Executar assim mesmo**. Confira o arquivo pelo `-SHA256.txt`.
 
-### Roteiro de teste (15 minutos)
+### Primeiros passos (15 minutos)
 
 1. Abra o Prumo 3D e confira a tela de abertura e a tela inicial. Se o painel da árvore (à esquerda)
    sumir, use **Início → Árvore do modelo**.

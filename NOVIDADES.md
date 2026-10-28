@@ -3,11 +3,26 @@
 O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para baixar ficam na
 [página de versões](https://github.com/prumo3d/prumo3d/releases).
 
-**Como as versões são numeradas** (até a 1.0, todas são beta):
+**Como as versões são numeradas** (a 1.0 é a primeira versão final; as anteriores eram beta):
 
-- `0.X.0`: entrou ferramenta nova ou mudou o jeito de usar alguma coisa (ex.: 0.2.0).
-- `0.X.Y`: correções e ajustes pequenos, sem ferramenta nova (ex.: 0.1.1).
-- `-beta` no fim: versão de teste; guarde cópia dos seus arquivos.
+- `X.Y.0`: entrou ferramenta nova ou mudou o jeito de usar alguma coisa (ex.: 1.1.0).
+- `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
+- `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
+
+## 1.0.0 — 28/10/2026
+
+Primeira versão final do Prumo 3D, depois das versões de teste (0.1 a 0.9.12): faixa de ferramentas
+só com abas, comandos em cartões no painel lateral, esboço com pontos-ímã, estruturas metálicas calculadas
+pela NBR 8800:2024 e NBR 8681:2025, detalhe de ligação por elementos finitos, vasos de pressão (ASME VIII-1),
+tubulação de PVC Tigre, chapa metálica, folhas ABNT, BIM e superfícies, tudo em português e com atualização
+automática.
+
+### Ajustes
+
+- **Menus em português:** os menus Superfície e Malha (da Simulação) ainda apareciam em inglês.
+- **Página do projeto:** imagens novas de todas as abas (tela inicial, esboço, peça, desenho, estruturas,
+  simulação, tubulação, vasos, chapa, BIM e superfícies).
+- **Tela inicial em tela baixa:** conferida em 1366 × 680 px; a janela não passa da tela e a tela inicial rola.
 
 ## 0.9.12 beta — 27/10/2026
 
