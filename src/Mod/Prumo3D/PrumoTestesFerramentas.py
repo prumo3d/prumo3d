@@ -8435,6 +8435,17 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
                     cmd_draft.finish()
                 except Exception:
                     FreeCAD.activeDraftCommand = None
+            # Telhado, Espaço e Armadura sem seleção ficam esperando um clique (observador do BIM)
+            obs_bim = getattr(FreeCAD, "ArchObserver", None)
+            if obs_bim is not None:
+                try:
+                    FreeCADGui.Selection.removeObserver(obs_bim)
+                except Exception:
+                    pass
+                try:
+                    del FreeCAD.ArchObserver
+                except Exception:
+                    pass
             try:
                 if FreeCADGui.Control.activeDialog():
                     FreeCADGui.Control.closeDialog()
