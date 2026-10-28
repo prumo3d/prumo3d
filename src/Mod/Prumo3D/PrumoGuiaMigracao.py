@@ -96,6 +96,8 @@ EQUIVALENCIAS = [
     ("Montagem", "Pack and Go", "Copy design / Pack and Go", "Copiar projeto", "inicio", ["Prumo_CopiarProjeto"], ""),
     ("Desenho", "Folha de desenho", "Drawing sheet", "Folha ABNT", "desenho", ["Prumo_NovaFolha"],
      "A0 a A4 com legenda brasileira; com a peça selecionada, já coloca as vistas no 1º diedro."),
+    ("Desenho", "Paleta de vistas", "View Palette", "Paleta de vistas", "desenho", ["Prumo_PaletaVistas"],
+     "Um clique por vista (frontal, superior, laterais, isométrica…), alinhadas no 1º diedro; e cotas gerais."),
     ("Desenho", "Vista de modelo / projetada", "Base / Projected view", "Vista", "desenho", ["TechDraw_View"], ""),
     ("Desenho", "Vista de seção", "Section view", "Corte", "desenho", ["TechDraw_SectionGroup"], ""),
     ("Desenho", "Vista de detalhe", "Detail view", "Detalhe", "desenho", ["TechDraw_DetailView"], ""),

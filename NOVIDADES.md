@@ -20,6 +20,14 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - **Padrão de componentes** linear e circular: repete um componente em linha ou em volta de um eixo (aresta,
     face ou eixo da montagem); as cópias acompanham o original e o padrão se edita com duplo clique.
   - **Nova peça aqui:** cria uma peça nova já dentro da montagem.
+- **Desenho com vistas prontas:**
+  - **Paleta de vistas** (aba Desenho): escolha a peça e clique em Frontal, Superior, Lateral esquerda ou
+    direita, Inferior, Posterior ou Isométrica. A vista entra na folha na hora, alinhada no 1º diedro, sem
+    duplicar. A escala normalizada e a posição das vistas se ajustam para tudo caber, e a legenda acompanha.
+    Sem folha aberta, a paleta cria uma folha ABNT A3.
+  - **Cotas gerais:** um clique põe o comprimento, a altura e a profundidade totais da peça.
+  - **Folha ABNT com arranjos prontos:** frontal, superior, lateral e isométrica; frontal, lateral e
+    isométrica; frontal e superior; frontal e isométrica; ou só a isométrica.
 
 ## 1.0.2 — 28/10/2026
 

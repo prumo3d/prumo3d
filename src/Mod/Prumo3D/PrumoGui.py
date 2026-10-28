@@ -859,6 +859,7 @@ def register_commands():
                              ("PrumoBOM", lambda m: FreeCADGui.addCommand("Prumo_ListaMateriais",
                                                                           m.CmdListaMateriais())),
                              ("PrumoFolhas", lambda m: FreeCADGui.addCommand("Prumo_NovaFolha", m.CmdNovaFolha())),
+                             ("PrumoVistas", lambda m: m.registrar_comandos()),
                              ("PrumoEstrutura", lambda m: (
                                  FreeCADGui.addCommand("Prumo_Estrutura", m.CmdEstrutura()),
                                  FreeCADGui.addCommand("Prumo_TrocarPerfil", m.CmdTrocarPerfil()),

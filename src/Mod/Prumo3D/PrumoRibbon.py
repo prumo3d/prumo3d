@@ -202,7 +202,7 @@ TABS = [
             ("TechDraw_PrintAll", S, "Imprimir tudo"),
         ]),
         ("Vistas", [
-            ("TechDraw_View", L, "Vista"), ("TechDraw_SectionGroup", L, "Corte"), ("TechDraw_DetailView", L, "Detalhe"),
+            ("Prumo_PaletaVistas", L, "Paleta de\nvistas"), ("TechDraw_View", L, "Vista"), ("TechDraw_SectionGroup", L, "Corte"), ("TechDraw_DetailView", L, "Detalhe"),
             ("TechDraw_BrokenView", S, "Vista interrompida"), ("TechDraw_ActiveView", S, "Vista da tela"),
             ("TechDraw_DraftView", S, "Vista 2D"), ("TechDraw_ClipGroup", S, "Recorte"), ("TechDraw_StackGroup", S, "Ordem das vistas"),
         ]),

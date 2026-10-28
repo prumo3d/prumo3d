@@ -110,7 +110,7 @@ def lembrar_campos(campos):
 
 
 def nova_folha(doc, formato=FORMATO_PADRAO, norma=NORMA_PADRAO, retrato=None, campos=None,
-               objs=None, escala=None):
+               objs=None, escala=None, arranjo="3vistas_iso"):
     """Cria a folha com o modelo ABNT e a legenda preenchida. Com `objs`, coloca as vistas
     (frontal, superior e lateral no 1º diedro) e a isométrica. Retorna a folha."""
     caminho = arquivo(formato, norma, retrato)
@@ -143,7 +143,7 @@ def nova_folha(doc, formato=FORMATO_PADRAO, norma=NORMA_PADRAO, retrato=None, ca
         except Exception as exc:
             FreeCAD.Console.PrintLog("Prumo: folha ligada à peça: %s\n" % exc)
     if objs:
-        _vistas(doc, page, objs, escala)
+        _vistas(doc, page, objs, escala, arranjo)
         valores["escala"] = _texto_escala(page.Scale)
         et = dict(tpl.EditableTexts)
         et["escala"] = valores["escala"]
@@ -165,6 +165,16 @@ ESCALAS_NORMAIS = [50, 20, 10, 5, 2, 1, 1 / 2.0, 1 / 5.0, 1 / 10.0, 1 / 20.0, 1 
                    1 / 100.0, 1 / 200.0, 1 / 500.0, 1 / 1000.0]
 
 
+# arranjos prontos de vistas (1º diedro): projeções do grupo + isométrica
+ARRANJOS = {
+    "3vistas_iso": ("Frontal, superior, lateral e isométrica", ("Front", "Top", "Left"), True),
+    "frontal_lateral_iso": ("Frontal, lateral e isométrica", ("Front", "Left"), True),
+    "frontal_superior": ("Frontal e superior", ("Front", "Top"), False),
+    "frontal_iso": ("Frontal e isométrica", ("Front",), True),
+    "so_iso": ("Só a isométrica", (), True),
+}
+ARRANJO_PADRAO = "3vistas_iso"
+
 ESPACO_VISTAS = 15.0     # mm entre as vistas na folha (como o espaçamento automático do TechDraw)
 FATOR_ISO = 0.6          # a isométrica sai menor que as vistas ortogonais
 
@@ -183,57 +193,127 @@ def _medidas_iso(bb):
     return w, h
 
 
-def escala_que_cabe(objs, larg_util, alt_util):
-    """Maior escala normalizada em que as três vistas e a isométrica cabem lado a lado."""
+def _medidas_arranjo(bb, projecoes=("Front", "Top", "Left"), iso=True):
+    """(largura, altura) do conjunto em escala 1, sem os espaços entre as vistas: (larg, alt, n_col, n_lin)."""
+    p = set(projecoes)
+    larg = alt = 0.0
+    col = lin = 0
+    if "Front" in p:
+        larg += bb.XLength
+        alt += bb.ZLength
+        col += 1
+        lin += 1
+    if p & {"Left", "Right"}:
+        larg += bb.YLength * len(p & {"Left", "Right"})
+        col += len(p & {"Left", "Right"})
+    if p & {"Top", "Bottom"}:
+        alt += bb.YLength * len(p & {"Top", "Bottom"})
+        lin += len(p & {"Top", "Bottom"})
+    if "Rear" in p:
+        larg += bb.XLength
+        col += 1
+    iw = ih = 0.0
+    if iso:
+        iw, ih = _medidas_iso(bb)
+        iw, ih = iw * FATOR_ISO, ih * FATOR_ISO
+        col += 1
+    return larg, alt, iw, ih, col, lin
+
+
+def escala_que_cabe(objs, larg_util, alt_util, projecoes=("Front", "Top", "Left"), iso=True):
+    """Maior escala normalizada em que as vistas do arranjo cabem lado a lado."""
     bb = _caixa(objs)
     if bb is None:
         return 1.0
-    iw, ih = _medidas_iso(bb)
+    larg, alt, iw, ih, col, lin = _medidas_arranjo(bb, projecoes, iso)
     for e in ESCALAS_NORMAIS:
-        # 1º diedro: frontal (X×Z) + lateral (Y×Z) lado a lado; superior (X×Y) embaixo da frontal
-        larg = (bb.XLength + bb.YLength + iw * FATOR_ISO) * e + 3 * ESPACO_VISTAS
-        alt = max((bb.ZLength + bb.YLength) * e + ESPACO_VISTAS, ih * FATOR_ISO * e)
-        if larg <= larg_util and alt <= alt_util:
+        # 1º diedro: frontal (X×Z) + laterais (Y×Z) lado a lado; superior/inferior (X×Y) embaixo/em cima
+        L = (larg + iw) * e + max(col - 1, 0) * ESPACO_VISTAS + (ESPACO_VISTAS if iso and larg else 0)
+        A = max(alt * e + max(lin - 1, 0) * ESPACO_VISTAS, ih * e)
+        if L <= larg_util and A <= alt_util:
             return e
     return ESCALAS_NORMAIS[-1]
 
 
-def _vistas(doc, page, objs, escala=None):
-    fontes = [o for o, _sh in PrumoUtil.pecas(objs)]
-    fontes = list(dict.fromkeys(objs if objs else fontes))
+def _tamanho_folha(page):
     try:
-        larg = float(page.Template.Width)
-        alt = float(page.Template.Height)
+        return float(page.Template.Width), float(page.Template.Height)
     except Exception:
-        larg, alt = 420.0, 297.0
-    larg_util, alt_util = larg - 30, alt - 20 - 60  # tira margens e a legenda
-    e = escala or escala_que_cabe(fontes, larg_util, alt_util)
+        return 420.0, 297.0
+
+
+def posicionar(page, fontes, grupo=None, iso=None, escala=None):
+    """Escala normalizada que cabe e posição do grupo de projeção e da isométrica na folha.
+
+    O conjunto fica centrado na largura útil, no alto da folha (longe da legenda); a isométrica à direita."""
+    larg, alt = _tamanho_folha(page)
+    projecoes = tuple(v.Type for v in grupo.Views) if grupo is not None else ()
+    com_iso = iso is not None
+    e = escala or escala_que_cabe(fontes, larg - 30, alt - 20 - 60, projecoes, com_iso)
     page.Scale = e
+    bb = _caixa(fontes)
+    topo = 28.0                               # do alto da folha até o alto das vistas
+    direita_grupo = 20.0
+    if grupo is not None:
+        if bb is not None:
+            lg, _ag, iw, _ih, col, _lin = _medidas_arranjo(bb, projecoes, com_iso)
+            fx, fy, fz = bb.XLength * e, bb.YLength * e, bb.ZLength * e
+            total = (lg + iw) * e + max(col - 1, 0) * ESPACO_VISTAS + (ESPACO_VISTAS if com_iso else 0)
+            x0 = 20.0 + max(10.0, ((larg - 30.0) - total) / 2.0)
+            # 1º diedro: a lateral direita fica à esquerda da frontal; a posterior, na ponta
+            esq = 0.0
+            if "Right" in projecoes:
+                esq += fy + ESPACO_VISTAS
+            grupo.X = x0 + esq + fx / 2.0
+            acima = fy + ESPACO_VISTAS if "Bottom" in projecoes else 0.0
+            grupo.Y = alt - topo - acima - fz / 2.0
+            direita_grupo = x0 + (lg * e) + max(col - (2 if com_iso else 1), 0) * ESPACO_VISTAS
+        else:
+            grupo.X, grupo.Y, direita_grupo = larg * 0.42, (alt + 60) * 0.55, larg * 0.6
+    if iso is not None:
+        iso.ScaleType = "Custom"
+        iso.Scale = e * FATOR_ISO
+        if bb is not None:
+            iw, ih = _medidas_iso(bb)
+            iw, ih = iw * iso.Scale, ih * iso.Scale
+            if grupo is None:          # só a isométrica: no meio da área útil, acima da legenda
+                iso.X = 20.0 + (larg - 30.0) / 2.0
+                iso.Y = 70.0 + (alt - 80.0) / 2.0
+            else:                      # à direita das vistas, no alto (longe da legenda)
+                iso.X = min(larg - 20.0 - iw / 2.0, direita_grupo + 2 * ESPACO_VISTAS + iw / 2.0)
+                iso.Y = alt - topo - ih / 2.0
+        else:
+            iso.X, iso.Y = larg * 0.80, alt * 0.70
+    escrever_escala(page)
+    return e
+
+
+def escrever_escala(page):
+    """Põe a escala da folha no campo ESCALA da legenda."""
+    try:
+        tpl = page.Template
+        et = dict(tpl.EditableTexts)
+        if "escala" in et and et["escala"] != _texto_escala(page.Scale):
+            et["escala"] = _texto_escala(page.Scale)
+            tpl.EditableTexts = et
+    except Exception:
+        pass
+
+
+def novo_grupo(doc, page, fontes, projecoes=("Front",)):
     grupo = doc.addObject("TechDraw::DrawProjGroup", "Vistas")
     grupo.Label = "Vistas"
     page.addView(grupo)
     grupo.Source = fontes
     grupo.ProjectionType = "First angle"
     grupo.ScaleType = "Page"
-    grupo.addProjection("Front")
-    grupo.addProjection("Top")
-    grupo.addProjection("Left")   # no 1º diedro a vista lateral esquerda fica à direita da frontal
-    bb = _caixa(fontes)
-    topo = 28.0                               # do alto da folha até o alto das vistas
-    if bb is not None:
-        fx, fy, fz = bb.XLength * e, bb.YLength * e, bb.ZLength * e
-        iw, ih = _medidas_iso(bb)
-        iw = iw * e * FATOR_ISO
-        # conjunto (vistas + isométrica) centrado na largura útil, entre a margem esquerda (20) e
-        # a direita (10) do quadro
-        total = fx + ESPACO_VISTAS + fy + 2 * ESPACO_VISTAS + iw
-        x0 = 20.0 + max(10.0, ((larg - 30.0) - total) / 2.0)
-        grupo.X = x0 + fx / 2.0
-        grupo.Y = alt - topo - fz / 2.0
-        direita_grupo = x0 + fx + ESPACO_VISTAS + fy
-    else:
-        grupo.X, grupo.Y, direita_grupo = larg * 0.42, (alt + 60) * 0.55, larg * 0.6
+    for pr in projecoes:     # no 1º diedro a vista lateral esquerda fica à direita da frontal
+        grupo.addProjection(pr)
     grupo.AutoDistribute = True
+    return grupo
+
+
+def nova_iso(doc, page, fontes):
     iso = doc.addObject("TechDraw::DrawViewPart", "Isometrica")
     iso.Label = "Isométrica"
     page.addView(iso)
@@ -241,17 +321,18 @@ def _vistas(doc, page, objs, escala=None):
     iso.Direction = FreeCAD.Vector(1, -1, 1)
     iso.XDirection = FreeCAD.Vector(1, 1, 0)
     iso.ScaleType = "Custom"
-    iso.Scale = e * FATOR_ISO
-    if bb is not None:
-        iw, ih = _medidas_iso(bb)
-        iw, ih = iw * iso.Scale, ih * iso.Scale
-        # à direita das vistas, no alto (longe da legenda)
-        iso.X = min(larg - 20.0 - iw / 2.0, direita_grupo + 2 * ESPACO_VISTAS + iw / 2.0)
-        iso.Y = alt - topo - ih / 2.0
-    else:
-        iso.X, iso.Y = larg * 0.80, alt * 0.70
+    return iso
+
+
+def _vistas(doc, page, objs, escala=None, arranjo=ARRANJO_PADRAO):
+    fontes = [o for o, _sh in PrumoUtil.pecas(objs)]
+    fontes = list(dict.fromkeys(objs if objs else fontes))
+    _rot, projecoes, com_iso = ARRANJOS.get(arranjo, ARRANJOS[ARRANJO_PADRAO])
+    grupo = novo_grupo(doc, page, fontes, projecoes) if projecoes else None
+    iso = nova_iso(doc, page, fontes) if com_iso else None
+    posicionar(page, fontes, grupo, iso, escala)
     doc.recompute()
-    return grupo
+    return grupo if grupo is not None else iso
 
 
 # ============================================================================ diálogo
@@ -305,9 +386,17 @@ class PainelFolha(P.PainelTarefa):
         self._auto = {k: valores.get(k, "") for k in self.campos if valores.get(k)}
         self.massa = valores.get("massa", "")
         s3 = f.secao("Vistas", "posicao")
-        self.vistas = s3.linha("posicao", P.marcar("Colocar as vistas (frontal, superior, lateral e "
-                                                   "isométrica)", bool(self.pecas.valores())),
+        self.vistas = s3.linha("posicao", P.marcar("Colocar as vistas", bool(self.pecas.valores())),
                                "Vistas no 1º diedro, na escala normalizada que cabe.")
+        self.arranjo = QtWidgets.QComboBox()
+        for k, (rot, _p, _i) in ARRANJOS.items():
+            self.arranjo.addItem(rot, k)
+        i = self.arranjo.findData(FREECAD_PARAM().GetString("FolhaArranjo", ARRANJO_PADRAO))
+        self.arranjo.setCurrentIndex(max(i, 0))
+        s3.linha("posicao", self.arranjo, "Quais vistas entram (1º diedro). Depois dá para pôr outras com a "
+                 "Paleta de vistas.", "Arranjo")
+        self.vistas.toggled.connect(self.arranjo.setEnabled)
+        self.arranjo.setEnabled(self.vistas.isChecked())
         self.pecas.mudou.connect(self._pecas_mudaram)
 
     def _pecas_mudaram(self):
@@ -353,10 +442,12 @@ class PainelFolha(P.PainelTarefa):
         norma = self.norma.currentData()
         FREECAD_PARAM().SetString("FolhaFormato", formato)
         FREECAD_PARAM().SetString("FolhaNorma", norma)
+        FREECAD_PARAM().SetString("FolhaArranjo", self.arranjo.currentData())
         campos = self.valores()
         lembrar_campos(campos)
         return nova_folha(self.doc, formato, norma, self.retrato.isChecked() if formato == "A4" else False,
-                          campos, self.objs if self.vistas.isChecked() and self.objs else None)
+                          campos, self.objs if self.vistas.isChecked() and self.objs else None,
+                          arranjo=self.arranjo.currentData())
 
     def executar(self):
         page = self.criar()

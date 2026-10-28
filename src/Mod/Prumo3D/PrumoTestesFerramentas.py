@@ -11308,6 +11308,134 @@ class T80MontagemComoSolidWorks(unittest.TestCase):
         self.assertTrue(FreeCADGui.Command.get("Prumo_JuntaTangente").isActive(), "ativo com a montagem em edição")
 
 
+class T81DesenhoVistasProntas(unittest.TestCase):
+    """Desenho: arranjos prontos de vistas na Folha ABNT, Paleta de vistas (um clique por vista, alinhadas no
+    1º diedro, sem duplicar) e cotas gerais com as medidas totais da peça."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        try:
+            import TechDraw  # noqa: F401
+        except ImportError:
+            self.skipTest("sem TechDraw")
+        import PrumoFolhas
+        import PrumoVistas
+        self.F, self.V = PrumoFolhas, PrumoVistas
+        self.doc = novo_doc("PrumoVistasProntas")
+        b = self.doc.addObject("Part::Box", "Caixa")
+        b.Length, b.Width, b.Height = 120, 60, 40
+        c = self.doc.addObject("Part::Cylinder", "Furo")
+        c.Radius, c.Height = 10, 40
+        c.Placement.Base = FreeCAD.Vector(30, 30, 0)
+        self.peca = self.doc.addObject("Part::Cut", "Peca")
+        self.peca.Base, self.peca.Tool = b, c
+        self.doc.recompute()
+
+    def tearDown(self):
+        try:
+            if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def test_cada_arranjo_poe_as_vistas_certas_dentro_da_folha(self):
+        esperado = {"3vistas_iso": ["Front", "Top", "Left", "Iso"], "frontal_lateral_iso": ["Front", "Left", "Iso"],
+                    "frontal_superior": ["Front", "Top"], "frontal_iso": ["Front", "Iso"], "so_iso": ["Iso"]}
+        self.assertEqual(set(esperado), set(self.F.ARRANJOS))
+        for arr, vistas in esperado.items():
+            p = self.F.nova_folha(self.doc, "A3", "NBR16752", False, {}, [self.peca], arranjo=arr)
+            self.assertEqual(sorted(self.V.vistas_na_folha(p, [self.peca])), sorted(vistas), arr)
+            self.assertIn(p.Scale, self.F.ESCALAS_NORMAIS, arr)
+            for v in p.Views:
+                self.assertTrue(20 <= v.X <= 410 and 10 <= v.Y <= 287, "%s: %s fora da folha (%.0f, %.0f)"
+                                % (arr, v.Label, v.X, v.Y))
+
+    def test_menos_vistas_cabe_em_escala_maior_ou_igual(self):
+        e3 = self.F.escala_que_cabe([self.peca], 390, 217)
+        e1 = self.F.escala_que_cabe([self.peca], 390, 217, (), True)
+        self.assertGreaterEqual(e1, e3)
+
+    def test_paleta_poe_cada_vista_uma_vez_no_mesmo_grupo(self):
+        p = self.F.nova_folha(self.doc, "A3", "NBR16752", False, {}, None)
+        for k in ("Front", "Top", "Iso", "Top", "Left", "Iso", "Bottom"):
+            self.V.adicionar_vista(p, [self.peca], k)
+        grupos = [v for v in p.Views if v.isDerivedFrom("TechDraw::DrawProjGroup")]
+        self.assertEqual(len(grupos), 1, "as ortogonais ficam num grupo só (alinhadas)")
+        self.assertEqual(grupos[0].ProjectionType, "First angle")
+        self.assertEqual(sorted(self.V.projecoes(grupos[0])), ["Bottom", "Front", "Left", "Top"])
+        isos = [v for v in p.Views if v.TypeId == "TechDraw::DrawViewPart"]
+        self.assertEqual(len(isos), 1, "a isométrica não duplica")
+        self.assertIn(p.Scale, self.F.ESCALAS_NORMAIS)
+        self.assertEqual(p.Template.EditableTexts.get("escala"), self.F._texto_escala(p.Scale),
+                         "a legenda acompanha a escala que a paleta escolheu")
+        for v in p.Views:
+            self.assertTrue(20 <= v.X <= 410 and 10 <= v.Y <= 287, "%s fora da folha" % v.Label)
+
+    def test_vista_sem_frontal_cria_a_frontal_junto(self):
+        p = self.F.nova_folha(self.doc, "A3", "NBR16752", False, {}, None)
+        self.V.adicionar_vista(p, [self.peca], "Right")
+        self.assertEqual(sorted(self.V.vistas_na_folha(p, [self.peca])), ["Front", "Right"])
+
+    def test_cotas_gerais_medem_a_peca(self):
+        p = self.F.nova_folha(self.doc, "A3", "NBR16752", False, {}, [self.peca], arranjo="3vistas_iso")
+        g = self.V.grupo_da_peca(p, [self.peca])
+        self.assertTrue(self.V.esperar_vistas(list(g.Views), 60), "as vistas não terminaram de calcular")
+        cotas = self.V.cotas_gerais(p, [self.peca])
+        self.doc.recompute()
+        medidas = {d.Label: round(d.getRawValue(), 3) for d in cotas}
+        self.assertEqual(medidas, {"Comprimento total": 120.0, "Altura total": 40.0, "Profundidade total": 60.0})
+        for d in cotas:
+            self.assertIn(d, p.Views)
+
+    def test_cotas_sem_frontal_explicam(self):
+        p = self.F.nova_folha(self.doc, "A3", "NBR16752", False, {}, [self.peca], arranjo="so_iso")
+        with self.assertRaises(ValueError):
+            self.V.cotas_gerais(p, [self.peca])
+
+    def test_painel_da_folha_tem_os_arranjos(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        pn = self.F.PainelFolha(self.doc, [self.peca])
+        try:
+            itens = [pn.arranjo.itemData(i) for i in range(pn.arranjo.count())]
+            self.assertEqual(itens, list(self.F.ARRANJOS))
+            pn.arranjo.setCurrentIndex(itens.index("frontal_superior"))
+            p = pn.criar()
+            self.assertEqual(sorted(self.V.vistas_na_folha(p, [self.peca])), ["Front", "Top"])
+            pn.vistas.setChecked(False)
+            self.assertFalse(pn.arranjo.isEnabled())
+        finally:
+            pn.close()
+
+    def test_paleta_na_faixa_e_painel_em_cartoes(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        des = [t for t in R.TABS if t["id"] == "desenho"][0]
+        cmds = [c for _p, itens in des["panels"] for c, _s, _r in itens]
+        self.assertIn("Prumo_PaletaVistas", cmds)
+        self.assertIn("Prumo_PaletaVistas", FreeCADGui.listCommands())
+        pn = self.V.PainelPaletaVistas(self.doc, [self.peca])
+        try:
+            self.assertEqual(pn.folha.itemData(pn.folha.count() - 1), self.V.NOVA)
+            self.assertFalse(pn.btn_cotas.isEnabled(), "sem frontal não há o que cotar")
+            pn.folha.setCurrentIndex(pn.folha.count() - 1)
+            pn.por("Front")
+            self._esp(0.5)
+            page = pn.pagina()
+            self.assertIsNotNone(page, "criou a folha nova e a escolheu")
+            self.assertTrue(pn.botoes["Front"].isChecked())
+            self.assertTrue(pn.btn_cotas.isEnabled())
+            pn.por("Iso")
+            self.assertEqual(sorted(self.V.vistas_na_folha(page, [self.peca])), ["Front", "Iso"])
+            for b in pn.botoes.values():
+                self.assertNotIn(b.text(), dict(self.V.VISTAS), "rótulo em português, não a chave interna")
+        finally:
+            pn.close()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -11327,4 +11455,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
-           T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks]
+           T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
+           T81DesenhoVistasProntas]
