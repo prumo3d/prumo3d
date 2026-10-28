@@ -27,11 +27,12 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 0.9.11 beta** (27/10/2026)
+**Versão atual: 0.9.12 beta** (27/10/2026)
 
-- **Instalador seguro:** troca a pasta da versão anterior de uma vez (renomeando) e só apaga a antiga no fim;
-  se algo estiver preso, a versão instalada continua intacta.
+- **Tudo em abas:** sem o menu de bancadas; abas novas BIM e Superfícies, e o grupo Sólidos da Peça completo.
+- **Esboço › Inserir:** texto em linhas e curvas, importar DXF e matriz ao longo de um caminho.
 
+Na 0.9.11: instalador seguro (troca a pasta da versão anterior de uma vez e só apaga a antiga no fim).
 Na 0.9.10: esboço sempre no modo normal, cruzeta e avisos na tubulação, treliças nas estruturas e roteiros de
 uso automáticos.
 Na 0.9.9: tê no ramal que chega no meio da linha principal.
