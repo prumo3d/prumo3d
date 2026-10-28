@@ -27,8 +27,11 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.0.0** (28/10/2026), a primeira versão final.
+**Versão atual: 1.0.1** (28/10/2026)
 
+- **Atualização automática corrigida:** o instalador não para mais em "Não foi possível apagar a pasta".
+
+Na 1.0.0: primeira versão final.
 Na 0.9.12: tudo em abas (sem o menu de bancadas), abas novas BIM e Superfícies, grupo Sólidos da Peça
 completo e, no Esboço, texto em linhas e curvas, importar DXF e matriz ao longo de um caminho.
 Na 0.9.11: instalador seguro (troca a pasta da versão anterior de uma vez e só apaga a antiga no fim).
