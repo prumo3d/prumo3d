@@ -31,7 +31,6 @@ WB_NAMES = {
     "PrumoWorkbench": "Prumo",
     "SMWorkbench": "Chapa metálica",
     "DraftWorkbench": "Desenho 2D",
-    "BIMWorkbench": "BIM",
     "CAMWorkbench": "Usinagem (CAM)",
     "FemWorkbench": "Simulação (FEM)",
     "InspectionWorkbench": "Inspeção",
@@ -195,38 +194,43 @@ TABS = [
             ("Prumo_Interferencia", L, "Verificar\ninterferência"),
         ]),
     ]},
+    # na ordem do trabalho: folha -> vistas -> cotas -> anotação -> entregar. Sem folha aberta, só aparece o
+    # que começa um desenho; as ferramentas raras ficam no "Mais" de cada grupo (ver RAROS)
     {"id": "desenho", "label": "Desenho", "wb": "TechDrawWorkbench", "panels": [
         ("Folha", [
-            ("Prumo_NovaFolha", L, "Folha\nABNT"), ("TechDraw_PageDefault", S, "Nova folha"),
-            ("TechDraw_PageTemplate", S, "Folha de modelo"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
+            ("Prumo_NovaFolha", L, "Folha\nABNT"), ("Prumo_PaletaVistas", L, "Paleta de\nvistas"),
+            ("Prumo_AbrirFolha", S, "Abrir folha"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
+            ("TechDraw_PageDefault", S, "Folha em branco"), ("TechDraw_PageTemplate", S, "Folha de modelo"),
             ("TechDraw_FillTemplateFields", S, "Preencher carimbo"), ("TechDraw_RedrawPage", S, "Redesenhar"),
-            ("TechDraw_PrintAll", S, "Imprimir tudo"),
         ]),
         ("Vistas", [
-            ("Prumo_PaletaVistas", L, "Paleta de\nvistas"), ("TechDraw_View", L, "Vista"), ("TechDraw_SectionGroup", L, "Corte"), ("TechDraw_DetailView", L, "Detalhe"),
+            ("TechDraw_View", L, "Vista"), ("TechDraw_SectionGroup", L, "Corte"), ("TechDraw_DetailView", L, "Detalhe"),
+            ("TechDraw_GeometricHatch", S, "Hachura"), ("TechDraw_ShowAll", S, "Arestas ocultas"),
             ("TechDraw_BrokenView", S, "Vista interrompida"), ("TechDraw_ActiveView", S, "Vista da tela"),
-            ("TechDraw_DraftView", S, "Vista 2D"), ("TechDraw_ClipGroup", S, "Recorte"), ("TechDraw_StackGroup", S, "Ordem das vistas"),
+            ("TechDraw_DraftView", S, "Vista 2D"), ("TechDraw_ClipGroup", S, "Recorte"),
+            ("TechDraw_StackGroup", S, "Ordem das vistas"), ("TechDraw_Hatch", S, "Hachura (imagem)"),
+            ("TechDraw_ToggleFrame", S, "Molduras"), ("TechDraw_ExtensionLockUnlockView", S, "Travar vista"),
         ]),
         ("Cotas", [
-            ("TechDraw_CompDimensionTools", L, "Cota"), ("TechDraw_Balloon", L, "Balão"),
+            ("TechDraw_CompDimensionTools", L, "Cota"), ("Prumo_CotasGerais", L, "Cotas\ngerais"),
+            ("TechDraw_Balloon", S, "Balão"),
             ("TechDraw_AxoLengthDimension", S, "Cota axonométrica"), ("TechDraw_DimensionRepair", S, "Reparar cotas"),
-            ("TechDraw_ExtensionInsertPrefixGroup", S, "Prefixo ⌀"), ("TechDraw_ExtensionIncreaseDecreaseGroup", S, "Casas decimais"),
+            ("TechDraw_ExtensionInsertPrefixGroup", S, "Prefixo ⌀"),
+            ("TechDraw_ExtensionIncreaseDecreaseGroup", S, "Casas decimais"),
         ]),
         ("Anotação", [
             ("TechDraw_Annotation", L, "Texto"), ("TechDraw_WeldSymbol", L, "Solda"),
-            ("TechDraw_LeaderLine", S, "Linha de chamada"), ("TechDraw_RichTextAnnotation", S, "Texto formatado"),
             ("TechDraw_SurfaceFinishSymbols", S, "Rugosidade"), ("TechDraw_HoleShaftFit", S, "Ajuste furo / eixo"),
-            ("TechDraw_CenterLineGroup", S, "Linha de centro"), ("TechDraw_ExtensionCircleCenterLinesGroup", S, "Centro de círculo"),
-            ("TechDraw_ExtensionThreadsGroup", S, "Rosca cosmética"), ("TechDraw_CosmeticVertexGroup", S, "Vértice cosmético"),
-            ("TechDraw_2PointCosmeticLine", S, "Linha cosmética"),
+            ("TechDraw_LeaderLine", S, "Linha de chamada"),
+            ("TechDraw_CenterLineGroup", S, "Linha de centro"),
+            ("TechDraw_ExtensionCircleCenterLinesGroup", S, "Centro de círculo"),
+            ("TechDraw_ExtensionThreadsGroup", S, "Rosca cosmética"),
+            ("TechDraw_RichTextAnnotation", S, "Texto formatado"), ("TechDraw_CosmeticVertexGroup", S, "Vértice cosmético"),
+            ("TechDraw_2PointCosmeticLine", S, "Linha cosmética"), ("TechDraw_DecorateLine", S, "Estilo de linha"),
         ]),
-        ("Aparência", [
-            ("TechDraw_Hatch", S, "Hachura (imagem)"), ("TechDraw_GeometricHatch", S, "Hachura geométrica"),
-            ("TechDraw_DecorateLine", S, "Estilo de linha"), ("TechDraw_ShowAll", S, "Arestas ocultas"),
-            ("TechDraw_ToggleFrame", S, "Molduras"), ("TechDraw_ExtensionLockUnlockView", S, "Travar vista"),
-        ]),
-        ("Exportar", [
-            ("Std_PrintPdf", L, "PDF"), ("TechDraw_ExportPageDXF", S, "DXF"), ("TechDraw_ExportPageSVG", S, "SVG"),
+        ("Entregar", [
+            ("Prumo_SalvarPDF", L, "Salvar\nPDF"), ("Prumo_ExportarDXF", S, "Exportar DXF"),
+            ("TechDraw_PrintAll", S, "Imprimir"),
         ]),
     ]},
     {"id": "estruturas", "label": "Estruturas", "wb": None, "panels": [
@@ -348,36 +352,6 @@ TABS = [
         ("Fechar", [
             ("Part_Builder", L, "Sólido das\nfaces"), ("Part_CheckGeometry", S, "Verificar geometria"),
             ("Std_Measure", S, "Medir"),
-        ]),
-    ]},
-    {"id": "bim", "label": "BIM", "wb": "BIMWorkbench", "panels": [
-        ("Projeto", [
-            ("BIM_ProjectManager", L, "Novo\nprojeto"), ("Arch_Site|Arch_Building|Arch_Level|Arch_Space", S,
-                                                         "Terreno / edifício / nível"),
-            ("BIM_Setup", S, "Configurar BIM"),
-        ]),
-        ("Desenhar", [
-            ("BIM_Sketch", L, "Esboço"),
-            ("Draft_Line|Draft_Wire|Draft_Rectangle|Draft_Circle|Draft_Arc|Draft_Polygon", L, "Linhas"),
-            ("BIM_Extrude", S, "Extrudar"), ("Draft_Move|Draft_Rotate|BIM_Copy|Draft_Mirror", S, "Mover / copiar"),
-            ("Draft_OrthoArray|Draft_PolarArray|Draft_PathArray", S, "Matrizes"),
-        ]),
-        ("Elementos", [
-            ("Arch_Wall", L, "Parede"), ("BIM_Slab", L, "Laje"), ("BIM_Column", S, "Pilar"), ("BIM_Beam", S, "Viga"),
-            ("BIM_Door", S, "Porta"), ("Arch_Window", S, "Janela"), ("Arch_Stairs", S, "Escada"),
-            ("Arch_Roof", S, "Telhado"), ("Arch_Pipe|Arch_PipeConnector", S, "Tubo"),
-            ("Arch_Equipment", S, "Equipamento"),
-            ("Arch_CurtainWall|Arch_Panel|Arch_Frame|Arch_Rebar|Arch_Fence", S, "Mais elementos"),
-        ]),
-        ("Anotar", [
-            ("BIM_DimensionAligned|BIM_DimensionHorizontal|BIM_DimensionVertical", L, "Cota"),
-            ("BIM_Text|BIM_Leader|Draft_Label", S, "Texto e chamada"), ("Arch_SectionPlane", S, "Plano de corte"),
-            ("Arch_Axis|Arch_AxisSystem|Arch_Grid", S, "Eixos e grade"),
-            ("BIM_TDPage|BIM_TDView|BIM_Create2DViews", S, "Folha e vistas"),
-        ]),
-        ("Dados", [
-            ("BIM_Layers", S, "Camadas"), ("BIM_Material", S, "Materiais"), ("Arch_Schedule", S, "Quantitativos"),
-            ("BIM_IfcElements|BIM_IfcProperties|BIM_IfcQuantities|BIM_Classification", S, "IFC"),
         ]),
     ]},
     {"id": "prumo", "label": "Prumo", "wb": None, "panels": [
@@ -936,7 +910,11 @@ class RibbonPanel(QtWidgets.QFrame):
                 nat += lw
                 comp += lw
                 continue
-            bs = [b for b in w.findChildren(RibbonButton)]
+            if isinstance(w, QtWidgets.QLabel):
+                nat += w.sizeHint().width()
+                comp += w.sizeHint().width()
+                continue
+            bs = [b for b in w.findChildren(QtWidgets.QToolButton) if hasattr(b, "largura_do_texto")]
             if not bs:
                 continue
             nat += max(_largura_estilo(b, QtCore.Qt.ToolButtonTextBesideIcon) for b in bs)
@@ -1109,10 +1087,10 @@ class PrumoRibbon(QtWidgets.QWidget):
         a1 = m.addAction("Restaurar a largura dos grupos desta aba")
         a2 = m.addAction("Altura padrão da faixa")
         m.addSeparator()
-        a3 = m.addAction("Mostrar só as ferramentas do momento (Esboço)")
+        a3 = m.addAction("Mostrar só as ferramentas do momento")
         a3.setCheckable(True)
         a3.setChecked(faixa_contextual())
-        a3.setToolTip("Desmarcado, a aba Esboço mostra tudo, com o que não se aplica esmaecido")
+        a3.setToolTip("Desmarcado, a faixa mostra todas as ferramentas, com o que não se aplica esmaecido")
         esc = m.exec(self.content.mapToGlobal(pos)) if hasattr(m, "exec") else m.exec_(self.content.mapToGlobal(pos))
         if esc is a1:
             self.restaurar_larguras()
@@ -1404,7 +1382,9 @@ class PrumoRibbon(QtWidgets.QWidget):
         finally:
             self._ignorar_sync = False
 
-    def build(self, tab):
+    def build(self, tab, tudo=False):
+        """Monta a aba. tudo=True mostra também o que esta situação esconderia (usado pelo "Mostrar onde"
+        do guia e do tutorial); volta ao normal na próxima mudança de situação."""
         self._precarregar(tab)
         page = QtWidgets.QWidget()
         page.setObjectName("PrumoPage")
@@ -1419,8 +1399,11 @@ class PrumoRibbon(QtWidgets.QWidget):
         paineis = []
         editando = editando_esboco()
         self._ctx_edicao = editando
+        sit = situacao()
+        self._sit = sit
         for title, entries in tab["panels"]:
             panel = RibbonPanel(title)
+            raros = []
             for cmd, size, label in entries:
                 if not cabe_no_contexto(tab, title, cmd, editando):
                     continue
@@ -1428,15 +1411,29 @@ class PrumoRibbon(QtWidgets.QWidget):
                 acts = _acoes_de(nomes)
                 if not acts:
                     continue
+                como = "sim" if tudo else como_mostrar(tab, cmd, sit, acts)
+                if como == "nao":
+                    continue
+                if como == "raro":
+                    raros.append((nomes, acts, label))
+                    continue
                 btn = RibbonButton(acts, size, label, panel)
                 btn._cmd = nomes[0]     # o tutorial acha o botão pelo nome do comando
                 btn._cmds = nomes
                 panel.add(btn, size)
+            if raros:
+                mais = BotaoMais(raros, panel)
+                panel.add(mais, S)
             if panel.count == 0:
                 panel.deleteLater()
                 continue
             split.addWidget(panel)
             paineis.append(panel)
+        if not paineis:
+            vazio = _painel_vazio(tab, sit)
+            if vazio is not None:
+                split.addWidget(vazio)
+                paineis.append(vazio)
         resto = QtWidgets.QWidget()
         resto.setObjectName("PrumoResto")
         split.addWidget(resto)
@@ -1526,6 +1523,9 @@ class PrumoRibbon(QtWidgets.QWidget):
             tab = self._tabs[idx]
             if tab.get("contexto") and getattr(self, "_ctx_edicao", None) != editing:
                 self.build(tab)
+            elif getattr(self, "_sit", None) is not None and situacao() != self._sit:
+                # abriu/fechou documento, abriu/fechou uma folha: a faixa mostra o que serve agora
+                self.build(tab)
 
 
 # --------------------------------------------------------------------------
@@ -1538,6 +1538,160 @@ ESBOCO_FORA_DA_EDICAO = {
 }
 ESBOCO_SO_NA_EDICAO_PAINEL = {"Desenhar", "Restrições", "Modificar", "Referências", "Padrão", "Auxiliares"}
 ESBOCO_SO_NA_EDICAO = {"Sketcher_LeaveSketch", "Sketcher_ViewSketch", "Sketcher_ViewSection"}
+
+
+# Situação: a faixa esconde o que depende de uma situação que ainda não existe (sem documento, sem folha
+# aberta) e manda as ferramentas raras para o "Mais" do grupo. O que depende só da seleção continua no lugar
+# (esmaecido) para a faixa não mudar de tamanho a cada clique.
+SEM_DOCUMENTO_SEMPRE = {"Std_New", "Std_Open", "Prumo_Preferencias", "Std_DlgMacroExecute"}
+
+# aba Desenho sem folha aberta: só o que começa um desenho
+DESENHO_SEM_FOLHA = {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_AbrirFolha", "Prumo_ListaMateriais"}
+
+# ferramentas raras: ficam no "Mais" do grupo (e no Procurar comando), não na frente
+RAROS = {
+    "desenho": {
+        "TechDraw_PageDefault", "TechDraw_PageTemplate", "TechDraw_FillTemplateFields", "TechDraw_RedrawPage",
+        "TechDraw_BrokenView", "TechDraw_ActiveView", "TechDraw_DraftView", "TechDraw_ClipGroup",
+        "TechDraw_StackGroup", "TechDraw_AxoLengthDimension", "TechDraw_DimensionRepair",
+        "TechDraw_ExtensionInsertPrefixGroup", "TechDraw_ExtensionIncreaseDecreaseGroup",
+        "TechDraw_RichTextAnnotation", "TechDraw_CosmeticVertexGroup", "TechDraw_2PointCosmeticLine",
+        "TechDraw_Hatch", "TechDraw_ToggleFrame", "TechDraw_ExtensionLockUnlockView", "TechDraw_DecorateLine",
+    },
+}
+
+
+def folha_aberta():
+    """A janela ativa é uma folha de desenho (TechDraw)."""
+    try:
+        mw = FreeCADGui.getMainWindow()
+        area = mw.findChild(QtWidgets.QMdiArea)
+        sub = area.activeSubWindow() if area is not None else None
+        if sub is None:
+            return False
+        w = sub.widget()
+        nome = w.metaObject().className() if w is not None else ""
+        return "MDIViewPage" in nome
+    except Exception:
+        return False
+
+
+_cache_folhas = {}
+
+
+def situacao():
+    """(tem documento, folha aberta, documento tem folhas) — muda a faixa quando muda."""
+    doc = FreeCAD.ActiveDocument
+    if doc is None:
+        return (False, False, False)
+    try:
+        objs = doc.Objects
+        chave = (doc.Name, len(objs))
+        if _cache_folhas.get("chave") != chave:
+            _cache_folhas["chave"] = chave
+            _cache_folhas["tem"] = any(o.isDerivedFrom("TechDraw::DrawPage") for o in objs)
+        tem_folhas = _cache_folhas["tem"]
+    except Exception:
+        tem_folhas = False
+    return (True, folha_aberta(), tem_folhas)
+
+
+def _ativo(nome, acts):
+    try:
+        return FreeCADGui.Command.get(nome).isActive()
+    except Exception:
+        return any(a.isEnabled() for a in acts)
+
+
+def como_mostrar(tab, cmd, sit, acts=()):
+    """"sim" (na frente), "raro" (no Mais do grupo) ou "nao" (escondido nesta situação)."""
+    nome = cmd.split("|")[0]
+    if not faixa_contextual():
+        return "sim"
+    tem_doc, com_folha, _tem_folhas = sit
+    if not tem_doc:
+        return "sim" if nome in SEM_DOCUMENTO_SEMPRE or _ativo(nome, acts) else "nao"
+    if tab.get("id") == "desenho" and not com_folha:
+        if nome not in DESENHO_SEM_FOLHA:
+            return "nao"
+        return "sim" if nome != "Prumo_AbrirFolha" or _ativo(nome, acts) else "nao"
+    if nome in RAROS.get(tab.get("id"), ()):
+        return "raro"
+    return "sim"
+
+
+def _painel_vazio(tab, sit):
+    """Aba sem nada para mostrar agora: diz o primeiro passo, com o botão para dá-lo."""
+    if sit[0]:
+        return None
+    pn = RibbonPanel("Para começar")
+    for cmd, rot in (("Std_New", "Novo"), ("Std_Open", "Abrir")):
+        acts = _acoes_de([cmd])
+        if acts:
+            b = RibbonButton(acts, L, rot, pn)
+            b._cmd = cmd
+            pn.add(b, L)
+    txt = QtWidgets.QLabel("Crie ou abra um documento:\nas ferramentas de %s aparecem em seguida." % tab["label"])
+    txt.setObjectName("PrumoVazioTexto")
+    txt.setStyleSheet("color: #5A6675; padding: 6px 10px;")
+    pn.row.addWidget(txt)
+    pn.count += 1
+    return pn
+
+
+class BotaoMais(QtWidgets.QToolButton):
+    """\"Mais\" do grupo: as ferramentas raras num menu, com os nomes da faixa."""
+
+    def __init__(self, raros, parent=None):
+        super().__init__(parent)
+        self.setProperty("sw_size", S)
+        self.setObjectName("PrumoMais")
+        self.setAutoRaise(True)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.setText("Mais ▾")
+        self.setStyleSheet("QToolButton#PrumoMais::menu-indicator { image: none; width: 0px; }")
+        self.setIcon(QtGui.QIcon(os.path.join(_HERE, "Resources", "icons", "mais.svg")))
+        self.setIconSize(QtCore.QSize(_MED["iconS"], _MED["iconS"]))
+        self.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.setFixedHeight(_MED["S"])
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self.setToolTip("Mais ferramentas deste grupo (menos usadas)")
+        menu = QtWidgets.QMenu(self)
+        QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
+        self.acoes = []
+        self._cmds = []
+        for nomes, acts, label in raros:
+            for a in acts:
+                rot = " ".join(str(label).split()) if len(acts) == 1 else _clean(a.text())
+                px = QAction(a.icon(), rot, menu)
+                px.setToolTip(a.toolTip())
+                px._original = a
+                px._cmd = a.whatsThis() or nomes[0]
+
+                def disparar(checked=False, original=a, n=px._cmd):
+                    if not _pedir_selecao(n) and original.isEnabled():
+                        original.trigger()
+                px.triggered.connect(disparar)
+
+                def sinc(px=px, original=a, n=px._cmd):
+                    try:
+                        px.setEnabled(original.isEnabled() or _selecao_depois(n))
+                    except RuntimeError:
+                        pass
+                a.changed.connect(sinc)
+                sinc()
+                menu.addAction(px)
+                self.acoes.append(px)
+            self._cmds += nomes
+        self.setMenu(menu)
+
+    def largura_do_texto(self):
+        fm = QtGui.QFontMetrics(self.font())
+        t = fm.horizontalAdvance(self.text()) if hasattr(fm, "horizontalAdvance") else fm.width(self.text())
+        if self.toolButtonStyle() == QtCore.Qt.ToolButtonIconOnly:
+            return _MED["iconS"] + 14
+        return _MED["iconS"] + t + 22
 
 
 def faixa_contextual():

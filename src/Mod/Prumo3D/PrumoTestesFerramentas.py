@@ -5536,6 +5536,41 @@ class T45BancadaVasos(unittest.TestCase):
         self.assertTrue(any("horizontal" in a for a in v.Avisos))
         self.assertIn("Teste de pressão", V.memoria(v))
 
+    def test_todo_suporte_oferecido_constroi(self):
+        """Cada suporte que o painel oferece para a posição tem de aparecer no modelo (antes, saia e pernas
+        no vaso deitado não construíam nada)."""
+        import PrumoVaso as V
+        v = self._vaso(suportes="Nenhum")
+        for pos, sups in V.SUPORTES_POR_POSICAO.items():
+            v.Orientacao = pos
+            v.Suportes = "Nenhum"
+            self.doc.recompute()
+            vol0 = v.Shape.Volume
+            for sup in sups:
+                if sup == "Nenhum":
+                    continue
+                v.Suportes = sup
+                self.doc.recompute()
+                self.assertEqual(v.Avisos, [], "%s/%s" % (pos, sup))
+                self.assertTrue(v.Shape.isValid(), "%s/%s" % (pos, sup))
+                self.assertGreater(v.Shape.Volume, vol0 * 1.01, "%s no vaso %s não construiu nada" % (sup, pos))
+        if FreeCAD.GuiUp:
+            p = V.abrir_painel()
+            try:
+                p.orient.setCurrentText("Horizontal")
+                self.assertEqual([p.sup.itemText(i) for i in range(p.sup.count())], ["Nenhum", "Selas", "Pernas"])
+                p.sup.setCurrentText("Pernas")
+                p.orient.setCurrentText("Vertical")
+                self.assertEqual([p.sup.itemText(i) for i in range(p.sup.count())], ["Nenhum", "Saia", "Pernas"])
+                self.assertEqual(p.sup.currentText(), "Pernas", "o que ainda serve continua escolhido")
+                p.orient.setCurrentText("Horizontal")
+                p.orient.setCurrentText("Vertical")
+                p.sup.setCurrentText("Saia")
+                p.orient.setCurrentText("Horizontal")
+                self.assertEqual(p.sup.currentText(), "Selas")
+            finally:
+                p.close()
+
     def test_desenho_com_cotas_e_tabela(self):
         import PrumoVaso as V
         v = self._vaso()
@@ -8463,7 +8498,9 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
     NAO_RODAR = {"Prumo_AplicarTema", "Prumo_TemaEscuro", "Prumo_TemaIcones", "Prumo_Testes",
                  "Prumo_RemoverSplash", "Prumo_ModoDistribuicao", "Prumo_BarrasClassicas", "Std_Print",
                  "Std_PrintPdf", "Std_DlgPreferences", "Std_DlgMacroExecute", "Std_Open", "Std_Import",
-                 "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio"}
+                 "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio",
+                 # janelas de arquivo e perguntas (testadas à parte, na T83)
+                 "Prumo_SalvarPDF", "Prumo_ExportarDXF", "Prumo_CotasGerais", "Prumo_AbrirFolha"}
 
     def setUp(self):
         if not FreeCAD.GuiUp:
@@ -11070,33 +11107,29 @@ class T79InserirNoEsboco(unittest.TestCase):
             self.assertIn(c, FreeCADGui.listCommands())
             self.assertTrue(FreeCADGui.Command.get(c).getInfo()["pixmap"])
 
-    def test_abas_bim_e_superficies(self):
+    def test_aba_superficies_e_sem_bim(self):
+        """O Prumo é de engenharia mecânica: sem a aba e a bancada BIM (arquitetura)."""
         import PrumoRibbon as R
+        import PrumoGui
         ids = [t["id"] for t in R.TABS]
-        self.assertIn("bim", ids)
+        self.assertNotIn("bim", ids)
         self.assertIn("superficies", ids)
-        self.assertLess(ids.index("bim"), ids.index("prumo"))
         self.assertLess(ids.index("superficies"), ids.index("prumo"))
-        for wb in ("BIMWorkbench", "SurfaceWorkbench"):
-            FreeCADGui.activateWorkbench(wb)
-            self._esp(1.0)
+        self.assertIn("BIMWorkbench", PrumoGui.BANCADAS_DESLIGADAS)
+        FreeCADGui.activateWorkbench("SurfaceWorkbench")
+        self._esp(1.0)
         todos = FreeCADGui.listCommands()
-        for aba in ("bim", "superficies"):
-            t = [x for x in R.TABS if x["id"] == aba][0]
-            for _p, itens in t["panels"]:
-                for c, _t, _r in itens:
-                    for nome in c.split("|"):
-                        self.assertIn(nome, todos, "comando inexistente na aba %s: %s" % (aba, nome))
+        t = [x for x in R.TABS if x["id"] == "superficies"][0]
+        for _p, itens in t["panels"]:
+            for c, _t, _r in itens:
+                for nome in c.split("|"):
+                    self.assertIn(nome, todos, "comando inexistente na aba superficies: %s" % nome)
         rb = R._state.get("ribbon")
         if rb is not None:
             rotulos = [rb.tabbar.tabText(i) for i in range(rb.tabbar.count())]
-            self.assertIn("BIM", rotulos)
+            self.assertNotIn("BIM", rotulos)
             self.assertIn("Superfícies", rotulos)
             self.assertFalse(any("Desenho 2D" in r or "Malhas" in r for r in rotulos), rotulos)
-            rb.select_tab("bim", user=True)
-            self._esp(1.0)
-            self.assertEqual(FreeCADGui.activeWorkbench().name(), "BIMWorkbench")
-            self.assertIsNone(QtWidgets.QApplication.activeModalWidget(), "nenhuma janela travando a aba BIM")
         FreeCADGui.activateWorkbench("PartDesignWorkbench")
 
     def test_trocar_de_aba_nao_muda_a_altura_da_faixa(self):
@@ -11572,6 +11605,124 @@ class T82MontagemComoSolidCraft(unittest.TestCase):
         finally:
             cx.hide()
 
+class T83FaixaDoMomento(unittest.TestCase):
+    """Faixa que mostra o que serve agora: sem documento, só o que começa um trabalho; Desenho sem folha aberta,
+    só o que começa um desenho; com a folha aberta, os grupos na ordem do trabalho e as raras no "Mais".
+    E a entrega do desenho: Cotas gerais, Salvar PDF e Exportar DXF."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        self.R = R
+        self.rb = R._state.get("ribbon")
+        if self.rb is None:
+            self.skipTest("sem faixa")
+        R._params().SetBool("RibbonContextual", True)
+        self.doc = None
+
+    def tearDown(self):
+        self.R._params().SetBool("RibbonContextual", True)
+        if self.doc is not None:
+            fechar(self.doc)
+        self._esp(0.5)
+
+    def _aba(self, aba):
+        self.rb.select_tab(aba)
+        self._esp(0.6)
+        self.rb.check_edit()
+        self._esp(0.3)
+        cmds = set()
+        for b in self.rb.content.widget().findChildren(QtWidgets.QToolButton):
+            if isinstance(b, self.R.BotaoMais):
+                continue
+            c = getattr(b, "_cmd", None)
+            if c and b.isVisible():
+                cmds.add(c)
+        mais = [b for b in self.rb.content.widget().findChildren(self.R.BotaoMais)]
+        return cmds, mais
+
+    def _sem_documentos(self):
+        for d in list(FreeCAD.listDocuments().values()):
+            fechar(d)
+        self._esp(0.8)
+
+    def test_sem_documento_so_o_que_comeca(self):
+        self._sem_documentos()
+        cmds, _m = self._aba("inicio")
+        self.assertIn("Std_New", cmds)
+        self.assertIn("Std_Open", cmds)
+        for c in ("Std_Save", "Std_Undo", "Std_ViewFitAll", "Std_Cut"):
+            self.assertNotIn(c, cmds, "%s não serve sem documento" % c)
+        cmds, _m = self._aba("desenho")
+        self.assertEqual(cmds, {"Std_New", "Std_Open"}, "aba sem nada para fazer mostra o primeiro passo")
+
+    def test_desenho_sem_folha_e_com_folha(self):
+        import PrumoFolhas
+        self.doc = novo_doc("PrumoFaixaMomento")
+        b = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+        cmds, mais = self._aba("desenho")
+        self.assertEqual(cmds, {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_ListaMateriais"})
+        self.assertEqual(mais, [])
+        page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {}, [b], arranjo="frontal_superior")
+        cmds, mais = self._aba("desenho")
+        self.assertIn("Prumo_AbrirFolha", cmds, "com folha no projeto, aparece Abrir folha")
+        self.assertNotIn("TechDraw_SectionGroup", cmds, "folha fechada: ainda não há onde cortar")
+        page.ViewObject.doubleClicked()
+        self._esp(1.5)
+        self.assertTrue(self.R.folha_aberta())
+        cmds, mais = self._aba("desenho")
+        for c in ("TechDraw_View", "TechDraw_SectionGroup", "TechDraw_CompDimensionTools", "Prumo_CotasGerais",
+                  "TechDraw_WeldSymbol", "Prumo_SalvarPDF", "Prumo_ExportarDXF"):
+            self.assertIn(c, cmds)
+        for c in ("TechDraw_BrokenView", "TechDraw_ClipGroup", "TechDraw_DimensionRepair"):
+            self.assertNotIn(c, cmds, "%s é rara: vai para o Mais" % c)
+        textos = [a.text() for m in mais for a in m.acoes]
+        self.assertIn("Vista interrompida", textos)
+        self.assertIn("Reparar cotas", textos)
+        # grupos na ordem do trabalho
+        titulos = [p._cap.text() for p in self.rb.paineis]
+        self.assertEqual(titulos, ["Folha", "Vistas", "Cotas", "Anotação", "Entregar"])
+
+    def test_ver_tudo_como_antes(self):
+        self.doc = novo_doc("PrumoFaixaTudo")
+        self.R._params().SetBool("RibbonContextual", False)
+        cmds, mais = self._aba("desenho")
+        self.assertIn("TechDraw_BrokenView", cmds)
+        self.assertEqual(mais, [])
+
+    def test_entregar_pdf_dxf_e_cotas(self):
+        import PrumoFolhas
+        import PrumoVistas as V
+        import tempfile
+        self.doc = novo_doc("PrumoEntregar")
+        b = self.doc.addObject("Part::Box", "Caixa")
+        b.Length, b.Width, b.Height = 80, 40, 20
+        self.doc.recompute()
+        page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {"numero": "DES-001/A"}, [b],
+                                      arranjo="3vistas_iso")
+        self.assertTrue(V.nome_do_arquivo(page, "pdf").endswith("DES-001-A.pdf"), "número do desenho no nome")
+        self.assertEqual(V.pecas_da_folha(page), [b])
+        page.ViewObject.doubleClicked()
+        self._esp(1.5)
+        self.assertIs(V.folha_ativa(), page)
+        pasta = tempfile.mkdtemp()
+        pdf = V.salvar_pdf(page, os.path.join(pasta, "a.pdf"))
+        dxf = V.exportar_dxf(page, os.path.join(pasta, "a.dxf"))
+        self.assertGreater(os.path.getsize(pdf), 1000)
+        with open(pdf, "rb") as f:
+            self.assertEqual(f.read(4), b"%PDF")
+        self.assertGreater(os.path.getsize(dxf), 1000)
+        c = FreeCADGui.Command.get("Prumo_CotasGerais")
+        self.assertTrue(c.isActive())
+        FreeCADGui.runCommand("Prumo_CotasGerais", 0)
+        self._esp(0.5)
+        cotas = [o for o in page.Views if o.isDerivedFrom("TechDraw::DrawViewDimension")]
+        self.assertEqual(sorted(round(d.getRawValue(), 3) for d in cotas), [20.0, 40.0, 80.0])
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -11592,4 +11743,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
-           T81DesenhoVistasProntas, T82MontagemComoSolidCraft]
+           T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
+           T83FaixaDoMomento]

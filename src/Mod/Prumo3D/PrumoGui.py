@@ -1006,11 +1006,12 @@ class _ManipuladorMenu:
 # Bancadas que não vêm ligadas no Prumo (o usuário religa em Preferências → Geral → Bancadas).
 # O padrão do FreeCAD já desliga Test, Inspection, Robot e OpenSCAD.
 # Draft, Malhas, Usinagem e Engenharia reversa saem de vista: no Prumo tudo fica nas abas da faixa (o código do
-# Draft continua instalado: texto, DXF e matriz em caminho do Esboço e a aba BIM usam ele por baixo).
+# Draft continua instalado: texto, DXF e matriz em caminho do Esboço usam ele por baixo).
+# BIM (arquitetura) também sai: o Prumo é para engenharia mecânica.
 BANCADAS_DESLIGADAS = ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "DraftWorkbench", "MeshWorkbench",
-                       "CAMWorkbench", "ReverseEngineeringWorkbench")
+                       "CAMWorkbench", "ReverseEngineeringWorkbench", "BIMWorkbench")
 DESLIGADAS_FREECAD = "NoneWorkbench,TestWorkbench,InspectionWorkbench,RobotWorkbench,OpenSCADWorkbench"
-VERSAO_BANCADAS = 2
+VERSAO_BANCADAS = 3
 
 
 def bancadas_desligadas():
@@ -1022,8 +1023,8 @@ def bancadas_desligadas():
 def aplicar_bancadas_padrao():
     """Uma vez por perfil (a cada versão da lista): desliga as bancadas sem aba. Se o usuário religar
     depois, fica religada (a marca de versão impede repetir)."""
-    # BIM virou aba: a janela de boas-vindas da bancada BIM (só em inglês, com predefinições do FreeCAD
-    # puro) não aparece na primeira vez que a aba é aberta
+    # se alguém religar o BIM, a janela de boas-vindas (só em inglês, com predefinições do FreeCAD puro)
+    # não trava a primeira abertura
     FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/BIM").SetBool("FirstTime", False)
     p = FreeCAD.ParamGet(PARAM_PATH)
     if p.GetInt("BancadasPadrao", 0) >= VERSAO_BANCADAS:

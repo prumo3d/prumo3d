@@ -270,6 +270,69 @@ def esperar_vistas(vistas, segundos=20.0):
     return False
 
 
+# ---------------------------------------------------------------------------- entregar
+def pecas_da_folha(page):
+    """Peças mostradas nos grupos de vistas da folha (na ordem em que aparecem), sem repetir."""
+    r = []
+    for v in page.Views:
+        if v.isDerivedFrom("TechDraw::DrawProjGroup") or v.TypeId == "TechDraw::DrawViewPart":
+            for o in v.Source:
+                if all(o is not x for x in r):
+                    r.append(o)
+    return r
+
+
+def nome_do_arquivo(page, extensao):
+    """<pasta do projeto>/<nº do desenho ou nome da folha>.<ext>; sem projeto salvo, a pasta pessoal."""
+    import os
+    import re
+    doc = page.Document
+    pasta = os.path.dirname(doc.FileName) if doc.FileName else os.path.expanduser("~")
+    numero = ""
+    try:
+        numero = dict(page.Template.EditableTexts).get("numero", "").strip()
+    except Exception:
+        pass
+    base = numero or page.Label or "Folha"
+    if doc.FileName and not numero:
+        base = "%s - %s" % (os.path.splitext(os.path.basename(doc.FileName))[0], base)
+    base = re.sub(r'[<>:"/\\|?*]+', "-", base).strip() or "Folha"
+    return os.path.join(pasta, base + "." + extensao)
+
+
+def salvar_pdf(page, caminho=None):
+    import TechDrawGui
+    caminho = caminho or nome_do_arquivo(page, "pdf")
+    TechDrawGui.exportPageAsPdf(page, caminho)
+    return caminho
+
+
+def exportar_dxf(page, caminho=None):
+    import TechDraw
+    caminho = caminho or nome_do_arquivo(page, "dxf")
+    TechDraw.writeDXFPage(page, caminho)
+    return caminho
+
+
+def folha_ativa():
+    """A folha da janela ativa (ou None)."""
+    try:
+        import FreeCADGui as G
+        from PySide import QtWidgets as W
+        area = G.getMainWindow().findChild(W.QMdiArea)
+        sub = area.activeSubWindow() if area is not None else None
+        if sub is None:
+            return None
+        titulo = sub.windowTitle()
+        doc = FreeCAD.ActiveDocument
+        for p in folhas(doc):
+            if p.Label and (titulo.startswith(p.Label) or (" : " + p.Label) in titulo or p.Label in titulo):
+                return p
+    except Exception:
+        pass
+    return None
+
+
 # ============================================================================ interface
 try:
     import FreeCADGui
@@ -459,6 +522,137 @@ if P is not None:
             PainelPaletaVistas(FreeCAD.ActiveDocument, [o for o in sel if PrumoUtil.pecas([o])]).mostrar()
 
 
+if P is not None:
+    def _folha_ou_aviso():
+        page = folha_ativa()
+        if page is None:
+            fs = folhas(FreeCAD.ActiveDocument)
+            if len(fs) == 1:
+                page = fs[0]
+        if page is None:
+            QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Desenho",
+                                              "Abra a folha que quer usar (clique na aba dela, embaixo da tela).")
+        return page
+
+    def _avisar_arquivo(titulo, caminho):
+        import os
+        mb = QtWidgets.QMessageBox(FreeCADGui.getMainWindow())
+        mb.setWindowTitle(titulo)
+        mb.setText("%s salvo em:\n%s" % (titulo.split()[-1], caminho))
+        abrir = mb.addButton("Abrir a pasta", QtWidgets.QMessageBox.ActionRole)
+        mb.addButton("OK", QtWidgets.QMessageBox.AcceptRole)
+        mb.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        mb.buttonClicked.connect(lambda b: b is abrir and QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl.fromLocalFile(os.path.dirname(caminho))))
+        mb.show()
+        return mb
+
+    class CmdAbrirFolha:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("folha_abnt.svg"), "MenuText": "Abrir folha",
+                    "ToolTip": "Abre uma das folhas de desenho do projeto."}
+
+        def IsActive(self):
+            return bool(folhas(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            fs = folhas(FreeCAD.ActiveDocument)
+            if len(fs) == 1:
+                _mostrar(fs[0])
+                return
+            m = QtWidgets.QMenu(FreeCADGui.getMainWindow())
+            for p in fs:
+                a = m.addAction(p.Label)
+                a.triggered.connect(lambda _=False, p=p: _mostrar(p))
+            m.popup(QtGui.QCursor.pos())
+            self._menu = m
+
+    class CmdCotasGerais:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("cotas.svg"), "MenuText": "Cotas gerais",
+                    "ToolTip": "Põe o comprimento, a altura e a profundidade totais da peça nas vistas da "
+                               "folha aberta."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None and bool(folhas(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            page = _folha_ou_aviso()
+            if page is None:
+                return None
+            pecas = pecas_da_folha(page)
+            grupos = [v for v in page.Views if v.isDerivedFrom("TechDraw::DrawProjGroup")]
+            if not grupos:
+                # o erro já traz o conserto: abrir a paleta com a peça escolhida
+                r = QtWidgets.QMessageBox.question(
+                    FreeCADGui.getMainWindow(), "Cotas gerais",
+                    "As cotas gerais vão na vista frontal, e esta folha ainda não tem uma.\n\n"
+                    "Abrir a Paleta de vistas para pôr a frontal?")
+                if r == QtWidgets.QMessageBox.Yes:
+                    PainelPaletaVistas(FreeCAD.ActiveDocument, pecas).mostrar()
+                return None
+            alvo = _fontes(grupos[0].Source)
+            sel = [s.Object for s in FreeCADGui.Selection.getSelectionEx()]
+            for g in grupos:
+                if any(o is g or o in list(g.Views) for o in sel):
+                    alvo = _fontes(g.Source)
+            vistas = list(grupo_da_peca(page, alvo).Views)
+            esperar_vistas(vistas, 15.0)
+            doc = page.Document
+            doc.openTransaction("Cotas gerais")
+            try:
+                c = cotas_gerais(page, alvo)
+            except ValueError as ex:
+                doc.abortTransaction()
+                QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Cotas gerais", str(ex))
+                return None
+            doc.commitTransaction()
+            return c
+
+    class CmdSalvarPDF:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("salvar_pdf.svg"), "MenuText": "Salvar PDF",
+                    "ToolTip": "Salva a folha aberta em PDF na pasta do projeto, com o número do desenho no "
+                               "nome do arquivo."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None and bool(folhas(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            page = _folha_ou_aviso()
+            if page is None:
+                return None
+            caminho, _f = QtWidgets.QFileDialog.getSaveFileName(
+                FreeCADGui.getMainWindow(), "Salvar PDF", nome_do_arquivo(page, "pdf"), "PDF (*.pdf)")
+            if not caminho:
+                return None
+            salvar_pdf(page, caminho)
+            return _avisar_arquivo("Salvar PDF", caminho)
+
+    class CmdExportarDXF:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("exportar_dxf.svg"), "MenuText": "Exportar DXF",
+                    "ToolTip": "Salva a folha aberta em DXF (para CAD 2D, corte a laser e plasma)."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None and bool(folhas(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            page = _folha_ou_aviso()
+            if page is None:
+                return None
+            caminho, _f = QtWidgets.QFileDialog.getSaveFileName(
+                FreeCADGui.getMainWindow(), "Exportar DXF", nome_do_arquivo(page, "dxf"), "DXF (*.dxf)")
+            if not caminho:
+                return None
+            exportar_dxf(page, caminho)
+            return _avisar_arquivo("Exportar DXF", caminho)
+
+
 def registrar_comandos():
     if FreeCADGui is not None and P is not None:
         FreeCADGui.addCommand("Prumo_PaletaVistas", CmdPaletaVistas())
+        FreeCADGui.addCommand("Prumo_AbrirFolha", CmdAbrirFolha())
+        FreeCADGui.addCommand("Prumo_CotasGerais", CmdCotasGerais())
+        FreeCADGui.addCommand("Prumo_SalvarPDF", CmdSalvarPDF())
+        FreeCADGui.addCommand("Prumo_ExportarDXF", CmdExportarDXF())

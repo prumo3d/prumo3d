@@ -11,6 +11,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Mudanças
+
+- **Sem a aba BIM:** o Prumo passa a focar na engenharia mecânica. A bancada BIM (arquitetura) sai de vista;
+  quem precisar pode religá-la em Preferências → Geral → Bancadas.
+
 ### Novidades
 
 - **Montagem com as restrições do SolidWorks:**
@@ -26,6 +31,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
     nada.
   - **Verificar interferência com folga mínima:** além das peças que se invadem, lista os pares que ficam mais
     perto que a folga pedida, com a distância.
+- **Faixa que mostra o que serve agora:** sem documento aberto, só aparece o que começa um trabalho (Novo,
+  Abrir…); na aba Desenho, sem folha aberta, só o que começa um desenho (Folha ABNT, Paleta de vistas, Abrir
+  folha). As ferramentas raras de cada grupo ficam no botão **Mais**. Para ver tudo como antes: botão direito
+  na faixa → desmarque "Mostrar só as ferramentas do momento".
+- **Aba Desenho na ordem do trabalho:** Folha → Vistas → Cotas → Anotação → Entregar, com **Cotas gerais**,
+  **Salvar PDF** (com o número do desenho no nome do arquivo) e **Exportar DXF** em um clique.
 - **Procurar comando (Ctrl+K ou a lupa no alto da faixa):** digite parte do nome (furo, tangente, cota…) e
   tecle Enter. A faixa vai para a aba da ferramenta, para você aprender onde ela fica. Entende também nomes
   de outros programas (fillet, mate, drive…).

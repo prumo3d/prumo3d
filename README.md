@@ -118,13 +118,13 @@ Cada área tem a sua aba na faixa de ferramentas: não há menu de bancadas para
 |---|---|
 | ![Aba Esboço com o painel de relações](.github/images/prumo/aba-esboco.png) | ![Aba Peça com um suporte](.github/images/prumo/aba-peca.png) |
 
-| Tubulação de PVC com tês e joelhos | BIM: paredes, laje, porta e janelas |
+| Tubulação de PVC com tês e joelhos | Superfícies |
 |---|---|
-| ![Aba Tubulação com o painel da linha](.github/images/prumo/aba-tubulacao.png) | ![Aba BIM com uma casa simples](.github/images/prumo/aba-bim.png) |
+| ![Aba Tubulação com o painel da linha](.github/images/prumo/aba-tubulacao.png) | ![Aba Superfícies com uma superfície preenchida](.github/images/prumo/aba-superficies.png) |
 
-| Superfícies | Chapa metálica |
-|---|---|
-| ![Aba Superfícies com uma superfície preenchida](.github/images/prumo/aba-superficies.png) | ![Chapa metálica dobrada](.github/images/prumo/chapa-metalica.png) |
+| Chapa metálica |
+|---|
+| ![Chapa metálica dobrada](.github/images/prumo/chapa-metalica.png) |
 
 ### Em resumo
 
@@ -152,7 +152,7 @@ Todos os recursos
   que a tradução oficial do FreeCAD ainda não cobre.
 
 * **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Montagem,
-  Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação, Superfícies, BIM e Prumo), com ícones
+  Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação, Superfícies e Prumo), com ícones
   grandes e rótulos claros, sem menu de bancadas. A aba Esboço aparece sozinha ao editar um esboço, e em
   tela de notebook a linha das abas se compacta para mostrar os nomes inteiros.
 

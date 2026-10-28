@@ -267,9 +267,10 @@ def destacar(aba, comandos):
     if rb is None:
         return False
     alvo = []
+    mostrou_tudo = False
     # duas tentativas: uma troca de bancada pendente pode mudar a aba logo depois
     for _tentativa in range(2):
-        if aba:
+        if aba and not mostrou_tudo:
             rb.select_tab(aba)
         QtWidgets.QApplication.processEvents()
         for cmd in comandos:
@@ -283,8 +284,20 @@ def destacar(aba, comandos):
                     alvo.append(b)
             if alvo:
                 break
+            # ferramenta rara: está no "Mais" do grupo
+            for b in rb.findChildren(QtWidgets.QToolButton):
+                if isinstance(b, PrumoRibbon.BotaoMais) and cmd in getattr(b, "_cmds", []) and b.isVisible():
+                    alvo.append(b)
+            if alvo:
+                break
         if alvo:
             break
+        # escondida nesta situação (sem documento, sem folha aberta): mostra a aba inteira para apontar
+        if _tentativa == 0 and aba:
+            idx = rb.tab_index(aba)
+            if idx >= 0:
+                rb.build(rb._tabs[idx], tudo=True)
+                mostrou_tudo = True
     if not alvo:
         return False
     estilo = "QToolButton { background: #FFF1BF; border: 2px solid #F7BE00; border-radius: 5px; }"

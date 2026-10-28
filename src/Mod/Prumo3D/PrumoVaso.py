@@ -71,6 +71,8 @@ def _unid(v):
     return getattr(v, "UnidadePressao", "MPa") if "UnidadePressao" in getattr(v, "PropertiesList", []) else "MPa"
 ORIENTACOES = ["Horizontal", "Vertical"]
 SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas"]
+# o que serve para cada posição (o painel só mostra estes)
+SUPORTES_POR_POSICAO = {"Horizontal": ["Nenhum", "Selas", "Pernas"], "Vertical": ["Nenhum", "Saia", "Pernas"]}
 TESTES = ["Hidrostático (UG-99(b))", "Pneumático (UG-100)"]
 EFICIENCIAS = [(1.0, "1,00 — radiografia total"), (0.85, "0,85 — radiografia por amostragem"),
                (0.70, "0,70 — sem radiografia")]
@@ -365,6 +367,19 @@ def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altur
         anel = Part.makeCylinder(Ro + 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)).cut(
             Part.makeCylinder(Ro - t_costado - 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)))
         pecas += [saia, anel]
+    elif tipo == "Pernas" and not vertical:
+        # vaso deitado: quatro tubos embaixo do costado, nas mesmas posições das selas, recortados no costado
+        a = pos_selas or 0.2 * comp
+        h = altura or (Ro + 300.0)            # do eixo até o chão
+        De = 88.9 if D < 1200 else 141.3
+        y0 = 0.6 * Ro
+        casco = Part.makeCylinder(Ro, comp + 2 * Ro, FreeCAD.Vector(-Ro, 0, 0), FreeCAD.Vector(1, 0, 0))
+        for x in (a, comp - a):
+            for y in (-y0, y0):
+                base = FreeCAD.Vector(x, y, -h)
+                perna = Part.makeCylinder(De / 2, h, base, FreeCAD.Vector(0, 0, 1)).cut(
+                    Part.makeCylinder(De / 2 - 5.5, h, base, FreeCAD.Vector(0, 0, 1)))
+                pecas.append(perna.cut(casco))
     elif tipo == "Pernas":
         h = altura or max(600.0, 0.6 * D)
         ht = altura_tampo(Ri, t_tampo, tipo_tampo)
@@ -438,7 +453,7 @@ class Vaso:
         if "Suportes" not in obj.PropertiesList:
             obj.addProperty("App::PropertyEnumeration", "Suportes", "Adotado", "Selas, saia ou pernas")
             obj.Suportes = SUPORTES
-        add("App::PropertyLength", "PosicaoSelas", "Adotado", "Selas: distância da linha de tangência (0 = 0,2·L)",
+        add("App::PropertyLength", "PosicaoSelas", "Adotado", "Selas ou pernas do vaso deitado: distância da linha de tangência (0 = 0,2·L)",
             0.0)
         add("App::PropertyLength", "AlturaSuporte", "Adotado", "Altura do suporte (0 = automática)", 0.0)
         add("App::PropertyFloat", "TensaoAdmissivelTeste", "Projeto",
@@ -505,8 +520,8 @@ class Vaso:
         if sup != "Nenhum":
             if vertical and sup == "Selas":
                 avisos.append("Selas são para vaso horizontal: use saia ou pernas no vertical.")
-            elif not vertical and sup in ("Saia", "Pernas"):
-                avisos.append("Saia e pernas são para vaso vertical: use selas no horizontal.")
+            elif not vertical and sup == "Saia":
+                avisos.append("Saia é para vaso vertical: no horizontal use selas ou pernas.")
             else:
                 pecas = suportes(sup, obj.DiametroInterno.Value, obj.ComprimentoCostado.Value, tc, tt,
                                  obj.TipoTampo, obj.PosicaoSelas.Value, obj.AlturaSuporte.Value, vertical)
@@ -756,6 +771,19 @@ def casca_media(v):
                 if "Cylinder" in type(f.Surface).__name__][0]
         pecas.append((saia, "saia", tc))
         base_z = x0
+    elif sup == "Pernas" and not vertical:
+        a = v.PosicaoSelas.Value or 0.2 * comp
+        h = v.AlturaSuporte.Value or (Rm + tc / 2.0 + 300.0)
+        De = 88.9 if D < 1200 else 141.3
+        y0 = 0.6 * Rm
+        casco = Part.makeCylinder(Rm, comp + 2 * Rm, FreeCAD.Vector(-Rm, 0, 0), eixo)
+        for x in (a, comp - a):
+            for y in (-y0, y0):
+                perna = [f for f in Part.makeCylinder((De - 5.5) / 2.0, h, FreeCAD.Vector(x, y, -h),
+                                                      FreeCAD.Vector(0, 0, 1)).Faces
+                         if "Cylinder" in type(f.Surface).__name__][0]
+                pecas.append((perna.cut(casco), "perna", 5.5))
+        base_z = -h
     elif sup == "Pernas" and vertical:
         h = v.AlturaSuporte.Value or max(600.0, 0.6 * D)
         ht = altura_tampo(Ri, tt, v.TipoTampo)
@@ -769,7 +797,7 @@ def casca_media(v):
             pecas.append((perna, "perna", 5.5))
         base_z = x0
     else:
-        raise ValueError("escolha os suportes do vaso (selas no horizontal; saia ou pernas no vertical)")
+        raise ValueError("escolha os suportes do vaso (selas ou pernas no horizontal; saia ou pernas no vertical)")
     frag = SplitAPI.booleanFragments([p[0] for p in pecas], "Standard", 0.01)
     if vertical:
         frag.rotate(FreeCAD.Vector(), FreeCAD.Vector(0, 1, 0), -90)
@@ -1102,10 +1130,11 @@ class PainelVaso(P.PainelTarefa):
         hl.addWidget(self.bt_menos)
         s4.widget(lin)
         s5 = f.secao("Suportes", "selecao")
-        self.sup = s5.linha("tipo", P.lista(SUPORTES, "Selas"), "Horizontal: selas. Vertical: saia ou pernas.",
-                            "Tipo")
-        self.pos_selas = s5.linha("comprimento", P.numero(0.0, 0.0, 100000.0, " mm", 0), "Selas: distância da "
-                                  "linha de tangência (0 = 0,2·L).", "Posição das selas")
+        self.sup = s5.linha("tipo", P.lista(SUPORTES_POR_POSICAO["Horizontal"], "Selas"),
+                            "Só aparecem os suportes que servem para a posição do vaso: deitado, selas ou pernas; "
+                            "em pé, saia ou pernas.", "Tipo")
+        self.pos_selas = s5.linha("comprimento", P.numero(0.0, 0.0, 100000.0, " mm", 0), "Selas ou pernas do "
+                                  "vaso deitado: distância da linha de tangência (0 = 0,2·L).", "Posição dos apoios")
         self.alt = s5.linha("comprimento", P.numero(0.0, 0.0, 20000.0, " mm", 0), "Altura do suporte "
                             "(0 = automática).", "Altura")
         s6 = f.secao("Teste de pressão", "empurra")
@@ -1120,15 +1149,29 @@ class PainelVaso(P.PainelTarefa):
         self.bt_menos.clicked.connect(self._menos_bocal)
         self.tab.cellChanged.connect(lambda *_: self._mudou())
         self.orient.currentIndexChanged.connect(self._orient)
+        self.sup.currentIndexChanged.connect(self._sup_mudou)
 
     # ---- campos
     def _orient(self, *_a):
-        vertical = self.orient.currentText() == "Vertical"
-        if vertical and self.sup.currentText() == "Selas":
-            self.sup.setCurrentText("Saia")
-        if not vertical and self.sup.currentText() in ("Saia", "Pernas"):
-            self.sup.setCurrentText("Selas")
+        """A lista de suportes só mostra os que servem para a posição; o escolhido fica, se ainda servir."""
+        pos = self.orient.currentText()
+        vertical = pos == "Vertical"
+        atual = self.sup.currentText()
+        validos = SUPORTES_POR_POSICAO.get(pos, SUPORTES)
+        self.sup.blockSignals(True)
+        self.sup.clear()
+        self.sup.addItems(validos)
+        self.sup.setCurrentText(atual if atual in validos else ("Saia" if vertical else "Selas"))
+        self.sup.blockSignals(False)
+        self.sup.currentIndexChanged.emit(self.sup.currentIndex())
         self.pos_selas.setEnabled(not vertical)
+        self._sup_mudou()
+
+    def _sup_mudou(self, *_a):
+        vertical = self.orient.currentText() == "Vertical"
+        t = self.sup.currentText()
+        self.pos_selas.setEnabled(not vertical and t in ("Selas", "Pernas"))
+        self.alt.setEnabled(t != "Nenhum")
 
     def _sy_su(self):
         nome = self.material.currentData()

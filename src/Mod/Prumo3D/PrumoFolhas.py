@@ -332,6 +332,11 @@ def _vistas(doc, page, objs, escala=None, arranjo=ARRANJO_PADRAO):
     iso = nova_iso(doc, page, fontes) if com_iso else None
     posicionar(page, fontes, grupo, iso, escala)
     doc.recompute()
+    # as projeções criadas antes da escala da folha ficar pronta guardam a escala velha (vistas pequenas
+    # ao lado de uma frontal grande): tocar faz o TechDraw refazê-las na escala certa
+    for v in (list(grupo.Views) if grupo is not None else []) + ([iso] if iso is not None else []):
+        v.touch()
+    doc.recompute()
     return grupo if grupo is not None else iso
 
 

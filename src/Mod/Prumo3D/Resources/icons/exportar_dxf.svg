@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<path d="M14 6h26l12 12v40H14z" fill="#FFFFFF" stroke="#1E2A38" stroke-width="2.6" stroke-linejoin="round"/>
+<path d="M40 6v12h12" fill="none" stroke="#1E2A38" stroke-width="2.2"/>
+<rect x="8" y="30" width="36" height="18" rx="3" fill="#003A70" stroke="#1E2A38" stroke-width="2"/>
+<text x="26" y="44" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#F7BE00" text-anchor="middle">DXF</text>
+</svg>
