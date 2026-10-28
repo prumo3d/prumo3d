@@ -11,6 +11,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Correções
+
+- **Vasos: todo suporte oferecido aparece no modelo.** No vaso deitado, escolher saia ou pernas não construía
+  nada. Agora a lista de suportes só mostra o que serve para a posição do vaso (deitado: selas ou pernas; em
+  pé: saia ou pernas), e o vaso deitado ganhou pernas: quatro tubos sob o costado, nas posições das selas.
+
 ### Mudanças
 
 - **Sem a aba BIM:** o Prumo passa a focar na engenharia mecânica. A bancada BIM (arquitetura) sai de vista;
