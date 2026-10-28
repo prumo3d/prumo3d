@@ -841,6 +841,46 @@ if FreeCAD.GuiUp:
         def Activated(self):
             PainelTravarJuntos().mostrar()
 
+    def montagens(doc):
+        return [o for o in (doc.Objects if doc else []) if o.TypeId == "Assembly::AssemblyObject"]
+
+    def abrir_montagem(asm):
+        """Põe a montagem em edição (o duplo clique na árvore): as restrições passam a funcionar nela."""
+        gdoc = FreeCADGui.getDocument(asm.Document.Name)
+        if gdoc.getInEdit() is not None:
+            gdoc.resetEdit()
+        gdoc.setEdit(asm)
+        return asm
+
+    class CmdEditarMontagem:
+        def GetResources(self):
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("travar_juntos.svg"), "MenuText": "Abrir montagem",
+                    "ToolTip": "Abre a montagem do projeto para editar (o mesmo que o duplo clique nela na "
+                               "árvore): as restrições aparecem em seguida."}
+
+        def IsActive(self):
+            try:
+                import UtilsAssembly
+                if UtilsAssembly.activeAssembly() is not None:
+                    return False
+            except Exception:
+                pass
+            return bool(montagens(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            ms = montagens(FreeCAD.ActiveDocument)
+            if len(ms) == 1:
+                abrir_montagem(ms[0])
+                return
+            m = QtWidgets.QMenu(FreeCADGui.getMainWindow())
+            for a in ms:
+                acao = m.addAction(a.Label)
+                acao.triggered.connect(lambda _=False, a=a: abrir_montagem(a))
+            from PySide import QtGui
+            m.popup(QtGui.QCursor.pos())
+            self._menu = m
+
     class CmdJunta:
         def __init__(self, chave, icone):
             self.chave = chave
@@ -885,3 +925,4 @@ if FreeCAD.GuiUp:
         FreeCADGui.addCommand("Prumo_PadraoComponentes", CmdPadrao())
         FreeCADGui.addCommand("Prumo_MoverJunta", CmdMoverJunta())
         FreeCADGui.addCommand("Prumo_TravarJuntos", CmdTravarJuntos())
+        FreeCADGui.addCommand("Prumo_EditarMontagem", CmdEditarMontagem())

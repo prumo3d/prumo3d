@@ -5558,7 +5558,8 @@ class T45BancadaVasos(unittest.TestCase):
             p = V.abrir_painel()
             try:
                 p.orient.setCurrentText("Horizontal")
-                self.assertEqual([p.sup.itemText(i) for i in range(p.sup.count())], ["Nenhum", "Selas", "Pernas"])
+                self.assertEqual([p.sup.itemText(i) for i in range(p.sup.count())],
+                                 ["Nenhum", "Selas", "Pés de chapa", "Pernas"])
                 p.sup.setCurrentText("Pernas")
                 p.orient.setCurrentText("Vertical")
                 self.assertEqual([p.sup.itemText(i) for i in range(p.sup.count())], ["Nenhum", "Saia", "Pernas"])
@@ -5570,6 +5571,40 @@ class T45BancadaVasos(unittest.TestCase):
                 self.assertEqual(p.sup.currentText(), "Selas")
             finally:
                 p.close()
+
+    def test_pes_de_chapa_de_compressor(self):
+        """Pés de chapa dobrada (reservatório de compressor): dois, sapatas no chão com furo, e no FEM."""
+        import PrumoVaso as V
+        v = self._vaso(suportes="Nenhum")
+        sem = v.Shape.Volume
+        v.Suportes = "Pés de chapa"
+        self.doc.recompute()
+        self.assertEqual(v.Avisos, [])
+        self.assertTrue(v.Shape.isValid())
+        self.assertEqual(len(v.Shape.Solids), 1, "os pés ficam soldados no costado")
+        pe = V.pe_de_chapa(300.0, 400.0 + 6.0, 800.0)
+        self.assertTrue(pe.isValid())
+        self.assertGreater(pe.Volume, 0)
+        bb = v.Shape.BoundBox
+        self.assertLess(bb.ZMin, -406.0 - 50.0, "sapatas abaixo do costado")
+        self.assertGreater(v.Shape.Volume, sem + 2 * pe.Volume * 0.5)
+        # a sapata é plana, no chão, com furo
+        chao = [f for f in v.Shape.Faces if abs(f.BoundBox.ZMax - bb.ZMin) < 1e-6 and abs(f.BoundBox.ZMin - bb.ZMin) < 1e-6]
+        self.assertGreaterEqual(len(chao), 4)
+        self.assertTrue(all(len(f.Wires) == 2 for f in chao), "cada sapata tem o furo de fixação")
+        # o teste de pressão por elementos finitos também entende os pés (casca média com apoio na sapata)
+        frag, grupos, apoio, _info = V.casca_media(v)
+        self.assertTrue(any(k[0] == "pé de chapa" for k in grupos), list(grupos))
+        self.assertTrue(apoio, "sem arestas de apoio nas sapatas")
+        v.Suportes = "Pernas"
+        self.doc.recompute()
+        frag, grupos, apoio, _info = V.casca_media(v)
+        self.assertTrue(any(k[0] == "perna" for k in grupos))
+        self.assertTrue(apoio)
+        v.Suportes = "Pés de chapa"
+        v.Orientacao = "Vertical"
+        self.doc.recompute()
+        self.assertTrue(any("horizontal" in a for a in v.Avisos))
 
     def test_desenho_com_cotas_e_tabela(self):
         import PrumoVaso as V
@@ -8500,7 +8535,8 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
                  "Std_PrintPdf", "Std_DlgPreferences", "Std_DlgMacroExecute", "Std_Open", "Std_Import",
                  "Std_Export", "Std_SaveAs", "Std_Save", "Prumo_ChapaDXF", "Std_New", "Prumo_Inicio",
                  # janelas de arquivo e perguntas (testadas à parte, na T83)
-                 "Prumo_SalvarPDF", "Prumo_ExportarDXF", "Prumo_CotasGerais", "Prumo_AbrirFolha"}
+                 "Prumo_SalvarPDF", "Prumo_ExportarDXF", "Prumo_CotasGerais", "Prumo_AbrirFolha",
+                 "Prumo_EditarMontagem"}
 
     def setUp(self):
         if not FreeCAD.GuiUp:
@@ -11630,8 +11666,8 @@ class T83FaixaDoMomento(unittest.TestCase):
         self._esp(0.5)
 
     def _aba(self, aba):
-        self.rb.select_tab(aba)
-        self._esp(0.6)
+        self.rb.select_tab(aba, user=True)
+        self._esp(1.0)
         self.rb.check_edit()
         self._esp(0.3)
         cmds = set()
@@ -11686,6 +11722,39 @@ class T83FaixaDoMomento(unittest.TestCase):
         # grupos na ordem do trabalho
         titulos = [p._cap.text() for p in self.rb.paineis]
         self.assertEqual(titulos, ["Folha", "Vistas", "Cotas", "Anotação", "Entregar"])
+
+    def test_montagem_simulacao_e_planilha_mostram_o_primeiro_passo(self):
+        self.doc = novo_doc("PrumoFaixaMontagem")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        cmds, _m = self._aba("montagem")
+        self.assertIn("Assembly_CreateAssembly", cmds)
+        self.assertNotIn("Prumo_JuntaTangente", cmds, "sem montagem aberta as restrições não servem")
+        self.assertNotIn("Prumo_EditarMontagem", cmds, "nada para abrir ainda")
+        dicas = [w.text() for w in self.rb.content.widget().findChildren(QtWidgets.QLabel)
+                 if w.objectName() == "PrumoDicaAba"]
+        self.assertTrue(dicas and "montagem" in dicas[0])
+        asm = self.doc.addObject("Assembly::AssemblyObject", "Assembly")
+        asm.newObject("Assembly::JointGroup", "Joints")
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.resetEdit()
+        cmds, _m = self._aba("montagem")
+        self.assertIn("Prumo_EditarMontagem", cmds, "a montagem existe: aparece Abrir montagem")
+        FreeCADGui.runCommand("Prumo_EditarMontagem", 0)
+        self._esp(0.8)
+        cmds, mais = self._aba("montagem")
+        for c in ("Prumo_JuntaTangente", "Prumo_JuntaCoincidente", "Prumo_MoverJunta", "Assembly_Insert"):
+            self.assertIn(c, cmds)
+        self.assertNotIn("Prumo_EditarMontagem", cmds)
+        self.assertIn("Resolver", [a.text() for m in mais for a in m.acoes])
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(0.3)
+        cmds, _m = self._aba("simulacao")
+        self.assertIn("Prumo_AssistenteFEM", cmds)
+        self.assertIn("FEM_Analysis", cmds)
+        self.assertNotIn("FEM_ConstraintFixed", cmds, "fixações só depois de criar o estudo")
+        cmds, _m = self._aba("planilha")
+        self.assertIn("Spreadsheet_CreateSheet", cmds)
+        self.assertNotIn("Spreadsheet_StyleBold", cmds)
 
     def test_ver_tudo_como_antes(self):
         self.doc = novo_doc("PrumoFaixaTudo")

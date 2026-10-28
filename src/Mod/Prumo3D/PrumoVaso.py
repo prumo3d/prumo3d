@@ -70,9 +70,10 @@ def fmt_p(mpa, unidade="MPa"):
 def _unid(v):
     return getattr(v, "UnidadePressao", "MPa") if "UnidadePressao" in getattr(v, "PropertiesList", []) else "MPa"
 ORIENTACOES = ["Horizontal", "Vertical"]
-SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas"]
+SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas", "Pés de chapa"]
 # o que serve para cada posição (o painel só mostra estes)
-SUPORTES_POR_POSICAO = {"Horizontal": ["Nenhum", "Selas", "Pernas"], "Vertical": ["Nenhum", "Saia", "Pernas"]}
+SUPORTES_POR_POSICAO = {"Horizontal": ["Nenhum", "Selas", "Pés de chapa", "Pernas"],
+                        "Vertical": ["Nenhum", "Saia", "Pernas"]}
 TESTES = ["Hidrostático (UG-99(b))", "Pneumático (UG-100)"]
 EFICIENCIAS = [(1.0, "1,00 — radiografia total"), (0.85, "0,85 — radiografia por amostragem"),
                (0.70, "0,70 — sem radiografia")]
@@ -328,6 +329,61 @@ def geometria(D, comp, t_costado, t_tampo, tipo_tampo, bocais=()):
     return vaso
 
 
+PE_CHAPA_ESP = 4.75        # mm (3/16")
+PE_CHAPA_FURO = 13.0       # mm, furo da sapata (parafuso M12 ou coxim)
+
+
+def _perfil_pe(Ro, D, altura, r_berco):
+    """Linha média do pé de chapa no plano YZ (z para cima, eixo do vaso em y = z = 0): sapata, perna aberta,
+    berço no raio r_berco, perna, sapata. Devolve (pontos, h, y_sapata, largura da tira)."""
+    h = altura or (Ro + max(80.0, 0.25 * D))      # do eixo até o chão
+    ang = math.radians(35.0)                        # o berço abraça ±35° do fundo
+    yb, zb = r_berco * math.sin(ang), -r_berco * math.cos(ang)
+    yf = max(Ro * 0.85, yb + 40.0)                  # pés abertos para os lados (mais estável)
+    sap = 45.0
+    larg = max(50.0, min(100.0, 0.1 * D))
+    return (yb, zb, yf, sap, h, larg)
+
+
+def pe_de_chapa(x, Ro, D, altura=0.0, esp=PE_CHAPA_ESP):
+    """Sólido de um pé de chapa dobrada centrado em x (largura ao longo do eixo do vaso)."""
+    import Part
+    V = FreeCAD.Vector
+    rc = Ro + esp / 2.0 - 0.5          # 0,5 mm dentro do costado: a solda funde o pé com o vaso
+    yb, zb, yf, sap, h, larg = _perfil_pe(Ro, D, altura, rc)
+    zc = -h + esp / 2.0
+    x0 = x - larg / 2.0
+    e2 = esp / 2.0
+
+    def faixa_reta(a, b):
+        """Trecho reto da chapa: retângulo de a até b (no plano YZ) com a espessura, puxado ao longo de X."""
+        d = b - a
+        n = V(0, -d.z, d.y)
+        n.normalize()
+        n = n * e2
+        q = [V(x0, *(c)) for c in ((a.y + n.y, a.z + n.z), (b.y + n.y, b.z + n.z), (b.y - n.y, b.z - n.z),
+                                   (a.y - n.y, a.z - n.z))]
+        return Part.Face(Part.makePolygon(q + [q[0]])).extrude(V(larg, 0, 0))
+
+    def dobra(c):
+        """Dobra arredondada (raio interno ≈ 0) no canto c."""
+        return Part.makeCylinder(e2, larg, V(x0, c.y, c.z), V(1, 0, 0))
+
+    P = [V(0, -yf - sap, zc), V(0, -yf, zc), V(0, -yb, zb), V(0, yb, zb), V(0, yf, zc), V(0, yf + sap, zc)]
+    partes = [faixa_reta(P[0], P[1]), faixa_reta(P[1], P[2]), faixa_reta(P[3], P[4]), faixa_reta(P[4], P[5]),
+              dobra(P[1]), dobra(P[2]), dobra(P[3]), dobra(P[4])]
+    # berço: anel de chapa (rc ± meia espessura) só no arco de baixo, entre as duas dobras de cima
+    anel = Part.makeCylinder(rc + e2, larg, V(x0, 0, 0), V(1, 0, 0)).cut(
+        Part.makeCylinder(rc - e2, larg, V(x0, 0, 0), V(1, 0, 0)))
+    janela = Part.Face(Part.makePolygon([V(x0, 0, 0), V(x0, -yb * 3, zb * 3), V(x0, 0, -rc * 3),
+                                         V(x0, yb * 3, zb * 3), V(x0, 0, 0)])).extrude(V(larg, 0, 0))
+    partes.append(anel.common(janela))
+    pe = partes[0].fuse(partes[1:]).removeSplitter()
+    for y in (-yf - sap / 2.0, yf + sap / 2.0):
+        pe = pe.cut(Part.makeCylinder(PE_CHAPA_FURO / 2.0, esp * 4, V(x, y, -h - esp), V(0, 0, 1)))
+    return pe
+
+
 def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altura=0.0, vertical=False):
     """Sólidos dos suportes no sistema do vaso (eixo X, costado de 0 a comp).
     Selas: duas chapas com berço de 120° (sela) a `pos_selas` das linhas de tangência (0 = 0,2·comp).
@@ -367,6 +423,11 @@ def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altur
         anel = Part.makeCylinder(Ro + 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)).cut(
             Part.makeCylinder(Ro - t_costado - 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)))
         pecas += [saia, anel]
+    elif tipo == "Pés de chapa" and not vertical:
+        # como nos reservatórios de compressor: em cada posição, uma tira de chapa dobrada que abraça o fundo
+        # do costado (berço), desce aberta para os lados e termina em sapatas planas com furo de fixação
+        for x in (pos_selas or 0.2 * comp, comp - (pos_selas or 0.2 * comp)):
+            pecas.append(pe_de_chapa(x, Ro, D, altura))
     elif tipo == "Pernas" and not vertical:
         # vaso deitado: quatro tubos embaixo do costado, nas mesmas posições das selas, recortados no costado
         a = pos_selas or 0.2 * comp
@@ -451,9 +512,14 @@ class Vaso:
             obj.addProperty("App::PropertyEnumeration", "Orientacao", "Projeto", "Horizontal ou vertical")
             obj.Orientacao = ORIENTACOES
         if "Suportes" not in obj.PropertiesList:
-            obj.addProperty("App::PropertyEnumeration", "Suportes", "Adotado", "Selas, saia ou pernas")
+            obj.addProperty("App::PropertyEnumeration", "Suportes", "Adotado",
+                            "Selas, pés de chapa, saia ou pernas")
             obj.Suportes = SUPORTES
-        add("App::PropertyLength", "PosicaoSelas", "Adotado", "Selas ou pernas do vaso deitado: distância da linha de tangência (0 = 0,2·L)",
+        elif list(obj.getEnumerationsOfProperty("Suportes")) != SUPORTES:
+            atual = obj.Suportes          # arquivo de versão anterior: a lista ganha as opções novas
+            obj.Suportes = SUPORTES
+            obj.Suportes = atual if atual in SUPORTES else "Nenhum"
+        add("App::PropertyLength", "PosicaoSelas", "Adotado", "Selas, pés de chapa ou pernas do vaso deitado: distância da linha de tangência (0 = 0,2·L)",
             0.0)
         add("App::PropertyLength", "AlturaSuporte", "Adotado", "Altura do suporte (0 = automática)", 0.0)
         add("App::PropertyFloat", "TensaoAdmissivelTeste", "Projeto",
@@ -520,6 +586,8 @@ class Vaso:
         if sup != "Nenhum":
             if vertical and sup == "Selas":
                 avisos.append("Selas são para vaso horizontal: use saia ou pernas no vertical.")
+            elif vertical and sup == "Pés de chapa":
+                avisos.append("Pés de chapa são para vaso horizontal: use saia ou pernas no vertical.")
             elif not vertical and sup == "Saia":
                 avisos.append("Saia é para vaso vertical: no horizontal use selas ou pernas.")
             else:
@@ -771,6 +839,19 @@ def casca_media(v):
                 if "Cylinder" in type(f.Surface).__name__][0]
         pecas.append((saia, "saia", tc))
         base_z = x0
+    elif sup == "Pés de chapa" and not vertical:
+        a = v.PosicaoSelas.Value or 0.2 * comp
+        V_ = FreeCAD.Vector
+        for x in (a, comp - a):
+            yb, zb, yf, sap, h, larg = _perfil_pe(Ri + tc, D, v.AlturaSuporte.Value, Rm)
+            x0 = x - larg / 2.0
+            # na casca, cada perna (com a sapata) sai da superfície média do costado; o berço é o próprio costado
+            for s_ in (-1.0, 1.0):
+                fio = Part.Wire([Part.LineSegment(V_(x0, s_ * (yf + sap), -h), V_(x0, s_ * yf, -h)).toShape(),
+                                 Part.LineSegment(V_(x0, s_ * yf, -h), V_(x0, s_ * yb, zb)).toShape()])
+                for f in fio.extrude(V_(larg, 0, 0)).Faces:
+                    pecas.append((f, "pé de chapa", PE_CHAPA_ESP))
+        base_z = -h
     elif sup == "Pernas" and not vertical:
         a = v.PosicaoSelas.Value or 0.2 * comp
         h = v.AlturaSuporte.Value or (Rm + tc / 2.0 + 300.0)
@@ -1131,9 +1212,9 @@ class PainelVaso(P.PainelTarefa):
         s4.widget(lin)
         s5 = f.secao("Suportes", "selecao")
         self.sup = s5.linha("tipo", P.lista(SUPORTES_POR_POSICAO["Horizontal"], "Selas"),
-                            "Só aparecem os suportes que servem para a posição do vaso: deitado, selas ou pernas; "
-                            "em pé, saia ou pernas.", "Tipo")
-        self.pos_selas = s5.linha("comprimento", P.numero(0.0, 0.0, 100000.0, " mm", 0), "Selas ou pernas do "
+                            "Só aparecem os suportes que servem para a posição do vaso: deitado, selas, pés de "
+                            "chapa (como nos reservatórios de compressor) ou pernas; em pé, saia ou pernas.", "Tipo")
+        self.pos_selas = s5.linha("comprimento", P.numero(0.0, 0.0, 100000.0, " mm", 0), "Selas, pés ou pernas do "
                                   "vaso deitado: distância da linha de tangência (0 = 0,2·L).", "Posição dos apoios")
         self.alt = s5.linha("comprimento", P.numero(0.0, 0.0, 20000.0, " mm", 0), "Altura do suporte "
                             "(0 = automática).", "Altura")
@@ -1170,7 +1251,7 @@ class PainelVaso(P.PainelTarefa):
     def _sup_mudou(self, *_a):
         vertical = self.orient.currentText() == "Vertical"
         t = self.sup.currentText()
-        self.pos_selas.setEnabled(not vertical and t in ("Selas", "Pernas"))
+        self.pos_selas.setEnabled(not vertical and t in ("Selas", "Pernas", "Pés de chapa"))
         self.alt.setEnabled(t != "Nenhum")
 
     def _sy_su(self):

@@ -16,6 +16,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Vasos: todo suporte oferecido aparece no modelo.** No vaso deitado, escolher saia ou pernas não construía
   nada. Agora a lista de suportes só mostra o que serve para a posição do vaso (deitado: selas ou pernas; em
   pé: saia ou pernas), e o vaso deitado ganhou pernas: quatro tubos sob o costado, nas posições das selas.
+- **Vasos: pés de chapa, como nos reservatórios de compressor.** Em cada posição, uma tira de chapa dobrada
+  (4,75 mm) abraça o fundo do costado, desce aberta para os lados e termina em sapatas com furo de fixação.
+  Entra também no teste de pressão por elementos finitos, com o apoio nas sapatas.
 
 ### Mudanças
 
@@ -38,8 +41,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - **Verificar interferência com folga mínima:** além das peças que se invadem, lista os pares que ficam mais
     perto que a folga pedida, com a distância.
 - **Faixa que mostra o que serve agora:** sem documento aberto, só aparece o que começa um trabalho (Novo,
-  Abrir…); na aba Desenho, sem folha aberta, só o que começa um desenho (Folha ABNT, Paleta de vistas, Abrir
-  folha). As ferramentas raras de cada grupo ficam no botão **Mais**. Para ver tudo como antes: botão direito
+  Abrir…). Nas abas que dependem de "estar dentro" de algo, aparece só o primeiro passo e uma dica: Desenho
+  sem folha aberta (Folha ABNT, Paleta de vistas, Abrir folha), Montagem sem montagem aberta (Nova montagem,
+  **Abrir montagem**), Simulação sem estudo (Assistente, Novo estudo) e Planilha sem planilha aberta. As ferramentas raras de cada grupo ficam no botão **Mais**. Para ver tudo como antes: botão direito
   na faixa → desmarque "Mostrar só as ferramentas do momento".
 - **Aba Desenho na ordem do trabalho:** Folha → Vistas → Cotas → Anotação → Entregar, com **Cotas gerais**,
   **Salvar PDF** (com o número do desenho no nome do arquivo) e **Exportar DXF** em um clique.

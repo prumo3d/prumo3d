@@ -169,7 +169,8 @@ TABS = [
     ]},
     {"id": "montagem", "label": "Montagem", "wb": "AssemblyWorkbench", "panels": [
         ("Montagem", [
-            ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Assembly_Insert", L, "Inserir\ncomponente"),
+            ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Prumo_EditarMontagem", L, "Abrir\nmontagem"),
+            ("Assembly_Insert", L, "Inserir\ncomponente"),
             ("Assembly_InsertNewPart", S, "Nova peça aqui"), ("Prumo_PadraoComponentes", S, "Padrão de componentes"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
@@ -1434,6 +1435,18 @@ class PrumoRibbon(QtWidgets.QWidget):
             if vazio is not None:
                 split.addWidget(vazio)
                 paineis.append(vazio)
+        dica = None if tudo else dica_da_aba(tab, sit)
+        if dica:
+            pd = RibbonPanel("Próximo passo")
+            lb = QtWidgets.QLabel(dica)
+            lb.setObjectName("PrumoDicaAba")
+            lb.setWordWrap(True)
+            lb.setFixedWidth(300)
+            lb.setStyleSheet("color: #3D4A59; padding: 4px 10px; background: #FFF6D6; border-radius: 6px;")
+            pd.row.addWidget(lb)
+            pd.count += 1
+            split.addWidget(pd)
+            paineis.append(pd)
         resto = QtWidgets.QWidget()
         resto.setObjectName("PrumoResto")
         split.addWidget(resto)
@@ -1545,8 +1558,26 @@ ESBOCO_SO_NA_EDICAO = {"Sketcher_LeaveSketch", "Sketcher_ViewSketch", "Sketcher_
 # (esmaecido) para a faixa não mudar de tamanho a cada clique.
 SEM_DOCUMENTO_SEMPRE = {"Std_New", "Std_Open", "Prumo_Preferencias", "Std_DlgMacroExecute"}
 
-# aba Desenho sem folha aberta: só o que começa um desenho
-DESENHO_SEM_FOLHA = {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_AbrirFolha", "Prumo_ListaMateriais"}
+# Abas que dependem de "estar dentro" de algo: sem isso aberto, só aparece o que começa (ou abre) esse algo.
+# aba: (chave da situação, o que aparece sem ela, dica do primeiro passo)
+INICIO_DA_ABA = {
+    "desenho": ("folha", {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_AbrirFolha", "Prumo_ListaMateriais"},
+                "Crie a folha (Folha ABNT) ou abra uma que já existe: as vistas, cotas e anotações aparecem "
+                "com a folha aberta."),
+    "montagem": ("montagem", {"Assembly_CreateAssembly", "Prumo_EditarMontagem", "Prumo_ListaMateriais",
+                              "Prumo_Massa", "Prumo_Interferencia"},
+                 "Crie uma montagem ou abra a que já existe: as restrições aparecem com a montagem aberta."),
+    "simulacao": ("estudo", {"Prumo_AssistenteFEM", "Prumo_AssistenteEstrutura", "Prumo_AnaliseEstrutura",
+                             "FEM_Analysis"},
+                  "Comece pelo assistente ou crie um estudo: material, fixações, cargas e malha aparecem "
+                  "depois, na ordem."),
+    "planilha": ("planilha", {"Spreadsheet_CreateSheet", "Spreadsheet_Import"},
+                 "Crie ou abra uma planilha: formatação e alinhamento aparecem com ela aberta."),
+}
+# compatibilidade (testes e quem lia a lista antiga)
+DESENHO_SEM_FOLHA = INICIO_DA_ABA["desenho"][1]
+# comandos de "abrir o que já existe": só aparecem quando há o que abrir
+ABRIR_EXISTENTE = {"Prumo_AbrirFolha", "Prumo_EditarMontagem"}
 
 # ferramentas raras: ficam no "Mais" do grupo (e no Procurar comando), não na frente
 RAROS = {
@@ -1558,20 +1589,52 @@ RAROS = {
         "TechDraw_RichTextAnnotation", "TechDraw_CosmeticVertexGroup", "TechDraw_2PointCosmeticLine",
         "TechDraw_Hatch", "TechDraw_ToggleFrame", "TechDraw_ExtensionLockUnlockView", "TechDraw_DecorateLine",
     },
+    "peca": {
+        "PartDesign_SubShapeBinder", "PartDesign_Clone", "PartDesign_MultiTransform",
+        "Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools",
+        "Part_Section|Part_CrossSections|Part_ProjectionOnSurface",
+        "Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder",
+        "PartDesign_Boolean", "Part_CheckGeometry", "Sketcher_ValidateSketch",
+    },
+    "montagem": {"Assembly_SolveAssembly", "Prumo_Propriedades"},
+    "estruturas": {"Prumo_AtualizarEstrutura", "Prumo_SecaoPersonalizada", "Prumo_Propriedades"},
+    "simulacao": {
+        "FEM_MaterialEditor", "FEM_ConstraintDisplacement", "FEM_ConstraintCentrif", "FEM_MeshRegion",
+        "FEM_MeshDisplayInfo", "FEM_MeshClear", "FEM_SolverControl", "FEM_PostFilterClipScalar",
+        "FEM_PostFilterDataAlongLine", "FEM_ResultsPurge",
+    },
+    "planilha": {"Spreadsheet_SetAlias", "Spreadsheet_SplitCell"},
+    "prumo": {"Prumo_TemaIcones", "Prumo_BarrasClassicas", "Prumo_RemoverSplash", "Prumo_ModoDistribuicao"},
 }
 
 
-def folha_aberta():
-    """A janela ativa é uma folha de desenho (TechDraw)."""
+def _janela_ativa():
     try:
         mw = FreeCADGui.getMainWindow()
         area = mw.findChild(QtWidgets.QMdiArea)
         sub = area.activeSubWindow() if area is not None else None
-        if sub is None:
-            return False
-        w = sub.widget()
-        nome = w.metaObject().className() if w is not None else ""
-        return "MDIViewPage" in nome
+        w = sub.widget() if sub is not None else None
+        return w.metaObject().className() if w is not None else ""
+    except Exception:
+        return ""
+
+
+def folha_aberta():
+    """A janela ativa é uma folha de desenho (TechDraw)."""
+    return "MDIViewPage" in _janela_ativa()
+
+
+def planilha_aberta():
+    return "SheetView" in _janela_ativa()
+
+
+def montagem_aberta():
+    """Há uma montagem em edição (as restrições do FreeCAD só funcionam nela)."""
+    import sys
+    if "UtilsAssembly" not in sys.modules:
+        return False
+    try:
+        return sys.modules["UtilsAssembly"].activeAssembly() is not None
     except Exception:
         return False
 
@@ -1579,21 +1642,45 @@ def folha_aberta():
 _cache_folhas = {}
 
 
+def _tipos_no_doc(doc):
+    """{"folha", "montagem", "estudo", "planilha"} presentes no documento (guardado pelo nº de objetos)."""
+    objs = doc.Objects
+    chave = (doc.Name, len(objs))
+    if _cache_folhas.get("chave") != chave:
+        tipos = set()
+        for o in objs:
+            t = o.TypeId
+            if t == "TechDraw::DrawPage" or o.isDerivedFrom("TechDraw::DrawPage"):
+                tipos.add("folha")
+            elif t == "Assembly::AssemblyObject":
+                tipos.add("montagem")
+            elif t == "Fem::FemAnalysis" or t == "Fem::FemAnalysisPython":
+                tipos.add("estudo")
+            elif t == "Spreadsheet::Sheet":
+                tipos.add("planilha")
+        _cache_folhas["chave"] = chave
+        _cache_folhas["tipos"] = frozenset(tipos)
+    return _cache_folhas["tipos"]
+
+
 def situacao():
-    """(tem documento, folha aberta, documento tem folhas) — muda a faixa quando muda."""
+    """Tupla do que está aberto agora: muda a faixa quando muda.
+
+    (tem documento, folha aberta, documento tem folhas, montagem aberta, tem montagem, tem estudo,
+     planilha aberta)"""
     doc = FreeCAD.ActiveDocument
     if doc is None:
-        return (False, False, False)
+        return (False, False, False, False, False, False, False)
     try:
-        objs = doc.Objects
-        chave = (doc.Name, len(objs))
-        if _cache_folhas.get("chave") != chave:
-            _cache_folhas["chave"] = chave
-            _cache_folhas["tem"] = any(o.isDerivedFrom("TechDraw::DrawPage") for o in objs)
-        tem_folhas = _cache_folhas["tem"]
+        tipos = _tipos_no_doc(doc)
     except Exception:
-        tem_folhas = False
-    return (True, folha_aberta(), tem_folhas)
+        tipos = frozenset()
+    return (True, folha_aberta(), "folha" in tipos, montagem_aberta(), "montagem" in tipos, "estudo" in tipos,
+            planilha_aberta())
+
+
+def _dentro(chave, sit):
+    return {"folha": sit[1], "montagem": sit[3], "estudo": sit[5], "planilha": sit[6]}.get(chave, True)
 
 
 def _ativo(nome, acts):
@@ -1608,16 +1695,28 @@ def como_mostrar(tab, cmd, sit, acts=()):
     nome = cmd.split("|")[0]
     if not faixa_contextual():
         return "sim"
-    tem_doc, com_folha, _tem_folhas = sit
-    if not tem_doc:
+    if not sit[0]:
         return "sim" if nome in SEM_DOCUMENTO_SEMPRE or _ativo(nome, acts) else "nao"
-    if tab.get("id") == "desenho" and not com_folha:
-        if nome not in DESENHO_SEM_FOLHA:
+    ini = INICIO_DA_ABA.get(tab.get("id"))
+    if ini is not None and not _dentro(ini[0], sit):
+        if nome not in ini[1]:
             return "nao"
-        return "sim" if nome != "Prumo_AbrirFolha" or _ativo(nome, acts) else "nao"
-    if nome in RAROS.get(tab.get("id"), ()):
+        return "sim" if nome not in ABRIR_EXISTENTE or _ativo(nome, acts) else "nao"
+    if nome in ABRIR_EXISTENTE:
+        return "nao"          # já está dentro: "abrir" não serve
+    if cmd in RAROS.get(tab.get("id"), ()) or nome in RAROS.get(tab.get("id"), ()):
         return "raro"
     return "sim"
+
+
+def dica_da_aba(tab, sit):
+    """Primeiro passo da aba nesta situação (ou None)."""
+    if not faixa_contextual() or not sit[0]:
+        return None
+    ini = INICIO_DA_ABA.get(tab.get("id"))
+    if ini is not None and not _dentro(ini[0], sit):
+        return ini[2]
+    return None
 
 
 def _painel_vazio(tab, sit):
