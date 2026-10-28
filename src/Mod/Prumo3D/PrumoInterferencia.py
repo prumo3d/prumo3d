@@ -15,27 +15,36 @@ NOME_GRUPO = "Interferencias"
 
 
 class Interferencia:
-    def __init__(self, a, b, volume, forma):
+    def __init__(self, a, b, volume, forma, distancia=0.0):
         self.a, self.b = a, b
         self.volume = volume
         self.forma = forma
+        self.distancia = distancia      # > 0: não se tocam, mas estão mais perto que a folga pedida
 
     @property
     def texto(self):
-        return "%s × %s: %s mm³" % (self.a.Label, self.b.Label, PrumoUtil.fmt(self.volume, 1))
+        if self.volume > 0:
+            return "%s × %s: %s mm³" % (self.a.Label, self.b.Label, PrumoUtil.fmt(self.volume, 1))
+        if self.distancia > 0:
+            return "%s × %s: folga de %s mm" % (self.a.Label, self.b.Label, PrumoUtil.fmt(self.distancia, 2))
+        return "%s × %s: só encostam" % (self.a.Label, self.b.Label)
 
 
-def verificar(objs, tolerancia=TOLERANCIA_MM3, contatos=False):
+def verificar(objs, tolerancia=TOLERANCIA_MM3, contatos=False, folga=0.0):
     """[Interferencia] entre as peças dos objetos (montagens, partes e grupos são abertos).
 
-    Com contatos=True, também lista os pares que só se tocam (volume 0)."""
+    Com contatos=True, também lista os pares que só se tocam (volume 0). Com folga > 0 (mm), lista também os
+    pares que não se tocam mas ficam mais perto que isso (a "Clearance" do Fusion e do SolidCraft)."""
     pecas = PrumoUtil.pecas(objs)
     res = []
     for i in range(len(pecas)):
         oa, sa = pecas[i]
         for j in range(i + 1, len(pecas)):
             ob, sb = pecas[j]
-            if not sa.BoundBox.intersect(sb.BoundBox):
+            ba = FreeCAD.BoundBox(sa.BoundBox)
+            if folga > 0:
+                ba.enlarge(folga)
+            if not ba.intersect(sb.BoundBox):
                 continue
             try:
                 comum = sa.common(sb)
@@ -44,13 +53,18 @@ def verificar(objs, tolerancia=TOLERANCIA_MM3, contatos=False):
                 continue
             if vol > tolerancia:
                 res.append(Interferencia(oa, ob, vol, comum))
-            elif contatos:
+            elif contatos or folga > 0:
                 try:
-                    if sa.distToShape(sb)[0] < 1e-6:
-                        res.append(Interferencia(oa, ob, 0.0, None))
+                    d = sa.distToShape(sb)[0]
                 except Exception:
-                    pass
-    res.sort(key=lambda x: -x.volume)
+                    continue
+                if d < 1e-6:
+                    if contatos:
+                        res.append(Interferencia(oa, ob, 0.0, None))
+                elif d < folga:
+                    res.append(Interferencia(oa, ob, 0.0, None, d))
+    # interferências (maior volume primeiro), depois as folgas (menor primeiro), depois os contatos
+    res.sort(key=lambda x: (0, -x.volume) if x.volume > 0 else ((1, x.distancia) if x.distancia > 0 else (2, 0)))
     return res
 
 
@@ -111,6 +125,9 @@ def PainelInterferencia():
             self.tol = s1.linha("folga", P.numero(TOLERANCIA_MM3, 0.0, 1e6, " mm³", 3),
                                 "Volumes comuns menores que isto são ignorados.", "Tolerância")
             self.contatos = s1.linha("lado", P.marcar("Mostrar também peças que só se encostam"), "")
+            self.folga = s1.linha("folga", P.numero(0.0, 0.0, 1000.0, " mm", 2),
+                                  "Avisa também os pares que não se tocam mas ficam mais perto que isto "
+                                  "(0 = não conferir folga).", "Folga mínima")
             bt = QtWidgets.QPushButton("Verificar")
             bt.clicked.connect(self.verificar)
             s1.widget(bt)
@@ -134,15 +151,21 @@ def PainelInterferencia():
             return [o for o in doc.RootObjects if PrumoUtil.tem_peca([o]) and not _eh_resultado(o)] if doc else []
 
         def verificar(self):
-            self.resultado = verificar(self._alvos(), self.tol.value(), self.contatos.isChecked())
+            self.resultado = verificar(self._alvos(), self.tol.value(), self.contatos.isChecked(),
+                                       self.folga.value())
             self.lista.clear()
             n = len([x for x in self.resultado if x.volume > 0])
+            nf = len([x for x in self.resultado if x.distancia > 0])
             for it in self.resultado:
-                self.lista.addItem(it.texto if it.volume > 0 else "%s × %s: só encostam" % (it.a.Label, it.b.Label))
+                self.lista.addItem(it.texto)
             if FreeCAD.ActiveDocument is not None:
                 mostrar(FreeCAD.ActiveDocument, self.resultado)
+            extra = (" %d par(es) com folga menor que %s mm." % (nf, PrumoUtil.fmt(self.folga.value(), 2))) \
+                if nf else ""
             if n:
-                self.form.mensagem.mostrar("%d interferência(s) encontrada(s)." % n, "erro")
+                self.form.mensagem.mostrar("%d interferência(s) encontrada(s).%s" % (n, extra), "erro")
+            elif nf:
+                self.form.mensagem.mostrar("Nenhuma interferência." + extra, "info")
             else:
                 self.form.mensagem.mostrar("Nenhuma interferência.", "ok")
             return self.resultado

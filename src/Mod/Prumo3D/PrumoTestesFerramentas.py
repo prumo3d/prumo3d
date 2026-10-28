@@ -4568,7 +4568,8 @@ class T39Montagem(unittest.TestCase):
         import PrumoRibbon
         mont = [t for t in PrumoRibbon.TABS if t["id"] == "montagem"][0]
         rotulos = {c: r for _p, itens in mont["panels"] for c, _s, r in itens}
-        self.assertIn("Coincidente", rotulos["Assembly_CreateJointDistance"])
+        self.assertEqual(rotulos["Prumo_JuntaCoincidente"], "Coincidente")
+        self.assertEqual(rotulos["Assembly_CreateJointDistance"], "Distância")
         self.assertEqual(rotulos["Assembly_CreateJointCylindrical"], "Concêntrica")
         self.assertIn("Prumo_Interferencia", rotulos)
 
@@ -11436,6 +11437,141 @@ class T81DesenhoVistasProntas(unittest.TestCase):
             pn.close()
 
 
+class T82MontagemComoSolidCraft(unittest.TestCase):
+    """Ideias do Fusion/SolidCraft: Mover junta (com limites, levando junto o que está preso), Travar juntos
+    (grupo rígido onde está), folga mínima na interferência e Procurar comando (Ctrl+K)."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoMontagem
+        import JointObject
+        self.M = PrumoMontagem
+        FreeCADGui.activateWorkbench("AssemblyWorkbench")
+        self.doc = novo_doc("PrumoMontagemSC")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        V = FreeCAD.Vector
+        self.asm = self.doc.addObject("Assembly::AssemblyObject", "Assembly")
+        self.asm.newObject("Assembly::JointGroup", "Joints")
+        self.base = self.asm.newObject("Part::Cylinder", "Base")
+        self.base.Radius, self.base.Height = 20, 10
+        self.braco = self.asm.newObject("Part::Box", "Braco")
+        self.braco.Length, self.braco.Width, self.braco.Height = 100, 10, 10
+        self.braco.Placement.Base = V(0, 0, 30)
+        self.solto = self.asm.newObject("Part::Box", "Solto")
+        self.solto.Placement.Base = V(200, 0, 0)
+        self.doc.recompute()
+        jg = self.asm.Group[0]
+        g = jg.newObject("App::FeaturePython", "Fixa")
+        JointObject.GroundedJoint(g, self.base)
+        self.rev = jg.newObject("App::FeaturePython", "Dobradica")
+        JointObject.Joint(self.rev, 1)
+        self.rev.Proxy.setJointConnectors(self.rev, [[self.base, ["Edge1", "Edge1"]],
+                                                     [self.braco, ["Face5", "Vertex1"]]])
+        self.asm.solve()
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(self.asm)
+        self._esp(0.6)
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+            FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def test_mover_junta_gira_e_respeita_os_limites(self):
+        self.assertEqual([j.Name for j in self.M.juntas_moveis(self.asm)], [self.rev.Name])
+        for a in (30.0, 90.0, -45.0, 170.0):
+            self.assertAlmostEqual(self.M.mover_junta(self.rev, giro=a)["giro"], a, places=3)
+        self.rev.EnableAngleMax = True
+        self.rev.AngleMax = 60.0
+        self.assertAlmostEqual(self.M.mover_junta(self.rev, giro=120.0)["giro"], 60.0, places=3)
+
+    def test_o_que_esta_travado_vai_junto(self):
+        self.M.mover_junta(self.rev, giro=60.0)
+        juntas = self.M.travar_juntos([self.braco, self.solto])
+        self.assertEqual(len(juntas), 1)
+        antes = self.solto.Placement.Base
+        self.asm.solve()
+        self.assertLess((self.solto.Placement.Base - antes).Length, 1e-3, "travar não pode mexer em nada")
+        rel = self.braco.Placement.inverse() * self.solto.Placement
+        self.assertAlmostEqual(self.M.mover_junta(self.rev, giro=0.0)["giro"], 0.0, places=3)
+        rel2 = self.braco.Placement.inverse() * self.solto.Placement
+        self.assertLess((rel.Base - rel2.Base).Length, 1e-3, "a peça travada acompanha o braço")
+        self.assertGreater((self.solto.Placement.Base - antes).Length, 10.0)
+
+    def test_travar_pede_dois_componentes(self):
+        with self.assertRaises(ValueError):
+            self.M.travar_juntos([self.braco])
+
+    def test_painel_mover_junta_cancelar_volta(self):
+        pn = self.M.PainelMoverJunta(self.asm, self.rev)
+        try:
+            antes = FreeCAD.Placement(self.braco.Placement)
+            pn.giro.setValue(75.0)
+            self._esp(0.3)
+            self.assertAlmostEqual(self.M.valores_da_junta(self.rev)["giro"], 75.0, places=2)
+            self.assertFalse(pn.avanco.isEnabled(), "dobradiça só gira")
+            pn.reject()
+            self.assertTrue(self.braco.Placement.isSame(antes, 1e-6), "Cancelar volta para onde estava")
+        finally:
+            pn.close()
+
+    def test_folga_minima_na_interferencia(self):
+        import PrumoInterferencia as I
+        a = self.doc.addObject("Part::Box", "A")
+        b = self.doc.addObject("Part::Box", "B")
+        b.Placement.Base = FreeCAD.Vector(10.5, 0, 0)
+        self.doc.recompute()
+        self.assertEqual(I.verificar([a, b]), [])
+        r = I.verificar([a, b], folga=1.0)
+        self.assertEqual(len(r), 1)
+        self.assertAlmostEqual(r[0].distancia, 0.5, places=6)
+        self.assertIn("folga de 0,50 mm", r[0].texto)
+        self.assertEqual(I.verificar([a, b], folga=0.4), [])
+
+    def test_procurar_comando(self):
+        import PrumoBuscaComandos as B
+        itens = B.indice()
+        self.assertGreater(len(itens), 100)
+        primeiros = [it[0] for it in B.procurar("furo", itens)[:3]]
+        self.assertIn("PartDesign_Hole", primeiros)
+        self.assertEqual(B.procurar("ESBOCO", itens)[:1], B.procurar("esboço", itens)[:1], "sem acento nem maiúscula")
+        self.assertIn("Prumo_JuntaTangente", [it[0] for it in B.procurar("tangente", itens)])
+        self.assertIn("Prumo_JuntaCoincidente", [it[0] for it in B.procurar("coincident", itens)])
+        self.assertIn("Prumo_MoverJunta", [it[0] for it in B.procurar("drive", itens)], "sinônimo do Fusion")
+        self.assertEqual(B.procurar("xyzzy", itens), [])
+
+    def test_busca_na_faixa_vai_para_a_aba_e_roda(self):
+        import PrumoRibbon as R
+        import PrumoBuscaComandos as B
+        rb = FreeCADGui.getMainWindow().findChild(R.PrumoRibbon)
+        self.assertIsNotNone(rb)
+        des = [t for t in R.TABS if t["id"] == "montagem"][0]
+        cmds = [c for _p, itens in des["panels"] for c, _s, _r in itens]
+        for c in ("Prumo_MoverJunta", "Prumo_TravarJuntos"):
+            self.assertIn(c, cmds)
+            self.assertIn(c, FreeCADGui.listCommands())
+        cx = rb.procurar_comando()
+        try:
+            self._esp(0.3)
+            self.assertTrue(cx.isVisible())
+            cx.campo.setText("isométrica")
+            self.assertGreater(cx.lista.count(), 0)
+            it = cx.lista.item(0).data(QtCore.Qt.UserRole)
+            self.assertEqual(it[0], "Std_ViewIsometric")
+            cx.rodar_marcado()
+            self._esp(0.5)
+            self.assertFalse(cx.isVisible())
+            self.assertEqual(rb._tabs[rb.tabbar.currentIndex()]["id"], it[2], "a faixa mostra onde a ferramenta fica")
+        finally:
+            cx.hide()
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -11456,4 +11592,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
-           T81DesenhoVistasProntas]
+           T81DesenhoVistasProntas, T82MontagemComoSolidCraft]

@@ -20,6 +20,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - **Padrão de componentes** linear e circular: repete um componente em linha ou em volta de um eixo (aresta,
     face ou eixo da montagem); as cópias acompanham o original e o padrão se edita com duplo clique.
   - **Nova peça aqui:** cria uma peça nova já dentro da montagem.
+  - **Mover junta:** gira uma dobradiça ou desliza um deslizante por um controle, vendo a montagem mexer.
+    Respeita os limites da junta, e o que está preso à peça vai junto. Cancelar volta tudo para onde estava.
+  - **Travar juntos:** prende dois ou mais componentes uns nos outros onde estão (grupo rígido), sem mexer em
+    nada.
+  - **Verificar interferência com folga mínima:** além das peças que se invadem, lista os pares que ficam mais
+    perto que a folga pedida, com a distância.
+- **Procurar comando (Ctrl+K ou a lupa no alto da faixa):** digite parte do nome (furo, tangente, cota…) e
+  tecle Enter. A faixa vai para a aba da ferramenta, para você aprender onde ela fica. Entende também nomes
+  de outros programas (fillet, mate, drive…).
 - **Desenho com vistas prontas:**
   - **Paleta de vistas** (aba Desenho): escolha a peça e clique em Frontal, Superior, Lateral esquerda ou
     direita, Inferior, Posterior ou Isométrica. A vista entra na folha na hora, alinhada no 1º diedro, sem

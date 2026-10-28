@@ -322,12 +322,199 @@ def eixo_de_elemento(obj_raiz, caminho):
     return None
 
 
+# ----------------------------------------------------------------------------------- mover junta
+# juntas que têm um movimento livre para "pilotar" (como o Drive Joints do Fusion/SolidCraft):
+# giro (graus) em torno do eixo z da junta e/ou avanço (mm) ao longo dele
+MOVIMENTOS = {"Revolute": ("giro",), "Slider": ("avanco",), "Cylindrical": ("giro", "avanco")}
+
+
+def juntas_moveis(asm):
+    """Juntas da montagem que se podem mover (dobradiça, deslizante, concêntrica)."""
+    try:
+        import UtilsAssembly
+        grupo = UtilsAssembly.getJointGroup(asm)
+    except Exception:
+        grupo = None
+    if grupo is None:
+        return []
+    return [j for j in grupo.Group if getattr(j, "JointType", "") in MOVIMENTOS
+            and not getattr(j, "Suppressed", False) and j.Reference1 and j.Reference2]
+
+
+def _jcs(j):
+    import UtilsAssembly
+    return (UtilsAssembly.getJcsGlobalPlc(j.Placement1, j.Reference1),
+            UtilsAssembly.getJcsGlobalPlc(j.Placement2, j.Reference2))
+
+
+def valores_da_junta(j):
+    """{"giro": graus, "avanco": mm} atuais da junta (o lado 2 em relação ao lado 1)."""
+    p1, p2 = _jcs(j)
+    rel = p1.inverse() * p2
+    x = rel.Rotation.multVec(FreeCAD.Vector(1, 0, 0))
+    r = {}
+    for k in MOVIMENTOS[j.JointType]:
+        r[k] = math.degrees(math.atan2(x.y, x.x)) if k == "giro" else rel.Base.z
+    return r
+
+
+def limites_da_junta(j):
+    """{"giro": (min, max), "avanco": (min, max)}; None onde não há limite."""
+    r = {}
+    for k in MOVIMENTOS[j.JointType]:
+        if k == "giro":
+            r[k] = (float(j.AngleMin) if getattr(j, "EnableAngleMin", False) else None,
+                    float(j.AngleMax) if getattr(j, "EnableAngleMax", False) else None)
+        else:
+            r[k] = (float(j.LengthMin) if getattr(j, "EnableLengthMin", False) else None,
+                    float(j.LengthMax) if getattr(j, "EnableLengthMax", False) else None)
+    return r
+
+
+def _aterrados(asm):
+    try:
+        import UtilsAssembly
+        grupo = UtilsAssembly.getJointGroup(asm)
+        return {getattr(g, "ObjectToGround", None) for g in grupo.Group if hasattr(g, "ObjectToGround")}
+    except Exception:
+        return set()
+
+
+def _global_da_montagem(asm):
+    try:
+        return asm.getGlobalPlacement()
+    except Exception:
+        return asm.Placement
+
+
+def mover_junta(j, giro=None, avanco=None):
+    """Leva a junta ao giro (graus) / avanço (mm) pedido, dentro dos limites, e resolve a montagem.
+
+    Gira/empurra a peça do lado 2 em torno do eixo da junta (ou a do lado 1, se a 2 estiver fixa) e deixa o
+    solver acertar o resto da cadeia. Devolve os valores alcançados."""
+    asm = montagem_de(j.Reference1[0]) or montagem_de(j.Reference2[0])
+    if asm is None:
+        raise ValueError("A junta não está numa montagem.")
+    atual = valores_da_junta(j)
+    lim = limites_da_junta(j)
+    pedido = {"giro": giro, "avanco": avanco}
+    delta = {}
+    for k in MOVIMENTOS[j.JointType]:
+        v = pedido[k]
+        if v is None:
+            continue
+        lo, hi = lim[k]
+        if lo is not None:
+            v = max(v, lo)
+        if hi is not None:
+            v = min(v, hi)
+        d = v - atual[k]
+        if k == "giro":
+            d = (d + 180.0) % 360.0 - 180.0    # o caminho mais curto
+        delta[k] = d
+    if not any(abs(d) > 1e-9 for d in delta.values()):
+        return atual
+    p1, _p2 = _jcs(j)
+    eixo = p1.Rotation.multVec(FreeCAD.Vector(0, 0, 1))
+    terra = _aterrados(asm)
+    peca, sinal = j.Reference2[0], 1.0
+    if peca in terra:
+        peca, sinal = j.Reference1[0], -1.0
+    if peca in terra:
+        raise ValueError("As duas peças da junta estão fixas: não há o que mover.")
+    T = FreeCAD.Placement()
+    if delta.get("giro"):
+        T = FreeCAD.Placement(FreeCAD.Vector(), FreeCAD.Rotation(eixo, sinal * delta["giro"]), p1.Base) * T
+    if delta.get("avanco"):
+        T = FreeCAD.Placement(eixo * (sinal * delta["avanco"]), FreeCAD.Rotation()) * T
+    g = _global_da_montagem(asm)
+    outra = j.Reference1[0] if peca is j.Reference2[0] else j.Reference2[0]
+    for p in _carona(asm, peca, j, terra | {outra}):
+        p.Placement = g.inverse() * T * g * p.Placement
+    try:
+        asm.solve()
+    except Exception:
+        pass
+    asm.Document.recompute()
+    return valores_da_junta(j)
+
+
+def _carona(asm, peca, junta, parar):
+    """A peça e tudo o que está preso a ela por outras juntas (sem passar por peças fixas nem voltar ao outro
+    lado da junta): vão juntos, como um bloco, e o solver só acerta o que sobrar."""
+    try:
+        import UtilsAssembly
+        juntas = [x for x in UtilsAssembly.getJointGroup(asm).Group
+                  if x is not junta and getattr(x, "Reference1", None) and getattr(x, "Reference2", None)
+                  and not getattr(x, "Suppressed", False)]
+    except Exception:
+        juntas = []
+    vistos, fila = [peca], [peca]
+    while fila:
+        atual = fila.pop()
+        for x in juntas:
+            a, b = x.Reference1[0], x.Reference2[0]
+            viz = b if a is atual else (a if b is atual else None)
+            if viz is None or viz in parar or any(viz is v for v in vistos):
+                continue
+            vistos.append(viz)
+            fila.append(viz)
+    return vistos
+
+
+# ----------------------------------------------------------------------------------- grupo rígido
+def travar_juntos(componentes):
+    """Trava os componentes uns nos outros onde estão (o "Rigid Group"/"As-built" do Fusion e do SolidCraft):
+    uma junta Fixa do primeiro com cada um dos outros, sem mexer em nada. Devolve as juntas criadas."""
+    comps = list(dict.fromkeys(componentes))
+    if len(comps) < 2:
+        raise ValueError("Escolha pelo menos dois componentes da montagem.")
+    asm = montagem_de(comps[0])
+    if asm is None or any(montagem_de(c) is not asm for c in comps):
+        raise ValueError("Os componentes têm de estar na mesma montagem.")
+    import JointObject
+    import UtilsAssembly
+    grupo = UtilsAssembly.getJointGroup(asm)
+    base = comps[0]
+    criadas = []
+    for c in comps[1:]:
+        j = grupo.newObject("App::FeaturePython", "Travados")
+        JointObject.Joint(j, 0)            # Fixa
+        if FreeCAD.GuiUp:
+            try:
+                JointObject.ViewProviderJoint(j.ViewObject)
+            except Exception:
+                pass
+        j.Label = "Travados: %s + %s" % (base.Label, c.Label)
+        # origem de cada componente; o lado 2 leva a posição atual do 1 como deslocamento: os dois sistemas
+        # já coincidem, então o solver não move nada
+        j.Reference1 = [base, ["", ""]]
+        j.Reference2 = [c, ["", ""]]
+        g1 = _global_comp(asm, base)
+        g2 = _global_comp(asm, c)
+        j.Offset1 = FreeCAD.Placement()
+        j.Offset2 = g2.inverse() * g1
+        j.Placement1 = FreeCAD.Placement()
+        j.Placement2 = j.Offset2
+        criadas.append(j)
+    try:
+        asm.solve()
+    except Exception:
+        pass
+    asm.Document.recompute()
+    return criadas
+
+
+def _global_comp(asm, comp):
+    return _global_da_montagem(asm) * comp.Placement
+
+
 # ----------------------------------------------------------------------------------- interface
 if FreeCAD.GuiUp:
     try:
-        from PySide import QtWidgets
+        from PySide import QtCore, QtWidgets
     except ImportError:  # pragma: no cover
-        from PySide2 import QtWidgets
+        from PySide2 import QtCore, QtWidgets
     import PrumoPainel as P
 
     class VPPadrao:
@@ -467,6 +654,193 @@ if FreeCAD.GuiUp:
         def executar(self):
             return [criar_padrao(self.comp.valores()[0], **self.parametros())]
 
+    class PainelMoverJunta(P.PainelTarefa):
+        """Mover junta: escolhe a junta e gira/empurra pelo controle deslizante, vendo a montagem mexer."""
+        titulo = "Mover junta"
+        ajuda = ("Escolha a junta (dobradiça, deslizante ou concêntrica) e arraste o controle: a peça gira ou "
+                 "desliza e o que está preso a ela vai junto. OK deixa onde está; Cancelar volta.")
+
+        def __init__(self, asm=None, junta=None):
+            import UtilsAssembly
+            self.asm = asm or UtilsAssembly.activeAssembly()
+            self._junta_inicial = junta
+            self._salvo = UtilsAssembly.saveAssemblyPartsPlacements(self.asm) if self.asm is not None else None
+            super().__init__()
+
+        def montar(self):
+            f = self.form
+            s0 = f.secao("Junta", "selecao")
+            self.juntas = QtWidgets.QComboBox()
+            for j in (juntas_moveis(self.asm) if self.asm is not None else []):
+                self.juntas.addItem("%s (%s)" % (j.Label, {"Revolute": "dobradiça", "Slider": "deslizante",
+                                                           "Cylindrical": "concêntrica"}[j.JointType]), j.Name)
+            s0.linha("selecao", self.juntas, "Juntas que têm movimento livre.", "Junta")
+            s1 = f.secao("Movimento", "angulo")
+            self.giro = P.numero(0.0, -360.0, 360.0, "°", 1)
+            self.giro.setKeyboardTracking(True)
+            self.lin_giro = s1.linha("angulo", self.giro, "Giro em torno do eixo da junta.", "Ângulo")
+            self.desl_giro = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+            s1.widget(self.desl_giro)
+            self.avanco = P.numero(0.0, -1e5, 1e5, " mm", 1)
+            self.avanco.setKeyboardTracking(True)
+            self.lin_avanco = s1.linha("comprimento", self.avanco, "Avanço ao longo do eixo da junta.", "Avanço")
+            self.desl_avanco = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+            s1.widget(self.desl_avanco)
+            self.limites = QtWidgets.QLabel("")
+            self.limites.setWordWrap(True)
+            s1.widget(self.limites)
+            self._ocupado = False
+            self.juntas.currentIndexChanged.connect(self._trocar)
+            self.giro.valueChanged.connect(lambda v: self._pedir(giro=v))
+            self.avanco.valueChanged.connect(lambda v: self._pedir(avanco=v))
+            self.desl_giro.valueChanged.connect(lambda v: self._pedir(giro=v / 10.0))
+            self.desl_avanco.valueChanged.connect(lambda v: self._pedir(avanco=v / 10.0))
+            if self._junta_inicial is not None:
+                i = self.juntas.findData(self._junta_inicial.Name)
+                if i >= 0:
+                    self.juntas.setCurrentIndex(i)
+            self._trocar()
+
+        def junta(self):
+            n = self.juntas.currentData()
+            return self.asm.Document.getObject(n) if n else None
+
+        def _trocar(self, *_):
+            j = self.junta()
+            if j is None:
+                return
+            mov = MOVIMENTOS[j.JointType]
+            v = valores_da_junta(j)
+            lim = limites_da_junta(j)
+            self._ocupado = True
+            textos = []
+            for k, spin, desl, faixa_padrao in (("giro", self.giro, self.desl_giro, (-180.0, 180.0)),
+                                                 ("avanco", self.avanco, self.desl_avanco, (-200.0, 200.0))):
+                tem = k in mov
+                for w in (spin, desl):
+                    w.setEnabled(tem)
+                if not tem:
+                    continue
+                lo, hi = lim[k]
+                atual = v[k]
+                a = lo if lo is not None else min(faixa_padrao[0], atual - 100.0 if k == "avanco" else faixa_padrao[0])
+                b = hi if hi is not None else max(faixa_padrao[1], atual + 100.0 if k == "avanco" else faixa_padrao[1])
+                spin.setRange(a, b)
+                spin.setValue(atual)
+                desl.setRange(int(round(a * 10)), int(round(b * 10)))
+                desl.setValue(int(round(atual * 10)))
+                un = "°" if k == "giro" else " mm"
+                if lo is not None or hi is not None:
+                    textos.append("%s: limites %s a %s" % ("Ângulo" if k == "giro" else "Avanço",
+                                                           PrumoUtil_fmt(lo, un), PrumoUtil_fmt(hi, un)))
+            self.limites.setText("; ".join(textos) or "Sem limites na junta.")
+            self._ocupado = False
+
+        def _pedir(self, giro=None, avanco=None):
+            if self._ocupado:
+                return
+            j = self.junta()
+            if j is None:
+                return
+            self._ocupado = True
+            try:
+                r = mover_junta(j, giro=giro, avanco=avanco)
+                if "giro" in r:
+                    self.giro.setValue(r["giro"])
+                    self.desl_giro.setValue(int(round(r["giro"] * 10)))
+                if "avanco" in r:
+                    self.avanco.setValue(r["avanco"])
+                    self.desl_avanco.setValue(int(round(r["avanco"] * 10)))
+                self.form.mensagem.mostrar(self.pronto_texto(), "ok")
+            except Exception as ex:
+                self.form.mensagem.mostrar(str(ex), "erro")
+            finally:
+                self._ocupado = False
+
+        def pendencia(self):
+            if self.asm is None:
+                return "Abra a montagem para editar (duplo clique nela)."
+            if self.juntas.count() == 0:
+                return "A montagem não tem dobradiça, deslizante nem concêntrica para mover."
+            return None
+
+        def pronto_texto(self):
+            return "OK deixa a montagem nesta posição; Cancelar volta para onde estava."
+
+        def executar(self):
+            return []
+
+        def reject(self):
+            if self._salvo is not None:
+                import UtilsAssembly
+                UtilsAssembly.restoreAssemblyPartsPlacements(self.asm, self._salvo)
+                try:
+                    self.asm.solve()
+                except Exception:
+                    pass
+                self.asm.Document.recompute()
+            return super().reject()
+
+    def PrumoUtil_fmt(v, un):
+        if v is None:
+            return "livre"
+        import PrumoUtil
+        return PrumoUtil.fmt(v, 1) + un
+
+    class CmdMoverJunta:
+        def GetResources(self):
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("mover_junta.svg"), "MenuText": "Mover junta",
+                    "ToolTip": "Gira uma dobradiça ou desliza um deslizante com um controle, vendo a montagem "
+                               "mexer (respeita os limites da junta)."}
+
+        def IsActive(self):
+            try:
+                import UtilsAssembly
+                return UtilsAssembly.activeAssembly() is not None
+            except Exception:
+                return False
+
+        def Activated(self):
+            sel = [s.Object for s in FreeCADGui.Selection.getSelectionEx()]
+            j = next((o for o in sel if getattr(o, "JointType", "") in MOVIMENTOS), None)
+            PainelMoverJunta(junta=j).mostrar()
+
+    class PainelTravarJuntos(P.PainelTarefa):
+        titulo = "Travar juntos"
+        ajuda = ("Escolha dois ou mais componentes: ficam presos uns aos outros onde estão, e passam a se mover "
+                 "como um bloco só.")
+
+        def montar(self):
+            f = self.form
+            s0 = f.secao("Componentes", "selecao")
+            self.comps = f.caixa(s0, "Componentes", _filtro_componente, minimo=2,
+                                 dica="Clique nas peças na tela ou na árvore.")
+
+        def pendencia(self):
+            if len(self.comps.valores()) < 2:
+                return "Escolha pelo menos dois componentes."
+            return None
+
+        def pronto_texto(self):
+            return "Pronto: %d componentes travados juntos, sem sair do lugar." % len(self.comps.valores())
+
+        def executar(self):
+            return travar_juntos(self.comps.valores())
+
+    class CmdTravarJuntos:
+        def GetResources(self):
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("travar_juntos.svg"), "MenuText": "Travar juntos",
+                    "ToolTip": "Prende dois ou mais componentes uns nos outros onde estão (grupo rígido), sem "
+                               "mexer em nada."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None
+
+        def Activated(self):
+            PainelTravarJuntos().mostrar()
+
     class CmdJunta:
         def __init__(self, chave, icone):
             self.chave = chave
@@ -509,3 +883,5 @@ if FreeCAD.GuiUp:
         FreeCADGui.addCommand("Prumo_JuntaCoincidente",
                               CmdJunta("coincidente", PrumoUtil.icone("junta_coincidente.svg")))
         FreeCADGui.addCommand("Prumo_PadraoComponentes", CmdPadrao())
+        FreeCADGui.addCommand("Prumo_MoverJunta", CmdMoverJunta())
+        FreeCADGui.addCommand("Prumo_TravarJuntos", CmdTravarJuntos())

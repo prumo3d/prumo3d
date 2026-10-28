@@ -184,9 +184,10 @@ TABS = [
             ("Assembly_CreateJointCylindrical", S, "Concêntrica"), ("Assembly_CreateJointRevolute", S, "Dobradiça"),
             ("Assembly_CreateJointSlider", S, "Deslizante"), ("Assembly_CreateJointParallel", S, "Paralela"),
             ("Assembly_CreateJointPerpendicular", S, "Perpendicular"), ("Assembly_CreateJointAngle", S, "Ângulo"),
-            ("Assembly_CreateJointBall", S, "Esférica (rótula)"),
+            ("Assembly_CreateJointBall", S, "Esférica (rótula)"), ("Prumo_TravarJuntos", S, "Travar juntos"),
         ]),
         ("Mecânicas", [
+            ("Prumo_MoverJunta", L, "Mover\njunta"),
             ("Assembly_CreateJointRackPinion", S, "Pinhão e cremalheira"), ("Assembly_CreateJointScrew", S, "Fuso"),
             ("Assembly_CreateJointGearBelt", S, "Engrenagem / correia"),
         ]),
@@ -1176,7 +1177,26 @@ class PrumoRibbon(QtWidgets.QWidget):
                 b.setIconSize(QtCore.QSize(18, 18))
                 b.setFixedSize(28, 28)
                 hl.addWidget(b)
-        hl.addSpacing(8)
+        hl.addSpacing(6)
+        # procurar comando (como a busca do Fusion/SolidCraft): Ctrl+K em qualquer lugar
+        busca = QtWidgets.QToolButton(box)
+        busca.setObjectName("PrumoBuscaBotao")
+        busca.setIcon(QtGui.QIcon(os.path.join(_HERE, "Resources", "icons", "busca.svg")))
+        busca.setIconSize(QtCore.QSize(18, 18))
+        busca.setFixedSize(28, 28)
+        busca.setAutoRaise(True)
+        busca.setToolTip("Procurar comando (Ctrl+K): digite parte do nome e tecle Enter")
+        busca.clicked.connect(self.procurar_comando)
+        self._busca_btn = busca
+        hl.addWidget(busca)
+        try:
+            mw = FreeCADGui.getMainWindow()
+            self._atalho_busca = (getattr(QtGui, "QShortcut", None) or QtWidgets.QShortcut)(QtGui.QKeySequence("Ctrl+K"), mw)
+            self._atalho_busca.setContext(QtCore.Qt.ApplicationShortcut)
+            self._atalho_busca.activated.connect(self.procurar_comando)
+        except Exception:
+            pass
+        hl.addSpacing(4)
         col = QtWidgets.QToolButton(box)
         col.setArrowType(QtCore.Qt.UpArrow)
         col.setToolTip("Recolher / expandir a faixa (ou duplo clique na aba)")
@@ -1184,6 +1204,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._collapse_btn = col
         hl.addWidget(col)
         return box
+
+    def procurar_comando(self):
+        import PrumoBuscaComandos
+        if getattr(self, "_busca", None) is None:
+            self._busca = PrumoBuscaComandos.BuscaComandos(self, self)
+        self._busca.abrir(self._busca_btn if self._busca_btn.isVisible() else self)
+        return self._busca
 
     # ------------------------------------------------------------------ linha das abas em tela estreita
     def eventFilter(self, obj, ev):
