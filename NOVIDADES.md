@@ -19,6 +19,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   cotado. Vírgula decimal e Backspace funcionam; Esc apaga o número digitado. O painel também mostra o
   comprimento ao vivo e aceita o valor digitado.
 
+### Ajustes
+
+- **Testes automáticos (aba Prumo):** a dica dizia "cerca de 1 minuto", mas a bateria completa leva perto de
+  uma hora. Agora o botão avisa antes, pede para fechar os projetos abertos e mostra onde fica o relatório.
+
 ## 1.0.1 — 28/10/2026
 
 ### Correções

@@ -1067,14 +1067,27 @@ class CmdTestes:
         import PrumoFEM
         return {"Pixmap": os.path.join(os.path.dirname(PrumoFEM.ICON), "testes.svg"),
                 "MenuText": "Testes automáticos",
-                "ToolTip": "Confere o Prumo 3D: tema, traduções, materiais, verificações do assistente "
-                           "e validação do CalculiX contra soluções analíticas (leva cerca de 1 minuto)"}
+                "ToolTip": "Confere o Prumo 3D de ponta a ponta: todas as ferramentas da faixa, roteiros de uso "
+                           "com o mouse, cálculos e validação do CalculiX contra soluções analíticas. Leva perto "
+                           "de uma hora e o programa fica ocupado: salve e feche seus projetos antes"}
 
     def IsActive(self):
         return True
 
     def Activated(self):
         from PySide import QtCore, QtWidgets
+        import FreeCADGui
+        abertos = len(FreeCAD.listDocuments())
+        msg = ("Os testes automáticos abrem e fecham documentos, mexem no mouse dentro da vista 3D e levam perto "
+               "de uma hora; durante esse tempo o Prumo fica ocupado.")
+        if abertos:
+            msg += "\n\nHá %d documento(s) aberto(s): salve e feche antes de começar." % abertos
+        msg += "\n\nNo fim aparece o resumo; o relatório completo fica em:\n%s\n\nComeçar agora?" % LOG
+        r = QtWidgets.QMessageBox.question(FreeCADGui.getMainWindow(), "Testes automáticos", msg,
+                                           QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                           QtWidgets.QMessageBox.No)
+        if r != QtWidgets.QMessageBox.Yes:
+            return
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         try:
             aprov, total, linhas = _executar(True)
