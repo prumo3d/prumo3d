@@ -551,7 +551,8 @@ def comando_instalar_depois(caminho, pid):
         alvo = caminho.replace("'", "''")
         script = ("Wait-Process -Id {pid} -ErrorAction SilentlyContinue; "
                   "Start-Sleep -Milliseconds 500; "
-                  "Start-Process -FilePath '{alvo}'").format(pid=int(pid), alvo=alvo)
+                  "Start-Process -FilePath '{alvo}' -WorkingDirectory '{pasta}'").format(
+                      pid=int(pid), alvo=alvo, pasta=os.path.dirname(caminho).replace("'", "''"))
         return ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden", "-Command", script]
     return ["/bin/sh", "-c", 'while kill -0 {pid} 2>/dev/null; do sleep 0.5; done; exec "$0"'.format(pid=int(pid)),
@@ -575,6 +576,12 @@ def _disparar(caminho, popen=None, abrir=None):
     import subprocess
     _registrar("abrir instalador: %s (existe=%s)" % (caminho, os.path.isfile(caminho)))
     if sys.platform.startswith("win"):
+        # o instalador herda a pasta de trabalho do Prumo (o atalho abre em ...\bin): sai dela antes, senão o
+        # Windows não deixa o instalador trocar a pasta da versão antiga
+        try:
+            os.chdir(os.path.dirname(caminho) or pasta_download())
+        except OSError as exc:
+            _registrar("não trocou a pasta de trabalho: %r" % (exc,))
         abrir = abrir or getattr(os, "startfile", None)
         try:
             abrir(caminho)

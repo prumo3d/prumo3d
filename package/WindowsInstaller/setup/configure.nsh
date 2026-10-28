@@ -36,9 +36,9 @@ Section -InstallData
 
   # Uninstaller information
   ${If} $MultiUser.InstallMode == "CurrentUser"
-    WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayName" "${APP_NAME} ${APP_VERSION} $(TEXT_INSTALL_CURRENTUSER)"
+    WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayName" "${APP_NAME} ${APP_ROTULO} $(TEXT_INSTALL_CURRENTUSER)"
   ${Else}
-    WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayName" "${APP_NAME} ${APP_VERSION}"
+    WriteRegStr SHCTX ${APP_UNINST_KEY} "DisplayName" "${APP_NAME} ${APP_ROTULO}"
   ${EndIf}
 
   WriteRegStr SHCTX ${APP_UNINST_KEY} "UninstallString" '"$INSTDIR\${SETUP_UNINSTALLER}"'

@@ -160,6 +160,7 @@ if [ "${MAKE_INSTALLER}" == "true" ]; then
     "${nsis_cmd}" -V4 \
         -D"ExeFile=${version_name}-installer.exe" \
         -D"FILES_FREECAD=${FILES_FREECAD}" \
+        -D"PRUMO_VERSAO=${BUILD_TAG}" \
         -X'SetCompressor /FINAL lzma' \
         ../../WindowsInstaller/FreeCAD-installer.nsi
     mv ../../WindowsInstaller/${version_name}-installer.exe .

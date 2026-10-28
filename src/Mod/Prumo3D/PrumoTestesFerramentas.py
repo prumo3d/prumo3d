@@ -7771,6 +7771,28 @@ class T60Atualizacao(unittest.TestCase):
             sys.platform = antes
         self.assertIn("'C:\\Users\\D''Ávila\\x.exe'", cmd[-1])
 
+    def test_instalador_nao_abre_dentro_da_pasta_do_prumo(self):
+        """0.9.12 → 1.0.0: o instalador herdava a pasta de trabalho do Prumo (o atalho abre em ...\\bin) e o
+        Windows não deixava renomear a pasta da versão antiga ("Não foi possível apagar a pasta", sem nenhum
+        programa na lista). O instalador agora abre com a pasta de trabalho na pasta do download."""
+        import sys
+        import tempfile
+        import PrumoAtualizar as A
+        pasta = tempfile.mkdtemp(prefix="prumo_inst_")
+        inst = os.path.join(pasta, "Prumo3D_1.0.0-installer.exe")
+        cwd0, antes = os.getcwd(), sys.platform
+        vistos = []
+        try:
+            sys.platform = "win32"
+            A._disparar(inst, popen=lambda *a, **k: None, abrir=lambda p: vistos.append(os.getcwd()))
+            cmd = A.comando_instalar_depois(inst, 7)
+        finally:
+            sys.platform = antes
+            os.chdir(cwd0)
+            shutil.rmtree(pasta, ignore_errors=True)
+        self.assertEqual([os.path.realpath(v) for v in vistos], [os.path.realpath(pasta)])
+        self.assertIn("-WorkingDirectory '%s'" % pasta.replace("'", "''"), cmd[-1])
+
     def test_windows_abre_instalador_pelo_shellexecute(self):
         """0.9.3 → 0.9.4: o processo de espera (PowerShell) não abriu o instalador no Windows do usuário.
         Agora abre pelo ShellExecute (pedido de permissão do Windows) e só usa o PowerShell se ele falhar;

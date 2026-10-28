@@ -22,6 +22,10 @@ Section -ProgramFiles SecProgramFiles
     # 1) espera o Prumo e qualquer programa rodando de dentro dela; 2) renomeia a pasta inteira de uma vez:
     # se algo estiver preso a renomeação falha sem mexer em nada e a instalação antiga segue funcionando;
     # 3) a versão nova entra na pasta limpa e a antiga é apagada no fim (ou na próxima reinicialização).
+    # a pasta de trabalho do próprio instalador não pode ficar dentro da pasta antiga: aberto pela
+    # atualização automática, ele herda a do Prumo (o atalho abre o Prumo em $INSTDIR\bin), e o Windows não
+    # renomeia uma pasta que é a pasta de trabalho de um programa aberto (nem aparece na lista de processos)
+    SetOutPath "$TEMP"
     ${EsperarFecharApp} limpar
     ${EsperarPastaLivre} "$INSTDIR" limpar
     StrCpy $PastaAntiga "$INSTDIR.antiga"
@@ -33,11 +37,28 @@ Section -ProgramFiles SecProgramFiles
       ${EndIf}
     ${EndIf}
     renomear_pasta:
+    # antivírus e indexação do Windows seguram a pasta por alguns segundos logo depois que o Prumo fecha:
+    # tenta de novo sozinho por até ~20 s antes de perguntar
+    # (o teste ${Errors} apaga a marca de erro: o resultado fica guardado em $2)
+    StrCpy $1 0
+    tentar_renomear:
     ClearErrors
     Rename "$INSTDIR" "$PastaAntiga"
+    StrCpy $2 "ok"
     ${If} ${Errors}
-      ${ProcessosDaPasta} "$INSTDIR" $0 $Presos
+      StrCpy $2 "falhou"
+    ${EndIf}
+    ${If} $2 == "falhou"
+    ${AndIf} $1 < 10
+      IntOp $1 $1 + 1
       Sleep 2000
+      Goto tentar_renomear
+    ${EndIf}
+    ${If} $2 == "falhou"
+      ${ProcessosDaPasta} "$INSTDIR" $0 $Presos
+      ${If} $Presos == ""
+        StrCpy $Presos "nenhum programa encontrado. Feche janelas do Explorador de Arquivos abertas nessa pasta (ou numa subpasta dela) e clique em Repetir."
+      ${EndIf}
       MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(RMInstDirFailed)$\r$\n$\r$\nA versão instalada continua intacta.$\r$\nProgramas usando a pasta: $Presos" /SD IDCANCEL IDRETRY renomear_pasta
       StrCpy $PastaAntiga ""
       Abort

@@ -9,6 +9,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Atualização automática que parava em "Não foi possível apagar a pasta":** o instalador aberto pelo
+  Prumo herdava a pasta de trabalho do programa (dentro da pasta de instalação), e o Windows não deixa
+  renomear uma pasta que algum programa usa como pasta de trabalho, nem mostra esse programa na lista. Agora
+  o instalador abre a partir da pasta do download e, por garantia, sai sozinho da pasta antiga antes de
+  trocá-la. Também tenta de novo por alguns segundos (antivírus) antes de perguntar.
+- **Nome da versão no instalador:** mostrava "Prumo 3D 1.1.4" (a versão do FreeCAD de base); agora mostra a
+  versão do Prumo.
+
 ## 1.0.0 — 28/10/2026
 
 Primeira versão final do Prumo 3D, depois das versões de teste (0.1 a 0.9.12): faixa de ferramentas
