@@ -9,6 +9,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Montagem com as restrições do SolidWorks:**
+  - **Tangente:** face curva (cilindro, esfera, cone) encostada em outra face, plana ou curva. Confere as faces
+    e avisa se as duas forem planas (aí é Coincidente).
+  - **Coincidente** e **Distância** em botões separados (antes era um botão só).
+  - **Padrão de componentes** linear e circular: repete um componente em linha ou em volta de um eixo (aresta,
+    face ou eixo da montagem); as cópias acompanham o original e o padrão se edita com duplo clique.
+  - **Nova peça aqui:** cria uma peça nova já dentro da montagem.
+
 ## 1.0.2 — 28/10/2026
 
 ### Novidades

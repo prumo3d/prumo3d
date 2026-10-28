@@ -11147,6 +11147,167 @@ class T79InserirNoEsboco(unittest.TestCase):
         self.assertAlmostEqual(parede.Shape.Volume, 3000 * 150 * 2800, delta=1.0)
 
 
+class T80MontagemComoSolidWorks(unittest.TestCase):
+    """Montagem: Tangente e Coincidente com os nomes do SolidWorks (junta Distância do FreeCAD com 0 e conferência
+    das faces), Nova peça e Padrão de componentes linear/circular que acompanha o original."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoMontagem
+        self.M = PrumoMontagem
+        FreeCADGui.activateWorkbench("AssemblyWorkbench")
+        self.doc = novo_doc("PrumoMontagemSW")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        V = FreeCAD.Vector
+        self.asm = self.doc.addObject("Assembly::AssemblyObject", "Assembly")
+        self.asm.newObject("Assembly::JointGroup", "Joints")
+        self.base = self.asm.newObject("Part::Box", "Base")
+        self.base.Length, self.base.Width, self.base.Height = 200, 100, 20
+        self.rolo = self.asm.newObject("Part::Cylinder", "Rolo")
+        self.rolo.Radius, self.rolo.Height = 15, 80
+        self.rolo.Placement = FreeCAD.Placement(V(50, 10, 120), FreeCAD.Rotation(V(1, 0, 0), 90))
+        self.bloco = self.asm.newObject("Part::Box", "Bloco")
+        self.bloco.Length = self.bloco.Width = self.bloco.Height = 30
+        self.bloco.Placement = FreeCAD.Placement(V(120, 20, 90), FreeCAD.Rotation(V(0, 0, 1), 10))
+        self.doc.recompute()
+        import JointObject
+        jg = self.asm.Group[0]
+        g = jg.newObject("App::FeaturePython", "Fixa")
+        JointObject.GroundedJoint(g, self.base)
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(self.asm)
+        self._esp(0.8)
+
+    def tearDown(self):
+        try:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+            FreeCADGui.ActiveDocument.resetEdit()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def _junta(self, chave, *faces):
+        FreeCADGui.Selection.clearSelection()
+        for obj, face in faces:
+            FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name, "%s.%s" % (obj.Name, face))
+        task = self.M.iniciar_junta(chave)
+        self._esp(0.6)
+        self.assertIsNotNone(task, "o painel da junta não abriu")
+        return task
+
+    def test_tangente_cilindro_na_face_plana(self):
+        task = self._junta("tangente", (self.base, "Face6"), (self.rolo, "Face1"))
+        self.assertEqual(len(task.refs), 2)
+        self.assertTrue(task.accept())
+        FreeCADGui.Control.closeDialog()
+        self._esp(0.5)
+        juntas = [j for j in self.asm.Group[0].Group if getattr(j, "PrumoRestricao", "") == "tangente"]
+        self.assertEqual(len(juntas), 1)
+        self.assertEqual(juntas[0].Label, "Tangente")
+        self.assertEqual(juntas[0].JointType, "Distance")
+        self.asm.solve()
+        self.doc.recompute()
+        self.assertAlmostEqual(self.rolo.Shape.BoundBox.ZMin, 20.0, places=4, msg="o rolo encosta no topo da base")
+        eixo_z = self.rolo.Placement.Base.z
+        self.assertAlmostEqual(eixo_z, 35.0, places=4)
+
+    def test_tangente_recusa_duas_faces_planas(self):
+        task = self._junta("tangente", (self.base, "Face6"), (self.bloco, "Face5"))
+        self.assertFalse(task.accept())
+        self.assertIn("Coincidente", task.ultimo_aviso)
+        self.assertIsNotNone(FreeCADGui.Control.activeDialog(), "o painel continua aberto para corrigir")
+        task.reject()
+        FreeCADGui.Control.closeDialog()
+
+    def test_coincidente_encosta_faces(self):
+        task = self._junta("coincidente", (self.base, "Face6"), (self.bloco, "Face5"))
+        self.assertTrue(task.accept())
+        FreeCADGui.Control.closeDialog()
+        self._esp(0.5)
+        j = [j for j in self.asm.Group[0].Group if getattr(j, "PrumoRestricao", "") == "coincidente"][0]
+        self.assertEqual(j.Label, "Coincidente")
+        self.asm.solve()
+        self.doc.recompute()
+        self.assertAlmostEqual(self.bloco.Shape.BoundBox.ZMin, 20.0, places=4)
+
+    def test_padrao_linear_acompanha_o_original(self):
+        V = FreeCAD.Vector
+        p = self.M.criar_padrao(self.bloco, "linear", 4, 50.0, V(1, 0, 0))
+        self.assertEqual(len(p.Copias), 3)
+        for k, c in enumerate(p.Copias, start=1):
+            self.assertTrue(c.Placement.Base.isEqual(self.bloco.Placement.Base + V(50 * k, 0, 0), 1e-6))
+            self.assertIn(c, self.asm.Group)
+            self.assertAlmostEqual(c.Shape.Volume, self.bloco.Shape.Volume, places=3)
+        # mexer no original: as cópias vão junto
+        self.bloco.Placement.Base = V(0, 0, 200)
+        self.doc.recompute()
+        self.assertTrue(p.Copias[2].Placement.Base.isEqual(V(150, 0, 200), 1e-6), p.Copias[2].Placement)
+        # o solver da montagem não mexe nas cópias
+        self.asm.solve()
+        self.doc.recompute()
+        self.assertTrue(p.Copias[0].Placement.Base.isEqual(V(50, 0, 200), 1e-6))
+        # menos cópias
+        p.Quantidade = 2
+        self.doc.recompute()
+        self.assertEqual(len(p.Copias), 1)
+        self.assertEqual(len([o for o in self.asm.Group if o.TypeId == "App::Link"]), 1)
+
+    def test_padrao_circular(self):
+        V = FreeCAD.Vector
+        p = self.M.criar_padrao(self.bloco, "circular", 6, eixo_ponto=V(0, 0, 0), eixo_dir=V(0, 0, 1))
+        self.assertEqual(len(p.Copias), 5)
+        r0 = self.bloco.Placement.Base.Length
+        angs = []
+        for c in p.Copias:
+            self.assertAlmostEqual(c.Placement.Base.Length, r0, places=4)
+            angs.append(round(math.degrees(math.atan2(c.Placement.Base.y, c.Placement.Base.x)) % 360, 3))
+        a0 = math.degrees(math.atan2(self.bloco.Placement.Base.y, self.bloco.Placement.Base.x)) % 360
+        esperado = sorted(round((a0 + 60 * k) % 360, 3) for k in range(1, 6))
+        self.assertEqual(sorted(angs), esperado)
+        # metade da volta (180°) com 3: 0, 90, 180
+        p2 = self.M.criar_padrao(self.rolo, "circular", 3, eixo_ponto=V(0, 0, 0), eixo_dir=V(0, 0, 1),
+                                 angulo_total=180)
+        b = self.rolo.Placement.Base
+        self.assertTrue(p2.Copias[-1].Placement.Base.isEqual(V(-b.x, -b.y, b.z), 1e-6))
+
+    def test_padrao_pelo_painel_com_aresta(self):
+        V = FreeCAD.Vector
+        FreeCADGui.ActiveDocument.resetEdit()
+        self._esp(0.4)
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name, "Bloco.Face1")
+        pn = self.M.PainelPadrao()
+        self.assertEqual(pn.comp.valores(), [self.bloco])
+        # aresta da base ao longo de Y como direção
+        arestas = self.base.Shape.Edges
+        k = [i for i, e in enumerate(arestas) if abs(e.Vertexes[0].Point.x - e.Vertexes[-1].Point.x) < 1e-9
+             and abs(e.Vertexes[0].Point.z - e.Vertexes[-1].Point.z) < 1e-9][0]
+        pn.form.ativar_caixa(pn.ref)
+        n = pn.distribuir(self.base, ("Edge%d" % (k + 1),), self.asm, ("Base.Edge%d" % (k + 1),))
+        self.assertIs(n, pn.ref)
+        pn.qtd.setValue(3)
+        pn.passo.setValue(40)
+        self.assertTrue(pn.accept())
+        p = pn.resultado[0]
+        d = p.Copias[0].Placement.Base - self.bloco.Placement.Base
+        self.assertAlmostEqual(abs(d.y), 40.0, places=4)
+        self.assertAlmostEqual(d.x, 0.0, places=4)
+
+    def test_faixa_tem_as_restricoes_novas(self):
+        import PrumoRibbon as R
+        mont = [t for t in R.TABS if t["id"] == "montagem"][0]
+        cmds = [c for _p, itens in mont["panels"] for c, _s, _r in itens]
+        for c in ("Prumo_JuntaTangente", "Prumo_JuntaCoincidente", "Assembly_CreateJointDistance",
+                  "Assembly_InsertNewPart", "Prumo_PadraoComponentes"):
+            self.assertIn(c, cmds)
+            self.assertIn(c, FreeCADGui.listCommands())
+        self.assertTrue(FreeCADGui.Command.get("Prumo_JuntaTangente").isActive(), "ativo com a montagem em edição")
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -11166,4 +11327,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T68CotaBalaoHachura, T69Fixacao, T70SolidosEmCartoes,
            T71JuntaDaMontagem, T72SimulacaoEmCartoes, T73Preferencias, T74MaisSolidosEmCartoes,
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
-           T78RoteiroDaChapa, T79InserirNoEsboco]
+           T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks]

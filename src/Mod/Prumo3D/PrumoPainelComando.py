@@ -3137,7 +3137,25 @@ class PainelJunta(_Base):
         self._limpar()
         self.campos = {}
         f = self.f
-        if e["tipo_vis"]:
+        restricao = None
+        try:
+            import JointObject
+            restricao = getattr(JointObject.activeTask, "prumo_restricao", None)
+        except Exception:
+            restricao = None
+        if restricao:
+            # Tangente / Coincidente do Prumo: por baixo é a junta Distância; mostra o nome pedido, não a grade
+            import PrumoMontagem
+            nome, dica = PrumoMontagem.JUNTAS[restricao]
+            c = UI.Cartao(nome, "vinculo")
+            txt = dica.split(": ", 1)[-1]
+            lb = QtWidgets.QLabel(txt[:1].upper() + txt[1:])
+            lb.setObjectName("PrumoSub")
+            lb.setWordWrap(True)
+            c.widget(lb)
+            self.campos["restricao"] = lb
+            self.lay.addWidget(c)
+        elif e["tipo_vis"]:
             c = UI.Cartao("Tipo de junta", "vinculo")
             grade = QtWidgets.QWidget()
             g = QtWidgets.QGridLayout(grade)

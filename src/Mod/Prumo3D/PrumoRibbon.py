@@ -171,6 +171,7 @@ TABS = [
     {"id": "montagem", "label": "Montagem", "wb": "AssemblyWorkbench", "panels": [
         ("Montagem", [
             ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Assembly_Insert", L, "Inserir\ncomponente"),
+            ("Assembly_InsertNewPart", S, "Nova peça aqui"), ("Prumo_PadraoComponentes", S, "Padrão de componentes"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
             ("Prumo_Massa", S, "Propriedades de massa"), ("Prumo_Propriedades", S, "Propriedades da peça"),
@@ -178,7 +179,8 @@ TABS = [
         # nomes como os das restrições (mates) do SolidWorks/Inventor; a dica diz a junta do FreeCAD
         ("Restrições", [
             ("Assembly_ToggleGrounded", L, "Fixar\npeça"), ("Assembly_CreateJointFixed", L, "Travar\n(fixa)"),
-            ("Assembly_CreateJointDistance", L, "Coincidente\n/ distância"),
+            ("Prumo_JuntaCoincidente", L, "Coincidente"), ("Prumo_JuntaTangente", L, "Tangente"),
+            ("Assembly_CreateJointDistance", S, "Distância"),
             ("Assembly_CreateJointCylindrical", S, "Concêntrica"), ("Assembly_CreateJointRevolute", S, "Dobradiça"),
             ("Assembly_CreateJointSlider", S, "Deslizante"), ("Assembly_CreateJointParallel", S, "Paralela"),
             ("Assembly_CreateJointPerpendicular", S, "Perpendicular"), ("Assembly_CreateJointAngle", S, "Ângulo"),

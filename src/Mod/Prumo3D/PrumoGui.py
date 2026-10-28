@@ -890,6 +890,7 @@ def register_commands():
                                  FreeCADGui.addCommand("Prumo_TesteVaso", m.CmdTesteVaso()))),
                              ("PrumoFixadores", lambda m: FreeCADGui.addCommand("Prumo_Fixador", m.CmdFixador())),
                              ("PrumoInserirEsboco", lambda m: m.registrar_comandos()),
+                             ("PrumoMontagem", lambda m: m.registrar_comandos()),
                              ("PrumoContexto", lambda m: m.registrar_comandos())):
         try:
             registro(__import__(modulo))
