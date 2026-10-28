@@ -601,7 +601,27 @@ if FreeCAD.GuiUp:
             pick.style = coin.SoPickStyle.UNPICKABLE
             for n in (pick, estilo, cor, self.coords, self.linhas, self.ponto):
                 self.raiz.addChild(n)
+            # comprimento do trecho junto ao cursor (o que se digita aparece aqui)
+            self.sep_txt = coin.SoSeparator()
+            self.pos_txt = coin.SoTranslation()
+            cor_txt = coin.SoBaseColor()
+            cor_txt.rgb = (0.0, 0.227, 0.439)
+            fonte = coin.SoFont()
+            fonte.name = "Arial:Bold"
+            fonte.size = 15
+            self.txt = coin.SoText2()
+            for n in (self.pos_txt, cor_txt, fonte, self.txt):
+                self.sep_txt.addChild(n)
+            self.raiz.addChild(self.sep_txt)
             vista.getSceneGraph().addChild(self.raiz)
+
+        def rotulo(self, p, texto):
+            """Texto ao lado do ponto p (global); texto vazio esconde."""
+            if p is None or not texto:
+                self.txt.string = ""
+                return
+            self.pos_txt.translation = (p.x, p.y, p.z)
+            self.txt.string = "   " + texto
 
         def linha(self, ini, fim):
             pts = [p for p in (ini, fim) if p is not None]
@@ -635,6 +655,8 @@ if FreeCAD.GuiUp:
         def eventFilter(self, obj, ev):
             if ev.type() != QtCore.QEvent.KeyPress or self.painel._vista is None:
                 return False
+            if _cursor_na_vista() and self.painel.digitando_tecla(ev):
+                return True
             if ev.key() not in (QtCore.Qt.Key_Tab, QtCore.Qt.Key_Escape):
                 return False
             if ev.key() == QtCore.Qt.Key_Tab and not _cursor_na_vista():
@@ -700,6 +722,7 @@ if FreeCAD.GuiUp:
             self._previa = None
             self._candidato = None
             self._ultimo_mouse = None
+            self._digitado = ""
             self.plano = "XY"
             self.form = QtWidgets.QWidget()
             self.form.setWindowTitle("Esboço 3D")
@@ -709,8 +732,9 @@ if FreeCAD.GuiUp:
             dica = P.Mensagem(
                 "Clique em <b>Desenhar</b> e vá clicando na vista: o ponto cai no plano que passa pelo "
                 "último ponto (<b>Tab</b> troca XY → YZ → ZX) e encaixa em vértices e pontas de arestas. "
-                "<b>Esc</b> termina o trecho; o próximo clique começa um ramal. Para medidas exatas, "
-                "digite o próximo ponto abaixo e tecle Enter.")
+                "<b>Esc</b> termina o trecho; o próximo clique começa um ramal. O comprimento aparece junto ao "
+                "cursor: para uma medida exata, <b>digite o número e tecle Enter</b> (o ponto vai na direção do "
+                "cursor).")
             raiz.addWidget(dica)
             card_pts, lay = P.bloco("Pontos", "posicao")
             raiz.addWidget(card_pts)
@@ -724,6 +748,29 @@ if FreeCAD.GuiUp:
             caixa = QtWidgets.QWidget()
             g = QtWidgets.QGridLayout(caixa)
             g.setContentsMargins(0, 4, 0, 0)
+            ct = QtWidgets.QWidget()
+            hc = QtWidgets.QHBoxLayout(ct)
+            hc.setContentsMargins(0, 2, 0, 2)
+            lb_ct = QtWidgets.QLabel("Comprimento do trecho")
+            lb_ct.setStyleSheet("font-weight:600; color:#003A70;")
+            hc.addWidget(lb_ct)
+            self.comp_trecho = QtWidgets.QDoubleSpinBox()
+            self.comp_trecho.setRange(0.0, 1e7)
+            self.comp_trecho.setDecimals(1)
+            self.comp_trecho.setSuffix(" mm")
+            self.comp_trecho.setKeyboardTracking(False)
+            self.comp_trecho.setLocale(P.LOCALE)
+            self.comp_trecho.setToolTip("Mostra o comprimento enquanto se desenha. Digite um valor e tecle Enter: o "
+                                        "ponto vai na direção do cursor (ao longo do eixo, se o cursor estiver "
+                                        "alinhado) e o trecho fica cotado")
+            self.comp_trecho.lineEdit().returnPressed.connect(lambda: self.aplicar_comprimento(
+                self.comp_trecho.value()))
+            hc.addWidget(self.comp_trecho, 1)
+            lay.addWidget(ct)
+            dica_ct = QtWidgets.QLabel("Desenhando, é só digitar o número com o cursor na vista e teclar Enter.")
+            dica_ct.setObjectName("PrumoDica")
+            dica_ct.setWordWrap(True)
+            lay.addWidget(dica_ct)
             sub = QtWidgets.QLabel("Próximo ponto")
             sub.setObjectName("PrumoDica")
             lay.addWidget(sub)
@@ -1200,7 +1247,94 @@ if FreeCAD.GuiUp:
             self.bt_ramal.setChecked(True)
             if self._previa is not None:
                 self._previa.linha(None, None)
+                self._previa.rotulo(None, "")
             self._mostrar_estado()
+
+        # ---- comprimento digitado durante o desenho
+        def _ultimo_global(self):
+            pts = self.pontos()
+            if not pts or self._ramal_pendente:
+                return None
+            return self.obj.Placement.multVec(pts[-1])
+
+        def direcao_do_cursor(self):
+            """Direção (global, unitária) do último ponto ao cursor; alinhada ao eixo quando o cursor está
+            perto de um eixo. None se não há último ponto ou o cursor está em cima dele."""
+            ini = self._ultimo_global()
+            c = self._candidato
+            if ini is None or not c or c[0] is None:
+                return None
+            d = FreeCAD.Vector(c[0]) - ini
+            if d.Length < 1e-6:
+                return None
+            e = eixo_de(d)
+            if e:
+                u = FreeCAD.Vector(*EIXOS[e])
+                return u if d.dot(u) > 0 else u * -1.0
+            return d * (1.0 / d.Length)
+
+        def aplicar_comprimento(self, L):
+            """Põe o próximo ponto a L mm do último, na direção do cursor; o trecho ganha a cota."""
+            self._digitado = ""
+            if L is None or L <= 0:
+                self.estado.setText("Comprimento tem de ser maior que zero.")
+                return False
+            u = self.direcao_do_cursor()
+            if u is None:
+                self.estado.setText("Mova o cursor na direção do trecho e digite o comprimento.")
+                return False
+            fim = self._ultimo_global() + u * L
+            self.adicionar(self.obj.Placement.inverse().multVec(fim))
+            k = len(self.segs()) - 1
+            if k >= 0:
+                rs = [r for r in self.obj.Restricoes
+                      if not (r.startswith("comprimento:") and int(r.split(":")[1]) == k)]
+                rs.append("comprimento:%d:%g" % (k, L))
+                self._restricoes_mudaram(rs)
+            if self._ultimo_mouse is not None and self._vista is not None:
+                self._mover({"Position": self._ultimo_mouse})
+            else:
+                self._mostrar_estado()
+            return True
+
+        def digitando_tecla(self, ev):
+            """Números, vírgula, Backspace e Enter com o cursor na vista: comprimento do trecho."""
+            if self._ultimo_global() is None:
+                return False
+            k, txt = ev.key(), ev.text()
+            if txt and (txt.isdigit() or txt in ",."):
+                if txt in ",." and any(c in self._digitado for c in ",."):
+                    return True
+                self._digitado += "," if txt in ",." else txt
+            elif k == QtCore.Qt.Key_Backspace and self._digitado:
+                self._digitado = self._digitado[:-1]
+            elif k in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter) and self._digitado:
+                try:
+                    L = float(self._digitado.replace(",", "."))
+                except ValueError:
+                    L = None
+                self.aplicar_comprimento(L)
+                return True
+            elif k == QtCore.Qt.Key_Escape and self._digitado:
+                self._digitado = ""
+            else:
+                return False
+            self._atualizar_rotulo()
+            self._mostrar_estado()
+            return True
+
+        def _atualizar_rotulo(self):
+            if self._previa is None:
+                return
+            c = self._candidato
+            ini = self._ultimo_global()
+            if ini is None or not c or c[0] is None:
+                self._previa.rotulo(None, "")
+                return
+            if self._digitado:
+                self._previa.rotulo(c[0], "%s mm  (Enter)" % self._digitado)
+            else:
+                self._previa.rotulo(c[0], "%s mm" % PrumoUtil.fmt((FreeCAD.Vector(c[0]) - ini).Length, 1))
 
         def _base_global(self):
             pts = self.pontos()
@@ -1257,6 +1391,11 @@ if FreeCAD.GuiUp:
             ini = None if (self._ramal_pendente or not pts) else self.obj.Placement.multVec(pts[-1])
             if self._previa is not None:
                 self._previa.linha(ini, p)
+            self._atualizar_rotulo()
+            if ini is not None and p is not None and not self.comp_trecho.hasFocus():
+                self.comp_trecho.blockSignals(True)
+                self.comp_trecho.setValue((p - ini).Length)
+                self.comp_trecho.blockSignals(False)
             self._mostrar_estado()
 
         def _clique(self, ev):
@@ -1288,6 +1427,11 @@ if FreeCAD.GuiUp:
                     linhas.append(txt)
                 elif c:
                     linhas.append(c[1])
+            if self._digitado:
+                linhas.append("Comprimento digitado: <b>%s mm</b> — Enter põe o ponto na direção do cursor; "
+                              "Esc apaga." % self._digitado)
+            elif self._vista is not None and pts and not self._ramal_pendente:
+                linhas.append("Para um comprimento exato, digite o número (com o cursor na vista) e tecle Enter.")
             if self._ramal_pendente:
                 linhas.append("Próximo ponto começa um trecho novo.")
             self.estado.setText("<br>".join(linhas))

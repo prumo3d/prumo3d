@@ -9,6 +9,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Esboço 3D: comprimento durante o desenho.** O comprimento do trecho aparece junto ao cursor enquanto se
+  desenha. Para uma medida exata, é só digitar o número (com o cursor na vista) e teclar Enter: o ponto vai
+  na direção do cursor (exatamente no eixo, se o cursor estiver alinhado com X, Y ou Z) e o trecho já fica
+  cotado. Vírgula decimal e Backspace funcionam; Esc apaga o número digitado. O painel também mostra o
+  comprimento ao vivo e aceita o valor digitado.
+
 ## 1.0.1 — 28/10/2026
 
 ### Correções

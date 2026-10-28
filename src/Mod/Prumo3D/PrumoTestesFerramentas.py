@@ -6526,6 +6526,74 @@ class T52Esboco3D(unittest.TestCase):
         pn.accept()
         self.assertIsNotNone(self.doc.getObject(o.Name))
 
+    def test_comprimento_digitado_durante_o_desenho(self):
+        """Durante o desenho, o comprimento aparece junto ao cursor; digitar o número (com o cursor na vista)
+        e teclar Enter põe o ponto a essa distância, na direção do cursor (no eixo, se alinhado), e cota o
+        trecho."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        from PySide import QtCore, QtGui
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        pn.relativo.setChecked(False)
+        pn.adicionar_digitado()                               # primeiro ponto na origem
+        pn.bt_clicar.setChecked(True)
+        self.assertIsNotNone(pn._vista)
+        original = E._cursor_na_vista
+        E._cursor_na_vista = lambda: True
+
+        def tecla(k, txt=""):
+            ev = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, k, QtCore.Qt.NoModifier, txt)
+            return pn._filtro.eventFilter(pn.form, ev)
+        try:
+            # cursor quase sobre o eixo X: rótulo mostra o comprimento ao vivo
+            pn._candidato = (V(300, 4, 0), "plano XY")
+            pn._atualizar_rotulo()
+            self.assertIn("300", pn._previa.txt.string.getValues()[0])
+            for c in "1250":
+                self.assertTrue(tecla(getattr(QtCore.Qt, "Key_" + c), c))
+            self.assertIn("1250 mm", pn._previa.txt.string.getValues()[0])
+            self.assertTrue(tecla(QtCore.Qt.Key_Return))
+            self.assertEqual(len(o.Pontos), 2)
+            self.assertTrue(o.Pontos[1].isEqual(V(1250, 0, 0), 1e-6), o.Pontos[1])
+            self.assertIn("comprimento:0:1250", list(o.Restricoes))
+            self.assertIn("eixo:0:X", list(o.Restricoes))
+            # direção livre (diagonal) e vírgula decimal; Backspace corrige
+            pn._candidato = (V(1250 + 300, 300, 0), "plano XY")
+            for c, k in (("1", QtCore.Qt.Key_1), ("0", QtCore.Qt.Key_0), ("9", QtCore.Qt.Key_9)):
+                tecla(k, c)
+            tecla(QtCore.Qt.Key_Backspace)
+            tecla(QtCore.Qt.Key_0, "0")
+            tecla(QtCore.Qt.Key_Comma, ",")
+            tecla(QtCore.Qt.Key_5, "5")
+            self.assertEqual(pn._digitado, "100,5")
+            tecla(QtCore.Qt.Key_Enter)
+            d = o.Pontos[2] - o.Pontos[1]
+            self.assertAlmostEqual(d.Length, 100.5, places=4)
+            self.assertAlmostEqual(d.x, d.y, places=4)
+            # Esc com número digitado só apaga o número (não termina o trecho)
+            tecla(QtCore.Qt.Key_7, "7")
+            self.assertTrue(tecla(QtCore.Qt.Key_Escape))
+            self.assertEqual(pn._digitado, "")
+            self.assertFalse(pn._ramal_pendente)
+            # pelo campo do painel
+            pn._candidato = (V(o.Pontos[2].x, o.Pontos[2].y, 900), "plano YZ")
+            pn.comp_trecho.setValue(400)
+            pn.comp_trecho.lineEdit().returnPressed.emit()
+            self.assertTrue((o.Pontos[3] - o.Pontos[2]).isEqual(V(0, 0, 400), 1e-6))
+            # cursor em cima do último ponto: não põe ponto, explica
+            pn._candidato = (V(o.Pontos[3]), "plano XY")
+            self.assertFalse(pn.aplicar_comprimento(50))
+            self.assertEqual(len(o.Pontos), 4)
+            # trechos cotados continuam com a medida depois de resolver
+            segs = E.segmentos(o.Pontos, o.Quebras, o.Fechado)
+            self.assertAlmostEqual((o.Pontos[segs[0][1]] - o.Pontos[segs[0][0]]).Length, 1250, places=3)
+        finally:
+            E._cursor_na_vista = original
+        pn.accept()
+
     def test_restricoes_resolvem(self):
         import PrumoEsboco3D as E
         V = FreeCAD.Vector
