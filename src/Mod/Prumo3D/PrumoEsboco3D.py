@@ -1366,7 +1366,18 @@ if FreeCAD.GuiUp:
             except Exception:
                 return None
 
+        def _ativo(self):
+            """O painel ainda está aberto? (pode ter sido fechado por fora, sem OK/Cancelar)"""
+            try:
+                return bool(FreeCADGui.Control.activeDialog()) and any(p is self for p in _PAINEIS.values()) \
+                    and self.obj.Name is not None
+            except Exception:
+                return False
+
         def _botao_edicao(self, cb):
+            if not self._ativo():
+                QtCore.QTimer.singleShot(0, self._sair)
+                return
             if self._vista is not None:           # desenhando: os cliques põem pontos
                 return
             try:
@@ -1429,6 +1440,9 @@ if FreeCAD.GuiUp:
 
         def _mover_edicao(self, cb):
             if self._arraste is None:
+                return
+            if not self._ativo():
+                QtCore.QTimer.singleShot(0, self._sair)
                 return
             try:
                 pos = tuple(cb.getEvent().getPosition().getValue())
