@@ -27,11 +27,18 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.0.2** (28/10/2026)
+**Versão atual: 1.1.0** (29/10/2026)
 
-- **Esboço 3D:** o comprimento do trecho aparece junto ao cursor; para uma medida exata, digite o número e
-  tecle Enter.
+- **Fluxo de trabalho que se explica:** a faixa mostra o que serve no momento (as raras ficam no **Mais**),
+  Ctrl+K procura qualquer comando, e os avisos já trazem o botão que conserta.
+- **Desenho:** Paleta de vistas, arranjos prontos, cotas gerais, Salvar PDF e Exportar DXF.
+- **Montagem:** Tangente, Coincidente, Mover junta, Travar juntos, Padrão de componentes, Componentes dos
+  sólidos e folga mínima na interferência.
+- **Esboço:** cota a mais vira cota de referência, sem deixar o esboço vermelho.
+- **Vasos:** pés de chapa como nos reservatórios de compressor e pernas no vaso deitado.
+- Lista de materiais com itens comprados e de referência. A aba BIM saiu: o foco é a engenharia mecânica.
 
+Na 1.0.2: comprimento digitado durante o desenho no Esboço 3D.
 Na 1.0.1: atualização automática corrigida.
 Na 1.0.0: primeira versão final.
 Na 0.9.12: tudo em abas (sem o menu de bancadas), abas novas BIM e Superfícies, grupo Sólidos da Peça
