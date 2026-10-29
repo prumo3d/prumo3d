@@ -56,6 +56,9 @@ Categories=Graphics;Science;Engineering;
 MimeType=application/x-extension-fcstd;
 DESKTOP
 cp ../../../src/Mod/Prumo3D/Resources/icons/prumo.svg AppDir/org.prumo3d.Prumo3D.svg
+# o appimagetool novo (out/2026) exige o ícone em PNG e o .DirIcon: o SVG sozinho não serve mais
+cp ../../../src/Mod/Prumo3D/Resources/icons/prumo.png AppDir/org.prumo3d.Prumo3D.png
+ln -sf org.prumo3d.Prumo3D.png AppDir/.DirIcon
 
 # Remove __pycache__ folders and .pyc files
 find . -path "*/__pycache__/*" -delete
