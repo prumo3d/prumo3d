@@ -213,14 +213,44 @@ if FreeCAD.GuiUp:
             if antes is None or n <= antes or not _em_edicao(obj) or chave in _estado["geo_recente"]:
                 return
             # depois que o comando do Sketcher terminar (ele ainda pode mexer na restrição)
-            QtCore.QTimer.singleShot(0, lambda o=obj, a=antes: _seguro(o, a))
+            esperando = _estado.setdefault("esperando", {})
+            if chave in esperando:
+                esperando[chave] = min(esperando[chave], antes)    # já tem conferência marcada: vale a mais antiga
+                return
+            esperando[chave] = antes
+            QtCore.QTimer.singleShot(0, lambda o=obj, c=chave: _seguro(o, c))
 
-    def _seguro(sk, antes):
+    def _seguro(sk, chave, tentativas=0):
+        """Confere quando o comando terminou de vez. A cota "inteligente" do Sketcher cria uma cota de prévia
+        dentro de uma transação aberta e desfaz a prévia quando o mouse muda de lugar: mexer no esboço com essa
+        transação aberta fechava a transação dela, a prévia não era desfeita e sobravam cotas repetidas (a
+        de cima virava referência e dava o aviso sem motivo). Por isso espera a transação acabar."""
+        esperando = _estado.setdefault("esperando", {})
         try:
-            if sk.Document is not None and len(sk.Constraints) > antes:
+            doc = sk.Document
+            if doc is None:
+                esperando.pop(chave, None)
+                return
+            if getattr(doc, "HasPendingTransaction", False) or _ferramenta_ativa():
+                if tentativas < 6000:        # até ~20 min com a ferramenta aberta
+                    QtCore.QTimer.singleShot(200, lambda: _seguro(sk, chave, tentativas + 1))
+                    return
+            antes = esperando.pop(chave, None)
+            if antes is None:
+                return
+            _estado["contagem"][chave] = len(sk.Constraints)
+            if len(sk.Constraints) > antes:
                 conferir_agora(sk, antes)
         except Exception as ex:
+            esperando.pop(chave, None)
             FreeCAD.Console.PrintLog("Prumo: guarda do esboço: %s\n" % ex)
+
+    def _ferramenta_ativa():
+        """Botão do mouse apertado (arrastando uma cota, por exemplo): ainda não terminou."""
+        try:
+            return bool(QtWidgets.QApplication.mouseButtons())
+        except Exception:
+            return False
 
     def ao_editar(sk):
         _estado["contagem"][(sk.Document.Name, sk.Name)] = len(sk.Constraints)

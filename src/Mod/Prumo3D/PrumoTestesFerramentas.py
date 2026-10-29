@@ -12076,6 +12076,31 @@ class T84EsbocoNaoSuperRestringe(unittest.TestCase):
         self.assertIsNotNone(a)
         self.assertIn("referência", a.texto.text())
 
+    def test_previa_da_cota_inteligente_nao_vira_cota_repetida(self):
+        """A ferramenta Cota cria a prévia numa transação aberta e desfaz quando o mouse muda de lugar: o guarda
+        espera a ferramenta terminar, a prévia some de verdade e não sobra cota repetida nem aviso."""
+        self.doc.UndoMode = 1
+        n0 = len(self.sk.Constraints)
+        self.doc.openTransaction("Cota")
+        self.sk.addConstraint(self.Sk.Constraint("DistanceX", 0, 1, 0, 2, 100.0))     # prévia (repetida)
+        self._esp(0.6)
+        self.assertTrue(self.doc.HasPendingTransaction, "o guarda não pode fechar a transação da ferramenta")
+        self.assertTrue(self.sk.Constraints[n0].Driving)
+        self.doc.abortTransaction()                                                  # mouse saiu: desfaz a prévia
+        self._esp(0.6)
+        self.assertEqual(len(self.sk.Constraints), n0)
+        self.assertIsNone(self.G._estado["aviso"])
+        # a cota que a pessoa confirma e que sobra de verdade continua virando referência, depois do OK
+        self.doc.openTransaction("Cota")
+        self.sk.addConstraint(self.Sk.Constraint("Distance", 0, 100.0))
+        self._esp(0.4)
+        self.assertTrue(self.sk.Constraints[n0].Driving, "com a ferramenta aberta, ainda não mexe")
+        self.doc.commitTransaction()
+        self._esp(0.8)
+        self.assertEqual(len(self.sk.Constraints), n0 + 1)
+        self.assertFalse(self.sk.Constraints[n0].Driving)
+        self.assertIsNotNone(self.G._estado["aviso"])
+
     def test_geometrica_a_mais_fica_com_o_painel_do_esboco(self):
         """Restrição geométrica a mais não some sozinha (o painel do esboço avisa e oferece apagar)."""
         self.sk.addConstraint(self.Sk.Constraint("Horizontal", 0))

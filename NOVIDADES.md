@@ -30,6 +30,13 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
     eram, numa lista que só aparece para quem usa, e o aviso diz qual é o equivalente Gerdau.
   - Três U da Gerdau ficaram de fora (3" x 7,44, 10" x 30,80, 12" x 29,76): a própria fonte deixou em revisão.
 
+### Correções
+
+- **Esboço: cota repetida e aviso sem motivo.** Com a ferramenta Cota, o aviso de "super-restrito" aparecia
+  mesmo sem cota a mais e sobravam cotas repetidas (uma comandando e outra entre parênteses). O guarda de
+  restrições mexia no esboço enquanto a ferramenta ainda mostrava a prévia da cota; agora ele espera a
+  ferramenta terminar.
+
 ## 1.2.0 — 29/10/2026
 
 ### Novidades
