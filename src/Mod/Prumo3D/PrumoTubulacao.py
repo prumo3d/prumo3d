@@ -23,6 +23,24 @@ import PrumoCatalogoTubos as CAT
 TOL_NO = 0.5        # mm: pontas mais próximas que isso são o mesmo nó
 
 
+class Valvula(float):
+    """Posição (mm do início do trecho) de uma válvula flangeada, com o tipo (gaveta, globo, esfera, retenção)."""
+
+    def __new__(cls, valor, tipo="gaveta"):
+        o = float.__new__(cls, valor)
+        o.tipo = tipo
+        return o
+
+
+def _mesmo_tipo(pos, q):
+    """A posição nova com o mesmo tipo da original (registro, junta ou válvula)."""
+    if isinstance(pos, Valvula):
+        return Valvula(q, pos.tipo)
+    if isinstance(pos, Junta):
+        return Junta(q)
+    return q
+
+
 class Junta(float):
     """Posição (mm do início do trecho) de uma junta de desmontagem: par de flanges nas linhas de solda de
     topo, união nas roscadas. Anda junto com os registros quando o trecho é dividido."""
@@ -283,7 +301,7 @@ def dividir_em_tes(segs, dns, registros=None, pontos=None, caixas=None):
         for i, lst in registros.items():
             for pos in lst:
                 k, q = onde(i, pos)
-                nreg.setdefault(k, []).append(Junta(q) if isinstance(pos, Junta) else q)
+                nreg.setdefault(k, []).append(_mesmo_tipo(pos, q))
     npon = None
     if pontos:
         npon = {}
@@ -705,6 +723,13 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     cortes.append(junta[0])
                     conexoes.extend(junta[1])
                 continue
+            if L.get("valvulas"):
+                tipo = getattr(pos, "tipo", "gaveta")
+                vv = _valvula_flangeada(L, s, d, a, u, float(pos), tipo, ra, rb, comp_seg, N, nome_dn, avisos)
+                if vv:
+                    cortes.append(vv[0])
+                    conexoes.extend(vv[1])
+                continue
             if d not in L.get("registro", {}):
                 avisos.append("Trecho %d: não há registro de %d mm no catálogo." % (s + 1, d))
                 continue
@@ -843,12 +868,73 @@ def _junta(L, s, d, a, u, pos, ra, rb, comp_seg, N, nome_dn, avisos):
     return None
 
 
+def _valvula_flangeada(L, s, d, a, u, pos, tipo, ra, rb, comp_seg, N, nome_dn, avisos):
+    """Válvula flangeada no meio do trecho: a válvula (face a face B16.10), junta e estojos de cada lado e o
+    flange de pescoço do tubo. Devolve ((corte_ini, corte_fim), [conexões]) ou None."""
+    vv = CAT.valvula(L, tipo, d)
+    fl = CAT.flange(L, d)
+    nome = CAT.NOMES_VALVULA.get(tipo, tipo)
+    if vv is None or fl is None:
+        avisos.append("Trecho %d: não há %s de %s classe %s no catálogo." % (s + 1, nome.lower(), nome_dn(d),
+                                                                           L.get("classe", "—")))
+        return None
+    g = L.get("junta_espessura", 0.0)
+    meio = vv["ff"] / 2.0 + g + fl["Y"]
+    if pos - meio < ra + 1.0 or pos + meio > comp_seg - rb - 1.0:
+        avisos.append("Trecho %d: a %s a %.0f mm do início não cabe entre as conexões." % (s + 1, nome.lower(), pos))
+        return None
+    v = _rec("Válvula", N("valvula", dn=d, nome=nome), a + u * pos,
+             [(s, 2, u, d, vv["ff"] / 2.0), (s, 3, -u, d, vv["ff"] / 2.0)], fl["O"])
+    v["valvula"] = dict(vv, tipo=tipo)
+    v["flange"] = fl
+    fs = []
+    for sg, pt in ((-1, 2), (1, 3)):
+        face = a + u * (pos + sg * (vv["ff"] / 2.0 + g))
+        f = _rec("Flange", N("flange", dn=d), face, [(s, pt, u * sg, d, fl["Y"])], fl["O"], _extras_flange(L, d, fl, N))
+        f["flange"] = fl
+        fs.append(f)
+    return (pos - meio, pos + meio), [v] + fs
+
+
+def solido_valvula(c, L):
+    """Válvula em volume simples (só para ver no modelo): flanges da própria válvula, corpo, castelo e volante
+    (ou alavanca na esfera; tampa na retenção)."""
+    import Part
+    P = c["no"]
+    vv, fl = c["valvula"], c["flange"]
+    u = c["pernas"][0][2]
+    dd = c["pernas"][0][3]
+    De = L["tubos"][dd]["De"]
+    ff = vv["ff"]
+    ini = P - u * (ff / 2.0)
+    corpo = _cil(fl["O"] / 2.0, ini, u, fl["tf"]).fuse(_cil(fl["O"] / 2.0, P + u * (ff / 2.0 - fl["tf"]), u, fl["tf"]))
+    corpo = corpo.fuse(_cil(De * 0.62, ini, u, ff))
+    cima = FreeCAD.Vector(0, 0, 1) if abs(u.z) < 0.9 else FreeCAD.Vector(1, 0, 0)
+    cima = (cima - u * cima.dot(u)).normalize()
+    tipo = vv["tipo"]
+    if tipo == "esfera":
+        corpo = corpo.fuse(Part.makeSphere(De * 0.85, P))
+        corpo = corpo.fuse(_cil(De * 0.12 + 4.0, P, cima, De * 0.9))
+        corpo = corpo.fuse(_cil(5.0, P + cima * (De * 0.9), u, max(150.0, 2.5 * De)))
+    elif tipo == "retencao":
+        corpo = corpo.fuse(Part.makeSphere(De * 0.8, P))
+        corpo = corpo.fuse(_cil(De * 0.55, P, cima, De * 0.95))
+    else:
+        corpo = corpo.fuse(Part.makeSphere(De * (0.85 if tipo == "globo" else 0.7), P))
+        corpo = corpo.fuse(_cil(De * 0.35, P, cima, vv["altura"] * 0.55))
+        corpo = corpo.fuse(_cil(max(6.0, De * 0.06), P, cima, vv["altura"]))
+        aro = Part.makeTorus(vv["volante"] / 2.0, max(4.0, vv["volante"] * 0.03), P + cima * vv["altura"], cima)
+        corpo = corpo.fuse(aro)
+    ri = De / 2.0 - L["tubos"][dd]["e"]
+    return corpo.cut(_cil(ri, ini - u * 0.5, u, ff + 1.0))
+
+
 def soldas_de_topo(res):
     """Soldas de topo da linha: cada ponta de conexão ligada a tubo, mais as emendas de barra."""
     L = res["linha"]
     if not L.get("solda_topo"):
         return 0
-    n = sum(1 for c in res["conexoes"] if not c.get("so_lista") and c["tipo"] != "Caixa"
+    n = sum(1 for c in res["conexoes"] if not c.get("so_lista") and c["tipo"] not in ("Caixa", "Válvula")
             for p in c["pernas"] if p[0] >= 0)
     n += sum(r["emendas"] for r in lista_de_corte(res.get("pecas", []), L).values())
     return n
@@ -1027,6 +1113,8 @@ def _solido_conexao(c, L, k=1.0):
     import Part
     if c["tipo"] == "Flange":
         return solido_flange(c, L)
+    if c["tipo"] == "Válvula":
+        return solido_valvula(c, L)
     if L.get("solda_topo") and c["tipo"] in ("Joelho 90°", "Joelho 45°") and len(c["pernas"]) == 2 \
             and c["pernas"][0][3] == c["pernas"][1][3]:
         return solido_curva(c, L)
@@ -1086,6 +1174,30 @@ def forma(res):
 
 
 # ======================================================================== objeto
+NOMES_CURTOS = {"gaveta": "gaveta", "globo": "globo", "esfera": "esfera", "retencao": "retenção"}
+
+
+def _ler_valvula(txt):
+    """'1.200 retenção' -> (1200.0, 'retencao'); '300' -> (300.0, None); inválido -> (None, None)."""
+    import re
+    import unicodedata
+    t = (txt or "").strip()
+    m = re.match(r"^([\d.,]+)\s*(?:mm)?\s*([^\d]*)$", t)
+    if not m:
+        return None, None
+    num = m.group(1).replace(".", "").replace(",", ".")
+    try:
+        v = float(num)
+    except ValueError:
+        return None, None
+    w = unicodedata.normalize("NFKD", m.group(2).strip().lower()).encode("ascii", "ignore").decode()
+    tipo = None
+    for k in CAT.TIPOS_VALVULA:
+        if w and k.startswith(w[:4]):
+            tipo = k
+    return v, tipo
+
+
 TEXTO_EMENDA = {"bolsa": "pela bolsa", "solda": "com solda de topo", "luva": "com luva"}
 
 
@@ -1211,9 +1323,14 @@ class Tubulacao:
         for prop, tipo in (("Registros", float), ("Juntas", Junta)):
             for item in getattr(obj, prop, []) or []:
                 try:
-                    t, pos = item.split(":")
-                    reg.setdefault(int(t) - 1, []).append(tipo(float(pos.replace("mm", "").replace(",", ".").strip())))
-                except ValueError:
+                    partes = [x.strip() for x in item.split(":")]
+                    v = float(partes[1].replace("mm", "").replace(",", "."))
+                    if prop == "Registros" and len(partes) > 2 and partes[2]:
+                        v = Valvula(v, partes[2])
+                    else:
+                        v = tipo(v)
+                    reg.setdefault(int(partes[0]) - 1, []).append(v)
+                except (ValueError, IndexError):
                     continue
         return reg
 
@@ -1371,9 +1488,9 @@ def material_de(L, desc):
     if not mats:
         return L["material"]
     d = desc.lower()
-    for chave in ("estojo", "junta", "flange", "tubo"):
+    for chave in ("estojo", "junta", "flange", "tubo", "válvula"):
         if d.startswith(chave):
-            return mats.get(chave, L["material"])
+            return mats.get("valvula" if chave == "válvula" else chave, L["material"])
     return mats.get("conexao", L["material"])
 
 
@@ -1897,12 +2014,9 @@ if FreeCAD.GuiUp:
                 return
             itens = [x for x in self.obj.Registros if not x.strip().startswith("%d:" % (i + 1))]
             for parte in ed.text().split(";"):
-                parte = parte.strip().replace(".", "").replace(",", ".")
-                if parte:
-                    try:
-                        itens.append("%d: %g" % (i + 1, float(parte)))
-                    except ValueError:
-                        pass
+                num, tipo = _ler_valvula(parte)
+                if num is not None:
+                    itens.append(("%d: %g: %s" % (i + 1, num, tipo)) if tipo else ("%d: %g" % (i + 1, num)))
             if itens != list(self.obj.Registros):
                 self.obj.Registros = itens
                 self._atualizar()
@@ -1933,7 +2047,12 @@ if FreeCAD.GuiUp:
             self.classe.setVisible(tem_fl)
             self.lb_classe.setVisible(tem_fl)
             self.cap.setEnabled(not (tem_fl and self.fl_pontas.isChecked()))
-            self.tabela.setColumnHidden(3, not L.get("registro"))
+            self.tabela.setColumnHidden(3, not (L.get("registro") or L.get("valvulas")))
+            self.tabela.horizontalHeaderItem(3).setText("Válvulas a (mm)" if L.get("valvulas") else "Registro a (mm)")
+            if L.get("valvulas"):
+                self.tabela.horizontalHeaderItem(3).setToolTip(
+                    "Distância do início do trecho até o centro da válvula e o tipo: gaveta, globo, esfera ou "
+                    "retenção (fluxo no sentido do trecho). Várias: 300 gaveta; 1200 retenção")
             self.card_p.setVisible(bool(L.get("luva_bucha") or L.get("te_bucha") or L.get("joelho_bucha")))
             self.tabela.setColumnHidden(4, not tem_jun)
             self.tabela.horizontalHeaderItem(4).setText("Flanges a (mm)" if tem_fl else "União a (mm)")
@@ -1952,9 +2071,12 @@ if FreeCAD.GuiUp:
                     cb.setCurrentIndex(max(0, cb.findData(dns[i])))
                     cb.currentIndexChanged.connect(lambda _x, i=i, cb=cb: self._dn_trecho(i, cb))
                     self.tabela.setCellWidget(i, 2, cb)
-                    pos = self.obj.Proxy.registros(self.obj).get(i, [])
-                    ed = QtWidgets.QLineEdit("; ".join(PrumoUtil.fmt(p_, 0) for p_ in pos))
-                    ed.setPlaceholderText("sem registro")
+                    pos = [p_ for p_ in self.obj.Proxy.registros(self.obj).get(i, []) if not isinstance(p_, Junta)]
+                    ed = QtWidgets.QLineEdit("; ".join(
+                        PrumoUtil.fmt(p_, 0) + ((" " + NOMES_CURTOS.get(getattr(p_, "tipo", "gaveta"), "gaveta"))
+                                                if L.get("valvulas") else "")
+                        for p_ in pos))
+                    ed.setPlaceholderText("ex.: 300 gaveta; 1200 retenção" if L.get("valvulas") else "sem registro")
                     ed.editingFinished.connect(lambda i=i, ed=ed: self._registro(i, ed))
                     self.tabela.setCellWidget(i, 3, ed)
                     jun = [x.split(":", 1)[1].strip() for x in self.obj.Juntas

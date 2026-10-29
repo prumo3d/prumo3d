@@ -12371,6 +12371,34 @@ class T86TubulacaoAcoIsometrico(unittest.TestCase):
         coroa = math.pi / 4 * (88.9 ** 2 - (88.9 - 2 * 5.49) ** 2)
         self.assertAlmostEqual(s.Volume, coroa * math.pi * 114.0 / 2.0, delta=0.01 * s.Volume)
 
+    def test_valvulas_flangeadas(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        L = dict(C.linha("aco-topo-sch40"), classe=150)
+        # B16.10-2022 classe 150 3": gaveta 203, globo 241, retenção 241; classe 300 gaveta 282
+        self.assertEqual(C.valvula(L, "gaveta", 80)["ff"], 203.0)
+        self.assertEqual(C.valvula(L, "retencao", 150)["ff"], 356.0)
+        self.assertEqual(C.valvula(dict(L, classe=300), "gaveta", 80)["ff"], 282.0)
+        self.assertIsNone(C.valvula(dict(L, classe=300), "retencao", 15))       # não existe na tabela
+        res = T.montar([(V(0, 0, 0), V(3000, 0, 0))], [80], L, "flange",
+                       {0: [T.Valvula(1000.0, "gaveta"), T.Valvula(2200.0, "retencao")]})
+        self.assertFalse(res["avisos"])
+        # a válvula ocupa face a face + junta + flange de pescoço de cada lado: 1000 − (101,5 + 4,5 + 70) − 70
+        self.assertEqual(sorted(round(t["corte"], 2) for t in res["tubos"]), [535.0, 754.0, 829.0])
+        self.assertEqual(T.soldas_de_topo(res), 6)          # só os flanges levam solda
+        q = T.resumo_conexoes(res["conexoes"])
+        self.assertEqual(q['Válvula gaveta classe 150 RF DN 80 (3")'], 1)
+        self.assertEqual(q['Junta espiralada classe 150 DN 80 (3")'], 6)
+        for c in res["conexoes"]:
+            self.assertTrue(T.solido_conexao(c, res["linha"]).isValid())
+        # a válvula atrás de um tê leva a junta/flange para o pedaço certo
+        res = T.montar([(V(0, 0, 0), V(3000, 0, 0)), (V(1500, 0, 0), V(1500, 0, 900))], [80, 80], L, False,
+                       {0: [T.Valvula(2400.0, "globo")]})
+        self.assertIn('Válvula globo classe 150 RF DN 80 (3")', T.resumo_conexoes(res["conexoes"]))
+        self.assertEqual(T._ler_valvula("1.200 retenção"), (1200.0, "retencao"))
+        self.assertEqual(T._ler_valvula("300"), (300.0, None))
+
     def test_curva_que_muda_de_diametro_avisa_sem_bucha(self):
         import PrumoTubulacao as T
         import PrumoCatalogoTubos as C
@@ -12439,6 +12467,17 @@ class T86TubulacaoAcoIsometrico(unittest.TestCase):
         pg = I.criar_folha(t)
         sim = I.folha_de(t)[1]
         svg = sim.Symbol
+        t.Registros = ["2: 500: retencao"]
+        self.doc.recompute()
+        pg = I.criar_folha(t)
+        self.assertIn("retenção portinhola", I.folha_de(t)[1].Symbol)
+        # cota em cadeia até a válvula: 500 do início do trecho 2, 500 até o fim
+        self.assertEqual(I._marcas_no_trecho(t.Proxy.calcular(t), FreeCAD.Vector(1000, 0, 0),
+                                             FreeCAD.Vector(2000, 0, 0)), [500.0])
+        t.Registros = []
+        self.doc.recompute()
+        pg = I.criar_folha(t)
+        svg = I.folha_de(t)[1].Symbol
         for txt in ("LISTA DE MATERIAL", "LISTA DE CORTE", "Soldas de topo", "P1", ">1000<", ">600<"):
             self.assertIn(txt, svg)
         info = I.dados(t)
@@ -12466,7 +12505,16 @@ class T86TubulacaoAcoIsometrico(unittest.TestCase):
             p.linha.setCurrentIndex(p.linha.findData("aco-topo-sch40"))
             self.assertFalse(p.tabela.isColumnHidden(4))
             self.assertEqual(p.tabela.horizontalHeaderItem(4).text(), "Flanges a (mm)")
-            self.assertTrue(p.tabela.isColumnHidden(3))           # sem registro nesta linha
+            self.assertFalse(p.tabela.isColumnHidden(3))          # válvulas flangeadas
+            self.assertEqual(p.tabela.horizontalHeaderItem(3).text(), "Válvulas a (mm)")
+            ev = p.tabela.cellWidget(1, 3)
+            ev.setText("300 globo; 700")
+            ev.editingFinished.emit()
+            self.assertEqual(list(t.Registros), ["2: 300: globo", "2: 700"])
+            self.assertIn('1 × Válvula globo classe 150 RF DN 25 (1")', t.Conexoes)
+            self.assertIn('1 × Válvula gaveta classe 150 RF DN 25 (1")', t.Conexoes)
+            self.assertEqual(p.tabela.cellWidget(1, 3).text(), "300 globo; 700 gaveta")
+            t.Registros = []
             self.assertTrue(p.card_p.isHidden())                  # torneiras são da linha predial
             p.fl_pontas.setChecked(True)
             self.assertTrue(t.FlangePontas)

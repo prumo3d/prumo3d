@@ -172,6 +172,69 @@ def _perp(d):
     return (-d[1], d[0])
 
 
+def _marcas_no_trecho(res, a, b):
+    """Distâncias (do início do trecho) das válvulas e dos pares de flanges no meio do trecho a→b."""
+    comp = (b - a).Length
+    if comp < 1.0:
+        return []
+    u = (b - a) * (1.0 / comp)
+    out = []
+    flanges = []
+    for c in res["conexoes"]:
+        if c.get("so_lista") or c["tipo"] not in ("Válvula", "Flange", "União", "Registro"):
+            continue
+        w = c["no"] - a
+        t = w.dot(u)
+        if (w - u * t).Length > 1.0 or t < 1.0 or t > comp - 1.0:
+            continue
+        if c["tipo"] == "Flange":
+            flanges.append(t)
+        else:
+            out.append(t)
+    # par de flanges solto (junta de desmontagem): o meio dos dois; os da válvula já estão na válvula
+    flanges.sort()
+    usados = set()
+    for k in range(len(flanges) - 1):
+        if k in usados:
+            continue
+        t1, t2 = flanges[k], flanges[k + 1]
+        if t2 - t1 < 20.0 and not any(abs((t1 + t2) / 2.0 - v) < 400.0 and min(abs(t1 - v), abs(t2 - v)) < 400.0
+                                       for v in out):
+            out.append((t1 + t2) / 2.0)
+            usados.update((k, k + 1))
+    return sorted(round(t, 1) for t in out)
+
+
+def _cota(S, F, pa, pb, dw, off, texto, ext_ini=False):
+    """Cota de isométrico entre dois pontos da folha, afastada `off` mm na direção dw."""
+    ca = (pa[0] + dw[0] * off, pa[1] + dw[1] * off)
+    cb = (pb[0] + dw[0] * off, pb[1] + dw[1] * off)
+    for p0, p1 in ((pa, ca), (pb, cb)):
+        S.linha((p0[0] + dw[0] * 1.5, p0[1] + dw[1] * 1.5), (p1[0] + dw[0] * 1.5, p1[1] + dw[1] * 1.5), 0.18)
+    S.linha(ca, cb, 0.18)
+    dd = _unit((cb[0] - ca[0], cb[1] - ca[1]))
+    n = _perp(dd)
+    for p0, sg in ((ca, 1), (cb, -1)):      # traços oblíquos nas pontas (padrão de isométrico)
+        S.linha((p0[0] - (dd[0] * sg - n[0]) * 1.0, p0[1] - (dd[1] * sg - n[1]) * 1.0),
+                (p0[0] + (dd[0] * sg - n[0]) * 1.0, p0[1] + (dd[1] * sg - n[1]) * 1.0), 0.25)
+    ang = math.degrees(math.atan2(dd[1], dd[0]))
+    if ang > 90.0:
+        ang -= 180.0
+    elif ang <= -90.0:
+        ang += 180.0
+    meio = ((ca[0] + cb[0]) / 2.0, (ca[1] + cb[1]) / 2.0)
+    # "para cima" do texto girado; o texto fica do lado de fora (longe do tubo)
+    a_r = math.radians(ang)
+    cima = (math.sin(a_r), -math.cos(a_r))
+    if cima[0] * dw[0] + cima[1] * dw[1] >= 0:
+        tp = (meio[0] + cima[0] * 0.8, meio[1] + cima[1] * 0.8)
+    else:
+        tp = (meio[0] - cima[0] * 3.0, meio[1] - cima[1] * 3.0)
+    S.texto(tp, texto, 2.5 if off < 10 else 2.2, "middle", ang)
+    F.ocupar_seg(ca, cb)
+    F.ocupar_circ(meio, 4.0)
+
+
 def desenhar(info, titulo=""):
     """SVG da folha inteira (420 × 297 mm): isométrico à esquerda, tabelas à direita."""
     res, L = info["res"], info["linha"]
@@ -200,6 +263,8 @@ def desenhar(info, titulo=""):
                 continue
             ponta = F.p(no + u * cf)
             d = F.dir(u)
+            if c["tipo"] == "Válvula":
+                continue
             if solda_topo:
                 S.circulo(ponta, 0.75, "#000")
             elif c["tipo"] not in ("Flange", "União"):
@@ -239,6 +304,27 @@ def desenhar(info, titulo=""):
             S.poli([(a_[0] + n[0] * 2.0, a_[1] + n[1] * 2.0), (b_[0] - n[0] * 2.0, b_[1] - n[1] * 2.0),
                     (b_[0] + n[0] * 2.0, b_[1] + n[1] * 2.0), (a_[0] - n[0] * 2.0, a_[1] - n[1] * 2.0)],
                    0.4, True, "#fff")
+        elif c["tipo"] == "Válvula":
+            u = c["pernas"][0][2]
+            d = F.dir(u)
+            n = _perp(d)
+            tipo = c["valvula"]["tipo"]
+            a_ = (pn[0] - d[0] * 3.2, pn[1] - d[1] * 3.2)
+            b_ = (pn[0] + d[0] * 3.2, pn[1] + d[1] * 3.2)
+            t1 = [(a_[0] + n[0] * 2.2, a_[1] + n[1] * 2.2), (pn[0], pn[1]), (a_[0] - n[0] * 2.2, a_[1] - n[1] * 2.2)]
+            t2 = [(b_[0] + n[0] * 2.2, b_[1] + n[1] * 2.2), (pn[0], pn[1]), (b_[0] - n[0] * 2.2, b_[1] - n[1] * 2.2)]
+            S.poli(t1, 0.4, True, "#fff")
+            S.poli(t2, 0.4, True, "#000" if tipo == "retencao" else "#fff")
+            for q in (a_, b_):             # faces flangeadas da válvula
+                S.linha((q[0] - n[0] * 2.8, q[1] - n[1] * 2.8), (q[0] + n[0] * 2.8, q[1] + n[1] * 2.8), 0.5)
+            if tipo == "globo":
+                S.circulo(pn, 0.9, "#000")
+            elif tipo == "esfera":
+                S.circulo(pn, 1.1, "#fff", 0.35)
+            if tipo in ("gaveta", "globo"):            # haste do volante
+                S.linha(pn, (pn[0] - n[0] * 4.0, pn[1] - n[1] * 4.0), 0.35)
+                S.linha((pn[0] - n[0] * 4.0 - d[0] * 1.8, pn[1] - n[1] * 4.0 - d[1] * 1.8),
+                        (pn[0] - n[0] * 4.0 + d[0] * 1.8, pn[1] - n[1] * 4.0 + d[1] * 1.8), 0.5)
         elif c["tipo"] == "União":
             u = c["pernas"][0][2]
             d = F.dir(u)
@@ -274,30 +360,14 @@ def desenhar(info, titulo=""):
             if melhor is None or sc > melhor[0]:
                 melhor = (sc, dw, ca, cb, pa, pb)
         _sc, dw, ca, cb, pa, pb = melhor
-        for p0, p1 in ((pa, ca), (pb, cb)):
-            S.linha((p0[0] + dw[0] * 1.5, p0[1] + dw[1] * 1.5), (p1[0] + dw[0] * 1.5, p1[1] + dw[1] * 1.5), 0.18)
-        S.linha(ca, cb, 0.18)
-        dd = _unit((cb[0] - ca[0], cb[1] - ca[1]))
-        n = _perp(dd)
-        for p0, sg in ((ca, 1), (cb, -1)):      # traços oblíquos nas pontas (padrão de isométrico)
-            S.linha((p0[0] - (dd[0] * sg - n[0]) * 1.0, p0[1] - (dd[1] * sg - n[1]) * 1.0),
-                    (p0[0] + (dd[0] * sg - n[0]) * 1.0, p0[1] + (dd[1] * sg - n[1]) * 1.0), 0.25)
-        ang = math.degrees(math.atan2(dd[1], dd[0]))
-        if ang > 90.0:
-            ang -= 180.0
-        elif ang <= -90.0:
-            ang += 180.0
-        meio = ((ca[0] + cb[0]) / 2.0, (ca[1] + cb[1]) / 2.0)
-        # "para cima" do texto girado; o texto fica do lado de fora (longe do tubo)
-        a_r = math.radians(ang)
-        cima = (math.sin(a_r), -math.cos(a_r))
-        if cima[0] * dw[0] + cima[1] * dw[1] >= 0:
-            tp = (meio[0] + cima[0] * 0.8, meio[1] + cima[1] * 0.8)
-        else:
-            tp = (meio[0] - cima[0] * 3.0, meio[1] - cima[1] * 3.0)
-        S.texto(tp, _fmt(comp, 0), 2.5, "middle", ang)
-        F.ocupar_seg(ca, cb)
-        F.ocupar_circ(meio, 4.0)
+        _cota(S, F, pa, pb, dw, 7.0, _fmt(comp, 0))
+        # válvulas e juntas no meio do trecho: cota em cadeia na segunda linha (onde fica cada uma)
+        marcas = _marcas_no_trecho(res, a, b)
+        if marcas:
+            pts = [a] + [a + u * m for m in marcas] + [b]
+            for k in range(len(pts) - 1):
+                _cota(S, F, F.p(pts[k]), F.p(pts[k + 1]), dw, 13.0, _fmt((pts[k + 1] - pts[k]).Length, 0),
+                      ext_ini=(k > 0))
     # etiquetas dos tubos (lista de corte)
     for t in info["tubos"]:
         m3 = (t["ini"] + t["fim"]) * 0.5

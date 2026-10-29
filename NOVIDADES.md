@@ -9,6 +9,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Válvulas na linha de aço.** Na tabela da tubulação de solda de topo, a coluna **Válvulas a (mm)** aceita a
+  distância e o tipo (ex.: `300 gaveta; 1200 retenção`): gaveta, globo, esfera (passagem reduzida) e retenção
+  portinhola, flangeadas, classe 150 ou 300, com face a face da ASME B16.10-2022 (conferida em duas fontes).
+  Cada válvula leva junta e estojos dos dois lados e o flange de pescoço do tubo; o corte desconta tudo.
+  No isométrico, símbolo de cada tipo e cota em cadeia até a válvula (e até as juntas de desmontagem).
+
 ## 1.2.0 — 29/10/2026
 
 ### Novidades

@@ -335,6 +335,56 @@ _WN = {   # classe: {DN: (O, tf, X, A, Y, D_ressalto, círculo de furação, fur
           200: (380, 39.7, 260, 219.1, 110, 269.9, 330.2, 12, "7/8", 140),
           250: (445, 46.1, 321, 273.0, 116, 323.8, 387.4, 16, "1", 160),
           300: (520, 49.3, 375, 323.8, 129, 381.0, 450.8, 16, "1-1/8", 170)}}
+# ASME B16.10-2022, válvulas de aço flangeadas RF: face a face (mm), com o ressalto incluído. Conferido em
+# wermac.org e projectmaterials.com (iguais célula a célula); Milwaukee Valve e Dongsan Valve confirmam de
+# DN 50 para cima. Retenção portinhola classe 150 DN 150 = 356 (nota da tabela; uma fonte dá 406, a do globo).
+# Esfera: padrão curto (passagem reduzida), que é o mais comum; a passagem plena usa o padrão longo.
+_FF = {
+    "gaveta": {150: (108, 117, 127, 140, 165, 178, 190, 203, 229, 267, 292, 330, 356),
+               300: (140, 152, 165, 178, 190, 216, 241, 282, 305, 403, 419, 457, 502)},
+    "globo": {150: (108, 117, 127, 140, 165, 203, 216, 241, 292, 406, 495, 622, 698),
+              300: (152, 178, 203, 216, 229, 267, 292, 318, 356, 444, 559, 622, 711)},
+    "retencao": {150: (108, 117, 127, 140, 165, 203, 216, 241, 292, 356, 495, 622, 698),
+                 300: (None, None, 216, 229, 241, 267, 292, 318, 356, 444, 533, 622, 711)},
+    "esfera": {150: (108, 117, 127, 140, 165, 178, 190, 203, 229, 267, 292, 330, 356),
+               300: (140, 152, 165, 178, 190, 216, 241, 282, 305, 403, 419, 457, 502)},
+}
+# altura do centro ao topo (aberta) e diâmetro do volante, classe 150 (Milwaukee Valve): só para o desenho
+_ALTURA = {"gaveta": {50: (455, 200), 65: (494, 200), 80: (553, 250), 100: (633, 250), 150: (827, 300),
+                      200: (1015, 350), 250: (1211, 450), 300: (1411, 500)},
+           "globo": {50: (383, 200), 65: (436, 250), 80: (456, 250), 100: (531, 300), 150: (583, 350),
+                     200: (670, 400)}}
+NOMES_VALVULA = {"gaveta": "Válvula gaveta", "globo": "Válvula globo", "retencao": "Válvula de retenção portinhola",
+                 "esfera": "Válvula esfera (passagem reduzida)"}
+TIPOS_VALVULA = ("gaveta", "globo", "esfera", "retencao")
+
+
+def _valvulas():
+    out = {}
+    for tipo, cls in _FF.items():
+        out[tipo] = {}
+        for cl, vals in cls.items():
+            out[tipo][cl] = {dn: float(v) for dn, v in zip(_DN_ACO, vals) if v is not None}
+    return out
+
+
+def valvula(L, tipo, d):
+    """{"ff": face a face, "altura", "volante"} da válvula na classe da linha, ou None."""
+    L = linha(L)
+    vs = L.get("valvulas") or {}
+    if tipo not in vs:
+        return None
+    cl = L.get("classe") or 150
+    ff = vs[tipo].get(cl, {}).get(d)
+    if ff is None:
+        return None
+    alt, vol = (_ALTURA.get(tipo, {}).get(d) or (None, None))
+    tb = L["tubos"][d]["De"]
+    if alt is None:          # sem dado de catálogo: proporção só para o desenho
+        alt, vol = 3.2 * tb + 160.0, max(100.0, 1.6 * tb)
+    return {"ff": ff, "altura": float(alt), "volante": float(vol)}
+
+
 RESSALTO_RF = 2.0               # mm, classes 150 e 300
 JUNTA_ESPIRALADA = 4.5          # mm, elemento de vedação (ASME B16.20)
 
@@ -383,7 +433,8 @@ def _linha_topo(sch):
         "materiais": {"tubo": "Aço carbono ASTM A106 Gr. B (típico)", "conexao": "Aço carbono ASTM A234 WPB (típico)",
                       "flange": "Aço carbono forjado ASTM A105 (típico)",
                       "junta": "Espiralada aço inox + grafite, anel centralizador (típico)",
-                      "estojo": "ASTM A193 B7 com porcas A194 2H (típico)"},
+                      "estojo": "ASTM A193 B7 com porcas A194 2H (típico)",
+                      "valvula": "Corpo de aço carbono fundido ASTM A216 WCB (típico)"},
         "fabricante": "Padrão ASME",
         "sufixo": "SCH %d" % sch,
         "sch": "SCH %d" % sch,
@@ -395,10 +446,12 @@ def _linha_topo(sch):
                   "luva_reducao": "Redução concêntrica {D} × {d} {sch}", "cap": "Cap (tampão) {dn} {sch}",
                   "tubo": "Tubo de aço carbono sem costura {dn} {sch}",
                   "flange": "Flange de pescoço (WN) classe {classe} RF {dn} {sch}",
-                  "junta": "Junta espiralada classe {classe} {dn}"},
-        "fonte": FONTE_ASME,
-        "norma": "ASME B36.10M (tubos), ASME B16.9 (conexões de solda de topo), ASME B16.5 (flanges) e ASME "
-                 "B16.20 (juntas); edições a checar na especificação do projeto",
+                  "junta": "Junta espiralada classe {classe} {dn}",
+                  "valvula": "{nome} classe {classe} RF {dn}"},
+        "fonte": FONTE_ASME + "; válvulas ASME B16.10-2022 (wermac.org e projectmaterials.com)",
+        "norma": "ASME B36.10M (tubos), ASME B16.9 (conexões de solda de topo), ASME B16.5 (flanges), ASME "
+                 "B16.20 (juntas) e ASME B16.10 (face a face das válvulas); edições a checar na especificação do "
+                 "projeto",
         "pressao": "Conforme cálculo da linha (ASME B31.3 ou B31.1) e classe do flange",
         "temperatura_max": "Conforme especificação de material",
         "cor": (0.42, 0.45, 0.48),
@@ -419,6 +472,7 @@ def _linha_topo(sch):
         "bucha_longa": {},
         "cap": cap,
         "flanges": _flanges(),
+        "valvulas": _valvulas(),
         "junta_espessura": JUNTA_ESPIRALADA,
         "densidade": 7850.0,
         "a_conferir": {},
@@ -541,6 +595,7 @@ NOMES_PADRAO = {
     "flange": "Flange classe {classe} {dn}",
     "junta": "Junta para flange classe {classe} {dn}",
     "estojo": "Estojo {est} com 2 porcas",
+    "valvula": "{nome} {dn}",
 }
 
 
