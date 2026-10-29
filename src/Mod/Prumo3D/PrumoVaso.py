@@ -333,55 +333,79 @@ PE_CHAPA_ESP = 4.75        # mm (3/16")
 PE_CHAPA_FURO = 13.0       # mm, furo da sapata (parafuso M12 ou coxim)
 
 
-def _perfil_pe(Ro, D, altura, r_berco):
-    """Linha média do pé de chapa no plano YZ (z para cima, eixo do vaso em y = z = 0): sapata, perna aberta,
-    berço no raio r_berco, perna, sapata. Devolve (pontos, h, y_sapata, largura da tira)."""
-    h = altura or (Ro + max(80.0, 0.25 * D))      # do eixo até o chão
-    ang = math.radians(35.0)                        # o berço abraça ±35° do fundo
-    yb, zb = r_berco * math.sin(ang), -r_berco * math.cos(ang)
-    yf = max(Ro * 0.85, yb + 40.0)                  # pés abertos para os lados (mais estável)
-    sap = 45.0
-    larg = max(50.0, min(100.0, 0.1 * D))
-    return (yb, zb, yf, sap, h, larg)
+PE_CHAPA_ABERTURA = 12.0   # graus: o pé abre para fora, no sentido do comprimento do vaso
 
 
-def pe_de_chapa(x, Ro, D, altura=0.0, esp=PE_CHAPA_ESP):
-    """Sólido de um pé de chapa dobrada centrado em x (largura ao longo do eixo do vaso)."""
+def _medidas_pe(Ro, D, altura):
+    """(h, largura da alma, aba, y do pé, sapata) do pé de chapa dobrada em U."""
+    h = altura or (Ro + max(80.0, 0.25 * D))       # do eixo até o chão
+    larg = max(50.0, min(150.0, 0.15 * D))           # alma (a face que se vê de frente)
+    aba = max(25.0, min(60.0, 0.07 * D))             # abas dobradas para dentro
+    y0 = 0.55 * Ro                                   # pés afastados do eixo, para os lados
+    sap = 40.0                                       # sapata estende para fora
+    return h, larg, aba, y0, sap
+
+
+def _canal_pe(xc, y0, lado, sentido, Ro, D, altura, solido=True, esp=PE_CHAPA_ESP, r_corte=None):
+    """Um pé: perfil U de chapa dobrada (alma voltada para fora do vaso, abas para dentro), inclinado
+    PE_CHAPA_ABERTURA graus para a ponta do vaso (sentido = -1 ou +1), recortado no costado (raio r_corte)
+    e cortado no chão. Com solido=False, devolve as faces médias (para a casca do teste de pressão)."""
     import Part
     V = FreeCAD.Vector
-    rc = Ro + esp / 2.0 - 0.5          # 0,5 mm dentro do costado: a solda funde o pé com o vaso
-    yb, zb, yf, sap, h, larg = _perfil_pe(Ro, D, altura, rc)
-    zc = -h + esp / 2.0
-    x0 = x - larg / 2.0
-    e2 = esp / 2.0
+    h, larg, aba, _y0, _sap = _medidas_pe(Ro, D, altura)
+    r_corte = r_corte or Ro
+    topo, fundo = 0.0, -h - 200.0
+    y_alma = lado * y0                       # lado = -1 (frente) ou +1 (trás)
+    dentro = -lado                            # as abas vão para o meio do vaso
+    if solido:
+        alma = Part.makeBox(larg, esp, topo - fundo, V(xc - larg / 2.0, y_alma - (esp if lado < 0 else 0), fundo))
+        abas = [Part.makeBox(esp, aba, topo - fundo,
+                             V(x, y_alma if dentro > 0 else y_alma - aba, fundo))
+                for x in (xc - larg / 2.0, xc + larg / 2.0 - esp)]
+        canal = alma.fuse(abas).removeSplitter()
+    else:
+        f_alma = Part.Face(Part.makePolygon([V(xc - larg / 2.0, y_alma, fundo), V(xc + larg / 2.0, y_alma, fundo),
+                                             V(xc + larg / 2.0, y_alma, topo), V(xc - larg / 2.0, y_alma, topo),
+                                             V(xc - larg / 2.0, y_alma, fundo)]))
+        faces = [f_alma]
+        for x in (xc - larg / 2.0, xc + larg / 2.0):
+            faces.append(Part.Face(Part.makePolygon([V(x, y_alma, fundo), V(x, y_alma + dentro * aba, fundo),
+                                                     V(x, y_alma + dentro * aba, topo), V(x, y_alma, topo),
+                                                     V(x, y_alma, fundo)])))
+        canal = Part.Compound(faces)
+    # abre para a ponta do vaso: gira em torno do ponto onde encontra o costado
+    z_contato = -math.sqrt(max(r_corte ** 2 - y0 ** 2, 1.0))
+    canal.rotate(V(xc, y_alma, z_contato), V(0, 1, 0), -sentido * PE_CHAPA_ABERTURA)
+    # corta no chão e recorta no costado
+    chao = Part.makeBox(1e5, 1e5, 1e5, V(-5e4, -5e4, -h))
+    vaso = Part.makeCylinder(r_corte, 1e5, V(-5e4, 0, 0), V(1, 0, 0))
+    canal = canal.common(chao).cut(vaso)
+    return canal
 
-    def faixa_reta(a, b):
-        """Trecho reto da chapa: retângulo de a até b (no plano YZ) com a espessura, puxado ao longo de X."""
-        d = b - a
-        n = V(0, -d.z, d.y)
-        n.normalize()
-        n = n * e2
-        q = [V(x0, *(c)) for c in ((a.y + n.y, a.z + n.z), (b.y + n.y, b.z + n.z), (b.y - n.y, b.z - n.z),
-                                   (a.y - n.y, a.z - n.z))]
-        return Part.Face(Part.makePolygon(q + [q[0]])).extrude(V(larg, 0, 0))
 
-    def dobra(c):
-        """Dobra arredondada (raio interno ≈ 0) no canto c."""
-        return Part.makeCylinder(e2, larg, V(x0, c.y, c.z), V(1, 0, 0))
-
-    P = [V(0, -yf - sap, zc), V(0, -yf, zc), V(0, -yb, zb), V(0, yb, zb), V(0, yf, zc), V(0, yf + sap, zc)]
-    partes = [faixa_reta(P[0], P[1]), faixa_reta(P[1], P[2]), faixa_reta(P[3], P[4]), faixa_reta(P[4], P[5]),
-              dobra(P[1]), dobra(P[2]), dobra(P[3]), dobra(P[4])]
-    # berço: anel de chapa (rc ± meia espessura) só no arco de baixo, entre as duas dobras de cima
-    anel = Part.makeCylinder(rc + e2, larg, V(x0, 0, 0), V(1, 0, 0)).cut(
-        Part.makeCylinder(rc - e2, larg, V(x0, 0, 0), V(1, 0, 0)))
-    janela = Part.Face(Part.makePolygon([V(x0, 0, 0), V(x0, -yb * 3, zb * 3), V(x0, 0, -rc * 3),
-                                         V(x0, yb * 3, zb * 3), V(x0, 0, 0)])).extrude(V(larg, 0, 0))
-    partes.append(anel.common(janela))
-    pe = partes[0].fuse(partes[1:]).removeSplitter()
-    for y in (-yf - sap / 2.0, yf + sap / 2.0):
-        pe = pe.cut(Part.makeCylinder(PE_CHAPA_FURO / 2.0, esp * 4, V(x, y, -h - esp), V(0, 0, 1)))
-    return pe
+def pes_de_chapa(xc, sentido, Ro, D, altura=0.0, esp=PE_CHAPA_ESP):
+    """Os dois pés (frente e trás) numa posição xc: perfis U com sapata e furo de fixação."""
+    import Part
+    V = FreeCAD.Vector
+    h, larg, aba, y0, sap = _medidas_pe(Ro, D, altura)
+    # o pé encosta no costado 0,5 mm para dentro (a solda funde o pé com o vaso)
+    r = Ro - 0.5
+    z_contato = -math.sqrt(max(r ** 2 - y0 ** 2, 1.0))
+    desvio = math.tan(math.radians(PE_CHAPA_ABERTURA)) * (h + z_contato)   # quanto o pé anda no chão
+    res = []
+    for lado in (-1.0, 1.0):
+        canal = _canal_pe(xc, y0, lado, sentido, Ro, D, altura, True, esp, r)
+        xb = xc + sentido * desvio
+        y_alma = lado * y0
+        # sapata: chapa no chão sob o U, estendida para a ponta do vaso, com furo
+        x1 = xb - larg / 2.0 - (sap if sentido < 0 else 0.0)
+        x2 = xb + larg / 2.0 + (sap if sentido > 0 else 0.0)
+        y1, y2 = sorted((y_alma + lado * esp, y_alma - lado * aba))
+        sapata = Part.makeBox(x2 - x1, y2 - y1, esp, V(x1, y1, -h))
+        xf = xb + sentido * (larg / 2.0 + sap / 2.0)
+        sapata = sapata.cut(Part.makeCylinder(PE_CHAPA_FURO / 2.0, esp * 3, V(xf, (y1 + y2) / 2.0, -h - esp)))
+        res.append(canal.fuse(sapata).removeSplitter())
+    return res
 
 
 def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altura=0.0, vertical=False):
@@ -424,10 +448,11 @@ def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altur
             Part.makeCylinder(Ro - t_costado - 80, 16, FreeCAD.Vector(x0, 0, 0), FreeCAD.Vector(1, 0, 0)))
         pecas += [saia, anel]
     elif tipo == "Pés de chapa" and not vertical:
-        # como nos reservatórios de compressor: em cada posição, uma tira de chapa dobrada que abraça o fundo
-        # do costado (berço), desce aberta para os lados e termina em sapatas planas com furo de fixação
-        for x in (pos_selas or 0.2 * comp, comp - (pos_selas or 0.2 * comp)):
-            pecas.append(pe_de_chapa(x, Ro, D, altura))
+        # como nos reservatórios de compressor: quatro pés de chapa dobrada em U, recortados no costado, abertos
+        # para as pontas do vaso, com sapata e furo de fixação
+        a = pos_selas or 0.2 * comp
+        for x, sentido in ((a, -1.0), (comp - a, 1.0)):
+            pecas += pes_de_chapa(x, sentido, Ro, D, altura)
     elif tipo == "Pernas" and not vertical:
         # vaso deitado: quatro tubos embaixo do costado, nas mesmas posições das selas, recortados no costado
         a = pos_selas or 0.2 * comp
@@ -841,15 +866,12 @@ def casca_media(v):
         base_z = x0
     elif sup == "Pés de chapa" and not vertical:
         a = v.PosicaoSelas.Value or 0.2 * comp
-        V_ = FreeCAD.Vector
-        for x in (a, comp - a):
-            yb, zb, yf, sap, h, larg = _perfil_pe(Ri + tc, D, v.AlturaSuporte.Value, Rm)
-            x0 = x - larg / 2.0
-            # na casca, cada perna (com a sapata) sai da superfície média do costado; o berço é o próprio costado
-            for s_ in (-1.0, 1.0):
-                fio = Part.Wire([Part.LineSegment(V_(x0, s_ * (yf + sap), -h), V_(x0, s_ * yf, -h)).toShape(),
-                                 Part.LineSegment(V_(x0, s_ * yf, -h), V_(x0, s_ * yb, zb)).toShape()])
-                for f in fio.extrude(V_(larg, 0, 0)).Faces:
+        h, _l, _ab, y0, _s = _medidas_pe(Ri + tc, D, v.AlturaSuporte.Value)
+        for x, sentido in ((a, -1.0), (comp - a, 1.0)):
+            for lado in (-1.0, 1.0):
+                # na casca, as faces médias do U saem da superfície média do costado
+                faces = _canal_pe(x, y0, lado, sentido, Ri + tc, D, v.AlturaSuporte.Value, False, r_corte=Rm)
+                for f in faces.Faces:
                     pecas.append((f, "pé de chapa", PE_CHAPA_ESP))
         base_z = -h
     elif sup == "Pernas" and not vertical:

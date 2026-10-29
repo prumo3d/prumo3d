@@ -5573,7 +5573,8 @@ class T45BancadaVasos(unittest.TestCase):
                 p.close()
 
     def test_pes_de_chapa_de_compressor(self):
-        """Pés de chapa dobrada (reservatório de compressor): dois, sapatas no chão com furo, e no FEM."""
+        """Pés de chapa dobrada em U (reservatório de compressor): quatro, abertos para as pontas, sapatas no chão
+        com furo, e no FEM."""
         import PrumoVaso as V
         v = self._vaso(suportes="Nenhum")
         sem = v.Shape.Volume
@@ -5582,12 +5583,17 @@ class T45BancadaVasos(unittest.TestCase):
         self.assertEqual(v.Avisos, [])
         self.assertTrue(v.Shape.isValid())
         self.assertEqual(len(v.Shape.Solids), 1, "os pés ficam soldados no costado")
-        pe = V.pe_de_chapa(300.0, 400.0 + 6.0, 800.0)
-        self.assertTrue(pe.isValid())
-        self.assertGreater(pe.Volume, 0)
+        pes = V.pes_de_chapa(300.0, 1.0, 400.0 + 6.0, 800.0)
+        self.assertEqual(len(pes), 2, "frente e trás")
+        for pe in pes:
+            self.assertTrue(pe.isValid())
+            self.assertEqual(len(pe.Solids), 1)
+        # o pé abre para a ponta do vaso: a sapata fica mais longe do meio que o topo do U
+        bbp = pes[0].BoundBox
+        self.assertGreater(bbp.XMax, 300.0 + 60.0)
         bb = v.Shape.BoundBox
         self.assertLess(bb.ZMin, -406.0 - 50.0, "sapatas abaixo do costado")
-        self.assertGreater(v.Shape.Volume, sem + 2 * pe.Volume * 0.5)
+        self.assertGreater(v.Shape.Volume, sem + 4 * pes[0].Volume * 0.5)
         # a sapata é plana, no chão, com furo
         chao = [f for f in v.Shape.Faces if abs(f.BoundBox.ZMax - bb.ZMin) < 1e-6 and abs(f.BoundBox.ZMin - bb.ZMin) < 1e-6]
         self.assertGreaterEqual(len(chao), 4)
