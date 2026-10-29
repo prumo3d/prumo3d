@@ -27,17 +27,18 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.1.0** (29/10/2026)
+**Versão atual: 1.2.0** (29/10/2026)
 
-- **Fluxo de trabalho que se explica:** a faixa mostra o que serve no momento (as raras ficam no **Mais**),
-  Ctrl+K procura qualquer comando, e os avisos já trazem o botão que conserta.
-- **Desenho:** Paleta de vistas, arranjos prontos, cotas gerais, Salvar PDF e Exportar DXF.
-- **Montagem:** Tangente, Coincidente, Mover junta, Travar juntos, Padrão de componentes, Componentes dos
-  sólidos e folga mínima na interferência.
-- **Esboço:** cota a mais vira cota de referência, sem deixar o esboço vermelho.
-- **Vasos:** pés de chapa como nos reservatórios de compressor e pernas no vaso deitado.
-- Lista de materiais com itens comprados e de referência. A aba BIM saiu: o foco é a engenharia mecânica.
+- **Tubulação de aço carbono:** solda de topo SCH 40/80 (ASME B36.10M/B16.9) com flanges classe 150/300
+  e contagem de soldas, e roscada BSP (NBR 5580 + conexões Tupy), com corte descontando as conexões.
+- **Folha isométrica:** A3 com o isométrico da linha, cotas, números das peças, lista de material e de corte.
+- **Desenho:** solda, rugosidade e ajuste furo/eixo (ISO 286) em português, no padrão de cartões.
+- **Montagem:** batente de contato e trajetória de um ponto no Mover junta.
+- **Vasos:** medida do costado pelo perímetro (fita métrica).
+- **Atualização só do complemento:** daqui em diante, poucos MB em vez do pacote inteiro.
 
+Na 1.1.0: faixa que mostra o que serve no momento, Ctrl+K, Paleta de vistas, Mover junta e Travar juntos,
+pés de chapa nos vasos.
 Na 1.0.2: comprimento digitado durante o desenho no Esboço 3D.
 Na 1.0.1: atualização automática corrigida.
 Na 1.0.0: primeira versão final.
