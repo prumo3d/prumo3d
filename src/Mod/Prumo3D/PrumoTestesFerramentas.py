@@ -11655,6 +11655,30 @@ class T82MontagemComoSolidCraft(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.M.componentes_dos_solidos(novas[0])
 
+    def test_lista_de_materiais_com_comprado_e_referencia(self):
+        """Tipo na lista (BOM type): Comprado vira uma linha só; Referência não entra."""
+        import PrumoBOM as B
+        import PrumoPropriedades as PP
+        doc = self.doc
+        redutor = doc.addObject("App::Part", "Redutor")
+        for k in range(3):
+            b = doc.addObject("Part::Box", "Engr%d" % k)
+            redutor.addObject(b)
+        gab = doc.addObject("Part::Box", "Gabarito")
+        doc.recompute()
+        n0 = len(B.coletar([redutor, gab, self.braco]))
+        self.assertGreaterEqual(n0, 3)
+        for o, t in ((redutor, "Comprado"), (gab, "Referência")):
+            PP.garantir(o)
+            o.NaLista = t
+        linhas = B.coletar([redutor, gab, self.braco])
+        dens = {l.denominacao: l for l in linhas}
+        self.assertIn("Redutor", dens, "o redutor comprado é uma linha")
+        self.assertTrue(dens["Redutor"].obs.startswith("comprado"))
+        self.assertFalse(any(d.startswith("Engr") for d in dens), "as engrenagens de dentro não entram")
+        self.assertNotIn("Gabarito", dens, "referência não entra")
+        self.assertIn("Braco", dens)
+
     def test_procurar_comando(self):
         import PrumoBuscaComandos as B
         itens = B.indice()

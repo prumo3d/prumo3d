@@ -54,6 +54,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Erros que já trazem o conserto:** na Tangente com duas faces planas, o aviso tem o botão "Usar
   Coincidente", que grava na hora; numa montagem sem peça fixa, o painel da restrição oferece "Fixar" a
   primeira peça.
+- **Lista de materiais com tipo de item:** em Propriedades da peça, "Na lista de materiais" pode ser
+  Fabricado (o normal), Comprado (uma linha só, sem as peças de dentro: motor, redutor, cilindro) ou
+  Referência (não entra: gabarito, máquina vizinha).
 - **Componentes dos sólidos** (aba Montagem): um STEP (ou objeto) com vários sólidos vira uma peça para cada
   sólido, no lugar, prontas para receber restrições.
 - **Procurar comando (Ctrl+K ou a lupa no alto da faixa):** digite parte do nome (furo, tangente, cota…) e

@@ -93,13 +93,63 @@ def _e_tubulacao(obj):
         return False
 
 
+# como cada item entra na lista (propriedade NaLista, escolhida em Propriedades da peça)
+FABRICADO, COMPRADO, REFERENCIA = "Fabricado", "Comprado", "Referência"
+TIPOS_NA_LISTA = (FABRICADO, COMPRADO, REFERENCIA)
+
+
+def tipo_na_lista(obj):
+    v = _prop(_alvo(obj), "NaLista") or _prop(obj, "NaLista")
+    return v if v in TIPOS_NA_LISTA else FABRICADO
+
+
+def _tem_tipos(objs):
+    """Alguém marcou Comprado/Referência? (sem isso, a lista sai exatamente como antes)."""
+    pilha, vistos = list(objs), set()
+    while pilha:
+        o = pilha.pop()
+        k = (o.Document.Name, o.Name)
+        if k in vistos:
+            continue
+        vistos.add(k)
+        if tipo_na_lista(o) != FABRICADO:
+            return True
+        if PrumoUtil._eh_container(o):
+            pilha.extend(PrumoUtil._filhos(o))
+    return False
+
+
+def itens(objs):
+    """[(obj, forma, comprado?)]: peças com a posição no espaço, respeitando o tipo na lista:
+    Referência não entra (nem o que tem dentro); Comprado entra como um item só (o que tem dentro, não)."""
+    import Part
+    if not _tem_tipos(objs):
+        return [(o, sh, False) for o, sh in PrumoUtil.pecas(objs)]
+    res = []
+    for o in objs:
+        t = tipo_na_lista(o)
+        if t == REFERENCIA:
+            continue
+        if PrumoUtil._eh_container(o):
+            if t == COMPRADO:
+                ps = PrumoUtil.pecas([o])
+                if ps:
+                    res.append((o, Part.makeCompound([sh for _o, sh in ps]), True))
+            else:
+                res.extend(itens(PrumoUtil._filhos(o)))
+            continue
+        for oo, sh in PrumoUtil.pecas([o]):
+            res.append((oo, sh, t == COMPRADO))
+    return res
+
+
 def coletar(objs, densidade_padrao=None):
     """Linhas da lista de materiais para os objetos (abre montagens, partes e grupos)."""
     if densidade_padrao is None:
         densidade_padrao = PrumoUtil.densidade_padrao()
     linhas = {}
     ordem = []
-    for obj, sh in PrumoUtil.pecas(objs):
+    for obj, sh, comprado in itens(objs):
         base = _alvo(obj)
         if "Perna" in base.PropertiesList and "Pecas" in base.PropertiesList:
             continue  # cordão de solda: vai para a lista de soldas
@@ -155,6 +205,8 @@ def coletar(objs, densidade_padrao=None):
             acab = _prop(base, "Acabamento")
             if acab:
                 obs = (obs + "; " if obs else "") + str(acab)
+            if comprado:
+                obs = "comprado" + ("; " + obs if obs and obs != "material a definir" else "")
             linhas[chave] = Linha(chave, den, nome_mat if definido else "—", _dimensoes(base, sh),
                                   massa, obs, str(_prop(base, "Codigo") or ""))
             ordem.append(chave)

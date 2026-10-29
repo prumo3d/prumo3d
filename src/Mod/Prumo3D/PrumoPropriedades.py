@@ -28,7 +28,19 @@ def garantir(obj):
     for nome, rotulo, _ic, dica in CAMPOS:
         if nome not in obj.PropertiesList:
             obj.addProperty("App::PropertyString", nome, GRUPO, dica)
+    if "NaLista" not in obj.PropertiesList:
+        obj.addProperty("App::PropertyString", "NaLista", GRUPO,
+                        "Na lista de materiais: Fabricado, Comprado (uma linha, sem o que tem dentro) ou "
+                        "Referência (não entra)")
+        obj.NaLista = "Fabricado"
     return obj
+
+
+NA_LISTA = (("Fabricado", "Fabricado", "Cada peça vira linha na lista (o normal)."),
+            ("Comprado", "Comprado", "Uma linha só, sem as peças de dentro: motor, redutor, rolamento, "
+                                     "cilindro pneumático..."),
+            ("Referência", "Referência (não entra)", "Só para mostrar no modelo: gabarito, máquina vizinha, "
+                                                     "peça do cliente."))
 
 
 def ler(obj, nome, padrao=""):
@@ -220,6 +232,7 @@ def install():
 
 # ------------------------------------------------------------------ painel
 def _filtro_peca(obj, subs):
+    # peça, corpo, parte ou submontagem (para marcar um conjunto comprado inteiro)
     return [(obj.Label, obj)] if PrumoUtil.pecas([obj]) else []
 
 
@@ -261,6 +274,12 @@ def _painel():
             self.campos = {}
             for nome, rotulo, ic, dica in CAMPOS:
                 self.campos[nome] = s1.linha(ic, QtWidgets.QLineEdit(), dica, rotulo)
+            self.na_lista = QtWidgets.QComboBox()
+            for k, rot, dica in NA_LISTA:
+                self.na_lista.addItem(rot, k)
+                self.na_lista.setItemData(self.na_lista.count() - 1, dica, 3)   # 3 = dica (ToolTipRole)
+            s1.linha("tipo", self.na_lista, "Fabricado: cada peça é uma linha. Comprado: uma linha só, sem o "
+                     "que tem dentro (motor, redutor). Referência: não entra na lista.", "Na lista de materiais")
             s2 = f.secao("Material e massa", "material")
             self.material = QtWidgets.QComboBox()
             self.material.addItem("(manter)", "")
@@ -278,6 +297,8 @@ def _painel():
             o = vs[0]
             for nome, w in self.campos.items():
                 w.setText(ler(o, nome))
+            i = self.na_lista.findData(ler(o, "NaLista", "Fabricado"))
+            self.na_lista.setCurrentIndex(max(i, 0))
             if not self.campos["Denominacao"].text():
                 self.campos["Denominacao"].setPlaceholderText(o.Label)
             mat = material(o)
@@ -289,6 +310,7 @@ def _painel():
             garantir(o)
             for nome, w in self.campos.items():
                 setattr(o, nome, w.text().strip())
+            o.NaLista = self.na_lista.currentData()
             uuid = self.material.currentData()
             if uuid:
                 definir_material(o, uuid)
