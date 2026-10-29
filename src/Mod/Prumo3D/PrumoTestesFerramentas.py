@@ -11831,7 +11831,7 @@ class T83FaixaDoMomento(unittest.TestCase):
         self.assertTrue(self.R.folha_aberta())
         cmds, mais = self._aba("desenho")
         for c in ("TechDraw_View", "TechDraw_SectionGroup", "TechDraw_CompDimensionTools", "Prumo_CotasGerais",
-                  "TechDraw_WeldSymbol", "Prumo_SalvarPDF", "Prumo_ExportarDXF"):
+                  "Prumo_Solda2D", "Prumo_SalvarPDF", "Prumo_ExportarDXF"):
             self.assertIn(c, cmds)
         for c in ("TechDraw_BrokenView", "TechDraw_ClipGroup", "TechDraw_DimensionRepair"):
             self.assertNotIn(c, cmds, "%s é rara: vai para o Mais" % c)
@@ -12041,6 +12041,193 @@ class T84EsbocoNaoSuperRestringe(unittest.TestCase):
         self._esp(0.4)
         self.assertEqual(len(self.sk.Constraints), 3)
 
+class T85SoldaRugosidadeAjuste(unittest.TestCase):
+    """Desenho em português: ajuste ISO 286 (tabelas conferidas célula por célula com a do FreeCAD), símbolo de
+    solda ISO 2553 com linha de chamada e rugosidade ISO 1302 do lado de fora da superfície."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        try:
+            import TechDraw  # noqa: F401
+        except ImportError:
+            self.skipTest("sem TechDraw")
+        import PrumoFolhas
+        import PrumoVistas
+        self.doc = novo_doc("PrumoAnotacoes")
+        b = self.doc.addObject("Part::Box", "Chapa")
+        b.Length, b.Width, b.Height = 120, 60, 40
+        self.doc.recompute()
+        self.page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {}, [b], arranjo="frontal_superior")
+        g = PrumoVistas.grupo_da_peca(self.page, [b])
+        PrumoVistas.esperar_vistas(list(g.Views), 30)
+        self.frente = [v for v in g.Views if v.Type == "Front"][0]
+        self.b = b
+
+    def tearDown(self):
+        try:
+            if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        except Exception:
+            pass
+        fechar(self.doc)
+
+    def test_ajustes_conhecidos(self):
+        import PrumoAjustes as J
+        self.assertEqual(J.classe("H7", 25), (21, 0))
+        self.assertEqual(J.classe("g6", 25), (-7, -20))
+        self.assertEqual(J.classe("K7", 25), (6, -15))
+        self.assertEqual(J.classe("s6", 25), (48, 35))
+        a = J.Ajuste("H7/g6", 25)
+        self.assertEqual((a.folga_min, a.folga_max, a.tipo), (7, 41, "folga"))
+        self.assertEqual(J.Ajuste("H7/k6", 25).tipo, "incerto")
+        self.assertEqual(J.Ajuste("H7/s6", 25).tipo, "interferência")
+        with self.assertRaises(ValueError):
+            J.classe("H7", 600)
+
+    def test_tabela_bate_com_a_do_freecad(self):
+        """Fonte independente: TechDrawTools/TaskHoleShaftFit.py (mesmas faixas, mesmos µm)."""
+        import os
+        import PrumoAjustes as J
+        caminho = os.path.join(FreeCAD.getHomePath(), "Mod", "TechDraw", "TechDrawTools", "TaskHoleShaftFit.py")
+        if not os.path.isfile(caminho):
+            self.skipTest("tabela do FreeCAD não encontrada")
+        src = open(caminho, encoding="utf-8").read()
+        ns = {}
+        exec(src[src.index("class ISO286"):], ns)
+        iso = ns["ISO286"]()
+        meios = [(J.LIMITES[k] + J.LIMITES[k + 1]) / 2.0 for k in range(25)]
+        diverg = []
+        for k, D in enumerate(meios):
+            for q in range(6, 12):
+                if J.it(q, D) != iso.getITValue(q, k):
+                    diverg.append(("IT%d" % q, D))
+            for L, cl in (("c", "c11"), ("f", "f7"), ("g", "g6"), ("k", "k6"), ("r", "r6"), ("s", "s6"),
+                          ("D", "D10"), ("E", "E9"), ("F", "F8"), ("G", "G7"), ("K", "K7"), ("N", "N7"),
+                          ("R", "R7"), ("S", "S7")):
+                if J.classe(cl, D)[0] != iso.getFieldValue(L, k):
+                    diverg.append((cl, D))
+        self.assertEqual(diverg, [])
+
+    def test_ajuste_na_cota(self):
+        import PrumoVistas
+        import PrumoAjustes as J
+        cotas = PrumoVistas.cotas_gerais(self.page, [self.b])
+        d = cotas[0]
+        J.aplicar_na_cota(d, "h6")
+        self.assertTrue(str(d.FormatSpec).endswith("h6"))
+        self.assertAlmostEqual(d.UnderTolerance.Value, -0.022, places=6)
+        J.aplicar_na_cota(d, "H7")
+        self.assertTrue(str(d.FormatSpec).endswith(" H7") and "h6" not in str(d.FormatSpec), "troca, não acumula")
+
+    def test_solda_com_os_dois_lados(self):
+        import PrumoAnotacoes as A
+        p = A.ponto_da_aresta(self.frente, "Edge0")
+        s, l = A.criar_solda(self.frente, p, "filete", "ambos", "a5", "200", True, True, "135")
+        self.assertIs(s.Leader, l)
+        self.assertIn(l, self.page.Views)
+        telhas = [t for t in self.doc.Objects if t.TypeId == "TechDraw::DrawTileWeld" and t.TileParent is s]
+        self.assertEqual(sorted(t.TileRow for t in telhas), [-1, 0])
+        for t in telhas:
+            self.assertTrue(t.SymbolFile.endswith(("filete_acima.svg", "filete_abaixo.svg")))
+            self.assertEqual(t.LeftText, "a5")
+        self.assertTrue(s.AllAround and s.FieldWeld)
+        s2, _l2 = A.criar_solda(self.frente, p, "v", "seta")
+        t2 = {t.TileRow: t for t in self.doc.Objects if t.TypeId == "TechDraw::DrawTileWeld" and t.TileParent is s2}
+        self.assertTrue(t2[0].SymbolFile.endswith("v_acima.svg"))
+        self.assertFalse(t2[-1].SymbolFile.endswith("v_abaixo.svg"), "lado oposto fica em branco")
+
+    def test_rugosidade_do_lado_de_fora(self):
+        import PrumoAnotacoes as A
+        svg = A.svg_rugosidade("1,6", "remover", "retificado", "=", True)
+        self.assertIn("Ra 1,6", svg)
+        self.assertIn("retificado", svg)
+        self.assertIn("<circle", svg)
+        # aresta de cima: em pé, sem linha de chamada; de baixo: linha de chamada e em pé
+        ar = {}
+        for k in range(4):
+            e = self.frente.getEdgeByIndex(k)
+            ar[k] = (e.Vertexes[0].Point + e.Vertexes[-1].Point) * 0.5
+        topo = max(ar, key=lambda k: ar[k].y)
+        fundo = min(ar, key=lambda k: ar[k].y)
+        r1 = A.criar_rugosidade(self.frente, A.ponto_da_aresta(self.frente, "Edge%d" % topo), "3,2")
+        self.assertEqual(float(r1.Rotation), 0.0)
+        self.assertGreater(float(r1.Y), ar[topo].y, "fica acima da superfície de cima")
+        n_lideres = len([o for o in self.doc.Objects if o.TypeId == "TechDraw::DrawLeaderLine"])
+        r2 = A.criar_rugosidade(self.frente, A.ponto_da_aresta(self.frente, "Edge%d" % fundo), "6,3")
+        self.assertEqual(float(r2.Rotation), 0.0, "nunca de cabeça para baixo")
+        self.assertEqual(len([o for o in self.doc.Objects if o.TypeId == "TechDraw::DrawLeaderLine"]),
+                         n_lideres + 1)
+        self.assertLess(float(r2.Y), ar[fundo].y, "embaixo da superfície de baixo")
+
+    def test_paineis_em_portugues_na_faixa(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        import PrumoAnotacoes as A
+        import PrumoAjustes as J
+        des = [t for t in R.TABS if t["id"] == "desenho"][0]
+        cmds = [c for _p, itens in des["panels"] for c, _s, _r in itens]
+        for c in ("Prumo_Solda2D", "Prumo_Rugosidade", "Prumo_AjusteFuroEixo"):
+            self.assertIn(c, cmds)
+            self.assertIn(c, FreeCADGui.listCommands())
+        for cls in (A.PainelSolda, A.PainelRugosidade, J.PainelAjuste):
+            p = cls()
+            try:
+                self.assertTrue(p.form.findChildren(QtWidgets.QLabel))
+                textos = " ".join(w.text() for w in p.form.findChildren(QtWidgets.QLabel))
+                for ingles in ("Weld", "Surface", "Fit", "Hole", "Shaft"):
+                    self.assertNotIn(ingles, textos)
+            finally:
+                p.close()
+        p = J.PainelAjuste()
+        try:
+            p.D.setValue(25.0)
+            self.assertIn("Folga de 0,007 a 0,041 mm", p.res.text())
+            self.assertIn("NBR 6158", p.nota.text())
+        finally:
+            p.close()
+
+    def test_paineis_abrem_no_painel_de_tarefas(self):
+        """Os três abrem de fato (um método interno sobrescrito sem querer deixava o do ajuste sem abrir)."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoAnotacoes as A
+        import PrumoAjustes as J
+        FreeCADGui.Control.closeDialog()
+        for cls in (A.PainelSolda, A.PainelRugosidade, J.PainelAjuste):
+            p = cls()
+            try:
+                self.assertIs(p.mostrar(), p, cls.__name__)
+                for _i in range(15): QtWidgets.QApplication.processEvents()
+                self.assertTrue(FreeCADGui.Control.activeDialog(), cls.__name__)
+            finally:
+                FreeCADGui.Control.closeDialog()
+                QtWidgets.QApplication.processEvents()
+
+    def test_nenhum_painel_sobrescreve_metodo_interno(self):
+        """Nenhum painel do Prumo redefine sem querer um método interno (_nome) da base PainelTarefa."""
+        import importlib, os
+        import PrumoPainel as P
+        pasta = os.path.dirname(P.__file__)
+        for arq in sorted(os.listdir(pasta)):
+            if arq.startswith("Prumo") and arq.endswith(".py") and "Testes" not in arq:
+                try:
+                    importlib.import_module(arq[:-3])
+                except Exception:
+                    pass
+        internos = {n for n in vars(P.PainelTarefa) if n.startswith("_") and not n.startswith("__")}
+        def todas(c):
+            for s in c.__subclasses__():
+                yield s
+                yield from todas(s)
+        de_proposito = {"PrumoSelecao.PainelSelecao._preencher_com_selecao"}   # enche as caixas em ordem
+        ruins = []
+        for cls in todas(P.PainelTarefa):
+            for n in internos & set(vars(cls)):
+                ruins.append("%s.%s.%s" % (cls.__module__, cls.__name__, n))
+        self.assertEqual(sorted(set(ruins) - de_proposito), [])
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -12062,4 +12249,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
-           T83FaixaDoMomento, T84EsbocoNaoSuperRestringe]
+           T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste]

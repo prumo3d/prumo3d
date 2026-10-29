@@ -331,7 +331,12 @@ class Opcoes(QtWidgets.QWidget):
             b = QtWidgets.QToolButton()
             b.setObjectName("PrumoOpcao")
             b.setText(texto)
-            b.setIcon(icone(ic, 28))
+            if isinstance(ic, QtGui.QIcon):
+                b.setIcon(ic)
+            elif isinstance(ic, str) and ic.lower().endswith(".svg"):
+                b.setIcon(QtGui.QIcon(ic))          # arquivo próprio (ex.: símbolos de solda)
+            else:
+                b.setIcon(icone(ic, 28))
             b.setIconSize(QtCore.QSize(28, 28))
             b.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
             b.setCheckable(True)

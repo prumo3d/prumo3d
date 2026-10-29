@@ -221,14 +221,15 @@ TABS = [
             ("TechDraw_ExtensionIncreaseDecreaseGroup", S, "Casas decimais"),
         ]),
         ("Anotação", [
-            ("TechDraw_Annotation", L, "Texto"), ("TechDraw_WeldSymbol", L, "Solda"),
-            ("TechDraw_SurfaceFinishSymbols", S, "Rugosidade"), ("TechDraw_HoleShaftFit", S, "Ajuste furo / eixo"),
+            ("TechDraw_Annotation", L, "Texto"), ("Prumo_Solda2D", L, "Solda"),
+            ("Prumo_Rugosidade", S, "Rugosidade"), ("Prumo_AjusteFuroEixo", S, "Ajuste furo / eixo"),
             ("TechDraw_LeaderLine", S, "Linha de chamada"),
             ("TechDraw_CenterLineGroup", S, "Linha de centro"),
             ("TechDraw_ExtensionCircleCenterLinesGroup", S, "Centro de círculo"),
             ("TechDraw_ExtensionThreadsGroup", S, "Rosca cosmética"),
             ("TechDraw_RichTextAnnotation", S, "Texto formatado"), ("TechDraw_CosmeticVertexGroup", S, "Vértice cosmético"),
             ("TechDraw_2PointCosmeticLine", S, "Linha cosmética"), ("TechDraw_DecorateLine", S, "Estilo de linha"),
+            ("TechDraw_WeldSymbol", S, "Solda (FreeCAD)"), ("TechDraw_SurfaceFinishSymbols", S, "Rugosidade (FreeCAD)"),
         ]),
         ("Entregar", [
             ("Prumo_SalvarPDF", L, "Salvar\nPDF"), ("Prumo_ExportarDXF", S, "Exportar DXF"),
@@ -1613,6 +1614,7 @@ RAROS = {
         "TechDraw_ExtensionInsertPrefixGroup", "TechDraw_ExtensionIncreaseDecreaseGroup",
         "TechDraw_RichTextAnnotation", "TechDraw_CosmeticVertexGroup", "TechDraw_2PointCosmeticLine",
         "TechDraw_Hatch", "TechDraw_ToggleFrame", "TechDraw_ExtensionLockUnlockView", "TechDraw_DecorateLine",
+        "TechDraw_WeldSymbol", "TechDraw_SurfaceFinishSymbols",
     },
     "peca": {
         "PartDesign_SubShapeBinder", "PartDesign_Clone", "PartDesign_MultiTransform",
