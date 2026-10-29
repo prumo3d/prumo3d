@@ -6,7 +6,9 @@ está começando não sabe o que fazer. Aqui, logo depois de a restrição entra
 
 - cota (distância, raio, ângulo...) que sobra ou conflita vira **cota de referência**: continua na tela, só
   mostra a medida, e o esboço segue definido;
-- restrição geométrica (horizontal, coincidente...) que sobra ou conflita **não é aplicada**;
+- restrição geométrica (horizontal, coincidente...) fica com o painel do esboço, que já avisa do conflito e
+  oferece apagar a mais recente (nada é retirado sozinho); restrições automáticas de uma geometria nova
+  também ficam com ele;
 
 e um aviso pequeno diz o que aconteceu, com o botão para voltar atrás se a pessoa quiser mesmo assim.
 """
@@ -21,7 +23,7 @@ NOMES = {"Distance": "distância", "DistanceX": "distância horizontal", "Distan
          "Perpendicular": "perpendicular", "Tangent": "tangente", "Equal": "igual", "Symmetric": "simétrica",
          "PointOnObject": "ponto na curva", "Block": "bloqueio", "Lock": "travamento"}
 
-_estado = {"contagem": {}, "limpo": {}, "ocupado": False, "aviso": None}
+_estado = {"contagem": {}, "n_geo": {}, "geo_recente": set(), "limpo": {}, "ocupado": False, "aviso": None}
 
 
 def ligado():
@@ -48,12 +50,11 @@ def tratar(sk, n_antes):
     # de trás para a frente: remover não mexe nos índices que ainda faltam
     for i in sorted(ruins, reverse=True):
         c = sk.Constraints[i]
+        # só cotas: viram referência (nada some). Restrição geométrica a mais fica com o painel do esboço,
+        # que avisa do conflito e oferece apagar a mais recente (nada é retirado sozinho)
         if c.Type in DIMENSIONAIS and c.Driving:
             sk.setDriving(i, False)
             feitos.append((i, c.Type, "referencia"))
-        elif c.Type not in DIMENSIONAIS:
-            sk.delConstraint(i)
-            feitos.append((i, c.Type, "removida"))
     sk.solve()
     return list(reversed(feitos))
 
@@ -185,7 +186,20 @@ if FreeCAD.GuiUp:
         """Vigia a lista de restrições dos esboços em edição."""
 
         def slotChangedObject(self, obj, prop):
-            if prop != "Constraints" or _estado["ocupado"]:
+            if _estado["ocupado"] or prop not in ("Constraints", "Geometry"):
+                return
+            if prop == "Geometry":
+                # geometria nova na mesma ação: as restrições que vierem junto são as automáticas do desenho
+                # (o próprio recálculo também muda "Geometry", mas sem mudar a quantidade)
+                try:
+                    chave = (obj.Document.Name, obj.Name)
+                    ng = obj.GeometryCount
+                except Exception:
+                    return
+                if ng > _estado["n_geo"].get(chave, ng):
+                    _estado["geo_recente"].add(chave)
+                    QtCore.QTimer.singleShot(0, lambda c=chave: _estado["geo_recente"].discard(c))
+                _estado["n_geo"][chave] = ng
                 return
             try:
                 if not obj.isDerivedFrom("Sketcher::SketchObject"):
@@ -196,7 +210,7 @@ if FreeCAD.GuiUp:
             n = len(obj.Constraints)
             antes = _estado["contagem"].get(chave)
             _estado["contagem"][chave] = n
-            if antes is None or n <= antes or not _em_edicao(obj):
+            if antes is None or n <= antes or not _em_edicao(obj) or chave in _estado["geo_recente"]:
                 return
             # depois que o comando do Sketcher terminar (ele ainda pode mexer na restrição)
             QtCore.QTimer.singleShot(0, lambda o=obj, a=antes: _seguro(o, a))
@@ -210,6 +224,7 @@ if FreeCAD.GuiUp:
 
     def ao_editar(sk):
         _estado["contagem"][(sk.Document.Name, sk.Name)] = len(sk.Constraints)
+        _estado["n_geo"][(sk.Document.Name, sk.Name)] = sk.GeometryCount
         try:
             _estado["limpo"][(sk.Document.Name, sk.Name)] = not problematicas(sk)
         except Exception:

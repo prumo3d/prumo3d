@@ -47,10 +47,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   na faixa → desmarque "Mostrar só as ferramentas do momento".
 - **Aba Desenho na ordem do trabalho:** Folha → Vistas → Cotas → Anotação → Entregar, com **Cotas gerais**,
   **Salvar PDF** (com o número do desenho no nome do arquivo) e **Exportar DXF** em um clique.
-- **Esboço que não deixa super-restringir:** uma cota que sobraria (ou entraria em conflito) vira **cota de
-  referência** na hora: continua na tela, mostrando a medida, e o esboço não fica vermelho. Uma restrição
-  geométrica repetida (horizontal, coincidente…) não é aplicada. Um aviso diz o que aconteceu, com o botão
-  "Aplicar mesmo assim" para quem quiser.
+- **Cota a mais não deixa o esboço vermelho:** uma cota que sobraria (ou entraria em conflito) vira **cota de
+  referência** na hora: continua na tela, mostrando a medida, sem comandar. Um aviso diz o que aconteceu, com
+  o botão "Aplicar mesmo assim" para quem quiser. (Restrição geométrica a mais continua com o painel do
+  esboço, que avisa e oferece apagar a mais recente.)
 - **Erros que já trazem o conserto:** na Tangente com duas faces planas, o aviso tem o botão "Usar
   Coincidente", que grava na hora; numa montagem sem peça fixa, o painel da restrição oferece "Fixar" a
   primeira peça.

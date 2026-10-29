@@ -11915,16 +11915,32 @@ class T84EsbocoNaoSuperRestringe(unittest.TestCase):
         self.assertIsNotNone(a)
         self.assertIn("referência", a.texto.text())
 
-    def test_geometrica_a_mais_nao_entra_e_aplicar_mesmo_assim_volta(self):
+    def test_geometrica_a_mais_fica_com_o_painel_do_esboco(self):
+        """Restrição geométrica a mais não some sozinha (o painel do esboço avisa e oferece apagar)."""
         self.sk.addConstraint(self.Sk.Constraint("Horizontal", 0))
         self._esp(0.5)
-        self.assertEqual(len(self.sk.Constraints), 2, "a horizontal repetida não entrou")
+        self.assertEqual(len(self.sk.Constraints), 3)
+        self.assertIsNone(self.G._estado["aviso"])
+
+    def test_cota_que_volta_a_comandar(self):
+        self.sk.addConstraint(self.Sk.Constraint("Distance", 0, 100.0))
+        self._esp(0.5)
         a = self.G._estado["aviso"]
-        self.assertIn("não foi aplicada", a.texto.text())
         a.bt_desfazer.click()
         self._esp(0.3)
-        self.assertEqual(len(self.sk.Constraints), 3, "aplicada mesmo assim, como a pessoa pediu")
+        self.assertTrue(self.sk.Constraints[2].Driving, "Aplicar mesmo assim: a cota volta a comandar")
         self.assertNotEqual(self.sk.solve(), 0)
+
+    def test_restricoes_da_geometria_nova_ficam_com_o_painel(self):
+        import Part
+        V = FreeCAD.Vector
+        self.doc.openTransaction("Linha")
+        g = self.sk.addGeometry(Part.LineSegment(V(0, 10, 0), V(50, 10, 0)))
+        self.sk.addConstraint([self.Sk.Constraint("Horizontal", g), self.Sk.Constraint("Distance", g, 50.0),
+                               self.Sk.Constraint("DistanceX", g, 1, g, 2, 50.0)])
+        self.doc.commitTransaction()
+        self._esp(0.5)
+        self.assertTrue(all(c.Driving for c in self.sk.Constraints), "não mexe nas restrições da geometria nova")
 
     def test_conflito_de_cota(self):
         self.sk.addConstraint(self.Sk.Constraint("Distance", 0, 120.0))
