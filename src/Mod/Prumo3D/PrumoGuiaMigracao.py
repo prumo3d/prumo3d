@@ -97,7 +97,16 @@ EQUIVALENCIAS = [
      "Gira a dobradiça ou desliza a peça por um controle, respeitando os limites; o que está preso vai junto."),
     ("Montagem", "Restrição Travar", "Lock mate", "Travar juntos", "montagem", ["Prumo_TravarJuntos"],
      "Prende componentes uns nos outros onde estão, sem mexer em nada."),
+    ("Montagem", "Salvar corpos (peça multicorpo em montagem)", "Create components from bodies",
+     "Componentes dos sólidos", "montagem", ["Prumo_ComponentesDosSolidos"],
+     "STEP com vários sólidos num objeto só: cada sólido vira uma peça, no lugar, pronta para as restrições."),
+    ("Montagem", "Excluir da lista de materiais / Comprado", "BOM type: purchased / reference",
+     "Propriedades da peça › Na lista de materiais", "montagem", ["Prumo_Propriedades"],
+     "Comprado: uma linha só, sem as peças de dentro (motor, redutor). Referência: não entra na lista."),
     ("Montagem", "Pack and Go", "Copy design / Pack and Go", "Copiar projeto", "inicio", ["Prumo_CopiarProjeto"], ""),
+    ("Geral", "Procurar comandos", "Command search (S)", "Procurar comando (Ctrl+K ou a lupa)", "inicio",
+     ["Prumo_ProcurarComando"],
+     "Digite parte do nome (até em inglês: fillet, mate, drive) e Enter: a faixa mostra onde a ferramenta fica."),
     ("Desenho", "Folha de desenho", "Drawing sheet", "Folha ABNT", "desenho", ["Prumo_NovaFolha"],
      "A0 a A4 com legenda brasileira; com a peça selecionada, já coloca as vistas no 1º diedro."),
     ("Desenho", "Paleta de vistas", "View Palette", "Paleta de vistas", "desenho", ["Prumo_PaletaVistas"],
@@ -108,6 +117,11 @@ EQUIVALENCIAS = [
     ("Desenho", "Cota inteligente", "Dimension", "Cota", "desenho", ["TechDraw_CompDimensionTools"], ""),
     ("Desenho", "Balão", "Balloon", "Balão", "desenho", ["TechDraw_Balloon"], ""),
     ("Desenho", "Lista de materiais", "Parts list / BOM", "Lista de materiais", "desenho", ["Prumo_ListaMateriais"], ""),
+    ("Desenho", "Itens do modelo (cotas)", "Retrieve dimensions / Model items", "Cotas gerais", "desenho",
+     ["Prumo_CotasGerais"], "Comprimento, altura e profundidade totais da peça nas vistas, num clique."),
+    ("Desenho", "Salvar como PDF", "Export PDF", "Salvar PDF", "desenho", ["Prumo_SalvarPDF"],
+     "Salva na pasta do projeto com o número do desenho no nome do arquivo."),
+    ("Desenho", "Salvar como DXF/DWG", "Export DXF", "Exportar DXF", "desenho", ["Prumo_ExportarDXF"], ""),
     ("Simulação", "SimulationXpress / Simulation", "Stress analysis", "Assistente de simulação", "simulacao",
      ["Prumo_AssistenteFEM"], ""),
     ("Simulação", "Simulation (vigas / estrutura soldada)", "Frame analysis", "Simular estrutura", "estruturas",
@@ -152,6 +166,11 @@ class GuiaMigracao(QtWidgets.QWidget):
         raiz.setSpacing(10)
         card1, lay = P.bloco("Onde fica cada comando", "selecao")
         raiz.addWidget(card1, 3)
+        dica = QtWidgets.QLabel("Dica: no Prumo, <b>Ctrl+K</b> (ou a lupa no alto da faixa) procura qualquer "
+                                "comando pelo nome e roda na hora.")
+        dica.setWordWrap(True)
+        dica.setObjectName("PrumoSub")
+        lay.addWidget(dica)
         self.busca = QtWidgets.QLineEdit()
         self.busca.setPlaceholderText("Procure pelo nome que você conhece (ex.: filete, posicionamento, gusset)")
         self.busca.textChanged.connect(self._preencher)

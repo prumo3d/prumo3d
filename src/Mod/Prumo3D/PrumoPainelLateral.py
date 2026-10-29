@@ -531,6 +531,12 @@ def organizar(no_inicio=False):
     if not no_inicio:
         _acomodar_extras(ds)
     bar = barra_de_abas(mw)
+    if bar is None:
+        # sem abas (a pessoa fechou a Árvore, por exemplo): o painel que sobra mostra o nome em português
+        for n, d in ds.items():
+            t = titulo_real(n)
+            if t and d.windowTitle() != t:
+                d.setWindowTitle(t)
     if bar is not None:
         _estilizar(bar)
         _titulos(bar, ds)

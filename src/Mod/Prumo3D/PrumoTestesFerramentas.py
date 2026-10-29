@@ -11831,6 +11831,47 @@ class T83FaixaDoMomento(unittest.TestCase):
         self.assertIn("Spreadsheet_CreateSheet", cmds)
         self.assertNotIn("Spreadsheet_StyleBold", cmds)
 
+    def test_atalho_busca_sem_conflito_e_guia_mostra_a_lupa(self):
+        import PrumoGuiaMigracao as G
+        import PrumoBuscaComandos as B
+        at = self.rb._instalar_atalho_busca()
+        mw = FreeCADGui.getMainWindow()
+        QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
+        donos = [a.text() for a in mw.findChildren(QAction)
+                 if any(k == QtGui.QKeySequence("Ctrl+K") for k in a.shortcuts())]
+        self.assertEqual(donos, [], "Ctrl+K já é de outro comando")
+        self.assertIsNotNone(at)
+        self.assertEqual(at.key(), QtGui.QKeySequence("Ctrl+K"))
+        self.assertIn("Prumo_ProcurarComando", FreeCADGui.listCommands())
+        w = G.GuiaMigracao()
+        try:
+            w.busca.setText("procurar comandos")
+            self.assertEqual(w.tabela.rowCount(), 1)
+            w.tabela.selectRow(0)
+            self.assertTrue(w.mostrar_onde(), "o guia aponta a lupa")
+        finally:
+            w.deleteLater()
+        itens = B.indice()
+        self.assertIn("Prumo_SalvarPDF", [i[0] for i in B.procurar("pdf", itens)[:3]])
+        self.assertIn("Prumo_ListaMateriais", [i[0] for i in B.procurar("bom", itens)[:3]])
+
+    def test_preferencia_liga_e_desliga_a_faixa_do_momento(self):
+        import PrumoPreferencias as PF
+        self.doc = novo_doc("PrumoFaixaPref")
+        j = PF.JanelaPreferencias()
+        try:
+            self.assertIn("RecusarSuperRestricao", j.campos)
+            cmds, _m = self._aba("desenho")
+            self.assertNotIn("TechDraw_BrokenView", cmds)
+            j.campos["RibbonContextual"].setChecked(False)
+            self._esp(0.5)
+            cmds = {getattr(b, "_cmd", None) for b in self.rb.content.widget().findChildren(QtWidgets.QToolButton)
+                    if b.isVisible()}
+            self.assertIn("TechDraw_BrokenView", cmds, "desligou: a faixa mostra tudo na hora")
+            j.campos["RibbonContextual"].setChecked(True)
+        finally:
+            j.close()
+
     def test_ver_tudo_como_antes(self):
         self.doc = novo_doc("PrumoFaixaTudo")
         self.R._params().SetBool("RibbonContextual", False)

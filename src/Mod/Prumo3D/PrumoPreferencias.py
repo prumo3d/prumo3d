@@ -16,13 +16,14 @@ UNIDADES_PATH = "User parameter:BaseApp/Preferences/Units"
 
 # (parâmetro, rótulo, padrão, vale só ao reabrir?)
 APARENCIA = [("TelaInicial", "Mostrar a tela inicial ao abrir", True, False),
-             ("RibbonContextual", "Faixa muda de aba conforme o que está em edição", True, False)]
+             ("RibbonContextual", "Faixa só com as ferramentas do momento (as raras no “Mais”)", True, False)]
 PAINEL = [("PainelLateralUnico", "Painel lateral único (árvore, propriedades e comando em abas)", True, True),
           ("PropriedadesEmCartoes", "Propriedades em cartões", True, False),
           ("PainelDeComando", "Comandos em cartões (no lugar dos formulários do FreeCAD)", True, False),
           ("AbasCompactas", "Abas só com ícone quando falta espaço", True, False),
           ("OcultarLateralNoInicio", "Esconder o painel lateral na tela inicial", True, False)]
 ESBOCO = [("RetirarAutomaticasEmConflito", "Retirar relações automáticas que não cabem no desenho", True, False),
+          ("RecusarSuperRestricao", "Cota a mais vira cota de referência (o esboço não fica vermelho)", True, False),
           ("ReferenciasAutomaticas", "Referências automáticas ao editar (arestas e faces da peça)", True, False),
           ("EnquadrarAoSairDoEsboco", "Enquadrar a peça ao sair do esboço", True, False)]
 ATUALIZACAO = [("VerificarAtualizacoes", "Procurar versão nova ao abrir (no máximo uma vez por dia)", True, False),
@@ -92,11 +93,22 @@ class JanelaPreferencias(QtWidgets.QDialog):
         c = UI.Cartao(titulo, icone)
         for chave, rotulo, padrao, reabrir in itens:
             sw = UI.Interruptor(_p().GetBool(chave, padrao))
-            sw.toggled.connect(lambda on, k=chave: _p().SetBool(k, bool(on)))
+            sw.toggled.connect(lambda on, k=chave: (_p().SetBool(k, bool(on)), self._aplicar(k)))
             c.linha(rotulo + (" (vale ao reabrir)" if reabrir else ""), sw)
             self.campos[chave] = sw
         self.col.addWidget(c)
         return c
+
+    def _aplicar(self, chave):
+        """Opções que valem na hora."""
+        if chave == "RibbonContextual":
+            try:
+                import PrumoRibbon
+                rb = PrumoRibbon._state.get("ribbon")
+                if rb is not None and rb.tabbar.currentIndex() >= 0:
+                    rb.build(rb._tabs[rb.tabbar.currentIndex()])
+            except Exception:
+                pass
 
     def _programacao(self):
         """Relatório e console Python: fechados para quem só desenha; quem programa liga aqui."""

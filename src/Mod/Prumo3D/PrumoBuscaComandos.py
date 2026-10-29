@@ -21,6 +21,18 @@ SINONIMOS = {
     "sketch": "esboco", "plano": "plano referencia", "weld": "solda", "gear": "engrenagem",
     "drive": "mover junta", "rigid": "travar", "rigido": "travar", "concentric": "concentrica",
     "tangent": "tangente", "coincident": "coincidente", "parallel": "paralela",
+    # como o pessoal digita (SolidWorks em português, termos de chão de fábrica)
+    "ressalto": "extrusao", "base": "extrusao", "nervura": "reforco", "rib": "reforco",
+    "referencia": "referencias plano", "datum": "referencias", "pdf": "salvar pdf", "dxf": "exportar dxf",
+    "bom": "lista materiais", "lm": "lista materiais", "ldm": "lista materiais", "quantitativo": "lista materiais",
+    "carimbo": "folha legenda", "legenda": "folha carimbo", "prancha": "folha", "vista": "vistas paleta",
+    "corte": "corte secao", "secao": "corte", "detalhe": "detalhe", "rosca": "rosca furo", "parafuso": "fixador",
+    "porca": "fixador", "arruela": "fixador", "solda": "solda cordao", "chapa": "chapa parede dobra",
+    "dobra": "dobra aba", "planificar": "planificar", "perfil": "estrutura perfil", "viga": "estrutura",
+    "tubo": "tubulacao tubos", "conexao": "tubulacao", "vaso": "vaso pressao", "massa": "massa propriedades",
+    "peso": "massa", "medir": "medir", "interferencia": "interferencia", "colisao": "interferencia",
+    "explodida": "explodida", "motor": "simulacao", "fem": "simulacao estudo", "tensao": "simulacao",
+    "junta": "restricao", "fixar": "fixar peca", "ground": "fixar", "lock": "travar",
 }
 
 
@@ -207,3 +219,24 @@ if QtWidgets is not None:
                 self.move(p.x() - self.width(), p.y() + 2)
             self.show()
             self.campo.setFocus()
+
+
+class CmdProcurarComando:
+    def GetResources(self):
+        import PrumoUtil
+        return {"Pixmap": PrumoUtil.icone("busca.svg"), "MenuText": "Procurar comando",
+                "ToolTip": "Digite parte do nome de qualquer ferramenta e tecle Enter (Ctrl+K)."}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        import PrumoRibbon
+        rb = PrumoRibbon._state.get("ribbon")
+        if rb is not None:
+            rb.procurar_comando()
+
+
+def registrar_comandos():
+    import FreeCADGui
+    FreeCADGui.addCommand("Prumo_ProcurarComando", CmdProcurarComando())

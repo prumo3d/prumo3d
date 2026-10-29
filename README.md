@@ -54,6 +54,22 @@ Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldáve
 O que o Prumo 3D tem de diferente
 ---------------------------------
 
+### Fluxo de trabalho que se explica
+
+A faixa mostra o que serve no momento: sem documento, só o que começa um trabalho; no Desenho, a folha
+primeiro e depois vistas, cotas, anotação e entrega, nessa ordem; na Montagem, as restrições aparecem com a
+montagem aberta. As ferramentas raras ficam no **Mais** de cada grupo, e **Ctrl+K** procura qualquer
+comando pelo nome (até pelo nome em inglês de outros programas). Cota a mais no esboço vira cota de
+referência em vez de deixar tudo vermelho, e os avisos já trazem o botão que conserta.
+
+| Desenho: Paleta de vistas e cotas gerais | Montagem: Mover junta |
+|---|---|
+| ![Aba Desenho com a Paleta de vistas e a folha cotada](.github/images/prumo/aba-desenho.png) | ![Aba Montagem com o painel Mover junta](.github/images/prumo/aba-montagem.png) |
+
+| Procurar comando (Ctrl+K) | Reservatório com pés de chapa |
+|---|---|
+| ![Busca de comandos aberta na faixa](.github/images/prumo/procurar-comando.png) | ![Vaso deitado com pés de chapa dobrada](.github/images/prumo/vaso-pes-de-chapa.png) |
+
 ### Comandos em cartões e programa que se atualiza sozinho
 
 Mais de 50 comandos do FreeCAD abrem num painel lateral único, em cartões: botões com ícone no lugar de
@@ -94,7 +110,8 @@ convergência e relatório.
 ### Vasos de pressão do formulário ao desenho
 
 Aba própria com formulário e prévia ao vivo: casco, tampos (elíptico 2:1, torisférico, hemisférico),
-material, corrosão, bocais e suportes (selas, saia ou pernas). Espessuras e PMTA pelo ASME VIII
+material, corrosão, bocais e suportes (selas, pés de chapa como nos reservatórios de compressor, saia ou
+pernas). Espessuras e PMTA pelo ASME VIII
 Div. 1, pressão de teste hidrostático ou pneumático, teste simulado por elementos finitos de casca e
 folha A3 com vistas cotadas e tabela de dados de projeto.
 
@@ -104,9 +121,10 @@ folha A3 com vistas cotadas e tabela de dados de projeto.
 
 ### Desenho técnico no padrão ABNT e chapa metálica
 
-Folhas A0 a A4 com legenda brasileira (responsável técnico, CREA/CFT, ART, 1º diedro), lista de
-materiais ligada ao modelo, e chapa metálica com fator K por material e planificação em DXF num
-clique.
+Folhas A0 a A4 com legenda brasileira (responsável técnico, CREA/CFT, ART, 1º diedro) e arranjos de
+vistas prontos, Paleta de vistas (um clique por vista), cotas gerais, Salvar PDF com o número do desenho,
+lista de materiais ligada ao modelo (com itens comprados e de referência), e chapa metálica com fator K por
+material e planificação em DXF num clique.
 
 ![Folha ABNT com vistas e lista de materiais](.github/images/prumo/folha-abnt.png)
 

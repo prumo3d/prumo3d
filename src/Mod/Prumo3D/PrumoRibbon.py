@@ -1167,15 +1167,11 @@ class PrumoRibbon(QtWidgets.QWidget):
         busca.setAutoRaise(True)
         busca.setToolTip("Procurar comando (Ctrl+K): digite parte do nome e tecle Enter")
         busca.clicked.connect(self.procurar_comando)
+        busca._cmd = "Prumo_ProcurarComando"      # o "Mostrar onde" do guia acha a lupa por este nome
         self._busca_btn = busca
         hl.addWidget(busca)
-        try:
-            mw = FreeCADGui.getMainWindow()
-            self._atalho_busca = (getattr(QtGui, "QShortcut", None) or QtWidgets.QShortcut)(QtGui.QKeySequence("Ctrl+K"), mw)
-            self._atalho_busca.setContext(QtCore.Qt.ApplicationShortcut)
-            self._atalho_busca.activated.connect(self.procurar_comando)
-        except Exception:
-            pass
+        self._atalho_busca = None
+        QtCore.QTimer.singleShot(3000, self._instalar_atalho_busca)
         hl.addSpacing(4)
         col = QtWidgets.QToolButton(box)
         col.setArrowType(QtCore.Qt.UpArrow)
@@ -1184,6 +1180,34 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._collapse_btn = col
         hl.addWidget(col)
         return box
+
+    ATALHO_BUSCA = "Ctrl+K"
+
+    def _instalar_atalho_busca(self):
+        """Ctrl+K para Procurar comando, se nenhum comando já usa (atalho repetido não funciona em nenhum dos
+        dois no Qt). Roda depois que as bancadas carregaram os atalhos delas."""
+        if self._atalho_busca is not None:
+            return self._atalho_busca
+        seq = QtGui.QKeySequence(self.ATALHO_BUSCA)
+        mw = FreeCADGui.getMainWindow()
+        QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
+        for a in mw.findChildren(QAction):
+            try:
+                if any(k == seq for k in a.shortcuts()):
+                    FreeCAD.Console.PrintLog("Prumo: Ctrl+K já é de '%s'; Procurar comando fica só na lupa\n"
+                                             % a.text())
+                    self._busca_btn.setToolTip("Procurar comando: digite parte do nome e tecle Enter")
+                    return None
+            except RuntimeError:
+                continue
+        try:
+            atalho = (getattr(QtGui, "QShortcut", None) or QtWidgets.QShortcut)(seq, mw)
+            atalho.setContext(QtCore.Qt.ApplicationShortcut)
+            atalho.activated.connect(self.procurar_comando)
+            self._atalho_busca = atalho
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: atalho da busca: %s\n" % exc)
+        return self._atalho_busca
 
     def procurar_comando(self):
         import PrumoBuscaComandos
