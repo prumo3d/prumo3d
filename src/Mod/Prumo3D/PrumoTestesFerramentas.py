@@ -5623,6 +5623,44 @@ class T45BancadaVasos(unittest.TestCase):
         self.assertTrue(any("PMTA" in l for l in ann.Text))
         self.assertTrue(any(l.startswith("N1") for l in ann.Text))
 
+    def test_perimetro_medido_com_fita(self):
+        """Vaso existente: entra o perímetro externo (fita métrica) e o Ø interno sai descontando o costado."""
+        import math
+        import PrumoVaso as V
+        v = self._vaso(suportes="Nenhum")
+        v.EspessuraCostado = 6.35
+        v.PerimetroExterno = 1000.0 * math.pi
+        self.doc.recompute()
+        self.assertAlmostEqual(v.DiametroInterno.Value, 1000.0 - 2 * 6.35, places=4)
+        self.assertEqual(v.getEditorMode("DiametroInterno"), ["ReadOnly"])
+        self.assertAlmostEqual(v.Shape.BoundBox.YLength, 1000.0, places=1, msg="o Ø externo bate com a fita")
+        # sem espessura adotada: usa a chapa comercial da mínima (que depende do próprio Ø)
+        v.EspessuraCostado = 0.0
+        self.doc.recompute()
+        tc = V.chapa_acima(v.MinimoCostado)
+        self.assertAlmostEqual(v.DiametroInterno.Value, 1000.0 - 2 * tc, places=3)
+        self.assertIn("Perímetro externo medido", V.memoria(v))
+        v.PerimetroExterno = 0.0
+        v.DiametroInterno = 800.0
+        self.doc.recompute()
+        self.assertAlmostEqual(v.DiametroInterno.Value, 800.0)
+        if FreeCAD.GuiUp:
+            p = V.abrir_painel()
+            try:
+                self.assertTrue(p.por_perimetro(), "o padrão é o perímetro (vaso existente)")
+                p.tc.setValue(8.0)
+                p.D.setValue(2000.0 * math.pi)
+                # o campo guarda 0,1 mm: a fita também não mede melhor que isso
+                self.assertAlmostEqual(p.diametro_interno(), 2000.0 - 16.0, delta=0.05)
+                self.assertIn("Ø externo", p.lb_D.text())
+                d = p.props()
+                self.assertAlmostEqual(d["PerimetroExterno"], 2000.0 * math.pi, delta=0.05)
+                p.modo_D.setCurrentText(V.MEDIDAS_COSTADO[1])
+                self.assertAlmostEqual(p.D.value(), 1984.0, places=1, msg="trocar para diâmetro converte o número")
+                self.assertEqual(p.props()["PerimetroExterno"], 0.0)
+            finally:
+                p.close()
+
     def test_painel_cria_e_edita(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")

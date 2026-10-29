@@ -74,6 +74,7 @@ SUPORTES = ["Nenhum", "Selas", "Saia", "Pernas", "Pés de chapa"]
 # o que serve para cada posição (o painel só mostra estes)
 SUPORTES_POR_POSICAO = {"Horizontal": ["Nenhum", "Selas", "Pés de chapa", "Pernas"],
                         "Vertical": ["Nenhum", "Saia", "Pernas"]}
+MEDIDAS_COSTADO = ["Perímetro externo (fita métrica)", "Diâmetro interno"]
 TESTES = ["Hidrostático (UG-99(b))", "Pneumático (UG-100)"]
 EFICIENCIAS = [(1.0, "1,00 — radiografia total"), (0.85, "0,85 — radiografia por amostragem"),
                (0.70, "0,70 — sem radiografia")]
@@ -408,6 +409,11 @@ def pes_de_chapa(xc, sentido, Ro, D, altura=0.0, esp=PE_CHAPA_ESP):
     return res
 
 
+def diametro_do_perimetro(perimetro, t_costado):
+    """Diâmetro interno a partir do perímetro externo medido com fita métrica: Di = P/π − 2·t."""
+    return perimetro / math.pi - 2.0 * t_costado
+
+
 def suportes(tipo, D, comp, t_costado, t_tampo, tipo_tampo, pos_selas=0.0, altura=0.0, vertical=False):
     """Sólidos dos suportes no sistema do vaso (eixo X, costado de 0 a comp).
     Selas: duas chapas com berço de 120° (sela) a `pos_selas` das linhas de tangência (0 = 0,2·comp).
@@ -513,6 +519,9 @@ class Vaso:
             if ro:
                 obj.setEditorMode(nome, 1)
         add("App::PropertyLength", "DiametroInterno", "Projeto", "Diâmetro interno do costado", 1000.0)
+        add("App::PropertyLength", "PerimetroExterno", "Projeto",
+            "Perímetro externo do costado medido com fita métrica (0 = usar o diâmetro interno). Com ele, o "
+            "diâmetro interno é calculado: Di = P/π − 2·t", 0.0)
         add("App::PropertyLength", "ComprimentoCostado", "Projeto", "Comprimento entre linhas de tangência", 2000.0)
         add("App::PropertyFloat", "PressaoProjeto", "Projeto", "Pressão de projeto (MPa, manométrica)", 1.0)
         if "UnidadePressao" not in obj.PropertiesList:
@@ -574,9 +583,39 @@ class Vaso:
         return Calculo(obj.DiametroInterno.Value, obj.PressaoProjeto, obj.TensaoAdmissivel,
                        obj.EficienciaJunta, obj.Corrosao.Value, obj.TipoTampo)
 
+    def _diametro_pelo_perimetro(self, obj):
+        """Com o perímetro externo informado, acerta o diâmetro interno (a espessura do costado entra: a adotada
+        ou, sem ela, a chapa comercial da mínima, que depende do próprio diâmetro — por isso as voltas)."""
+        per = getattr(obj, "PerimetroExterno", None)
+        per = per.Value if per is not None else 0.0
+        if per <= 0:
+            obj.setEditorMode("DiametroInterno", 0)
+            return
+        obj.setEditorMode("DiametroInterno", 1)
+        De = per / math.pi
+        Di = De - 2.0 * (obj.EspessuraCostado.Value or 0.0)
+        if not obj.EspessuraCostado.Value:
+            for _ in range(8):
+                c = Calculo(Di, obj.PressaoProjeto, obj.TensaoAdmissivel, obj.EficienciaJunta, obj.Corrosao.Value,
+                            obj.TipoTampo)
+                tc = chapa_acima(c.minimos_com_corrosao()[0])
+                novo = diametro_do_perimetro(per, tc)
+                if abs(novo - Di) < 1e-6:
+                    break
+                Di = novo
+        if Di <= 0:
+            raise ValueError("perímetro pequeno demais para a espessura do costado")
+        if abs(obj.DiametroInterno.Value - Di) > 1e-6:
+            obj.DiametroInterno = Di
+
     def execute(self, obj):
         if obj.TensaoAdmissivel <= 0:
             obj.Avisos = ["Informe a tensão admissível S do material (ASME II-D)."]
+            return
+        try:
+            self._diametro_pelo_perimetro(obj)
+        except (ValueError, ZeroDivisionError) as ex:
+            obj.Avisos = ["Cálculo não realizado: %s" % ex]
             return
         try:
             c = self.calculo(obj)
@@ -746,6 +785,13 @@ def memoria(v):
     L = ["Vaso de pressão — memória de pré-dimensionamento (Prumo 3D)",
          "Referência: ASME BPVC Seção VIII, Divisão 1 — UG-27 (costado) e UG-32 (tampos). "
          "Conferir a edição vigente.", ""]
+    per = getattr(v, "PerimetroExterno", None)
+    per = per.Value if per is not None else 0.0
+    if per > 0:
+        tc = v.EspessuraCostado.Value or chapa_acima(v.MinimoCostado)
+        L.append("Perímetro externo medido (fita métrica): %s → Ø externo = P/π = %s; Ø interno = Ø externo − 2·t "
+                 "= %s (t = %s)" % (fmt(per, 1, "mm"), fmt(per / math.pi, 1, "mm"),
+                                    fmt(v.DiametroInterno.Value, 1, "mm"), fmt(tc, 2, "mm")))
     L.append("Diâmetro interno: %s   Comprimento entre tangentes: %s" % (
         fmt(v.DiametroInterno.Value, 1, "mm"), fmt(v.ComprimentoCostado.Value, 1, "mm")))
     u = _unid(v)
@@ -1174,8 +1220,13 @@ class PainelVaso(P.PainelTarefa):
         s1 = f.secao("Geometria", "comprimento")
         self.orient = s1.linha("tipo", P.lista(ORIENTACOES), "Vaso deitado (selas) ou em pé (saia ou pernas).",
                                "Posição")
-        self.D = s1.linha("comprimento", P.numero(1000.0, 50.0, 20000.0, " mm", 1), "Diâmetro interno do costado.",
-                          "Diâmetro interno")
+        self.modo_D = s1.linha("comprimento", P.lista(MEDIDAS_COSTADO, MEDIDAS_COSTADO[0]),
+                               "Vaso existente: meça o perímetro por fora com fita métrica (não dá para entrar no "
+                               "vaso). Projeto novo: o diâmetro interno.", "Medida do costado")
+        self.D = s1.linha("comprimento", P.numero(3141.6, 50.0, 70000.0, " mm", 1),
+                          "Perímetro externo do costado, medido com fita métrica em volta do vaso.", "Valor medido")
+        self.lb_D = s1.texto("")
+        self.modo_D.currentTextChanged.connect(self._modo_d)
         self.L = s1.linha("comprimento", P.numero(2000.0, 0.0, 100000.0, " mm", 1), "Comprimento do costado "
                           "entre as linhas de tangência dos tampos.", "Comprimento (TL-TL)")
         self.tampo = s1.linha("tipo", P.lista(TAMPOS), "Tipo dos dois tampos.", "Tampos")
@@ -1253,6 +1304,10 @@ class PainelVaso(P.PainelTarefa):
         self.tab.cellChanged.connect(lambda *_: self._mudou())
         self.orient.currentIndexChanged.connect(self._orient)
         self.sup.currentIndexChanged.connect(self._sup_mudou)
+        self._era_diametro = False
+        for w in (self.D, self.tc, self.S, self.CA):
+            w.valueChanged.connect(self._mostrar_diametro)
+        self._mostrar_diametro()
 
     # ---- campos
     def _orient(self, *_a):
@@ -1341,9 +1396,59 @@ class PainelVaso(P.PainelTarefa):
     def pressao_mpa(self):
         return self.P_.value() * _unidade(self._unid_atual)[1]
 
+    def por_perimetro(self):
+        return self.modo_D.currentText() == MEDIDAS_COSTADO[0]
+
+    def _modo_d(self, *_a):
+        """Troca perímetro <-> diâmetro mantendo o mesmo vaso (converte o número)."""
+        t = self.tc.value() if hasattr(self, "tc") else 0.0
+        v = self.D.value()
+        self.D.blockSignals(True)
+        if self.por_perimetro():
+            if v < 50000 and getattr(self, "_era_diametro", False):
+                self.D.setValue((v + 2.0 * t) * math.pi)
+            self.D.setToolTip("Perímetro externo do costado, medido com fita métrica em volta do vaso.")
+        else:
+            if getattr(self, "_era_diametro", None) is False:
+                self.D.setValue(max(50.0, diametro_do_perimetro(v, t)))
+            self.D.setToolTip("Diâmetro interno do costado.")
+        self.D.blockSignals(False)
+        self._era_diametro = not self.por_perimetro()
+        self._mostrar_diametro()
+
+    def diametro_interno(self):
+        """Ø interno usado no cálculo (com o perímetro, descontando a espessura adotada ou a estimada)."""
+        if not self.por_perimetro():
+            return self.D.value()
+        t = self.tc.value() if hasattr(self, "tc") else 0.0
+        Di = diametro_do_perimetro(self.D.value(), t)
+        if not t and self.S.value() > 0:
+            for _ in range(8):
+                try:
+                    c = Calculo(Di, self.pressao_mpa(), self.S.value(), self.E.currentData(), self.CA.value(),
+                                self.tampo.currentText())
+                except (ValueError, ZeroDivisionError):
+                    break
+                novo = diametro_do_perimetro(self.D.value(), chapa_acima(c.minimos_com_corrosao()[0]))
+                if abs(novo - Di) < 1e-6:
+                    break
+                Di = novo
+        return Di
+
+    def _mostrar_diametro(self, *_a):
+        if not hasattr(self, "lb_D"):
+            return
+        if self.por_perimetro():
+            self.lb_D.setText("Ø externo = %s · Ø interno ≈ %s (descontando o costado)" % (
+                fmt(self.D.value() / math.pi, 1, "mm"), fmt(self.diametro_interno(), 1, "mm")))
+        else:
+            self.lb_D.setText("")
+
     def props(self):
         sy, _su = self._sy_su()
-        return dict(DiametroInterno=self.D.value(), ComprimentoCostado=self.L.value(), PressaoProjeto=self.pressao_mpa(),
+        return dict(DiametroInterno=self.diametro_interno(),
+                    PerimetroExterno=self.D.value() if self.por_perimetro() else 0.0,
+                    ComprimentoCostado=self.L.value(), PressaoProjeto=self.pressao_mpa(),
                     UnidadePressao=self._unid_atual,
                     TemperaturaProjeto=self.temp.text().strip(), MaterialChapa=self.material.currentData() or "",
                     TensaoAdmissivel=self.S.value(), EficienciaJunta=self.E.currentData(),
@@ -1359,7 +1464,14 @@ class PainelVaso(P.PainelTarefa):
 
     def carregar(self, obj):
         self.orient.setCurrentText(obj.Orientacao)
-        self.D.setValue(obj.DiametroInterno.Value)
+        per = getattr(obj, "PerimetroExterno", None)
+        per = per.Value if per is not None else 0.0
+        self._era_diametro = per <= 0
+        self.modo_D.blockSignals(True)
+        self.modo_D.setCurrentText(MEDIDAS_COSTADO[0] if per > 0 else MEDIDAS_COSTADO[1])
+        self.modo_D.blockSignals(False)
+        self.D.setValue(per if per > 0 else obj.DiametroInterno.Value)
+        self._mostrar_diametro()
         self.L.setValue(obj.ComprimentoCostado.Value)
         self.tampo.setCurrentText(obj.TipoTampo)
         self.P_.setValue(obj.PressaoProjeto)
@@ -1401,8 +1513,10 @@ class PainelVaso(P.PainelTarefa):
         if self.S.value() <= 0:
             return "Informe a tensão admissível S (ASME II-D) ou clique em Estimar S."
         try:
-            Calculo(self.D.value(), self.pressao_mpa(), self.S.value(), self.E.currentData(), self.CA.value(),
-                    self.tampo.currentText())
+            if self.diametro_interno() <= 0:
+                return "O perímetro é pequeno demais para a espessura do costado."
+            Calculo(self.diametro_interno(), self.pressao_mpa(), self.S.value(), self.E.currentData(),
+                    self.CA.value(), self.tampo.currentText())
         except (ValueError, ZeroDivisionError) as ex:
             return str(ex)
         return None

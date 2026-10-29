@@ -9,6 +9,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Vasos: perímetro medido com fita métrica.** Em vaso existente não dá para medir o diâmetro por dentro:
+  agora a medida do costado pode ser o perímetro externo, medido com fita em volta do vaso (é o padrão no
+  painel). O Prumo calcula Ø externo = P/π e Ø interno = Ø externo − 2·t (com a espessura adotada ou, sem ela,
+  a chapa comercial da mínima). A memória de cálculo mostra a conta. Projeto novo continua com o diâmetro
+  interno.
+
 ## 1.1.0 — 29/10/2026
 
 ### Novidades
