@@ -270,7 +270,7 @@ TABS = [
             ("Prumo_Esboco3D", L, "Esboço\n3D"), ("Sketcher_NewSketch", L, "Esboço\nplano"),
         ]),
         ("Tubulação", [
-            ("Prumo_Tubulacao", L, "Tubos e\nconexões"),
+            ("Prumo_Tubulacao", L, "Tubos e\nconexões"), ("Prumo_IsometricoTubulacao", L, "Folha\nisométrica"),
         ]),
         ("Conferir", [
             ("Prumo_Interferencia", L, "Verificar\ninterferência"), ("Std_Measure", S, "Medir"),

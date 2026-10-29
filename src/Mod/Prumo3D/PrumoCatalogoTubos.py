@@ -138,6 +138,7 @@ DECLIVIDADE_MAXIMA = 0.05       # NBR 8160:1999 item 4.2.5.2
 
 TIGRE_ESGOTO = {
     "id": "pvc-esgoto-sn",
+    "nomes": {"luva_reducao": "Redução {suf} {D} × {d}"},
     "nome": "PVC esgoto série normal (branco)",
     "material": "PVC rígido",
     "fabricante": "Tigre",
@@ -273,13 +274,316 @@ TIGRE_AQUATHERM = {
                        + [(("luva_bucha", 28), "conector 28 × 1\": comprimento total não publicado pela Tigre")]),
 }
 
+# ============================================================== aço carbono, solda de topo (ASME)
+# Medidas conferidas em duas fontes independentes em 29/10/2026 (ver "fonte" das linhas). Diâmetros pelo DN
+# (mm) com a polegada (NPS) ao lado.
+NPS = {15: "1/2", 20: "3/4", 25: "1", 32: "1-1/4", 40: "1-1/2", 50: "2", 65: "2-1/2", 80: "3", 100: "4",
+       150: "6", 200: "8", 250: "10", 300: "12"}
+_DN_ACO = tuple(NPS)
+
+# ASME B36.10M: DE, parede SCH 40 e SCH 80 (mm) e massa (kg/m)
+_B3610 = {   # DN: (DE, e40, kg/m 40, e80, kg/m 80)
+    15: (21.3, 2.77, 1.27, 3.73, 1.62), 20: (26.7, 2.87, 1.69, 3.91, 2.20), 25: (33.4, 3.38, 2.50, 4.55, 3.24),
+    32: (42.2, 3.56, 3.39, 4.85, 4.47), 40: (48.3, 3.68, 4.05, 5.08, 5.41), 50: (60.3, 3.91, 5.44, 5.54, 7.48),
+    65: (73.0, 5.16, 8.63, 7.01, 11.41), 80: (88.9, 5.49, 11.29, 7.62, 15.27),
+    100: (114.3, 6.02, 16.07, 8.56, 22.32), 150: (168.3, 7.11, 28.26, 10.97, 42.56),
+    200: (219.1, 8.18, 42.55, 12.70, 64.64), 250: (273.1, 9.27, 60.31, 15.09, 96.01),
+    300: (323.9, 10.31, 79.73, 17.48, 132.1)}
+
+# ASME B16.9 (raio longo): A curva 90°, B curva 45°, C tê (centro à ponta; ramal M = C no tê reto),
+# cap E (parede até o limite) e E1 (parede maior), parede-limite do cap
+_B169 = {    # DN: (A, B, C, E, E1, limite)
+    15: (38, 16, 25, 25, 25, 4.57), 20: (38, 19, 29, 25, 25, 3.81), 25: (38, 22, 38, 38, 38, 4.57),
+    32: (48, 25, 48, 38, 38, 4.83), 40: (57, 29, 57, 38, 38, 5.08), 50: (76, 35, 64, 38, 44, 5.59),
+    65: (95, 44, 76, 38, 51, 7.11), 80: (114, 51, 86, 51, 64, 7.62), 100: (152, 64, 105, 64, 76, 8.64),
+    150: (229, 95, 143, 89, 102, 10.92), 200: (305, 127, 178, 102, 127, 12.70),
+    250: (381, 159, 216, 127, 152, 12.70), 300: (457, 190, 254, 152, 178, 12.70)}
+# tê de redução B16.9: (DN da linha, DN do ramal) -> (C, M)
+_TE_RED = {
+    (20, 15): (29, 29), (25, 20): (38, 38), (25, 15): (38, 38), (32, 25): (48, 48), (32, 20): (48, 48),
+    (40, 32): (57, 57), (40, 25): (57, 57), (40, 20): (57, 57), (50, 40): (64, 60), (50, 32): (64, 57),
+    (50, 25): (64, 51), (65, 50): (76, 70), (65, 40): (76, 67), (65, 32): (76, 64), (80, 65): (86, 83),
+    (80, 50): (86, 76), (80, 40): (86, 73), (100, 80): (105, 98), (100, 65): (105, 95), (100, 50): (105, 89),
+    (150, 100): (143, 130), (150, 80): (143, 124), (200, 150): (178, 168), (200, 100): (178, 156),
+    (250, 200): (216, 203), (250, 150): (216, 194), (300, 250): (254, 241), (300, 200): (254, 229)}
+# redução concêntrica B16.9: (maior, menor) -> H (ponta a ponta)
+_RED_H = {
+    (20, 15): 38, (25, 20): 51, (25, 15): 51, (32, 25): 51, (32, 20): 51, (40, 32): 64, (40, 25): 64,
+    (50, 40): 76, (50, 32): 76, (65, 50): 89, (65, 40): 89, (80, 65): 89, (80, 50): 89, (100, 80): 102,
+    (100, 65): 102, (150, 100): 140, (150, 80): 140, (200, 150): 152, (200, 100): 152, (250, 200): 178,
+    (250, 150): 178, (300, 250): 203, (300, 200): 203}
+
+# ASME B16.5, flange de pescoço (WN) face com ressalto (RF), valores métricos da edição atual. tf e Y não
+# incluem o ressalto de 2 mm (B16.5-2003 6.4.1 e prefácio da B16.5-2017). Estojo: comprimento para face com
+# ressalto e junta espiralada de 4,5 mm.
+_WN = {   # classe: {DN: (O, tf, X, A, Y, D_ressalto, círculo de furação, furos, estojo pol, estojo mm)}
+    150: {15: (90, 9.6, 30, 21.3, 46, 34.9, 60.3, 4, "1/2", 55), 20: (100, 11.2, 38, 26.7, 51, 42.9, 69.9, 4, "1/2", 65),
+          25: (110, 12.7, 49, 33.4, 54, 50.8, 79.4, 4, "1/2", 65), 32: (115, 14.3, 59, 42.2, 56, 63.5, 88.9, 4, "1/2", 70),
+          40: (125, 15.9, 65, 48.3, 60, 73.0, 98.4, 4, "1/2", 70), 50: (150, 17.5, 78, 60.3, 62, 92.1, 120.7, 4, "5/8", 85),
+          65: (180, 20.7, 90, 73.0, 68, 104.8, 139.7, 4, "5/8", 90), 80: (190, 22.3, 108, 88.9, 68, 127.0, 152.4, 4, "5/8", 90),
+          100: (230, 22.3, 135, 114.3, 75, 157.2, 190.5, 8, "5/8", 90),
+          150: (280, 23.9, 192, 168.3, 87, 215.9, 241.3, 8, "3/4", 100),
+          200: (345, 27.0, 246, 219.1, 100, 269.9, 298.5, 8, "3/4", 110),
+          250: (405, 28.6, 305, 273.0, 100, 323.8, 362.0, 12, "7/8", 115),
+          300: (485, 30.2, 365, 323.8, 113, 381.0, 431.8, 12, "7/8", 120)},
+    300: {15: (95, 12.7, 38, 21.3, 51, 34.9, 66.7, 4, "1/2", 65), 20: (115, 14.3, 48, 26.7, 56, 42.9, 82.6, 4, "5/8", 75),
+          25: (125, 15.9, 54, 33.4, 60, 50.8, 88.9, 4, "5/8", 75), 32: (135, 17.5, 64, 42.2, 64, 63.5, 98.4, 4, "5/8", 85),
+          40: (155, 19.1, 70, 48.3, 67, 73.0, 114.3, 4, "3/4", 90), 50: (165, 20.7, 84, 60.3, 68, 92.1, 127.0, 8, "5/8", 90),
+          65: (190, 23.9, 100, 73.0, 75, 104.8, 149.2, 8, "3/4", 100), 80: (210, 27.0, 117, 88.9, 78, 127.0, 168.3, 8, "3/4", 110),
+          100: (255, 30.2, 146, 114.3, 84, 157.2, 200.0, 8, "3/4", 115),
+          150: (320, 35.0, 206, 168.3, 97, 215.9, 269.9, 12, "3/4", 120),
+          200: (380, 39.7, 260, 219.1, 110, 269.9, 330.2, 12, "7/8", 140),
+          250: (445, 46.1, 321, 273.0, 116, 323.8, 387.4, 16, "1", 160),
+          300: (520, 49.3, 375, 323.8, 129, 381.0, 450.8, 16, "1-1/8", 170)}}
+RESSALTO_RF = 2.0               # mm, classes 150 e 300
+JUNTA_ESPIRALADA = 4.5          # mm, elemento de vedação (ASME B16.20)
+
+
+def _pol_mm(txt):
+    """'1-1/8' -> 28,575 mm."""
+    tot = 0.0
+    for parte in txt.split("-"):
+        if "/" in parte:
+            a, b = parte.split("/")
+            tot += float(a) / float(b)
+        else:
+            tot += float(parte)
+    return tot * 25.4
+
+
+def _flanges():
+    out = {}
+    for cl, tab in _WN.items():
+        out[cl] = {}
+        for dn, (O, tf, X, A, Y, Drf, bc, n, est, est_mm) in tab.items():
+            out[cl][dn] = {"O": float(O), "tf": tf + RESSALTO_RF, "X": float(X), "A": A,
+                           # da ponta de solda até a face de vedação (o ressalto entra na conta)
+                           "Y": Y + RESSALTO_RF, "D_ressalto": Drf, "bc": bc, "furos": n,
+                           # furo só para o desenho: estojo + 1/8"
+                           "furo": _pol_mm(est) + 3.2,
+                           "estojo": '%s" × %d mm' % (est, est_mm)}
+    return out
+
+
+FONTE_ASME = ("Tubos ASME B36.10M (projectmaterials.com e ssmalloys.com; até DN 200 também InfraBuild); conexões "
+              "ASME B16.9-2018 (tabelas ssmalloys.com e wermac.org, iguais célula a célula); flanges ASME B16.5 "
+              "classe 150 (hardhatengineer.com e jsksteelmetal.com, conferidas com wermac.org e texasflange.com "
+              "em polegadas) e classe 300 (hardhatengineer.com, conferida em polegadas com apiint.com). "
+              "Consultas em 29/10/2026")
+
+
+def _linha_topo(sch):
+    i = 1 if sch == 40 else 3
+    tubos = {dn: {"De": v[0], "e": v[i], "bolsa_tubo": 0.0, "kg_m": v[i + 1]} for dn, v in _B3610.items()}
+    cap = {dn: float(v[3] if tubos[dn]["e"] <= v[5] else v[4]) for dn, v in _B169.items()}
+    return {
+        "id": "aco-topo-sch%d" % sch,
+        "nome": "Aço carbono solda de topo SCH %d" % sch,
+        "material": "Aço carbono",
+        "materiais": {"tubo": "Aço carbono ASTM A106 Gr. B (típico)", "conexao": "Aço carbono ASTM A234 WPB (típico)",
+                      "flange": "Aço carbono forjado ASTM A105 (típico)",
+                      "junta": "Espiralada aço inox + grafite, anel centralizador (típico)",
+                      "estojo": "ASTM A193 B7 com porcas A194 2H (típico)"},
+        "fabricante": "Padrão ASME",
+        "sufixo": "SCH %d" % sch,
+        "sch": "SCH %d" % sch,
+        "solda_topo": True,
+        "emenda": "solda",
+        "nps": NPS,
+        "nomes": {"joelho90": "Curva 90° raio longo {dn} {sch}", "joelho45": "Curva 45° raio longo {dn} {sch}",
+                  "te": "Tê {dn} {sch}", "te_reducao": "Tê de redução {D} × {d} {sch}",
+                  "luva_reducao": "Redução concêntrica {D} × {d} {sch}", "cap": "Cap (tampão) {dn} {sch}",
+                  "tubo": "Tubo de aço carbono sem costura {dn} {sch}",
+                  "flange": "Flange de pescoço (WN) classe {classe} RF {dn} {sch}",
+                  "junta": "Junta espiralada classe {classe} {dn}"},
+        "fonte": FONTE_ASME,
+        "norma": "ASME B36.10M (tubos), ASME B16.9 (conexões de solda de topo), ASME B16.5 (flanges) e ASME "
+                 "B16.20 (juntas); edições a checar na especificação do projeto",
+        "pressao": "Conforme cálculo da linha (ASME B31.3 ou B31.1) e classe do flange",
+        "temperatura_max": "Conforme especificação de material",
+        "cor": (0.42, 0.45, 0.48),
+        "barra": 6000.0,
+        "diametros": _DN_ACO,
+        "tubos": tubos,
+        "bolsa": {dn: 0.0 for dn in _DN_ACO},
+        "corpo": {dn: tubos[dn]["De"] for dn in _DN_ACO},
+        "joelho90": {dn: float(v[0]) for dn, v in _B169.items()},
+        "joelho45": {dn: float(v[1]) for dn, v in _B169.items()},
+        "te": {dn: float(v[2]) for dn, v in _B169.items()},
+        "te_ramal": {dn: float(v[2]) for dn, v in _B169.items()},
+        "te_reducao": {k: (2.0 * c, float(m)) for k, (c, m) in _TE_RED.items()},
+        "cruzeta": {},
+        "luva": {},
+        "luva_reducao": {k: float(h) for k, h in _RED_H.items()},
+        "bucha_curta": {},
+        "bucha_longa": {},
+        "cap": cap,
+        "flanges": _flanges(),
+        "junta_espessura": JUNTA_ESPIRALADA,
+        "densidade": 7850.0,
+        "a_conferir": {},
+    }
+
+
+ACO_TOPO_40 = _linha_topo(40)
+ACO_TOPO_80 = _linha_topo(80)
+
+
+# ============================================================== aço carbono roscado (BSP)
+# Tubos ABNT NBR 5580 classe M (média), catálogo Tuper "Tubos Pretos e Galvanizados" (jul/2022) p. 6, conferido
+# com Tubos Verola e UMS. Conexões de ferro fundido maleável Tupy (catálogo atual e anterior), conferidas com
+# Crane (BS EN 10242) e Georg Fischer; penetração da rosca pela EN 10242:2025 tabela 5 (= Crane = GF).
+_DN_ROSCA = (15, 20, 25, 32, 40, 50, 65, 80, 100)
+_NBR5580_M = {15: (21.3, 2.65, 1.219), 20: (26.9, 2.65, 1.585), 25: (33.7, 3.35, 2.507), 32: (42.4, 3.35, 3.226),
+              40: (48.3, 3.35, 3.714), 50: (60.3, 3.75, 5.230), 65: (76.1, 3.75, 6.691), 80: (88.9, 4.00, 8.375),
+              100: (114.3, 4.50, 12.185)}
+_LE = {15: 13.0, 20: 15.0, 25: 17.0, 32: 19.0, 40: 19.0, 50: 24.0, 65: 27.0, 80: 30.0, 100: 36.0}
+_TUPY_LUVA = {15: 36.0, 20: 39.0, 25: 45.0, 32: 50.0, 40: 55.0, 50: 65.0, 65: 74.0, 80: 80.0, 100: 94.0}
+_TUPY_BUCHA = {15: 24.0, 20: 26.0, 25: 29.0, 32: 31.0, 40: 31.0, 50: 35.0, 65: 40.0, 80: 44.0, 100: 51.0}
+
+
+def _pares(dns, n=2):
+    """(maior, menor) com o menor até n bitolas abaixo."""
+    out = []
+    for i, D in enumerate(dns):
+        for d in dns[max(0, i - n):i]:
+            out.append((D, d))
+    return out
+
+
+ACO_ROSCA_M = {
+    "id": "aco-rosca-nbr5580-m",
+    "nome": "Aço carbono roscado BSP (NBR 5580 classe M)",
+    "material": "Aço carbono",
+    "materiais": {"tubo": "Aço carbono NBR 5580 classe M, galvanizado ou preto",
+                  "conexao": "Ferro fundido maleável galvanizado (NBR 6943)"},
+    "fabricante": "Tuper / Tupy",
+    "sufixo": "",
+    "nps": NPS,
+    "emenda": "luva",
+    "bucha_rosca": True,
+    "nomes": {"joelho90": "Cotovelo 90° {dn}", "joelho45": "Cotovelo 45° {dn}", "te": "Tê {dn}",
+              "te_reducao": "Tê de redução {D} × {d}", "cruzeta": "Cruzeta {dn}", "luva": "Luva {dn}",
+              "luva_reducao": "Luva de redução {D} × {d}", "bucha_curta": "Bucha de redução {D} × {d}",
+              "cap": "Tampão {dn}", "uniao": "União {dn}",
+              "tubo": "Tubo de aço carbono NBR 5580 classe M {dn} com rosca BSP"},
+    "fonte": "Tubos: Tuper, Tubos Pretos e Galvanizados (jul/2022) p. 6, conferido com Tubos Verola e UMS. "
+             "Conexões: Tupy, catálogo de conexões (atual p. 17–21 e anterior p. 18–22), cotovelos, tês e "
+             "luva de redução iguais aos da Crane e da Georg Fischer; penetração da rosca pela EN 10242:2025 "
+             "(tabela 5). Consultas em 29/10/2026",
+    "norma": "Tubos ABNT NBR 5580 (edição 2015, a checar); conexões ABNT NBR 6943 (edição 2025, a checar) / "
+             "ISO 49 / EN 10242; rosca ABNT NBR NM ISO 7-1",
+    "pressao": "Conforme NBR 5580 e NBR 6943 (a checar para a classe e o fluido)",
+    "temperatura_max": "Conforme NBR 6943 (a checar)",
+    "cor": (0.70, 0.72, 0.74),
+    "barra": 6000.0,
+    "diametros": _DN_ROSCA,
+    "tubos": {dn: {"De": v[0], "e": v[1], "kg_m": v[2],
+                   # emenda com luva: as pontas ficam afastadas (luva − 2 × penetração)
+                   "bolsa_tubo": -(_TUPY_LUVA[dn] - 2 * _LE[dn])} for dn, v in _NBR5580_M.items()},
+    "bolsa": dict(_LE),
+    # corpo só para o desenho (o catálogo não publica o diâmetro externo do corpo)
+    "corpo": {dn: round(v[0] * 1.3, 1) for dn, v in _NBR5580_M.items()},
+    "joelho90": {15: 28.0, 20: 33.0, 25: 38.0, 32: 45.0, 40: 50.0, 50: 58.0, 65: 69.0, 80: 78.0, 100: 96.0},
+    "joelho45": {15: 22.0, 20: 25.0, 25: 28.0, 32: 33.0, 40: 36.0, 50: 43.0, 65: 50.0, 80: 55.0, 100: 66.0},
+    "te": {15: 28.0, 20: 33.0, 25: 38.0, 32: 45.0, 40: 50.0, 50: 58.0, 65: 69.0, 80: 78.0, 100: 96.0},
+    "cruzeta": {15: 28.0, 20: 33.0, 25: 38.0, 32: 45.0, 40: 50.0, 50: 58.0, 65: 69.0, 80: 78.0, 100: 97.0},
+    "luva": dict(_TUPY_LUVA),
+    # tê de redução (linha × ramal): (comprimento na linha = 2 × a, centro até a face do ramal)
+    "te_reducao": {(20, 15): (60.0, 31.0), (25, 15): (64.0, 34.0), (25, 20): (70.0, 36.0), (32, 20): (72.0, 41.0),
+                   (32, 25): (80.0, 42.0), (40, 25): (84.0, 46.0), (40, 32): (92.0, 48.0), (50, 25): (88.0, 52.0),
+                   (50, 32): (96.0, 54.0), (50, 40): (104.0, 55.0), (65, 50): (122.0, 66.0), (80, 50): (128.0, 73.0),
+                   (100, 50): (140.0, 86.0), (100, 80): (168.0, 92.0)},
+    "luva_reducao": {(20, 15): 39.0, (25, 15): 45.0, (25, 20): 45.0, (32, 20): 50.0, (32, 25): 50.0, (40, 25): 55.0,
+                     (40, 32): 55.0, (50, 25): 65.0, (50, 32): 65.0, (50, 40): 65.0, (65, 50): 74.0, (80, 50): 80.0,
+                     (80, 65): 80.0, (100, 80): 94.0},
+    # bucha de redução: comprimento total pela bitola maior
+    "bucha_curta": {(D, d): _TUPY_BUCHA[D] for D, d in _pares(_DN_ROSCA)},
+    "bucha_longa": {},
+    "cap": {15: 23.0, 20: 25.5, 25: 29.0, 32: 31.0, 40: 31.0, 50: 38.0, 65: 42.0, 80: 46.0, 100: 56.0},
+    "uniao": {15: 48.0, 20: 52.0, 25: 58.0, 32: 65.0, 40: 70.0, 50: 78.0, 65: 85.0, 80: 95.0, 100: 110.0},
+    "densidade": 7850.0,
+    "a_conferir": dict(
+        [(("cruzeta", 100), "cruzeta 4\": só o catálogo Tupy dá a cota (97 mm)")]
+        + [(("uniao", d), "união: comprimento lido do catálogo Tupy anterior; a Crane dá valores até 3 mm "
+                          "menores") for d in _DN_ROSCA]
+        + [(("cap", d), "tampão: Tupy e Crane divergem em até 4 mm") for d in _DN_ROSCA]),
+}
+
+
 LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_AQUATHERM["id"]: TIGRE_AQUATHERM,
-          TIGRE_ESGOTO["id"]: TIGRE_ESGOTO}
+          TIGRE_ESGOTO["id"]: TIGRE_ESGOTO, ACO_TOPO_40["id"]: ACO_TOPO_40, ACO_TOPO_80["id"]: ACO_TOPO_80,
+          ACO_ROSCA_M["id"]: ACO_ROSCA_M}
 PADRAO = TIGRE_SOLDAVEL["id"]
 
 
 def linha(lid):
+    if isinstance(lid, dict):
+        return lid
     return LINHAS.get(lid) or LINHAS[PADRAO]
+
+
+# nomes das peças na lista de materiais; cada linha pode trocar os que quiser em "nomes"
+NOMES_PADRAO = {
+    "joelho90": "Joelho 90° {suf} {dn}",
+    "joelho45": "Joelho 45° {suf} {dn}",
+    "te": "Tê {suf} {dn}",
+    "te_reducao": "Tê de redução soldável {D} × {d}",
+    "cruzeta": "Cruzeta {suf} {dn}",
+    "luva": "Luva {suf} {dn}",
+    "luva_reducao": "Luva de redução soldável {D} × {d}",
+    "bucha_curta": "Bucha de redução soldável curta {D} × {d}",
+    "bucha_longa": "Bucha de redução soldável longa {D} × {d}",
+    "cap": "Cap {suf} {dn}",
+    "registro": "Registro de esfera soldável {dn}",
+    "tubo": "Tubo {suf} {dn}",
+    "uniao": "União {dn}",
+    "flange": "Flange classe {classe} {dn}",
+    "junta": "Junta para flange classe {classe} {dn}",
+    "estojo": "Estojo {est} com 2 porcas",
+}
+
+
+def nome_peca(L, chave, **kw):
+    t = dict(NOMES_PADRAO)
+    t.update(L.get("nomes") or {})
+    kw.setdefault("suf", L.get("sufixo", "soldável"))
+    kw.setdefault("classe", L.get("classe", ""))
+    kw.setdefault("sch", L.get("sch", ""))
+    return " ".join(t[chave].format(**kw).split())
+
+
+def flange(L, d):
+    """Medidas do flange da linha no diâmetro d, na classe escolhida (L["classe"]); None se não houver."""
+    L = linha(L)
+    fl = L.get("flanges") or {}
+    if not fl:
+        return None
+    cl = L.get("classe") or sorted(fl)[0]
+    return (fl.get(cl) or {}).get(d)
+
+
+def rotulo(L, d):
+    """Como o diâmetro aparece para quem usa: '25 mm' (PVC), 'DN 100' (esgoto), 'DN 50 (2")' (aço)."""
+    L = linha(L)
+    if L.get("nps") and d in L["nps"]:
+        return 'DN %d (%s")' % (d, L["nps"][d])
+    return L.get("rotulo_dn", "%d mm") % d
+
+
+def rotulo_curto(L, d):
+    """Diâmetro nas reduções: '2"' no aço, o número nas outras linhas."""
+    L = linha(L)
+    if L.get("nps") and d in L["nps"]:
+        return '%s"' % L["nps"][d]
+    return "%d" % d
+
+
+def dn_do_texto(txt):
+    """Número do diâmetro em '25 mm', 'DN 100' ou 'DN 50 (2")'."""
+    import re
+    m = re.search(r"\d+", str(txt))
+    return int(m.group()) if m else 0
 
 
 def a_conferir(L, chave, k):

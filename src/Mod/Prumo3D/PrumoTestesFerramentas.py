@@ -12228,6 +12228,181 @@ class T85SoldaRugosidadeAjuste(unittest.TestCase):
                 ruins.append("%s.%s.%s" % (cls.__module__, cls.__name__, n))
         self.assertEqual(sorted(set(ruins) - de_proposito), [])
 
+class T86TubulacaoAcoIsometrico(unittest.TestCase):
+    """Tubulação de aço carbono (solda de topo ASME e roscada BSP) e folha isométrica de fabricação."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteTubAco")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _tracado(self, pts, quebras=()):
+        import PrumoEsboco3D as E
+        return E.criar(self.doc, [FreeCAD.Vector(*p) for p in pts], quebras=quebras)
+
+    def test_medidas_conferidas_no_catalogo(self):
+        import PrumoCatalogoTubos as C
+        L = C.linha("aco-topo-sch40")
+        self.assertEqual((L["tubos"][80]["De"], L["tubos"][80]["e"]), (88.9, 5.49))      # B36.10M 3" SCH 40
+        self.assertEqual(C.linha("aco-topo-sch80")["tubos"][50]["e"], 5.54)               # 2" SCH 80
+        self.assertEqual((L["joelho90"][80], L["joelho45"][80], L["te"][80]), (114.0, 51.0, 86.0))   # B16.9
+        self.assertEqual(L["te_reducao"][(80, 50)], (172.0, 76.0))
+        self.assertEqual(L["luva_reducao"][(100, 80)], 102.0)
+        self.assertEqual(L["cap"][50], 38.0)                                  # 3,91 ≤ 5,59: E
+        self.assertEqual(C.linha("aco-topo-sch80")["cap"][100], 64.0)         # 8,56 ≤ 8,64: E
+        self.assertEqual(C.linha("aco-topo-sch80")["cap"][150], 102.0)       # 10,97 > 10,92: E1
+        fl = C.flange(dict(L, classe=150), 80)
+        self.assertEqual((fl["O"], fl["Y"], fl["furos"]), (190.0, 70.0, 4))   # Y 68 + ressalto 2
+        self.assertEqual(C.flange(dict(L, classe=300), 100)["estojo"], '3/4" × 115 mm')
+        R = C.linha("aco-rosca-nbr5580-m")
+        self.assertEqual((R["tubos"][25]["De"], R["tubos"][25]["e"]), (33.7, 3.35))      # NBR 5580 classe M
+        self.assertEqual((R["joelho90"][25], R["bolsa"][25]), (38.0, 17.0))             # Tupy a; EN 10242 Le
+        self.assertEqual(C.rotulo(L, 32), 'DN 32 (1-1/4")')
+
+    def test_solda_de_topo_corte_flanges_e_soldas(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        segs = [(V(0, 0, 0), V(2000, 0, 0)), (V(2000, 0, 0), V(2000, 1500, 0)),
+                (V(2000, 1500, 0), V(2000, 1500, 1000)), (V(1000, 0, 0), V(1000, 0, 800))]
+        L = dict(C.linha("aco-topo-sch40"), classe=150)
+        res = T.montar(segs, [80, 80, 80, 50], L, "flange", {1: [T.Junta(700.0)]})
+        self.assertFalse(res["avisos"])
+        cortes = sorted(round(t["corte"], 2) for t in res["tubos"])
+        # 1000 − 70 (flange) − 86 (tê); 1000 − 86 − 114 (curva); 700 − 114 − (70 + 2,25); 1000 − 114 − 70;
+        # ramal 800 − 76 − (62 + 2)
+        self.assertEqual(cortes, [513.75, 613.75, 660.0, 800.0, 816.0, 844.0])
+        self.assertEqual(T.soldas_de_topo(res), 12)        # 5 flanges + 3 do tê + 4 das curvas
+        q = T.resumo_conexoes(res["conexoes"])
+        self.assertEqual(q['Flange de pescoço (WN) classe 150 RF DN 80 (3") SCH 40'], 4)
+        # 4 flanges de 3": duas ligações com bocal e um par no meio = 3 jogos de 4 estojos
+        self.assertEqual(q['Estojo 5/8" × 90 mm com 2 porcas'], 3 * 4)
+        self.assertEqual(q['Junta espiralada classe 150 DN 80 (3")'], 3)
+        self.assertEqual(q['Tê de redução 3" × 2" SCH 40'], 1)
+        sh = T.forma(res)
+        self.assertTrue(sh.isValid())
+        curva = [c for c in res["conexoes"] if c["tipo"] == "Joelho 90°"][0]
+        s = T.solido_conexao(curva, res["linha"])
+        # curva de verdade: volume = área da coroa × comprimento do arco (raio 114, ¼ de volta)
+        coroa = math.pi / 4 * (88.9 ** 2 - (88.9 - 2 * 5.49) ** 2)
+        self.assertAlmostEqual(s.Volume, coroa * math.pi * 114.0 / 2.0, delta=0.01 * s.Volume)
+
+    def test_curva_que_muda_de_diametro_avisa_sem_bucha(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        res = T.montar([(V(0, 0, 0), V(1000, 0, 0)), (V(1000, 0, 0), V(1000, 1000, 0))], [80, 50],
+                       C.linha("aco-topo-sch40"))
+        self.assertTrue(any("redução concêntrica" in a for a in res["avisos"]))
+        self.assertFalse([d for d in T.resumo_conexoes(res["conexoes"]) if "Bucha" in d])
+
+    def test_roscada_uniao_bucha_e_emenda_com_luva(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        V = FreeCAD.Vector
+        L = C.linha("aco-rosca-nbr5580-m")
+        segs = [(V(0, 0, 0), V(1500, 0, 0)), (V(700, 0, 0), V(700, 0, 600))]
+        res = T.montar(segs, [25, 20], L, False, {0: [T.Junta(400.0)]})
+        cortes = sorted(round(t["corte"], 2) for t in res["tubos"])
+        # união 58 (penetração 17): 400 − 12; tê de redução 1" × 3/4" a = 35: 700 − 18 − 412; ponta livre
+        # 800 − 18; ramal 600 − (36 − 15)
+        self.assertEqual(cortes, [270.0, 388.0, 579.0, 782.0])
+        self.assertEqual(T.soldas_de_topo(res), 0)
+        # cotovelo 1" com saída de 3/4": bucha, e o sextavado dela entra no desconto (29 − 17 = 12 mm)
+        res = T.montar([(V(0, 0, 0), V(1000, 0, 0)), (V(1000, 0, 0), V(1000, 1000, 0))], [25, 20], L)
+        self.assertIn('Bucha de redução 1" × 3/4"', T.resumo_conexoes(res["conexoes"]))
+        menor = [t for t in res["tubos"] if t["dn"] == 20][0]
+        self.assertAlmostEqual(menor["corte"], 1000 - (38 + 12 - 15), 3)
+        # trecho maior que a barra: emenda com luva, que entra na lista
+        res = T.montar([(V(0, 0, 0), V(8000, 0, 0))], [25], L)
+        self.assertEqual(T.resumo_conexoes(res["conexoes"]).get('Luva DN 25 (1")'), 1)
+        lc = T.lista_de_corte(res["pecas"], L)
+        self.assertEqual((lc[25]["barras"], lc[25]["emendas"]), (2, 1))
+        # a luva afasta as pontas (45 − 2 × 17 = 11 mm): 8000 = barra inteira 6000 + 11 + 1989
+        self.assertEqual([round(p, 1) for p in lc[25]["pecas"]], [1989.0])
+
+    def test_objeto_troca_de_linha_e_le_arquivo_antigo(self):
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0)])
+        t = T.criar(e, dn=25)
+        self.assertEqual(t.Diametro, "25 mm")                  # PVC continua como antes
+        t.Linha = "aco-topo-sch40"
+        self.doc.recompute()
+        self.assertEqual(t.Diametro, 'DN 25 (1")')
+        self.assertIn("Curva 90° raio longo", " ".join(t.Conexoes))
+        t.FlangePontas = True
+        t.ClasseFlange = "300"
+        self.doc.recompute()
+        self.assertIn('2 × Flange de pescoço (WN) classe 300 RF DN 25 (1") SCH 40', t.Conexoes)
+        self.assertEqual(t.Soldas, 4)
+        self.assertTrue(t.Shape.isValid())
+        itens = T.linhas_bom(t)
+        mats = {it[1]: it[2] for it in itens}
+        self.assertIn("A105", mats['Flange de pescoço (WN) classe 300 RF DN 25 (1") SCH 40'])
+        self.assertIn(("solda", "aco-topo-sch40"), [it[0] for it in itens])
+
+    def test_folha_isometrica(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTubulacao as T
+        import PrumoIsometrico as I
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (2000, 0, 0), (2000, 1000, 0), (1000, 0, 0), (1000, 0, 600)],
+                          quebras=[4])
+        t = T.criar(e, dn=80, lid="aco-topo-sch40")
+        t.FlangePontas = True
+        t.DiametrosTrechos = ["4: 50"]
+        self.doc.recompute()
+        pg = I.criar_folha(t)
+        sim = I.folha_de(t)[1]
+        svg = sim.Symbol
+        for txt in ("LISTA DE MATERIAL", "LISTA DE CORTE", "Soldas de topo", "P1", ">1000<", ">600<"):
+            self.assertIn(txt, svg)
+        info = I.dados(t)
+        self.assertEqual(len(info["tubos"]), len(t.Proxy.ultimo["tubos"]))
+        self.assertEqual(pg.Template.EditableTexts["titulo"], "Isométrico — %s" % t.Label)
+        # chamada de novo: atualiza a mesma folha
+        t.Juntas = ["1: 400"]
+        self.doc.recompute()
+        n = len([o for o in self.doc.Objects if o.TypeId == "TechDraw::DrawPage"])
+        self.assertIs(I.criar_folha(t), pg)
+        self.assertEqual(len([o for o in self.doc.Objects if o.TypeId == "TechDraw::DrawPage"]), n)
+        self.assertIn("P5", I.folha_de(t)[1].Symbol)
+        self.assertIn("Prumo_IsometricoTubulacao", FreeCADGui.listCommands())
+
+    def test_painel_mostra_o_que_a_linha_tem(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 1000, 0)])
+        t = T.criar(e, dn=25)
+        p = T.abrir_painel(t)
+        try:
+            self.assertTrue(p.tabela.isColumnHidden(4))           # PVC: sem flange nem união
+            self.assertTrue(p.classe.isHidden())
+            p.linha.setCurrentIndex(p.linha.findData("aco-topo-sch40"))
+            self.assertFalse(p.tabela.isColumnHidden(4))
+            self.assertEqual(p.tabela.horizontalHeaderItem(4).text(), "Flanges a (mm)")
+            self.assertTrue(p.tabela.isColumnHidden(3))           # sem registro nesta linha
+            self.assertTrue(p.card_p.isHidden())                  # torneiras são da linha predial
+            p.fl_pontas.setChecked(True)
+            self.assertTrue(t.FlangePontas)
+            ed = p.tabela.cellWidget(0, 4)
+            ed.setText("500")
+            ed.editingFinished.emit()
+            self.assertEqual(list(t.Juntas), ["1: 500"])
+            self.assertIn("Flange", " ".join(t.Conexoes))
+            p.linha.setCurrentIndex(p.linha.findData("aco-rosca-nbr5580-m"))
+            self.assertEqual(p.tabela.horizontalHeaderItem(4).text(), "União a (mm)")
+            self.assertIn('1 × União DN 25 (1")', t.Conexoes)
+            self.assertTrue(p.classe.isHidden())
+        finally:
+            FreeCADGui.Control.closeDialog()
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -12249,4 +12424,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T75RoteirosDoEsboco, T76RoteiroDaPeca, T77RoteirosDaEstrutura,
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
-           T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste]
+           T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
+           T86TubulacaoAcoIsometrico]

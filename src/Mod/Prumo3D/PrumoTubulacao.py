@@ -21,6 +21,11 @@ import FreeCAD
 import PrumoCatalogoTubos as CAT
 
 TOL_NO = 0.5        # mm: pontas mais próximas que isso são o mesmo nó
+
+
+class Junta(float):
+    """Posição (mm do início do trecho) de uma junta de desmontagem: par de flanges nas linhas de solda de
+    topo, união nas roscadas. Anda junto com os registros quando o trecho é dividido."""
 TOL_ANG = 1.0       # graus
 
 
@@ -278,7 +283,7 @@ def dividir_em_tes(segs, dns, registros=None, pontos=None, caixas=None):
         for i, lst in registros.items():
             for pos in lst:
                 k, q = onde(i, pos)
-                nreg.setdefault(k, []).append(q)
+                nreg.setdefault(k, []).append(Junta(q) if isinstance(pos, Junta) else q)
     npon = None
     if pontos:
         npon = {}
@@ -405,7 +410,12 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
     suf = L.get("sufixo", "soldável")
 
     def nome_dn(d):
-        return L.get("rotulo_dn", "%d mm") % d
+        return CAT.rotulo(L, d)
+
+    def N(chave, dn=None, D=None, d=None, **kw):
+        return CAT.nome_peca(L, chave, dn=nome_dn(dn) if dn is not None else "",
+                             D=CAT.rotulo_curto(L, D) if D is not None else "",
+                             d=CAT.rotulo_curto(L, d) if d is not None else "", **kw)
 
     def conferir(chave, k, peca):
         motivo = CAT.a_conferir(L, chave, k)
@@ -475,9 +485,23 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     conexoes.append(c)
                     recuo[(s, pt)] = jb["A"] - bolsa[d]
                 continue
+            if tampar == "flange":
+                d = dns[s]
+                fl = CAT.flange(L, d)
+                if fl is None:
+                    avisos.append("Trecho %d: não há flange de %s classe %s no catálogo." % (s + 1, nome_dn(d),
+                                                                                         L.get("classe", "—")))
+                    continue
+                c = _rec("Flange", N("flange", dn=d), P, [(s, pt, u, d, fl["Y"])], fl["O"],
+                         _extras_flange(L, d, fl, N))
+                c["flange"] = fl
+                conexoes.append(c)
+                recuo[(s, pt)] = fl["Y"]
+                continue
             if tampar:
                 d = dns[s]
-                conexoes.append(_rec("Cap", "Cap %s %s" % (suf, nome_dn(d)), P,
+                conferir("cap", d, N("cap", dn=d))
+                conexoes.append(_rec("Cap", N("cap", dn=d), P,
                                      [(s, pt, u, d, -(L["cap"][d] - bolsa[d]))], L["corpo"][d]))
             continue
         if n == 2:
@@ -494,13 +518,13 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     A = L["luva_reducao"][(D, d)]
                     folga = (A - bolsa[D] - bolsa[d]) / 2.0
                     pern = [(s, p, u, dd, (folga + bolsa[dd])) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
-                    conexoes.append(_rec("Luva de redução", ("Redução %s %d × %d" % (suf, D, d)) if L.get("esgoto") else ("Luva de redução soldável %d × %d" % (D, d)), P, pern,
+                    conexoes.append(_rec("Luva de redução", N("luva_reducao", D=D, d=d), P, pern,
                                          L["corpo"][D]))
                 elif (D, d) in L["bucha_curta"] and D in L["luva"]:
                     A = L["luva"][D] / 2.0
                     pern = [(s, p, u, dd, A) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
-                    conexoes.append(_rec("Luva", "Luva %s %s" % (suf, nome_dn(D)), P, pern, L["corpo"][D],
-                                         ["Bucha de redução soldável curta %d × %d" % (D, d)]))
+                    conexoes.append(_rec("Luva", N("luva", dn=D), P, pern, L["corpo"][D],
+                                         [N("bucha_curta", D=D, d=d)]))
                     conferir("bucha_curta", (D, d), "Bucha curta %d × %d" % (D, d))
                 else:
                     avisos.append("Redução %d × %d no nó %d: não há peça no catálogo (faça em etapas)."
@@ -525,15 +549,22 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     extras = []
                     pern = []
                     for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2)):
+                        sal = 0.0
                         if dd != D:
                             if (D, dd) not in L["bucha_curta"]:
-                                avisos.append("%s %d com ramal de %d no nó %d: falta bucha %d × %d no "
-                                              "catálogo." % (rot, D, dd, k + 1, D, dd))
-                            extras.append("Bucha de redução soldável curta %d × %d" % (D, dd))
-                            conferir("bucha_curta", (D, dd), "Bucha curta %d × %d" % (D, dd))
-                        pern.append((s, p, u, dd, cf))
-                        recuo[(s, p)] = cf - bolsa[dd]
-                    conexoes.append(_rec(rot, "%s %s %s" % (rot, suf, nome_dn(D)), P, pern, L["corpo"][D], extras))
+                                if L.get("solda_topo"):
+                                    avisos.append("Nó %d: a curva muda de %s para %s; ponha a redução "
+                                                  "concêntrica num trecho reto." % (k + 1, nome_dn(D), nome_dn(dd)))
+                                else:
+                                    avisos.append("%s %d com ramal de %d no nó %d: falta bucha %d × %d no "
+                                                  "catálogo." % (rot, D, dd, k + 1, D, dd))
+                            else:
+                                extras.append(N("bucha_curta", D=D, d=dd))
+                                conferir("bucha_curta", (D, dd), "Bucha curta %d × %d" % (D, dd))
+                                sal = _saliencia_bucha(L, D, dd)
+                        pern.append((s, p, u, dd, cf + sal))
+                        recuo[(s, p)] = cf + sal - bolsa[dd]
+                    conexoes.append(_rec(rot, N(chave, dn=D), P, pern, L["corpo"][D], extras))
                     break
             else:
                 avisos.append("Nó %d: a linha muda de direção em %.0f° entre os trechos %d e %d e não há "
@@ -604,22 +635,23 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                 cf_c = L["te"][D]
                 cf_r = L.get("te_ramal", {}).get(D, cf_c)
                 conferir("te", D, "Tê %s" % nome_dn(D))
-                desc = "Tê %s %s" % (suf, nome_dn(D))
+                desc = N("te", dn=D)
                 rot = "Tê"
             elif (D, dr) in L["te_reducao"]:
                 A, B = L["te_reducao"][(D, dr)]
                 cf_c, cf_r = A / 2.0, B
-                desc = "Tê de redução soldável %d × %d" % (D, dr)
+                desc = N("te_reducao", D=D, d=dr)
                 rot = "Tê de redução"
             else:
                 cf_c = cf_r = L["te"][D]
-                desc = "Tê %s %s" % (suf, nome_dn(D))
+                desc = N("te", dn=D)
                 rot = "Tê"
                 if (D, dr) in L["bucha_curta"]:
-                    extras.append("Bucha de redução soldável curta %d × %d" % (D, dr))
+                    extras.append(N("bucha_curta", D=D, d=dr))
                     conferir("bucha_curta", (D, dr), "Bucha curta %d × %d" % (D, dr))
+                    cf_r += _saliencia_bucha(L, D, dr)
                 elif (D, dr) in L["bucha_longa"]:
-                    extras.append("Bucha de redução soldável longa %d × %d" % (D, dr))
+                    extras.append(N("bucha_longa", D=D, d=dr))
                     conferir("bucha_longa", (D, dr), "Bucha longa %d × %d" % (D, dr))
                     cf_r += L["bucha_longa"][(D, dr)] - bolsa[D]
                 else:
@@ -643,7 +675,7 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                 pern = [(s, p, u, D, cf) for s, p, u in its]
                 for s, p, u, dd, c in pern:
                     recuo[(s, p)] = c - bolsa[dd]
-                conexoes.append(_rec("Cruzeta", "Cruzeta %s %s" % (suf, nome_dn(D)), P, pern, L["corpo"][D]))
+                conexoes.append(_rec("Cruzeta", N("cruzeta", dn=D), P, pern, L["corpo"][D]))
             else:
                 avisos.append("Nó %d: cruzamento de 4 trechos sem cruzeta no catálogo para esse caso; "
                               "separe em dois tês." % (k + 1))
@@ -667,6 +699,12 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
         cortes = []
         for pos in sorted((registros or {}).get(s, [])):
             d = dns[s]
+            if isinstance(pos, Junta):
+                junta = _junta(L, s, d, a, u, float(pos), ra, rb, comp_seg, N, nome_dn, avisos)
+                if junta:
+                    cortes.append(junta[0])
+                    conexoes.extend(junta[1])
+                continue
             if d not in L.get("registro", {}):
                 avisos.append("Trecho %d: não há registro de %d mm no catálogo." % (s + 1, d))
                 continue
@@ -676,7 +714,7 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                               % (s + 1, pos))
                 continue
             cortes.append((pos - (A / 2.0 - bol), pos + (A / 2.0 - bol)))
-            conexoes.append(_rec("Registro", "Registro de esfera soldável %d mm" % d, a + u * pos,
+            conexoes.append(_rec("Registro", N("registro", dn=d), a + u * pos,
                                  [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0)], L["registro"][d]["corpo"]))
         for pos, dr in (pontos or {}).get(s, []):
             if pos in ("inicio", "fim"):
@@ -739,8 +777,81 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
         pecas.setdefault(r, {"dn": t["dn"], "corte": 0.0, "trechos": []})
         pecas[r]["corte"] += t["corte"]
         pecas[r]["trechos"].append(t["seg"] + 1)
+    pecas = list(pecas.values())
+    # emendas das barras: luva nas linhas roscadas (entra na lista; o tubo segue desenhado inteiro)
+    if L.get("emenda") == "luva":
+        for d, r in lista_de_corte(pecas, L).items():
+            for _i in range(r["emendas"]):
+                c = _rec("Luva", N("luva", dn=d), FreeCAD.Vector(), [], L["corpo"].get(d, 0.0))
+                c["so_lista"] = True
+                conexoes.append(c)
     return {"tubos": tubos, "conexoes": conexoes, "avisos": avisos, "linha": L, "nos": nos,
-            "pecas": list(pecas.values())}
+            "pecas": pecas}
+
+
+def _saliencia_bucha(L, D, d):
+    """Bucha roscada: o sextavado fica para fora da conexão (comprimento − penetração da rosca maior)."""
+    if not L.get("bucha_rosca"):
+        return 0.0
+    return max(0.0, L["bucha_curta"][(D, d)] - L["bolsa"][D])
+
+
+def _extras_flange(L, d, fl, N):
+    """Junta e estojos de uma ligação flangeada (vão com um dos flanges)."""
+    ex = [N("junta", dn=d)]
+    ex += [N("estojo", dn=d, est=fl["estojo"])] * int(fl["furos"])
+    return ex
+
+
+def _junta(L, s, d, a, u, pos, ra, rb, comp_seg, N, nome_dn, avisos):
+    """Junta de desmontagem no meio do trecho. Devolve ((corte_ini, corte_fim), [conexões]) ou None."""
+    if L.get("flanges"):
+        fl = CAT.flange(L, d)
+        if fl is None:
+            avisos.append("Trecho %d: não há flange de %s classe %s no catálogo." % (s + 1, nome_dn(d),
+                                                                                 L.get("classe", "—")))
+            return None
+        g = L.get("junta_espessura", 0.0)
+        meio = fl["Y"] + g / 2.0
+        if pos - meio < ra + 1.0 or pos + meio > comp_seg - rb - 1.0:
+            avisos.append("Trecho %d: os flanges a %.0f mm do início não cabem entre as conexões." % (s + 1, pos))
+            return None
+        f1 = _rec("Flange", N("flange", dn=d), a + u * (pos - g / 2.0), [(s, 2, -u, d, fl["Y"])], fl["O"],
+                  _extras_flange(L, d, fl, N))
+        f2 = _rec("Flange", N("flange", dn=d), a + u * (pos + g / 2.0), [(s, 3, u, d, fl["Y"])], fl["O"])
+        for f in (f1, f2):
+            f["flange"] = fl
+        return (pos - meio, pos + meio), [f1, f2]
+    if L.get("uniao"):
+        if d not in L["uniao"]:
+            avisos.append("Trecho %d: não há união de %s no catálogo." % (s + 1, nome_dn(d)))
+            return None
+        A = L["uniao"][d]
+        b = L["bolsa"][d]
+        motivo = CAT.a_conferir(L, "uniao", d)
+        if motivo:
+            msg = "%s: medida a conferir no catálogo (%s)." % (N("uniao", dn=d), motivo)
+            if msg not in avisos:
+                avisos.append(msg)
+        if pos - A / 2.0 < ra + 1.0 or pos + A / 2.0 > comp_seg - rb - 1.0:
+            avisos.append("Trecho %d: a união a %.0f mm do início não cabe entre as conexões." % (s + 1, pos))
+            return None
+        c = _rec("União", N("uniao", dn=d), a + u * pos, [(s, 2, u, d, A / 2.0), (s, 3, -u, d, A / 2.0)],
+                 L["corpo"][d] * 1.25)
+        return (pos - (A / 2.0 - b), pos + (A / 2.0 - b)), [c]
+    avisos.append("Trecho %d: a linha %s não tem junta de desmontagem (flange ou união)." % (s + 1, L["nome"]))
+    return None
+
+
+def soldas_de_topo(res):
+    """Soldas de topo da linha: cada ponta de conexão ligada a tubo, mais as emendas de barra."""
+    L = res["linha"]
+    if not L.get("solda_topo"):
+        return 0
+    n = sum(1 for c in res["conexoes"] if not c.get("so_lista") and c["tipo"] != "Caixa"
+            for p in c["pernas"] if p[0] >= 0)
+    n += sum(r["emendas"] for r in lista_de_corte(res.get("pecas", []), L).values())
+    return n
 
 
 def lista_de_corte(pecas, L):
@@ -852,8 +963,75 @@ def solido_conexao(c, L):
     return comp
 
 
+def solido_flange(c, L):
+    """Flange de pescoço: disco (face no nó) e pescoço cônico até a ponta de solda, furado no diâmetro
+    interno do tubo; furos dos estojos no círculo de furação."""
+    import Part
+    fl = c["flange"]
+    s_, p_, u, dd, Y = c["pernas"][0]
+    P = c["no"]
+    tb = L["tubos"][dd]
+    ri = tb["De"] / 2.0 - tb["e"]
+    corpo = _cil(fl["O"] / 2.0, P, u, fl["tf"])
+    pesc = Part.makeCone(fl["X"] / 2.0, tb["De"] / 2.0, Y - fl["tf"], P + u * fl["tf"], u)
+    corpo = corpo.fuse(pesc)
+    corpo = corpo.cut(_cil(ri, P - u * 0.5, u, Y + 1.0))
+    n = int(fl["furos"])
+    if n and fl.get("furo") and fl.get("bc"):
+        e1 = u.cross(FreeCAD.Vector(0, 0, 1))
+        if e1.Length < 1e-6:
+            e1 = u.cross(FreeCAD.Vector(1, 0, 0))
+        e1.normalize()
+        e2 = u.cross(e1)
+        for i in range(n):
+            ang = 2 * math.pi * (i + 0.5) / n
+            q = P + (e1 * math.cos(ang) + e2 * math.sin(ang)) * (fl["bc"] / 2.0)
+            corpo = corpo.cut(_cil(fl["furo"] / 2.0, q - u * 0.5, u, fl["tf"] + 1.0))
+    return corpo
+
+
+def solido_curva(c, L):
+    """Curva de raio longo (solda de topo): arco de verdade entre as pontas, raio = centro à face / tan(δ/2)."""
+    import Part
+    P = c["no"]
+    (_s1, _p1, u1, d1, A), (_s2, _p2, u2, _d2, _A2) = c["pernas"][:2]
+    tb = L["tubos"][d1]
+    delta = math.radians(180.0 - _ang(u1, u2))
+    Rc = A / math.tan(delta / 2.0)
+    bis = (u1 + u2)
+    bis.normalize()
+    M = P + bis * (math.hypot(A, Rc) - Rc)
+    T1, T2 = P + u1 * A, P + u2 * A
+    arco = Part.Wire([Part.Arc(T1, M, T2).toShape()])
+
+    def tubo(r):
+        aro = Part.Wire([Part.makeCircle(r, T1, -u1)])
+        return arco.makePipeShell([aro], True, True)
+    return tubo(tb["De"] / 2.0).cut(tubo(tb["De"] / 2.0 - tb["e"]))
+
+
+def solido_reducao(c, L):
+    """Redução concêntrica (solda de topo): cone entre as duas pontas."""
+    import Part
+    P = c["no"]
+    (_s1, _p1, u1, d1, a1), (_s2, _p2, u2, d2, a2) = c["pernas"][:2]
+    t1, t2 = L["tubos"][d1], L["tubos"][d2]
+    ini = P + u1 * a1
+    H = a1 + a2
+    ext = Part.makeCone(t1["De"] / 2.0, t2["De"] / 2.0, H, ini, u2)
+    inn = Part.makeCone(t1["De"] / 2.0 - t1["e"], t2["De"] / 2.0 - t2["e"], H + 0.02, ini - u2 * 0.01, u2)
+    return ext.cut(inn)
+
+
 def _solido_conexao(c, L, k=1.0):
     import Part
+    if c["tipo"] == "Flange":
+        return solido_flange(c, L)
+    if L.get("solda_topo") and c["tipo"] in ("Joelho 90°", "Joelho 45°") and len(c["pernas"]) == 2 \
+            and c["pernas"][0][3] == c["pernas"][1][3]:
+        return solido_curva(c, L)
+    if L.get("solda_topo") and c["tipo"] == "Luva de redução":
+        return solido_reducao(c, L)
     P = c["no"]
     R = c["corpo"] / 2.0 * k
     corpo = None
@@ -865,10 +1043,14 @@ def _solido_conexao(c, L, k=1.0):
             alt = L["cap"][dd]
             ini = P - u * (alt - b)
             parte = _cil(R, ini, u, alt)
-            furos.append(_cil(tb["De"] / 2.0, P, u, b + 0.5))
+            if b > 0:
+                furos.append(_cil(tb["De"] / 2.0, P, u, b + 0.5))
+            else:
+                furos.append(_cil(tb["De"] / 2.0 - tb["e"], P - u * (alt - tb["e"]), u, alt - tb["e"] + 0.5))
         else:
             parte = _cil(R, P, u, cf)
-            furos.append(_cil(tb["De"] / 2.0, P + u * (cf - b), u, b + 0.5))
+            if b > 0:
+                furos.append(_cil(tb["De"] / 2.0, P + u * (cf - b), u, b + 0.5))
             furos.append(_cil(tb["De"] / 2.0 - tb["e"], P, u, cf))
         corpo = parte if corpo is None else corpo.fuse(parte)
     if c.get("torneira"):
@@ -882,7 +1064,7 @@ def _solido_conexao(c, L, k=1.0):
         corpo = corpo.fuse(_cil(rg["corpo"] / 2.0 * 0.55, P, cima, rg["altura"]))
         alavanca = _cil(4.0, P + cima * (rg["altura"] - 4.0), u, rg["alavanca"] * 0.5)
         corpo = corpo.fuse(alavanca)
-    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução", "Registro", "Luva com bucha"):
+    if len(c["pernas"]) > 1 and c["tipo"] not in ("Luva", "Luva de redução", "Registro", "Luva com bucha", "União"):
         corpo = corpo.fuse(Part.makeSphere(R, P))
     for f in furos:
         corpo = corpo.cut(f)
@@ -894,6 +1076,8 @@ def forma(res):
     L = res["linha"]
     sol = [solido_tubo(t, L) for t in res["tubos"]]
     for c in res["conexoes"]:
+        if c.get("so_lista"):
+            continue
         try:
             sol.append(solido_conexao(c, L))
         except Exception as ex:
@@ -902,8 +1086,26 @@ def forma(res):
 
 
 # ======================================================================== objeto
-def _dn_txt(d):
-    return "%d mm" % d
+TEXTO_EMENDA = {"bolsa": "pela bolsa", "solda": "com solda de topo", "luva": "com luva"}
+
+
+def _dn_txt(d, L=None):
+    """Texto do diâmetro na propriedade e nas listas: 'DN 50 (2")' nas linhas de aço, '25 mm' nas outras
+    (como nos arquivos já gravados)."""
+    return CAT.rotulo(L, d) if L is not None and L.get("nps") else "%d mm" % d
+
+
+def _acertar_diametros(obj, L):
+    """Lista de diâmetros da linha no objeto, mantendo o atual se existir (aceita '25 mm' de arquivos antigos)."""
+    lista = [_dn_txt(d, L) for d in L["diametros"]]
+    if list(obj.getEnumerationsOfProperty("Diametro")) == lista:
+        return
+    atual = CAT.dn_do_texto(obj.Diametro) if obj.Diametro else 25
+    obj.Diametro = lista
+    if atual in L["diametros"]:
+        obj.Diametro = _dn_txt(atual, L)
+    else:
+        obj.Diametro = lista[min(len(lista) - 1, len(lista) // 2)]
 
 
 class Tubulacao:
@@ -931,9 +1133,12 @@ class Tubulacao:
             obj.Linha = list(CAT.LINHAS)
             obj.Linha = atual if atual in CAT.LINHAS else CAT.PADRAO
         if "Diametro" not in obj.PropertiesList:
-            obj.addProperty("App::PropertyEnumeration", "Diametro", "Tubulação", "Diâmetro externo (DE) padrão")
-            obj.Diametro = [_dn_txt(d) for d in CAT.linha(obj.Linha)["diametros"]]
-            obj.Diametro = _dn_txt(25)
+            obj.addProperty("App::PropertyEnumeration", "Diametro", "Tubulação", "Diâmetro padrão")
+            L = CAT.linha(obj.Linha)
+            obj.Diametro = [_dn_txt(d, L) for d in L["diametros"]]
+            obj.Diametro = _dn_txt(25 if 25 in L["diametros"] else L["diametros"][0], L)
+        else:
+            _acertar_diametros(obj, CAT.linha(obj.Linha))
         add("App::PropertyStringList", "DiametrosTrechos", "Tubulação",
             "Diâmetro de trechos específicos: 'trecho: DE' (ex.: '3: 20')", [])
         add("App::PropertyBool", "TamparPontas", "Tubulação", "Põe cap nas pontas soltas", False)
@@ -948,11 +1153,21 @@ class Tubulacao:
         add("App::PropertyStringList", "Caixas", "Tubulação",
             "Esgoto: caixas no nó de uma ponta: 'trecho: inicio|fim: tipo' (tipos: sifonada_100, sifonada_150, "
             "sifonada_150_75, inspecao, gordura)", [])
+        add("App::PropertyStringList", "Juntas", "Tubulação",
+            "Juntas de desmontagem (par de flanges na solda de topo, união na rosca): 'trecho: distância do "
+            "início (mm)'", [])
+        add("App::PropertyBool", "FlangePontas", "Tubulação",
+            "Solda de topo: flange nas pontas soltas (ligação com bocal de equipamento)", False)
+        if "ClasseFlange" not in obj.PropertiesList:
+            obj.addProperty("App::PropertyEnumeration", "ClasseFlange", "Tubulação", "Classe de pressão dos flanges")
+            obj.ClasseFlange = ["150", "300"]
+            obj.ClasseFlange = "150"
         add("App::PropertyStringList", "Conexoes", "Resultados", "Conexões (quantidade × peça)", [], ro=True)
         add("App::PropertyStringList", "ListaCorte", "Resultados", "Tubos por diâmetro e barras", [], ro=True)
         add("App::PropertyStringList", "Avisos", "Resultados", "Avisos do traçado", [], ro=True)
         add("App::PropertyLength", "ComprimentoTubos", "Resultados", "Comprimento total de tubo", 0.0, ro=True)
         add("App::PropertyInteger", "Barras", "Resultados", "Barras de tubo necessárias", 0, ro=True)
+        add("App::PropertyInteger", "Soldas", "Resultados", "Soldas de topo (linhas de aço soldadas)", 0, ro=True)
 
     def onDocumentRestored(self, obj):
         obj.Proxy = self
@@ -963,12 +1178,10 @@ class Tubulacao:
         if prop != "Linha" or "Diametro" not in obj.PropertiesList or "DiametrosTrechos" not in obj.PropertiesList:
             return
         L = CAT.linha(obj.Linha)
-        lista = [_dn_txt(d) for d in L["diametros"]]
+        lista = [_dn_txt(d, L) for d in L["diametros"]]
         if list(obj.getEnumerationsOfProperty("Diametro")) == lista:
             return
-        atual = str(obj.Diametro)
-        obj.Diametro = lista
-        obj.Diametro = atual if atual in lista else lista[min(len(lista) - 1, len(lista) // 2)]
+        _acertar_diametros(obj, L)
         if FreeCAD.GuiUp and getattr(obj, "ViewObject", None) is not None:
             try:
                 obj.ViewObject.ShapeColor = L["cor"]
@@ -980,7 +1193,7 @@ class Tubulacao:
                                 and int(x.split(":")[1].replace("mm", "").strip()) in validos]
 
     def diametros(self, obj, n):
-        padrao = int(str(obj.Diametro).split()[0])
+        padrao = CAT.dn_do_texto(obj.Diametro)
         dns = [padrao] * n
         for item in obj.DiametrosTrechos:
             try:
@@ -993,14 +1206,29 @@ class Tubulacao:
         return dns
 
     def registros(self, obj):
+        """Registros e juntas de desmontagem (Junta) por trecho."""
         reg = {}
-        for item in getattr(obj, "Registros", []) or []:
-            try:
-                t, pos = item.split(":")
-                reg.setdefault(int(t) - 1, []).append(float(pos.replace("mm", "").replace(",", ".").strip()))
-            except ValueError:
-                continue
+        for prop, tipo in (("Registros", float), ("Juntas", Junta)):
+            for item in getattr(obj, prop, []) or []:
+                try:
+                    t, pos = item.split(":")
+                    reg.setdefault(int(t) - 1, []).append(tipo(float(pos.replace("mm", "").replace(",", ".").strip())))
+                except ValueError:
+                    continue
         return reg
+
+    def linha(self, obj):
+        """A linha do catálogo com a classe dos flanges escolhida."""
+        L = CAT.linha(obj.Linha)
+        if L.get("flanges"):
+            L = dict(L, classe=int(str(getattr(obj, "ClasseFlange", "150") or "150")))
+        return L
+
+    def pontas(self, obj):
+        L = CAT.linha(obj.Linha)
+        if L.get("flanges") and getattr(obj, "FlangePontas", False):
+            return "flange"
+        return bool(obj.TamparPontas)
 
     def pontos(self, obj):
         pts = {}
@@ -1038,14 +1266,14 @@ class Tubulacao:
         segs, avisos = segmentos_do_caminho(obj.Caminho)
         dns = self.diametros(obj, len(segs))
         segs_orig, dns_orig = list(segs), list(dns)      # o painel trabalha com os trechos do traçado
-        L = CAT.linha(obj.Linha)
+        L = self.linha(obj)
         # ramal no meio de um trecho: divide antes do caimento, para o ponto do tê descer junto
         segs, dns, reg, pon, cx, origem = dividir_em_tes(segs, dns, self.registros(obj), self.pontos(obj),
                                                          self.caixas(obj))
         if L.get("esgoto") and all(d in L["tubos"] for d in dns):
             segs, av = aplicar_caimento(segs, dns, L, bool(getattr(obj, "Caimento", True)))
             avisos += av
-        res = montar(segs, dns, obj.Linha, obj.TamparPontas, reg, pon, cx, origem=origem)
+        res = montar(segs, dns, L, self.pontas(obj), reg, pon, cx, origem=origem)
         res["avisos"] = avisos + res["avisos"]
         # o painel trabalha com um trecho por linha do traçado: junta de volta os pedaços (já com caimento)
         juntos = {}
@@ -1071,13 +1299,16 @@ class Tubulacao:
             barras += r["barras"]
             total += r["total"]
             pcs = ", ".join(("%.0f" % p) for p in sorted(r["pecas"], reverse=True))
-            linhas.append("Tubo %d mm: %d barra(s) de %.0f m — peças (mm): %s%s" % (
-                d, r["barras"], L["barra"] / 1000.0, pcs,
-                ("; %d emenda(s) pela bolsa" % r["emendas"]) if r["emendas"] else ""))
+            linhas.append("Tubo %s: %d barra(s) de %.0f m — peças (mm): %s%s" % (
+                CAT.rotulo(L, d) if L.get("nps") else "%d mm" % d, r["barras"], L["barra"] / 1000.0, pcs,
+                ("; %d emenda(s) %s" % (r["emendas"], TEXTO_EMENDA.get(L.get("emenda", "bolsa"))))
+                if r["emendas"] else ""))
         obj.ListaCorte = linhas
         obj.Barras = barras
         obj.ComprimentoTubos = total
         obj.Avisos = res["avisos"]
+        if "Soldas" in obj.PropertiesList:
+            obj.Soldas = soldas_de_topo(res)
         self.ultimo = res
 
     def dumps(self):
@@ -1094,7 +1325,7 @@ def criar(caminho, dn=25, lid=CAT.PADRAO, tampar=False, doc=None):
     Tubulacao(obj)
     obj.Caminho = caminho
     obj.Linha = lid
-    obj.Diametro = _dn_txt(dn)
+    obj.Diametro = _dn_txt(dn, CAT.linha(lid))
     obj.TamparPontas = tampar
     if FreeCAD.GuiUp:
         VPTubulacao(obj.ViewObject)
@@ -1112,21 +1343,38 @@ def e_tubulacao(obj):
 
 def linhas_bom(obj):
     """Itens para a lista de materiais: [(chave, denominação, material, dimensões, quantidade, obs)]."""
-    L = CAT.linha(obj.Linha)
     res = obj.Proxy.calcular(obj)
+    L = res["linha"]
     itens = []
     lc = lista_de_corte(res.get("pecas", []), L)
     for d in sorted(lc):
         r = lc[d]
         tb = L["tubos"][d]
-        itens.append((("tubo", L["id"], d), "Tubo %s %d mm (barra de %.0f m)" % (
-            "soldável" if "soldavel" in L["id"] else "", d, L["barra"] / 1000.0),
-            L["material"], "DE %s × %s — %s m no total" % (
-                _num(tb["De"]), _num(tb["e"]), _num(round(r["total"] / 1000.0, 2))),
-            r["barras"], L["fabricante"]))
+        if L.get("nps"):
+            den = "%s (barra de %.0f m)" % (CAT.nome_peca(L, "tubo", dn=CAT.rotulo(L, d)), L["barra"] / 1000.0)
+        else:
+            den = "Tubo %s %d mm (barra de %.0f m)" % ("soldável" if "soldavel" in L["id"] else "", d,
+                                                      L["barra"] / 1000.0)
+        itens.append((("tubo", L["id"], d), den, material_de(L, "tubo"), "DE %s × %s — %s m no total" % (
+            _num(tb["De"]), _num(tb["e"]), _num(round(r["total"] / 1000.0, 2))), r["barras"], L["fabricante"]))
     for desc, n in resumo_conexoes(res["conexoes"]).items():
-        itens.append((("conexao", L["id"], desc), desc, L["material"], "—", n, L["fabricante"]))
+        itens.append((("conexao", L["id"], desc), desc, material_de(L, desc), "—", n, L["fabricante"]))
+    sd = soldas_de_topo(res)
+    if sd:
+        itens.append((("solda", L["id"]), "Solda de topo (junta)", "—", "—", sd, "Contagem para inspeção"))
     return itens
+
+
+def material_de(L, desc):
+    """Material da peça: as linhas de aço dão um por tipo (tubo, conexão, flange, junta, estojo)."""
+    mats = L.get("materiais")
+    if not mats:
+        return L["material"]
+    d = desc.lower()
+    for chave in ("estojo", "junta", "flange", "tubo"):
+        if d.startswith(chave):
+            return mats.get(chave, L["material"])
+    return mats.get("conexao", L["material"])
 
 
 def _num(v):
@@ -1143,6 +1391,8 @@ def texto_lista(obj):
         out.append("%s\t%s" % (n, d))
     out.append("")
     out.extend(obj.ListaCorte)
+    if getattr(obj, "Soldas", 0):
+        out.append("Soldas de topo: %d" % obj.Soldas)
     if obj.Avisos:
         out.append("")
         out.append("Avisos:")
@@ -1206,8 +1456,8 @@ if FreeCAD.GuiUp:
             raiz = QtWidgets.QVBoxLayout(self.form)
             dica = P.Mensagem(
                 "Escolha a linha e o diâmetro: tubos e conexões saem sozinhos em cada nó do traçado "
-                "(joelhos, tês, reduções, cruzetas). Na tabela, mude o diâmetro de um trecho ou ponha um "
-                "registro de esfera pela distância do início do trecho.")
+                "(joelhos ou curvas, tês, reduções). Na tabela, mude o diâmetro de um trecho ou ponha registro, "
+                "flange ou união pela distância do início do trecho.")
             raiz.addWidget(dica)
             card_l, fl = P.bloco("Linha", "tipo", QtWidgets.QFormLayout)
             self.lb_caminho = QtWidgets.QLabel(obj.Caminho.Label if obj.Caminho else "—")
@@ -1227,11 +1477,23 @@ if FreeCAD.GuiUp:
             self.dn = QtWidgets.QComboBox()
             self._encher_dn()
             self.dn.currentIndexChanged.connect(self._mudou)
-            fl.addRow("Diâmetro (DE)", self.dn)
+            fl.addRow("Diâmetro", self.dn)
             self.cap = QtWidgets.QCheckBox("Pôr cap nas pontas soltas")
             self.cap.setChecked(bool(obj.TamparPontas))
             self.cap.toggled.connect(self._mudou)
             fl.addRow("", self.cap)
+            self.fl_pontas = QtWidgets.QCheckBox("Flange nas pontas soltas (bocal de equipamento)")
+            self.fl_pontas.setToolTip("A face do flange fica na ponta do traçado; o tubo para no pescoço")
+            self.fl_pontas.setChecked(bool(getattr(obj, "FlangePontas", False)))
+            self.fl_pontas.toggled.connect(self._mudou)
+            fl.addRow("", self.fl_pontas)
+            self.classe = QtWidgets.QComboBox()
+            for c in ("150", "300"):
+                self.classe.addItem("Classe %s" % c, c)
+            self.classe.setCurrentIndex(max(0, self.classe.findData(str(getattr(obj, "ClasseFlange", "150")))))
+            self.classe.currentIndexChanged.connect(self._mudou)
+            self.lb_classe = QtWidgets.QLabel("Flanges")
+            fl.addRow(self.lb_classe, self.classe)
             self.caimento = QtWidgets.QCheckBox("Caimento pela NBR 8160 (2 % até DN 75; 1 % de DN 100)")
             self.caimento.setToolTip("Inclina os trechos horizontais no sentido em que foram desenhados")
             self.caimento.setChecked(bool(getattr(obj, "Caimento", True)))
@@ -1246,7 +1508,7 @@ if FreeCAD.GuiUp:
             hs = QtWidgets.QHBoxLayout()
             self.dn_sel = QtWidgets.QComboBox()
             for d in CAT.linha(self.obj.Linha)["diametros"]:
-                self.dn_sel.addItem(_dn_txt(d), d)
+                self.dn_sel.addItem(_dn_txt(d, CAT.linha(self.obj.Linha)), d)
             hs.addWidget(self.dn_sel, 1)
             self.bt_aplicar = QtWidgets.QPushButton("Aplicar aos escolhidos")
             self.bt_aplicar.setToolTip("Clique nas linhas do traçado na vista (Ctrl para várias) e aplique o diâmetro")
@@ -1269,6 +1531,7 @@ if FreeCAD.GuiUp:
             self.escolhidos = []
             self.ponto_clicado = None
             card_p, lp = P.bloco("Torneiras", "furo")
+            self.card_p = card_p
             dp = QtWidgets.QLabel("Escolha um trecho na vista: a torneira entra na ponta solta (luva ou joelho com "
                                   "bucha de latão) ou no ponto clicado do trecho (tê com bucha, cortando o tubo).")
             dp.setWordWrap(True)
@@ -1319,8 +1582,9 @@ if FreeCAD.GuiUp:
             raiz.addWidget(self.card_cx)
             card_t, lay = P.bloco("Trechos", "comprimento")
             raiz.addWidget(card_t)
-            self.tabela = QtWidgets.QTableWidget(0, 4)
-            self.tabela.setHorizontalHeaderLabels(["Trecho", "Comprimento (mm)", "DE", "Registro a (mm)"])
+            self.tabela = QtWidgets.QTableWidget(0, 5)
+            self.tabela.setHorizontalHeaderLabels(["Trecho", "Comprimento (mm)", "Diâmetro", "Registro a (mm)",
+                                                   "Flanges a (mm)"])
             self.tabela.horizontalHeaderItem(3).setToolTip(
                 "Distância do início do trecho até o centro do registro de esfera; vários: 300; 1200")
             self.tabela.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
@@ -1335,10 +1599,17 @@ if FreeCAD.GuiUp:
             self.res.setFrameShape(QtWidgets.QFrame.NoFrame)
             self.res.setMinimumHeight(200)
             lay.addWidget(self.res)
+            hm = QtWidgets.QHBoxLayout()
             bt_copiar = QtWidgets.QPushButton("Copiar lista de materiais")
             bt_copiar.setToolTip("Copia conexões, tubos e barras para colar numa planilha")
             bt_copiar.clicked.connect(self.copiar)
-            lay.addWidget(bt_copiar)
+            hm.addWidget(bt_copiar)
+            self.bt_iso = QtWidgets.QPushButton("Folha isométrica")
+            self.bt_iso.setToolTip("Folha A3 com o isométrico da linha, cotas, números das peças, lista de material "
+                                   "e lista de corte")
+            self.bt_iso.clicked.connect(self.folha_isometrica)
+            hm.addWidget(self.bt_iso)
+            lay.addLayout(hm)
             P.adotar(self.form)
             self._atualizar()
             FreeCADGui.Selection.addObserver(self)
@@ -1538,7 +1809,7 @@ if FreeCAD.GuiUp:
             if not self.escolhidos:
                 return
             d = self.dn_sel.currentData()
-            padrao = int(str(self.obj.Diametro).split()[0])
+            padrao = CAT.dn_do_texto(self.obj.Diametro)
             self.obj.DiametrosTrechos = com_diametro(list(self.obj.DiametrosTrechos), self.escolhidos, d, padrao)
             idxs = list(self.escolhidos)
             self._atualizar()
@@ -1579,10 +1850,10 @@ if FreeCAD.GuiUp:
                 if hasattr(self, "dn_sel"):
                     self.dn_sel.clear()
                 for d in L["diametros"]:
-                    self.dn.addItem(_dn_txt(d), d)
+                    self.dn.addItem(_dn_txt(d, L), d)
                     if hasattr(self, "dn_sel"):
-                        self.dn_sel.addItem(_dn_txt(d), d)
-                atual = int(str(self.obj.Diametro).split()[0])
+                        self.dn_sel.addItem(_dn_txt(d, L), d)
+                atual = CAT.dn_do_texto(self.obj.Diametro)
                 self.dn.setCurrentIndex(max(0, self.dn.findData(atual)))
             finally:
                 self._ocupado = False
@@ -1602,9 +1873,11 @@ if FreeCAD.GuiUp:
             if lid != self.obj.Linha:
                 self.obj.Linha = lid
                 self._encher_dn()
-            self.obj.Diametro = _dn_txt(self.dn.currentData())
+            self.obj.Diametro = _dn_txt(self.dn.currentData(), CAT.linha(self.obj.Linha))
             self.obj.TamparPontas = self.cap.isChecked()
             self.obj.Caimento = self.caimento.isChecked()
+            self.obj.FlangePontas = self.fl_pontas.isChecked()
+            self.obj.ClasseFlange = self.classe.currentData()
             self.caimento.setVisible(bool(CAT.linha(self.obj.Linha).get("esgoto")))
             self._atualizar()
 
@@ -1613,7 +1886,7 @@ if FreeCAD.GuiUp:
                 return
             itens = [x for x in self.obj.DiametrosTrechos if not x.startswith("%d:" % (i + 1))]
             d = combo.currentData()
-            padrao = int(str(self.obj.Diametro).split()[0])
+            padrao = CAT.dn_do_texto(self.obj.Diametro)
             if d != padrao:
                 itens.append("%d: %d" % (i + 1, d))
             self.obj.DiametrosTrechos = itens
@@ -1634,11 +1907,39 @@ if FreeCAD.GuiUp:
                 self.obj.Registros = itens
                 self._atualizar()
 
+        def _juntas(self, i, ed):
+            if self._ocupado:
+                return
+            itens = [x for x in self.obj.Juntas if not x.strip().startswith("%d:" % (i + 1))]
+            for parte in ed.text().split(";"):
+                parte = parte.strip().replace(".", "").replace(",", ".")
+                if parte:
+                    try:
+                        itens.append("%d: %g" % (i + 1, float(parte)))
+                    except ValueError:
+                        pass
+            if itens != list(self.obj.Juntas):
+                self.obj.Juntas = itens
+                self._atualizar()
+
         def _atualizar(self):
             self.doc.recompute()
             res = getattr(self.obj.Proxy, "ultimo", None) or self.obj.Proxy.calcular(self.obj)
             segs, dns = res.get("segs", []), res.get("dns", [])
             L = CAT.linha(self.obj.Linha)
+            tem_fl = bool(L.get("flanges"))
+            tem_jun = tem_fl or bool(L.get("uniao"))
+            self.fl_pontas.setVisible(tem_fl)
+            self.classe.setVisible(tem_fl)
+            self.lb_classe.setVisible(tem_fl)
+            self.cap.setEnabled(not (tem_fl and self.fl_pontas.isChecked()))
+            self.tabela.setColumnHidden(3, not L.get("registro"))
+            self.card_p.setVisible(bool(L.get("luva_bucha") or L.get("te_bucha") or L.get("joelho_bucha")))
+            self.tabela.setColumnHidden(4, not tem_jun)
+            self.tabela.horizontalHeaderItem(4).setText("Flanges a (mm)" if tem_fl else "União a (mm)")
+            self.tabela.horizontalHeaderItem(4).setToolTip(
+                "Junta de desmontagem: distância do início do trecho até a junta (%s); várias: 300; 1200"
+                % ("par de flanges, junta e estojos" if tem_fl else "união"))
             self._ocupado = True
             try:
                 self.tabela.setRowCount(len(segs))
@@ -1647,7 +1948,7 @@ if FreeCAD.GuiUp:
                     self.tabela.setItem(i, 1, QtWidgets.QTableWidgetItem(PrumoUtil.fmt((b - a).Length, 0)))
                     cb = QtWidgets.QComboBox()
                     for d in L["diametros"]:
-                        cb.addItem(_dn_txt(d), d)
+                        cb.addItem(_dn_txt(d, L), d)
                     cb.setCurrentIndex(max(0, cb.findData(dns[i])))
                     cb.currentIndexChanged.connect(lambda _x, i=i, cb=cb: self._dn_trecho(i, cb))
                     self.tabela.setCellWidget(i, 2, cb)
@@ -1656,6 +1957,12 @@ if FreeCAD.GuiUp:
                     ed.setPlaceholderText("sem registro")
                     ed.editingFinished.connect(lambda i=i, ed=ed: self._registro(i, ed))
                     self.tabela.setCellWidget(i, 3, ed)
+                    jun = [x.split(":", 1)[1].strip() for x in self.obj.Juntas
+                           if x.split(":", 1)[0].strip() == str(i + 1)]
+                    ej = QtWidgets.QLineEdit("; ".join(PrumoUtil.fmt(float(p_), 0) for p_ in jun))
+                    ej.setPlaceholderText("sem junta")
+                    ej.editingFinished.connect(lambda i=i, ej=ej: self._juntas(i, ej))
+                    self.tabela.setCellWidget(i, 4, ej)
             finally:
                 self._ocupado = False
             if hasattr(self, "lista_pontos"):
@@ -1666,6 +1973,8 @@ if FreeCAD.GuiUp:
             PrumoPainel.estreitar(self.form)
             html = ["<b>Conexões</b><br>" + ("<br>".join(self.obj.Conexoes) or "—"),
                     "<b>Tubos</b><br>" + ("<br>".join(self.obj.ListaCorte) or "—")]
+            if getattr(self.obj, "Soldas", 0):
+                html.append("<b>Soldas de topo</b>: %d (para o plano de inspeção)" % self.obj.Soldas)
             if self.obj.Avisos:
                 html.append("<b style='color:#B35C00'>Avisos</b><br>" + "<br>".join(self.obj.Avisos))
             html.append("<small>Medidas: %s.<br>Norma: %s.</small>" % (L["fonte"], L["norma"]))
@@ -1673,6 +1982,13 @@ if FreeCAD.GuiUp:
 
         def copiar(self):
             QtWidgets.QApplication.clipboard().setText(texto_lista(self.obj))
+
+        def folha_isometrica(self):
+            import PrumoIsometrico
+            self.doc.recompute()
+            pg = PrumoIsometrico.criar_folha(self.obj)
+            self.ultima_folha = pg
+            return pg
 
         def getStandardButtons(self):
             return QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel

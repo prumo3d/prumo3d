@@ -885,6 +885,8 @@ def register_commands():
                                                                               m.CmdEsboco3D())),
                              ("PrumoTubulacao", lambda m: FreeCADGui.addCommand("Prumo_Tubulacao",
                                                                                m.CmdTubulacao())),
+                             ("PrumoIsometrico", lambda m: FreeCADGui.addCommand("Prumo_IsometricoTubulacao",
+                                                                                m.CmdIsometrico())),
                              ("PrumoAssistenteEstrutura", lambda m: FreeCADGui.addCommand(
                                  "Prumo_AssistenteEstrutura", m.CmdAssistenteEstrutura())),
                              ("PrumoVaso", lambda m: (

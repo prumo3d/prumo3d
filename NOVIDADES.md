@@ -30,6 +30,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
     na cota escolhida. Tabelas ISO 286 até 500 mm conferidas célula por célula com a tabela do FreeCAD;
     confira na edição vigente da ABNT NBR 6158 antes de liberar o desenho.
   As ferramentas originais do FreeCAD continuam em "Mais".
+- **Tubulação de aço carbono.** Três linhas novas no comando Tubos e conexões:
+  - *Solda de topo SCH 40 e SCH 80*: tubos ASME B36.10M, curvas de raio longo, tês, tês de redução, reduções
+    concêntricas e caps ASME B16.9 (a curva sai desenhada como curva). Flanges de pescoço ASME B16.5
+    classe 150 ou 300 nas pontas soltas (bocal de equipamento) e em juntas de desmontagem no meio do trecho,
+    com junta espiralada e estojos na lista. O tubo é cortado até a ponta de solda do pescoço, contando o
+    ressalto de 2 mm e a junta. Conta as soldas de topo (inclusive emendas de barra).
+  - *Roscada BSP*: tubo NBR 5580 classe M e conexões de ferro maleável (Tupy): cotovelos, tês, tês de
+    redução, luvas, buchas (o sextavado entra no desconto), tampões e uniões nas juntas de desmontagem. A
+    emenda de barra entra na lista como luva.
+  - Medidas conferidas em duas fontes cada; o que diverge entre fabricantes aparece como aviso "a conferir".
+    Materiais na lista são os típicos (A106 B, A234 WPB, A105, B7/2H): confira na especificação do projeto.
+- **Folha isométrica.** Novo botão na aba Tubulação (e no painel da tubulação): folha A3 com o isométrico
+  unifilar da linha, cota de eixo a eixo em cada trecho, balão com o número de cada peça, etiqueta P1, P2…
+  em cada tubo, lista de material, lista de corte, soldas e observações. Chamado de novo, atualiza a mesma
+  folha. Sai em PDF pelo Salvar PDF de sempre.
 
 ## 1.1.0 — 29/10/2026
 
