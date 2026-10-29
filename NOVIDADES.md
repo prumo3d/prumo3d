@@ -29,6 +29,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - Desenhos já feitos não mudam: os I e U antigos (mesa estimada pela massa) e o metalon antigo ficam como
     eram, numa lista que só aparece para quem usa, e o aviso diz qual é o equivalente Gerdau.
   - Três U da Gerdau ficaram de fora (3" x 7,44, 10" x 30,80, 12" x 29,76): a própria fonte deixou em revisão.
+- **Esboço 3D pelos eixos, como no ZW3D.** Do último ponto saem os eixos X (vermelho), Y (verde) e Z (azul):
+  a linha segue o eixo para onde o mouse aponta, para o lado + ou −, e o eixo ativo fica em destaque; longe
+  dos eixos a linha fica livre. Cada linha desenhada assim já sai com a restrição do eixo e a cota. Depois de
+  desenhar, **duplo clique numa linha** abre a caixinha do comprimento (o que vem depois anda junto, sem
+  deformar) e **arrastar a ponta** leva a linha para outro eixo. O painel mostra a situação do esboço: sem
+  definição, subdefinido, não resolvido ou bem definido. Tab continua trocando para desenhar num plano.
 
 ### Correções
 

@@ -303,6 +303,162 @@ def na_grade(p, base, passo, plano):
     return FreeCAD.Vector(*c)
 
 
+# ------------------------------------------------------------------------ desenho pelos eixos (como no ZW3D)
+# Do último ponto saem os seis sentidos +X, −X, +Y, −Y, +Z, −Z; a linha vai no sentido para onde o mouse aponta
+# na tela, com o comprimento que o mouse marca ao longo dele.
+SENTIDOS = (("X", 1), ("X", -1), ("Y", 1), ("Y", -1), ("Z", 1), ("Z", -1))
+MODOS = ("EIXOS", "XY", "YZ", "ZX")
+# a linha gruda no eixo quando o mouse aponta a menos deste ângulo (na tela) dele; mais longe fica livre
+ANGULO_EIXO = 20.0
+CORES_EIXO = {"X": (0.85, 0.15, 0.15), "Y": (0.1, 0.6, 0.2), "Z": (0.15, 0.35, 0.9)}
+NOMES_DEFINICAO = {"sem": "Sem definição", "sub": "Subdefinido", "erro": "Não resolvido", "bem": "Bem definido"}
+CORES_DEFINICAO = {"sem": ("#C62828", "#FFFFFF"), "sub": ("#222222", "#FFFFFF"), "erro": ("#F7BE00", "#003A70"),
+                   "bem": ("#003A70", "#FFFFFF")}
+NOMES_MODO = {"EIXOS": "Eixos X, Y, Z", "XY": "Plano XY", "YZ": "Plano YZ", "ZX": "Plano ZX"}
+
+
+def proximo_modo(modo):
+    return MODOS[(MODOS.index(modo) + 1) % len(MODOS)] if modo in MODOS else MODOS[0]
+
+
+def escolher_eixo(base_s, cursor_s, pontas_s, escala, minimo_px=4.0):
+    """Eixo pelo mouse. base_s, cursor_s: (x, y) na tela; pontas_s: {"X": (x, y) da ponta de base + escala·X, ...}.
+    Devolve (eixo, comprimento com sinal em mm, cosseno do ângulo na tela) do eixo cuja direção na tela fica
+    mais perto da do mouse, ou None (mouse em cima do ponto)."""
+    mx, my = cursor_s[0] - base_s[0], cursor_s[1] - base_s[1]
+    lm = math.hypot(mx, my)
+    if lm < minimo_px:
+        return None
+    melhor = None
+    for nome, ponta in pontas_s.items():
+        vx, vy = ponta[0] - base_s[0], ponta[1] - base_s[1]
+        lv2 = vx * vx + vy * vy
+        if lv2 < 1e-6:
+            continue                       # eixo apontado para quem olha: não dá para escolher pela tela
+        escalar = mx * vx + my * vy
+        cos = abs(escalar) / (lm * math.sqrt(lv2))
+        if melhor is None or cos > melhor[0]:
+            melhor = (cos, nome, escalar / lv2 * escala)
+    if melhor is None:
+        return None
+    return melhor[1], melhor[2], melhor[0]
+
+
+def lado_que_anda(n, segs, k, ancora=0):
+    """Pontos que andam junto quando o trecho k muda (o lado que não tem o ponto âncora), e qual ponta do
+    trecho fica nesse lado: (conjunto, ponta) ou (None, None) se o trecho está num laço."""
+    i, j = segs[k]
+    viz = {p: set() for p in range(n)}
+    for m, (a, b) in enumerate(segs):
+        if m != k:
+            viz[a].add(b)
+            viz[b].add(a)
+
+    def alcance(p0):
+        vis, fila = {p0}, [p0]
+        while fila:
+            p = fila.pop()
+            for q in viz[p]:
+                if q not in vis:
+                    vis.add(q)
+                    fila.append(q)
+        return vis
+    lj = alcance(j)
+    if i in lj:
+        return None, None
+    if ancora in lj:
+        return alcance(i), i
+    return lj, j
+
+
+def mudar_trecho(pontos, segs, k, comprimento=None, direcao=None, ancora=0):
+    """Novo comprimento e/ou nova direção do trecho k, levando junto tudo o que está depois dele (o lado sem a
+    âncora): o resto do desenho não se deforma. Devolve a lista nova de pontos (ou None se o trecho está num
+    laço: aí quem acerta é o resolvedor)."""
+    pts = [FreeCAD.Vector(p) for p in pontos]
+    lado, ponta = lado_que_anda(len(pts), segs, k, ancora)
+    if lado is None:
+        return None
+    i, j = segs[k]
+    fixo = j if ponta == i else i
+    atual = pts[ponta] - pts[fixo]
+    L = atual.Length if comprimento is None else float(comprimento)
+    if direcao is not None:
+        u = FreeCAD.Vector(direcao)
+        u.normalize()
+    elif atual.Length > TOL:
+        u = atual * (1.0 / atual.Length)
+    else:
+        return None
+    desloc = pts[fixo] + u * L - pts[ponta]
+    for p in lado:
+        pts[p] = pts[p] + desloc
+    return pts
+
+
+def definicao(pontos, segs, restricoes, ancora=0):
+    """Situação do esboço, como a barra do ZW3D: ("sem", "sub", "erro" ou "bem", graus de liberdade livres).
+
+    sem: nenhuma restrição; erro: as restrições não fecham; sub: ainda há movimento livre; bem: tudo definido
+    (o ponto âncora conta como fixo)."""
+    import numpy as np
+    n = len(pontos)
+    rs = ler_restricoes(restricoes)
+    if n < 2:
+        return "sem", 0
+    if not rs:
+        return "sem", 3 * (n - 1)
+    _novos, ok, _erro = resolver(pontos, segs, restricoes, ancora)
+    if not ok:
+        return "erro", 0
+    x0 = np.array([c for p in pontos for c in (p.x, p.y, p.z)], dtype=float)
+    livres = [c for c in range(3 * n) if c // 3 != ancora and not any(
+        r[0] == "fixo" and r[1].isdigit() and int(r[1]) == c // 3 for r in rs)]
+
+    def resid(x):
+        P = lambda i: x[3 * i:3 * i + 3]
+        out = []
+        for t in rs:
+            try:
+                if t[0] == "eixo":
+                    i, j = segs[int(t[1])]
+                    d = P(j) - P(i)
+                    e = np.array(EIXOS[t[2].upper()])
+                    out.extend(list(d - e * d.dot(e)))
+                elif t[0] == "comprimento":
+                    i, j = segs[int(t[1])]
+                    out.append(np.linalg.norm(P(j) - P(i)))
+                elif t[0] in ("paralela", "perpendicular", "igual"):
+                    i1, j1 = segs[int(t[1])]
+                    i2, j2 = segs[int(t[2])]
+                    d1, d2 = P(j1) - P(i1), P(j2) - P(i2)
+                    n1, n2 = np.linalg.norm(d1), np.linalg.norm(d2)
+                    if t[0] == "igual":
+                        out.append(n1 - n2)
+                    elif n1 > 1e-9 and n2 > 1e-9:
+                        if t[0] == "paralela":
+                            out.extend(list(np.cross(d1, d2) / (n1 * n2)))
+                        else:
+                            out.append(d1.dot(d2) / (n1 * n2))
+                elif t[0] == "coincidente":
+                    out.extend(list(P(int(t[1])) - P(int(t[2]))))
+            except (IndexError, ValueError, KeyError):
+                continue
+        return np.array(out, dtype=float)
+    r0 = resid(x0)
+    if not len(r0):
+        return "sem", len(livres)
+    J = np.zeros((len(r0), len(livres)))
+    h = 1e-4 * max(1.0, float(np.abs(x0).max()))
+    for c, idx in enumerate(livres):
+        x = x0.copy()
+        x[idx] += h
+        J[:, c] = (resid(x) - r0) / h
+    rank = int(np.linalg.matrix_rank(J, tol=1e-6 * max(1.0, float(np.abs(J).max()))))
+    gl = len(livres) - rank
+    return ("bem" if gl == 0 else "sub"), gl
+
+
 # ======================================================================== objeto
 class Esboco3D:
     def __init__(self, obj):
@@ -528,7 +684,8 @@ if FreeCAD.GuiUp:
             return PrumoUtil.icone("esboco3d.svg")
 
         def doubleClicked(self, vobj):
-            abrir_painel(vobj.Object)
+            if _painel_aberto(vobj.Object) is None:
+                abrir_painel(vobj.Object)
             return True
 
         def setEdit(self, vobj, mode=0):
@@ -613,7 +770,51 @@ if FreeCAD.GuiUp:
             for n in (self.pos_txt, cor_txt, fonte, self.txt):
                 self.sep_txt.addChild(n)
             self.raiz.addChild(self.sep_txt)
+            self.estilo = estilo
+            self.cor = cor
+            # eixos X/Y/Z saindo do último ponto (o ativo fica grosso), como no ZW3D
+            self.sep_triade = coin.SoSeparator()
+            self.raiz.addChild(self.sep_triade)
+            self.ativo = None
             vista.getSceneGraph().addChild(self.raiz)
+
+        def triade(self, base, tam, ativo=None):
+            """Setas X (vermelha), Y (verde) e Z (azul) de base, com tam mm; ativo = "X"/"Y"/"Z" ou None."""
+            from pivy import coin
+            self.sep_triade.removeAllChildren()
+            self.ativo = ativo
+            if base is None or not tam:
+                return
+            for nome in "XYZ":
+                e = FreeCAD.Vector(*EIXOS[nome])
+                sep = coin.SoSeparator()
+                est = coin.SoDrawStyle()
+                est.lineWidth = 6 if nome == ativo else 1.5
+                c = coin.SoBaseColor()
+                c.rgb = CORES_EIXO[nome]
+                co = coin.SoCoordinate3()
+                ponta = base + e * tam
+                # haste nos dois sentidos (o lado negativo fino e curto) e uma "seta" na ponta positiva
+                vals = [(base - e * tam * 0.35), base, base, ponta]
+                lado = FreeCAD.Vector(*EIXOS["Z" if nome != "Z" else "X"]) * (tam * 0.06)
+                vals += [ponta, ponta - e * (tam * 0.15) + lado, ponta, ponta - e * (tam * 0.15) - lado]
+                co.point.setValues(0, len(vals), [(v.x, v.y, v.z) for v in vals])
+                ls = coin.SoLineSet()
+                ls.numVertices.setValues(0, 4, [2, 2, 2, 2])
+                for n in (est, c, co, ls):
+                    sep.addChild(n)
+                self.sep_triade.addChild(sep)
+
+        def estilo_linha(self, eixo=None):
+            """Linha elástica: no eixo, cheia e grossa na cor do eixo; livre, tracejada em amarelo."""
+            if eixo:
+                self.cor.rgb = CORES_EIXO[eixo]
+                self.estilo.lineWidth = 4
+                self.estilo.linePattern = 0xFFFF
+            else:
+                self.cor.rgb = (0.969, 0.745, 0.0)
+                self.estilo.lineWidth = 2
+                self.estilo.linePattern = 0xF0F0
 
         def rotulo(self, p, texto):
             """Texto ao lado do ponto p (global); texto vazio esconde."""
@@ -689,22 +890,41 @@ if FreeCAD.GuiUp:
                 return
             if obj != nome or not sub or not sub.startswith("Edge"):
                 return
-            try:
-                e = pn.obj.Shape.getElement(sub)
-                meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
-                meio = pn.obj.Placement.inverse().multVec(meio) if not pn.obj.Placement.isIdentity() else meio
-            except Exception:
-                return
-            pts = pn.obj.Pontos
-            melhor, dmin = None, None
-            for k, (i, j) in enumerate(pn.segs()):
-                a, b = FreeCAD.Vector(pts[i]), FreeCAD.Vector(pts[j])
-                d = (meio - (a + b) * 0.5).Length
-                if dmin is None or d < dmin:
-                    melhor, dmin = k, d
+            melhor = pn.segmento_da_aresta(sub)
             if melhor is not None:
                 somar = bool(QtWidgets.QApplication.keyboardModifiers() & QtCore.Qt.ControlModifier)
                 pn.selecionar_segmentos([melhor], somar=somar)
+
+    _PAINEIS = {}
+
+    def _painel_aberto(obj):
+        """Painel de edição aberto para este esboço (ou None)."""
+        pn = _PAINEIS.get(getattr(obj, "Name", ""))
+        if pn is None:
+            return None
+        try:
+            if FreeCADGui.Control.activeDialog() and pn.obj.Name == obj.Name:
+                return pn
+        except Exception:
+            pass
+        _PAINEIS.pop(getattr(obj, "Name", ""), None)
+        return None
+
+    class _EscFecha(QtCore.QObject):
+        """Esc ou perder o foco fecha a caixinha de comprimento sem mudar nada."""
+
+        def __init__(self, painel):
+            super().__init__()
+            self.painel = painel
+
+        def eventFilter(self, obj, ev):
+            t = ev.type()
+            if t == QtCore.QEvent.KeyPress and ev.key() == QtCore.Qt.Key_Escape:
+                QtCore.QTimer.singleShot(0, self.painel._fechar_editor)
+                return True
+            if t == QtCore.QEvent.FocusOut and ev.reason() not in (QtCore.Qt.PopupFocusReason,):
+                QtCore.QTimer.singleShot(0, self.painel._fechar_editor)
+            return False
 
     class PainelEsboco3D:
         """Pontos em tabela; próximo ponto absoluto ou relativo ao anterior; clique no modelo."""
@@ -723,18 +943,25 @@ if FreeCAD.GuiUp:
             self._candidato = None
             self._ultimo_mouse = None
             self._digitado = ""
-            self.plano = "XY"
+            self.modo = "EIXOS"          # EIXOS: a linha segue ±X/±Y/±Z pelo mouse; XY/YZ/ZX: ponto no plano
+            self.plano = "XY"            # plano do ponto livre (primeiro ponto, ou mouse longe dos eixos)
+            self._eixo_ativo = None
+            self._arraste = None
+            self._clique_ant = None
+            self._editor = None
+            self._cbs_edicao = []
+            self._vista_edicao = None
             self.form = QtWidgets.QWidget()
             self.form.setWindowTitle("Esboço 3D")
             self.form.setWindowIcon(QtGui.QIcon(PrumoUtil.icone("esboco3d.svg")))
             import PrumoPainel as P
             raiz = QtWidgets.QVBoxLayout(self.form)
             dica = P.Mensagem(
-                "Clique em <b>Desenhar</b> e vá clicando na vista: o ponto cai no plano que passa pelo "
-                "último ponto (<b>Tab</b> troca XY → YZ → ZX) e encaixa em vértices e pontas de arestas. "
-                "<b>Esc</b> termina o trecho; o próximo clique começa um ramal. O comprimento aparece junto ao "
-                "cursor: para uma medida exata, <b>digite o número e tecle Enter</b> (o ponto vai na direção do "
-                "cursor).")
+                "Clique em <b>Desenhar</b> e vá clicando na vista: do último ponto saem os eixos X, Y e Z e "
+                "a linha segue o eixo para onde o mouse aponta (+ ou −); longe dos eixos ela fica livre. "
+                "<b>Tab</b> troca para desenhar num plano (XY, YZ, ZX). Para uma medida exata, <b>digite o "
+                "número e tecle Enter</b>. <b>Esc</b> termina o trecho. Depois de desenhar: <b>duplo clique</b> "
+                "numa linha muda o comprimento e <b>arrastar a ponta</b> leva a linha para outro eixo.")
             raiz.addWidget(dica)
             card_pts, lay = P.bloco("Pontos", "posicao")
             raiz.addWidget(card_pts)
@@ -798,7 +1025,8 @@ if FreeCAD.GuiUp:
             bl = QtWidgets.QGridLayout()
             self.bt_clicar = QtWidgets.QPushButton("Desenhar")
             self.bt_clicar.setCheckable(True)
-            self.bt_clicar.setToolTip("Clique na vista para pôr pontos; Tab troca o plano, Esc termina o trecho")
+            self.bt_clicar.setToolTip("Clique na vista para pôr pontos; a linha segue o eixo apontado pelo mouse. "
+                                      "Tab troca o modo, Esc termina o trecho")
             self.bt_clicar.toggled.connect(self._modo_clique)
             self.bt_ramal = QtWidgets.QPushButton("Novo trecho")
             self.bt_ramal.setCheckable(True)
@@ -817,6 +1045,12 @@ if FreeCAD.GuiUp:
             self.auto.setToolTip("Linha desenhada ao longo de X, Y ou Z ganha a restrição do eixo; clicar num ponto "
                                  "do próprio esboço prende o ramal nele")
             gl.addWidget(self.auto)
+            self.lb_definicao = QtWidgets.QLabel("")
+            self.lb_definicao.setAlignment(QtCore.Qt.AlignCenter)
+            self.lb_definicao.setToolTip("Situação do esboço: sem definição (nenhuma restrição), subdefinido "
+                                         "(ainda há movimento livre), não resolvido (restrições em conflito) "
+                                         "ou bem definido")
+            gl.addWidget(self.lb_definicao)
             self.lista = QtWidgets.QListWidget()
             self.lista.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
             self.lista.setMinimumHeight(110)
@@ -874,14 +1108,15 @@ if FreeCAD.GuiUp:
             self.raio.valueChanged.connect(self._opcoes)
             fl.addRow("Raio nos cantos", self.raio)
             hp = QtWidgets.QHBoxLayout()
-            self.lb_plano = QtWidgets.QLabel(self.plano)
+            self.lb_plano = QtWidgets.QLabel(NOMES_MODO[self.modo])
             self.lb_plano.setStyleSheet("font-weight:700; color:#003A70;")
             bt_plano = QtWidgets.QPushButton("Trocar (Tab)")
+            bt_plano.setToolTip("Eixos X, Y, Z → plano XY → YZ → ZX")
             bt_plano.clicked.connect(self.trocar_plano)
             hp.addWidget(self.lb_plano)
             hp.addWidget(bt_plano)
             hp.addStretch(1)
-            fl.addRow("Plano de desenho", hp)
+            fl.addRow("Desenhar por", hp)
             self.passo = QtWidgets.QDoubleSpinBox()
             self.passo.setRange(0.0, 1e5)
             self.passo.setDecimals(2)
@@ -903,6 +1138,8 @@ if FreeCAD.GuiUp:
             self._obs = _ObsSelecao(self)
             FreeCADGui.Selection.addObserver(self._obs)
             self._destacar_selecao()
+            self._ligar_edicao()
+            _PAINEIS[obj.Name] = self
 
         # ---- dados
         def pontos(self):
@@ -966,6 +1203,276 @@ if FreeCAD.GuiUp:
             finally:
                 self.lista.blockSignals(False)
             self.situacao.setText(self.obj.Situacao or "Sem restrições: as linhas ficam onde foram desenhadas.")
+            self._mostrar_definicao()
+
+        def _mostrar_definicao(self):
+            try:
+                est, gl = definicao(self.pontos(), self.segs(), list(self.obj.Restricoes))
+            except Exception:
+                est, gl = "erro", 0
+            self.definicao = (est, gl)
+            txt = NOMES_DEFINICAO[est]
+            if est == "sub" and gl:
+                txt += " — %d movimento(s) livre(s)" % gl
+            fundo, letra = CORES_DEFINICAO[est]
+            self.lb_definicao.setText(txt)
+            self.lb_definicao.setStyleSheet("background:%s; color:%s; font-weight:700; padding:4px; "
+                                            "border-radius:4px;" % (fundo, letra))
+
+        def segmento_da_aresta(self, sub):
+            """Índice do segmento do esboço que corresponde à aresta sub ("Edge3") da forma, pelo meio."""
+            try:
+                e = self.obj.Shape.getElement(sub)
+                meio = e.valueAt((e.FirstParameter + e.LastParameter) / 2.0)
+                meio = self.obj.Placement.inverse().multVec(meio)
+            except Exception:
+                return None
+            pts = self.obj.Pontos
+            melhor, dmin = None, None
+            for k, (i, j) in enumerate(self.segs()):
+                a, b = FreeCAD.Vector(pts[i]), FreeCAD.Vector(pts[j])
+                d = (meio - (a + b) * 0.5).Length
+                if dmin is None or d < dmin:
+                    melhor, dmin = k, d
+            return melhor
+
+        # ---- editar depois de desenhar
+        def _trocar_restricao(self, rs, tipo, k, valor):
+            rs = [r for r in rs if not (r.startswith(tipo + ":") and r.split(":")[1].strip() == str(k))]
+            rs.append("%s:%d:%s" % (tipo, k, valor))
+            return rs
+
+        def definir_comprimento(self, k, L):
+            """Novo comprimento do segmento k: o que vem depois dele anda junto (sem deformar) e o segmento
+            fica cotado."""
+            segs = self.segs()
+            if not (0 <= k < len(segs)) or L is None or L <= 0:
+                return False
+            novos = mudar_trecho(self.pontos(), segs, k, comprimento=L)
+            rs = self._trocar_restricao(list(self.obj.Restricoes), "comprimento", k, "%g" % L)
+            self.obj.Restricoes = rs
+            if novos is None:                      # segmento num laço: o resolvedor acerta
+                self._restricoes_mudaram(rs)
+            else:
+                self._gravar(novos)
+            return True
+
+        def orientar(self, k, eixo, sinal, L=None, ponta=None):
+            """Leva o segmento k para o eixo (sinal +1/−1, no sentido de quem fica parado para quem anda),
+            com o comprimento L (ou o atual). ponta: índice do ponto que anda (o arrastado; padrão: o segundo).
+            O que está do lado da ponta anda junto."""
+            segs = self.segs()
+            if not (0 <= k < len(segs)):
+                return False
+            i, j = segs[k]
+            fixo = i if ponta in (None, j) else j
+            u = FreeCAD.Vector(*EIXOS[eixo]) * float(sinal)        # de quem fica parado para quem anda
+            pts = self.pontos()
+            L = (pts[j] - pts[i]).Length if L is None else float(L)
+            if L <= 1e-9:
+                return False
+            novos = mudar_trecho(pts, segs, k, comprimento=L, direcao=u, ancora=fixo)
+            if novos is None:
+                return False
+            rs = self._trocar_restricao(list(self.obj.Restricoes), "eixo", k, eixo)
+            if any(r.startswith("comprimento:") and r.split(":")[1].strip() == str(k) for r in rs):
+                rs = self._trocar_restricao(rs, "comprimento", k, "%g" % L)
+            self.obj.Restricoes = rs
+            self._gravar(novos)
+            return True
+
+        def editar_comprimento(self, k, pos_tela=None):
+            """Caixinha sobre a vista com o comprimento do segmento k; Enter aplica, Esc desiste."""
+            self._fechar_editor()
+            segs = self.segs()
+            if not (0 <= k < len(segs)):
+                return None
+            i, j = segs[k]
+            L = (self.obj.Pontos[j] - self.obj.Pontos[i]).Length
+            ed = QtWidgets.QLineEdit()
+            ed.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint)
+            ed.setStyleSheet("QLineEdit{border:2px solid #003A70; background:#FFFFFF; color:#003A70; "
+                             "font-weight:700; padding:2px 6px;}")
+            ed.setText(PrumoUtil.fmt(L, 2).replace(" ", ""))
+            ed.selectAll()
+            ed.setMinimumWidth(110)
+            ed.setToolTip("Comprimento da linha %d (mm): Enter aplica, Esc desiste" % (k + 1))
+            ed.k = k
+
+            def aplicar():
+                try:
+                    v = float(ed.text().strip().replace(".", "").replace(",", ".")) if "," in ed.text() \
+                        else float(ed.text().strip())
+                except ValueError:
+                    ed.setStyleSheet(ed.styleSheet().replace("#003A70;", "#C62828;", 1))
+                    return
+                self._fechar_editor()
+                self.definir_comprimento(k, v)
+
+            ed.returnPressed.connect(aplicar)
+            ed.aplicar = aplicar
+            filtro = _EscFecha(self)
+            ed.installEventFilter(filtro)
+            ed._filtro = filtro
+            pos = QtGui.QCursor.pos() if pos_tela is None else pos_tela
+            ed.move(pos + QtCore.QPoint(12, 12))
+            ed.show()
+            ed.raise_()
+            ed.activateWindow()
+            ed.setFocus()
+            self._editor = ed
+            return ed
+
+        def _fechar_editor(self):
+            ed, self._editor = self._editor, None
+            if ed is not None:
+                try:
+                    ed.hide()
+                    ed.deleteLater()
+                except Exception:
+                    pass
+
+        def _ligar_edicao(self):
+            """Escuta o mouse na vista enquanto o painel está aberto: duplo clique numa linha edita o
+            comprimento; arrastar a ponta de uma linha leva a linha para outro eixo."""
+            try:
+                from pivy import coin
+                gdoc = FreeCADGui.getDocument(self.doc.Name)
+                vista = gdoc.activeView() if gdoc else None
+                if vista is None or not hasattr(vista, "addEventCallbackPivy"):
+                    return
+                self._vista_edicao = vista
+                for tipo, f in ((coin.SoMouseButtonEvent.getClassTypeId(), self._botao_edicao),
+                                (coin.SoLocation2Event.getClassTypeId(), self._mover_edicao)):
+                    self._cbs_edicao.append((tipo, vista.addEventCallbackPivy(tipo, f)))
+            except Exception:
+                self._vista_edicao = None
+
+        def _desligar_edicao(self):
+            v = self._vista_edicao
+            for tipo, cb in self._cbs_edicao:
+                try:
+                    v.removeEventCallbackPivy(tipo, cb)
+                except Exception:
+                    pass
+            self._cbs_edicao = []
+            self._vista_edicao = None
+            self._fim_arraste(None)
+
+        def _info_em(self, pos, vista=None):
+            v = vista or self._vista_edicao or self._vista
+            try:
+                return v.getObjectInfo((int(pos[0]), int(pos[1])))
+            except Exception:
+                return None
+
+        def _botao_edicao(self, cb):
+            if self._vista is not None:           # desenhando: os cliques põem pontos
+                return
+            try:
+                ev = cb.getEvent()
+                from pivy import coin
+                if ev.getButton() != coin.SoMouseButtonEvent.BUTTON1:
+                    return
+                pos = tuple(ev.getPosition().getValue())
+                baixo = ev.getState() == coin.SoButtonEvent.DOWN
+            except Exception:
+                return
+            if self.botao_edicao(pos, baixo):
+                cb.setHandled()
+
+        def botao_edicao(self, pos, baixo):
+            """Clique fora do desenho. Devolve True se o evento foi usado (não segue para a vista)."""
+            if not baixo:
+                if self._arraste is not None:
+                    self._fim_arraste(pos)
+                    return True
+                return False
+            info = self._info_em(pos)
+            if not info or info.get("Object") != self.obj.Name:
+                self._clique_ant = None
+                return False
+            sub = info.get("Component", "") or ""
+            if sub.startswith("Vertex"):
+                return self._inicio_arraste(info, pos)
+            if sub.startswith("Edge"):
+                k = self.segmento_da_aresta(sub)
+                agora = QtCore.QTime.currentTime().msecsSinceStartOfDay()
+                ant = self._clique_ant
+                self._clique_ant = (k, agora)
+                intervalo = QtWidgets.QApplication.doubleClickInterval()
+                if ant and ant[0] == k and k is not None and 0 <= agora - ant[1] <= intervalo:
+                    self._clique_ant = None
+                    QtCore.QTimer.singleShot(0, lambda: self.editar_comprimento(k))
+                    return True
+            return False
+
+        def _inicio_arraste(self, info, pos):
+            p, _t = _ponto_clicado(info)
+            loc = self.obj.Placement.inverse().multVec(p)
+            dist = [(FreeCAD.Vector(q) - loc).Length for q in self.obj.Pontos]
+            if not dist or min(dist) > 1e-3:
+                return False
+            j = dist.index(min(dist))
+            segs = self.segs()
+            # a linha que chega no ponto (o ponto é a ponta dela); no primeiro ponto, a que sai dele
+            ks = [k for k, (a, b) in enumerate(segs) if b == j] or [k for k, (a, b) in enumerate(segs) if a == j]
+            if not ks:
+                return False
+            k = ks[0]
+            a, b = segs[k]
+            fixo = a if b == j else b
+            v = self._vista_edicao
+            self._arraste = {"k": k, "ponta": j, "fixo": fixo, "alvo": None,
+                             "previa": Previa(v) if v is not None else None}
+            return True
+
+        def _mover_edicao(self, cb):
+            if self._arraste is None:
+                return
+            try:
+                pos = tuple(cb.getEvent().getPosition().getValue())
+            except Exception:
+                return
+            self.mover_arraste(pos)
+            cb.setHandled()
+
+        def mover_arraste(self, pos):
+            a = self._arraste
+            if a is None:
+                return None
+            base = self.obj.Placement.multVec(self.obj.Pontos[a["fixo"]])
+            r = self._eixo_pelo_mouse(pos, base, self._vista_edicao)
+            a["alvo"] = r
+            pv = a["previa"]
+            if pv is not None:
+                if r is None:
+                    pv.linha(None, None)
+                    pv.triade(base, self._tamanho_tela(pos, self._vista_edicao), None)
+                    pv.rotulo(None, "")
+                else:
+                    eixo, sinal, fim = r
+                    pv.estilo_linha(eixo)
+                    pv.linha(base, fim)
+                    pv.triade(base, self._tamanho_tela(pos, self._vista_edicao), eixo)
+                    pv.rotulo(fim, "%s%s  %s mm" % ("+" if sinal > 0 else "−", eixo,
+                                                     PrumoUtil.fmt((fim - base).Length, 1)))
+            return r
+
+        def _fim_arraste(self, pos):
+            a, self._arraste = self._arraste, None
+            if a is None:
+                return False
+            if a["previa"] is not None:
+                a["previa"].remover()
+            r = a["alvo"]
+            if pos is not None and r is None:
+                return False
+            if r is None:
+                return False
+            eixo, sinal, fim = r
+            base = self.obj.Placement.multVec(self.obj.Pontos[a["fixo"]])
+            return self.orientar(a["k"], eixo, sinal, (fim - base).Length, ponta=a["ponta"])
 
         def _sel_lista(self):
             self._destacar_selecao()
@@ -1115,10 +1622,10 @@ if FreeCAD.GuiUp:
             self.doc.recompute()
             self._encher()
 
-        def adicionar(self, p_local, coincide=None):
+        def adicionar(self, p_local, coincide=None, cotar=False):
             """Põe um ponto. Com as restrições automáticas: a linha nova ao longo de um eixo ganha a
-            restrição do eixo; o primeiro ponto de um ramal clicado sobre um ponto do esboço fica preso
-            nele (coincidente)."""
+            restrição do eixo (e a cota, com cotar=True: desenhada pelos eixos); o primeiro ponto de um ramal
+            clicado sobre um ponto do esboço fica preso nele (coincidente)."""
             pts = self.pontos()
             quebras = list(self.obj.Quebras)
             novo_trecho = self._ramal_pendente and bool(pts)
@@ -1135,9 +1642,11 @@ if FreeCAD.GuiUp:
                         rs.append("coincidente:%d:%d" % (n, coincide))
                 if not novo_trecho and n > 0:
                     e = eixo_de(p - pts[n - 1])
+                    k = len(segmentos(pts, quebras, False)) - 1
                     if e:
-                        k = len(segmentos(pts, quebras, False)) - 1
                         rs.append("eixo:%d:%s" % (k, e))
+                    if cotar and e and (p - pts[n - 1]).Length > TOL:
+                        rs.append("comprimento:%d:%g" % (k, round((p - pts[n - 1]).Length, 6)))
             self.obj.Restricoes = rs
             self._gravar(pts, quebras)
 
@@ -1233,8 +1742,11 @@ if FreeCAD.GuiUp:
             self._candidato = None
 
         def trocar_plano(self):
-            self.plano = proximo_plano(self.plano)
-            self.lb_plano.setText(self.plano)
+            """Tab: eixos X, Y, Z → plano XY → YZ → ZX → eixos."""
+            self.modo = proximo_modo(self.modo)
+            if self.modo in PLANOS:
+                self.plano = self.modo
+            self.lb_plano.setText(NOMES_MODO[self.modo])
             if self._ultimo_mouse is not None and self._vista is not None:
                 self._mover({"Position": self._ultimo_mouse})
             self._mostrar_estado()
@@ -1248,6 +1760,7 @@ if FreeCAD.GuiUp:
             if self._previa is not None:
                 self._previa.linha(None, None)
                 self._previa.rotulo(None, "")
+                self._previa.triade(None, 0)
             self._mostrar_estado()
 
         # ---- comprimento digitado durante o desenho
@@ -1355,8 +1868,52 @@ if FreeCAD.GuiUp:
                 pass
             return p0, d
 
+        def _tamanho_tela(self, pos, vista=None):
+            """Quantos mm valem ~70 px da tela perto do cursor (tamanho dos eixos desenhados)."""
+            v = vista or self._vista
+            try:
+                a = FreeCAD.Vector(v.getPoint(int(pos[0]), int(pos[1])))
+                b = FreeCAD.Vector(v.getPoint(int(pos[0]) + 70, int(pos[1])))
+                return max((b - a).Length, 1e-6)
+            except Exception:
+                return 100.0
+
+        def _eixo_pelo_mouse(self, pos, base, vista=None):
+            """(eixo, sinal, ponto global) para onde o mouse aponta a partir de base, se ele está a menos de
+            ANGULO_EIXO de um dos eixos na tela; senão None. O comprimento anda de passo em passo."""
+            v = vista or self._vista
+            if v is None or base is None:
+                return None
+            tam = self._tamanho_tela(pos, v)
+            try:
+                bs = tuple(v.getPointOnScreen(base))[:2]
+                pontas = {n: tuple(v.getPointOnScreen(base + FreeCAD.Vector(*EIXOS[n]) * tam))[:2] for n in "XYZ"}
+            except Exception:
+                return None
+            r = escolher_eixo(bs, (pos[0], pos[1]), pontas, tam)
+            if r is None or r[2] < math.cos(math.radians(ANGULO_EIXO)):
+                return None
+            eixo, t = r[0], r[1]
+            passo = self.passo.value() if hasattr(self, "passo") else 0.0
+            if passo > 0:
+                t = round(t / passo) * passo
+            if abs(t) < 1e-9:
+                return None
+            sinal = 1 if t > 0 else -1
+            return eixo, sinal, base + FreeCAD.Vector(*EIXOS[eixo]) * t
+
+        def _plano_de_frente(self):
+            """Plano coordenado mais de frente para a vista (o ponto livre cai nele)."""
+            try:
+                d = FreeCAD.Vector(self._vista.getViewDirection())
+            except Exception:
+                return self.plano
+            return max(PLANOS, key=lambda pl: abs(d.dot(FreeCAD.Vector(*NORMAIS[pl]))))
+
         def ponto_em(self, pos):
-            """(ponto global, tipo) sob o cursor: vértice/ponta de aresta encaixa; senão o plano."""
+            """(ponto global, tipo) sob o cursor: vértice/ponta de aresta encaixa; nos eixos, o eixo para onde
+            o mouse aponta; senão o plano."""
+            self._eixo_ativo = None
             try:
                 info = self._vista.getObjectInfo(pos)
             except Exception:
@@ -1374,11 +1931,20 @@ if FreeCAD.GuiUp:
                             return p, "ponto P%d do esboço" % (self._idx_encaixe + 1)
                     return p, tipo
             base = self._base_global()
+            plano = self.plano
+            if self.modo == "EIXOS":
+                if self._ultimo_global() is not None:
+                    r = self._eixo_pelo_mouse(pos, base)
+                    if r is not None:
+                        self._eixo_ativo = r[0]
+                        return r[2], "eixo %s%s" % ("+" if r[1] > 0 else "−", r[0])
+                plano = self._plano_de_frente()
             p0, d = self._raio_da_vista(pos)
-            p = no_plano(p0, d, base, self.plano)
+            p = no_plano(p0, d, base, plano)
             if p is None:
-                return None, "plano %s de perfil para a vista: tecle Tab" % self.plano
-            return na_grade(p, base, self.passo.value(), self.plano), "plano " + self.plano
+                return None, "plano %s de perfil para a vista: tecle Tab" % plano
+            tipo = ("livre (plano %s)" % plano) if self.modo == "EIXOS" else "plano " + plano
+            return na_grade(p, base, self.passo.value(), plano), tipo
 
         def _mover(self, ev):
             pos = ev.get("Position")
@@ -1390,7 +1956,12 @@ if FreeCAD.GuiUp:
             pts = self.pontos()
             ini = None if (self._ramal_pendente or not pts) else self.obj.Placement.multVec(pts[-1])
             if self._previa is not None:
+                self._previa.estilo_linha(self._eixo_ativo)
                 self._previa.linha(ini, p)
+                if ini is not None and self.modo == "EIXOS":
+                    self._previa.triade(ini, self._tamanho_tela(pos), self._eixo_ativo)
+                else:
+                    self._previa.triade(None, 0)
             self._atualizar_rotulo()
             if ini is not None and p is not None and not self.comp_trecho.hasFocus():
                 self.comp_trecho.blockSignals(True)
@@ -1405,7 +1976,8 @@ if FreeCAD.GuiUp:
             if p is None:
                 self.estado.setText(tipo)
                 return
-            self.adicionar(self.obj.Placement.inverse().multVec(p), coincide=getattr(self, "_idx_encaixe", None))
+            self.adicionar(self.obj.Placement.inverse().multVec(p), coincide=getattr(self, "_idx_encaixe", None),
+                           cotar=tipo.startswith("eixo"))
             self._mover(ev)
 
         def _mostrar_estado(self):
@@ -1414,8 +1986,12 @@ if FreeCAD.GuiUp:
             linhas = ["%d ponto(s), %d trecho(s), comprimento %s mm" % (
                 len(pts), len(trechos(pts, self.obj.Quebras)), comp) if pts else "Nenhum ponto ainda."]
             if self._vista is not None:
-                linhas.append("<b>Plano %s</b> — <b>Tab</b> troca o plano; <b>Esc</b> termina o trecho "
-                              "(Esc de novo para de desenhar)." % self.plano)
+                if self.modo == "EIXOS":
+                    linhas.append("<b>Eixos X, Y, Z</b> — aponte o mouse para o eixo (+ ou −); <b>Tab</b> troca "
+                                  "para um plano; <b>Esc</b> termina o trecho (Esc de novo para de desenhar).")
+                else:
+                    linhas.append("<b>Plano %s</b> — <b>Tab</b> troca; <b>Esc</b> termina o trecho "
+                                  "(Esc de novo para de desenhar)." % self.plano)
                 c = self._candidato
                 if c and c[0] is not None:
                     p = c[0]
@@ -1442,6 +2018,11 @@ if FreeCAD.GuiUp:
 
         def _sair(self):
             self._desligar_clique()
+            self._desligar_edicao()
+            self._fechar_editor()
+            for nome, pn in list(_PAINEIS.items()):
+                if pn is self:
+                    _PAINEIS.pop(nome, None)
             try:
                 FreeCADGui.Selection.removeObserver(self._obs)
             except Exception:

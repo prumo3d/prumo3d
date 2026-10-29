@@ -6623,8 +6623,11 @@ class T52Esboco3D(unittest.TestCase):
         E._cursor_na_vista = lambda: True
         try:
             ev = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Tab, QtCore.Qt.NoModifier)
+            self.assertEqual(pn.modo, "EIXOS")                 # padrão: pelos eixos, como no ZW3D
             self.assertTrue(pn._filtro.eventFilter(pn.form, ev))
-            self.assertEqual(pn.plano, "YZ")
+            self.assertEqual((pn.modo, pn.plano), ("XY", "XY"))
+            pn.trocar_plano()
+            self.assertEqual((pn.modo, pn.plano), ("YZ", "YZ"))
             ev = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Escape, QtCore.Qt.NoModifier)
             pn._filtro.eventFilter(pn.form, ev)
             self.assertTrue(pn._ramal_pendente)
@@ -6792,6 +6795,191 @@ class T52Esboco3D(unittest.TestCase):
         pn.adicionar(FreeCAD.Vector(1, 2, 3))
         pn.reject()
         self.assertEqual(len(self.doc.Objects), n0)
+
+    # ---- como no ZW3D: a linha segue o eixo apontado pelo mouse; comprimento e eixo se editam depois
+    def test_escolher_eixo_e_mudar_trecho(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pontas = {"X": (150, 125), "Y": (60, 120), "Z": (100, 160)}       # +X, +Y, +Z na tela, 100 mm
+        self.assertEqual(E.escolher_eixo((100, 100), (200, 150), pontas, 100.0)[:2], ("X", 200.0))
+        self.assertEqual(E.escolher_eixo((100, 100), (20, 60), pontas, 100.0)[:2], ("X", -160.0))
+        self.assertEqual(E.escolher_eixo((100, 100), (100, 40), pontas, 100.0)[:2], ("Z", -100.0))
+        self.assertIsNone(E.escolher_eixo((100, 100), (101, 102), pontas, 100.0))
+        pts = [V(0, 0, 0), V(1000, 0, 0), V(1000, 500, 0), V(1000, 500, 300)]
+        segs = E.segmentos(pts, [], False)
+        novos = E.mudar_trecho(pts, segs, 0, 1500)
+        self.assertTrue(novos[3].isEqual(V(1500, 500, 300), 1e-9))       # o resto anda junto, sem deformar
+        novos = E.mudar_trecho(pts, segs, 1, 200, V(0, 0, 1))
+        self.assertTrue(novos[2].isEqual(V(1000, 0, 200), 1e-9))
+        self.assertTrue(novos[3].isEqual(V(1000, 0, 500), 1e-9))
+        # laço fechado: quem acerta é o resolvedor
+        self.assertIsNone(E.mudar_trecho(pts, E.segmentos(pts, [], True), 0, 900))
+
+    def test_situacao_do_esboco(self):
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pts = [V(0, 0, 0), V(1000, 0, 0), V(1000, 500, 0), V(1000, 500, 300)]
+        segs = E.segmentos(pts, [], False)
+        rs = ["eixo:0:X", "comprimento:0:1000", "eixo:1:Y", "comprimento:1:500", "eixo:2:Z",
+              "comprimento:2:300"]
+        self.assertEqual(E.definicao(pts, segs, []), ("sem", 9))
+        self.assertEqual(E.definicao(pts, segs, rs), ("bem", 0))
+        self.assertEqual(E.definicao(pts, segs, rs[:5]), ("sub", 1))
+        self.assertEqual(E.definicao(pts, segs, rs + ["comprimento:0:900"])[0], "erro")
+
+    def _vista_iso(self):
+        v = FreeCADGui.getDocument(self.doc.Name).activeView()
+        v.viewIsometric()
+        v.setCameraType("Orthographic")
+        return v
+
+    def test_desenhar_pelos_eixos_com_o_mouse(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        pn.adicionar(V(0, 0, 0))
+        pn.adicionar(V(2000, 2000, 2000))                    # só para enquadrar a vista
+        pn.remover()
+        v = self._vista_iso()
+        v.fitAll()
+        FreeCADGui.updateGui()
+        pn.bt_clicar.setChecked(True)
+        pn.passo.setValue(10.0)
+
+        def tela(p):
+            return tuple(int(c) for c in v.getPointOnScreen(p))[:2]
+        casos = (("X", 1, V(800, 0, 0)), ("Z", -1, V(0, 0, -600)), ("Y", 1, V(0, 700, 0)))
+        for eixo, sinal, alvo in casos:
+            p, tipo = pn.ponto_em(tela(alvo))
+            self.assertEqual(tipo, "eixo %s%s" % ("+" if sinal > 0 else "−", eixo), (eixo, p))
+            e = V(*E.EIXOS[eixo])
+            self.assertAlmostEqual((p - e * p.dot(e)).Length, 0, 6)       # em cima do eixo
+            self.assertAlmostEqual(p.dot(e) * sinal, alvo.Length, delta=15)
+            self.assertAlmostEqual(abs(p.dot(e)) % 10, 0, 6)              # anda de passo em passo
+        # mouse entre os eixos: linha livre
+        import math
+        sx, sy = tela(V(0, 0, 0))
+        angs = []
+        for n in "XYZ":
+            px, py = tela(V(*E.EIXOS[n]) * 600)
+            a = math.atan2(py - sy, px - sx)
+            angs += [a, a + math.pi]
+
+        def folga(t):
+            return min(abs((t - a + math.pi) % (2 * math.pi) - math.pi) for a in angs)
+        t = max((k * math.pi / 180 for k in range(360)), key=folga)
+        self.assertGreater(math.degrees(folga(t)), E.ANGULO_EIXO)
+        _p, tipo = pn.ponto_em((int(sx + 150 * math.cos(t)), int(sy + 150 * math.sin(t))))
+        self.assertTrue(tipo.startswith("livre"), tipo)
+        # clicar: o ponto entra no eixo, com a restrição do eixo e a cota
+        ev = {"Button": "BUTTON1", "State": "DOWN", "Position": tela(V(800, 0, 0))}
+        pn._clique(ev)
+        self.assertEqual(len(o.Pontos), 2)
+        self.assertAlmostEqual(o.Pontos[1].y, 0, 6)
+        self.assertAlmostEqual(o.Pontos[1].z, 0, 6)
+        self.assertIn("eixo:0:X", o.Restricoes)
+        self.assertTrue(any(r.startswith("comprimento:0:") for r in o.Restricoes), o.Restricoes)
+        # a prévia mostra os eixos no último ponto, o apontado em destaque
+        pn._mover({"Position": tela(o.Pontos[1] + V(0, 0, 500))})
+        self.assertEqual(pn._previa.ativo, "Z")
+        self.assertEqual(pn._previa.sep_triade.getNumChildren(), 3)
+        pn.bt_clicar.setChecked(False)
+        pn.accept()
+
+    def test_editar_comprimento_e_eixo_depois_de_desenhar(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        for p in ((0, 0, 0), (1000, 0, 0), (1000, 500, 0), (1000, 500, 300)):
+            pn.adicionar(V(*p), cotar=True)
+        self.assertEqual(pn.definicao, ("bem", 0))
+        self.assertIn("Bem definido", pn.lb_definicao.text())
+        # novo comprimento: o resto anda junto e as outras cotas ficam
+        self.assertTrue(pn.definir_comprimento(0, 1500))
+        self.assertTrue(o.Pontos[3].isEqual(V(1500, 500, 300), 1e-6), o.Pontos[3])
+        self.assertIn("comprimento:0:1500", o.Restricoes)
+        self.assertEqual(len([r for r in o.Restricoes if r.startswith("comprimento:0:")]), 1)
+        self.assertEqual(pn.definicao[0], "bem")
+        # a caixinha de comprimento (duplo clique): Enter aplica, Esc desiste
+        ed = pn.editar_comprimento(1)
+        self.assertIsNotNone(ed)
+        self.assertIn("500", ed.text())
+        ed.setText("750")
+        ed.aplicar()
+        self.assertAlmostEqual((o.Pontos[2] - o.Pontos[1]).Length, 750, 6)
+        self.assertTrue(o.Pontos[3].isEqual(V(1500, 750, 300), 1e-6))
+        self.assertIsNone(pn._editor)
+        ed = pn.editar_comprimento(2)
+        from PySide import QtCore, QtGui
+        ed.setText("9")
+        QtWidgets_app = QtGui.QGuiApplication.instance()
+        ed._filtro.eventFilter(ed, QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Escape,
+                                                   QtCore.Qt.NoModifier))
+        QtWidgets_app.processEvents()
+        self.assertIsNone(pn._editor)
+        self.assertAlmostEqual((o.Pontos[3] - o.Pontos[2]).Length, 300, 6)
+        # levar a última linha para −Z (como arrastando a ponta)
+        self.assertTrue(pn.orientar(2, "Z", -1, ponta=3))
+        self.assertTrue(o.Pontos[3].isEqual(V(1500, 750, -300), 1e-6), o.Pontos[3])
+        self.assertIn("eixo:2:Z", o.Restricoes)
+        # a linha do meio para +Z: a ponta e o que vem depois sobem juntos
+        self.assertTrue(pn.orientar(1, "Z", 1, ponta=2))
+        self.assertTrue(o.Pontos[2].isEqual(V(1500, 0, 750), 1e-6), o.Pontos[2])
+        self.assertTrue(o.Pontos[3].isEqual(V(1500, 0, 450), 1e-6), o.Pontos[3])
+        self.assertIn("eixo:1:Z", o.Restricoes)
+        self.assertFalse(any(r == "eixo:1:Y" for r in o.Restricoes))
+        self.assertEqual(pn.definicao[0], "bem")
+        pn.accept()
+
+    def test_mouse_na_vista_edita_depois_de_desenhar(self):
+        """Duplo clique numa linha abre a caixinha do comprimento; arrastar a ponta muda o eixo."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        from PySide import QtCore, QtWidgets
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        for p in ((0, 0, 0), (1000, 0, 0), (1000, 800, 0)):
+            pn.adicionar(V(*p), cotar=True)
+        v = self._vista_iso()
+        v.fitAll()
+        FreeCADGui.updateGui()
+        self.assertTrue(pn._cbs_edicao, "a vista escuta o mouse enquanto o painel está aberto")
+
+        def tela(p):
+            return tuple(int(c) for c in v.getPointOnScreen(p))[:2]
+        meio = tela(V(500, 0, 0))
+        info = pn._info_em(meio)
+        self.assertTrue(info and info.get("Object") == o.Name, info)
+        self.assertFalse(pn.botao_edicao(meio, True))           # primeiro clique: segue para a seleção
+        self.assertTrue(pn.botao_edicao(meio, True))            # segundo: duplo clique
+        for _i in range(5):
+            QtWidgets.QApplication.processEvents()
+        self.assertIsNotNone(pn._editor)
+        self.assertEqual(pn._editor.k, 0)
+        pn._fechar_editor()
+        # arrastar a ponta P3 (fim da linha 2) para −Z
+        ponta = tela(V(1000, 800, 0))
+        self.assertTrue(pn.botao_edicao(ponta, True), pn._info_em(ponta))
+        self.assertEqual(pn._arraste["ponta"], 2)
+        r = pn.mover_arraste(tela(V(1000, 0, -400)))
+        self.assertIsNotNone(r)
+        self.assertEqual(r[:2], ("Z", -1))
+        self.assertTrue(pn.botao_edicao(tela(V(1000, 0, -400)), False))
+        self.assertIsNone(pn._arraste)
+        self.assertAlmostEqual(o.Pontos[2].x, 1000, 6)
+        self.assertAlmostEqual(o.Pontos[2].y, 0, 6)
+        self.assertAlmostEqual(o.Pontos[2].z, -400, delta=15)
+        self.assertIn("eixo:1:Z", o.Restricoes)
+        pn.accept()
+        self.assertEqual(pn._cbs_edicao, [])
 
 
 class T53Tubulacao(unittest.TestCase):
