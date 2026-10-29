@@ -26,7 +26,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - *Rugosidade*: qualquer processo, usinado ou bruto, Ra com a classe N ao lado; o símbolo fica sempre do
     lado de fora da superfície (embaixo e à direita vai numa linha de chamada, nunca de cabeça para baixo).
   - *Ajuste furo/eixo*: furo-base ou eixo-base com os ajustes preferenciais e o uso de cada um (H7/g6
-    deslizante, H7/p6 prensado...). Mostra os afastamentos e a folga ou interferência, e grava a tolerância
+    deslizante, H7/s6 prensado...). Mostra os afastamentos e a folga ou interferência, e grava a tolerância
     na cota escolhida. Tabelas ISO 286 até 500 mm conferidas célula por célula com a tabela do FreeCAD;
     confira na edição vigente da ABNT NBR 6158 antes de liberar o desenho.
   As ferramentas originais do FreeCAD continuam em "Mais".
