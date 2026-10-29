@@ -12483,6 +12483,173 @@ class T86TubulacaoAcoIsometrico(unittest.TestCase):
             FreeCADGui.Control.closeDialog()
 
 
+class T87AtualizacaoSoDoComplemento(unittest.TestCase):
+    """Atualização baixando só o complemento (.zip de poucos MB) em vez do pacote inteiro."""
+
+    def setUp(self):
+        import PrumoComplemento as PC
+        self.PC = PC
+        self.tmp = tempfile.mkdtemp(prefix="prumo_comp_")
+        self._orig = (PC.pasta_usuario, PC.pasta_trabalho)
+        PC.pasta_usuario = lambda: os.path.join(self.tmp, "Mod", "Prumo3D")
+        PC.pasta_trabalho = lambda: os.path.join(self.tmp, "Prumo3D-complemento")
+
+    def tearDown(self):
+        self.PC.pasta_usuario, self.PC.pasta_trabalho = self._orig
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _zip(self, versao="9.9.9", freecad=None, extra=None):
+        """Complemento de teste a partir deste módulo."""
+        import json
+        import zipfile
+        aqui = os.path.dirname(os.path.abspath(__file__))
+        z = os.path.join(self.tmp, "Prumo3D_%s-complemento.zip" % versao)
+        man = {"versao": versao, "freecad": freecad or self.PC.base_freecad(), "base_minima": self.PC.BASE_MINIMA}
+        with zipfile.ZipFile(z, "w") as f:
+            for n in ("Init.py", "InitGui.py", "PrumoVersao.py", "PrumoComplemento.py"):
+                f.write(os.path.join(aqui, n), "Prumo3D/" + n)
+            f.writestr("Prumo3D/Resources/acentuação.txt", "ok")
+            f.writestr("Prumo3D/PrumoVersaoCompilada.py", 'VERSAO_COMPILADA = "%s"\n' % versao)
+            f.writestr("Prumo3D/complemento.json", json.dumps(man))
+            for nome, conteudo in (extra or {}).items():
+                f.writestr(nome, conteudo)
+        return z
+
+    def test_compatibilidade(self):
+        PC = self.PC
+        base = PC.base_freecad()
+        self.assertEqual(PC.compativel({"freecad": base, "base_minima": "1.1.0"}, "1.1.0"), (True, ""))
+        ok, motivo = PC.compativel({"freecad": "0.0.1", "base_minima": "1.1.0"}, "1.1.0")
+        self.assertFalse(ok)
+        self.assertIn("base FreeCAD 0.0.1", motivo)
+        ok, motivo = PC.compativel({"freecad": base, "base_minima": "1.3.0"}, "1.2.0")
+        self.assertFalse(ok)
+        self.assertIn("pacote completo 1.3.0", motivo)
+        self.assertTrue(PC.mais_nova("1.2.0", "1.2.0-beta"))
+        self.assertTrue(PC.mais_nova("1.10.0", "1.9.3"))
+
+    def test_instala_na_pasta_do_usuario(self):
+        PC = self.PC
+        self.assertEqual(PC.instalar_zip(self._zip("9.9.9"), "1.1.0"), "9.9.9")
+        dest = PC.pasta_usuario()
+        self.assertEqual(PC.ler_versao(dest), "9.9.9")
+        self.assertTrue(os.path.isfile(os.path.join(dest, "Resources", "acentuação.txt")))
+        # nada de pasta de preparo dentro de Mod (o FreeCAD carregaria como módulo)
+        self.assertEqual(os.listdir(os.path.dirname(dest)), ["Prumo3D"])
+        # versão nova por cima da anterior
+        self.assertEqual(PC.instalar_zip(self._zip("9.9.10"), "1.1.0"), "9.9.10")
+        self.assertEqual(PC.ler_versao(dest), "9.9.10")
+        self.assertEqual(os.listdir(os.path.dirname(dest)), ["Prumo3D"])
+        self.assertTrue(PC.remover_copia_do_usuario())
+        self.assertFalse(os.path.isdir(dest))
+
+    def test_recusa_o_que_nao_serve(self):
+        PC = self.PC
+        with self.assertRaisesRegex(ValueError, "base FreeCAD"):
+            PC.instalar_zip(self._zip("9.9.9", freecad="0.0.1"), "1.1.0")
+        with self.assertRaisesRegex(ValueError, "igual ou mais novo"):
+            PC.instalar_zip(self._zip("1.0.0"), "1.1.0")
+        with self.assertRaisesRegex(ValueError, "caminho inválido"):
+            PC.instalar_zip(self._zip("9.9.9", extra={"Prumo3D/../../fora.py": "x"}), "1.1.0")
+        with self.assertRaisesRegex(ValueError, "caminho inválido"):
+            PC.instalar_zip(self._zip("9.9.9", extra={"OutroModulo/Init.py": "x"}), "1.1.0")
+        self.assertFalse(os.path.isdir(PC.pasta_usuario()), "nada instalado quando recusa")
+
+    def test_volta_ao_programa_quando_a_copia_ficou_para_tras_ou_falhou(self):
+        PC = self.PC
+        PC.instalar_zip(self._zip("9.9.9"), "1.1.0")
+        dest = PC.pasta_usuario()
+        self.assertEqual(PC.motivo_para_voltar(dest), "")
+        with open(os.path.join(dest, PC.CONTADOR), "w") as f:
+            f.write('{"tentativas": 2}')
+        self.assertIn("não abriu", PC.motivo_para_voltar(dest))
+        PC.instalar_zip(self._zip("9.9.10"), "1.1.0")      # instalar de novo zera as tentativas
+        self.assertEqual(PC.motivo_para_voltar(dest), "")
+        velho = os.path.join(self.tmp, "velho")
+        shutil.copytree(dest, velho)
+        with open(os.path.join(velho, "PrumoVersaoCompilada.py"), "w") as f:
+            f.write('VERSAO_COMPILADA = "0.0.1"\n')
+        self.assertIn("igual ou mais novo", PC.motivo_para_voltar(velho))
+
+    def test_pacote_do_complemento(self):
+        import json
+        import sys
+        import zipfile
+        raiz = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", ".."))
+        scripts = os.path.join(raiz, "package", "scripts")
+        if not os.path.isfile(os.path.join(scripts, "pacote_complemento.py")):
+            self.skipTest("fora do código-fonte")
+        sys.path.insert(0, scripts)
+        try:
+            import pacote_complemento as PK
+        finally:
+            sys.path.remove(scripts)
+        z, man = PK.gerar("v9.9.9", self.tmp)
+        self.assertEqual(man, {"versao": "9.9.9", "freecad": self.PC.base_freecad(),
+                               "base_minima": self.PC.BASE_MINIMA})
+        self.assertLess(os.path.getsize(z), 20e6)
+        nomes = zipfile.ZipFile(z).namelist()
+        self.assertIn("Prumo3D/InitGui.py", nomes)
+        self.assertIn("Prumo3D/PrumoIsometrico.py", nomes)
+        self.assertFalse([n for n in nomes if "__pycache__" in n or n.endswith(".pyc")])
+        self.assertTrue(all(n.startswith("Prumo3D/") for n in nomes))
+        with open(os.path.join(self.tmp, "Prumo3D_9.9.9-complemento.json")) as f:
+            self.assertEqual(json.load(f), man)
+        self.assertTrue(os.path.isfile(z + "-SHA256.txt"))
+        self.assertEqual(self.PC.instalar_zip(z, "1.1.0"), "9.9.9")
+
+    def test_atualizar_baixa_so_o_complemento_e_oferece_reabrir(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import hashlib
+        import PrumoAtualizar as A
+        from PySide import QtWidgets
+        z = self._zip("9.9.9")
+        dig = "sha256:" + hashlib.sha256(open(z, "rb").read()).hexdigest()
+        url = "file://" + z.replace("\\", "/") if not z.startswith("/") else "file://" + z
+        info = {"tag": "v9.9.9", "versao": "9.9.9", "texto": "9.9.9", "pagina": A.PAGINA, "notas": "",
+                "ativos": [{"nome": os.path.basename(z), "tamanho": os.path.getsize(z), "url": url, "digest": dig},
+                           {"nome": "Prumo3D_9.9.9-Windows-x86_64-py311-installer.exe", "tamanho": 380000000,
+                            "url": "", "digest": ""}],
+                "complemento": {"versao": "9.9.9", "freecad": self.PC.base_freecad(),
+                                "base_minima": self.PC.BASE_MINIMA}}
+        comp_orig = A.compilada
+        A.compilada = lambda: True
+        try:
+            self.assertIsNotNone(A.ativo_complemento(info))
+            av = A.AvisoAtualizacao(info)
+            try:
+                self.assertEqual(av.modo, "complemento")
+                txt = " ".join(w.text() for w in av.d.findChildren(QtWidgets.QLabel))
+                self.assertIn("só o complemento", txt)
+                self.assertIn("380 MB do pacote completo", txt)
+            finally:
+                av.d.reject()
+            A.atualizar(info, av.modo, av.ativo)
+            jan = A._vivos[-1]
+            fim = time.time() + 20
+            while not jan.estado["fim"] and time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.05)
+            for _i in range(10):
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.05)
+            self.assertIsNone(jan.estado["erro"])
+            self.assertEqual(jan.estado.get("instalada"), "9.9.9")
+            self.assertEqual(self.PC.ler_versao(self.PC.pasta_usuario()), "9.9.9")
+            self.assertEqual(jan.acao, "reabrir")
+            self.assertEqual(jan.principal.text(), "Reabrir agora")
+            jan.d.reject()
+            chamado = []
+            self.assertTrue(A.reabrir(popen=lambda cmd, **kw: chamado.append(cmd), fechar=False))
+            self.assertIn(A.executavel(), " ".join(chamado[0]))
+            # complemento para outra base: atualiza pelo pacote completo
+            info["complemento"] = dict(info["complemento"], freecad="0.0.1")
+            self.assertIsNone(A.ativo_complemento(info))
+        finally:
+            A.compilada = comp_orig
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -12505,4 +12672,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
-           T86TubulacaoAcoIsometrico]
+           T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento]

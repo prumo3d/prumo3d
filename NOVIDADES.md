@@ -13,6 +13,17 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Novidades
 
+- **Atualização só do complemento (poucos MB).** A partir desta versão, cada versão nova publica também
+  `Prumo3D_<versão>-complemento.zip` (cerca de 5 MB, contra centenas de MB do pacote completo). Em Ajuda →
+  Sobre → Verificar atualizações, quando ele serve, o Prumo baixa só esse arquivo, confere o SHA-256,
+  instala na pasta do usuário (sem pedir administrador) e oferece **Reabrir agora**. Proteções:
+  - só aplica sobre a mesma base de FreeCAD e a partir do pacote completo mínimo; senão oferece o pacote
+    completo, como antes;
+  - se um pacote completo mais novo for instalado depois, ele volta a valer sozinho;
+  - se a versão atualizada não abrir, o Prumo abre com a instalada na mesma hora e não tenta mais com ela;
+  - "Copiar informações do sistema" diz qual está valendo.
+  Quem está na 1.1 baixa o pacote completo uma última vez: o atualizador da 1.1 ainda não conhece o
+  complemento.
 - **Vasos: perímetro medido com fita métrica.** Em vaso existente não dá para medir o diâmetro por dentro:
   agora a medida do costado pode ser o perímetro externo, medido com fita em volta do vaso (é o padrão no
   painel). O Prumo calcula Ø externo = P/π e Ø interno = Ø externo − 2·t (com a espessura adotada ou, sem ela,

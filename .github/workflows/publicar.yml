@@ -18,6 +18,7 @@
 # Formatos:
 #   Windows: instalador (.exe) e versão portátil (.7z)
 #   Linux:   AppImage (arquivo único, roda sem instalar)
+#   Todos:   só o complemento (Prumo3D_<versão>-complemento.zip), para a atualização sem o pacote inteiro
 #
 # Assinatura do instalador do Windows (SignPath Foundation, grátis para código aberto):
 #   - liga sozinha quando a variável do repositório SIGNPATH_ORGANIZATION_ID existe (Settings → Secrets
@@ -341,6 +342,17 @@ jobs:
           else
             echo "Instalador do Windows: sem assinatura" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # só o complemento (poucos MB): quem já tem o pacote completo compatível atualiza sem baixar tudo
+      - name: Pacote só do complemento
+        shell: bash
+        env:
+          VERSAO: ${{ github.event.inputs.versao }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then tag="${GITHUB_REF_NAME}"; else tag="v${VERSAO#v}"; fi
+          python3 package/scripts/pacote_complemento.py "${tag}" arquivos
+          echo "Complemento: $(ls arquivos/*-complemento.zip)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Criar a versão
         shell: bash

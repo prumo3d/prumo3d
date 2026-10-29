@@ -5,6 +5,9 @@
 - Ao abrir (no máximo uma vez por dia, desligável): se houver versão mais nova, aparece um aviso com
   "Atualizar agora", "Agora não" e "Pular esta versão". Nada acontece sem o usuário concordar.
 - Atualizar agora:
+  - quando a versão nova publica o complemento sozinho (Prumo3D_<versão>-complemento.zip) e ele serve nesta
+    instalação (mesma base de FreeCAD, pacote completo a partir da versão mínima): baixa só ele (poucos MB),
+    confere o SHA-256, instala na pasta do usuário e oferece reabrir o Prumo (ver PrumoComplemento);
   - Windows instalado: baixa o instalador, confere o SHA-256 publicado, pede para fechar o Prumo
     (o FreeCAD pergunta se quer salvar o que estiver aberto) e abre o instalador;
   - Linux (AppImage): baixa o AppImage novo na mesma pasta do atual e diz onde ficou;
@@ -121,7 +124,40 @@ def consultar(timeout=8, aceitar_beta=None):
         aceitar_beta = _params().GetBool("AtualizarBetas", True)
     with _abrir_url(API, timeout) as r:
         dados = json.loads(r.read().decode("utf-8"))
-    return escolher(dados, aceitar_beta)
+    info = escolher(dados, aceitar_beta)
+    if info is not None:
+        # o complemento.json publicado ao lado do .zip diz para que base ele serve (arquivo de poucos bytes)
+        man = next((a for a in info["ativos"] if a["nome"].endswith("-complemento.json")), None)
+        if man is not None:
+            try:
+                with _abrir_url(man["url"], timeout, aceitar="application/octet-stream") as r:
+                    info["complemento"] = json.loads(r.read().decode("utf-8"))
+            except Exception:
+                info["complemento"] = None
+    return info
+
+
+def ativo_complemento(info):
+    """O .zip do complemento, se esta instalação pode atualizar só com ele; senão None."""
+    if info is None or not compilada() or not info.get("complemento"):
+        return None
+    zipa = next((a for a in info["ativos"] if a["nome"].endswith("-complemento.zip")), None)
+    if zipa is None:
+        return None
+    try:
+        import PrumoComplemento
+        ok, _motivo = PrumoComplemento.compativel(info["complemento"], PrumoComplemento.versao_programa())
+    except Exception:
+        return None
+    return zipa if ok else None
+
+
+def ativo_completo(info, modo=None):
+    """Tamanho do pacote completo deste sistema, para comparar (0 se não houver)."""
+    modo = modo or modo_instalacao()
+    fim = {"instalador": "-installer.exe", "appimage": ".AppImage"}.get(modo, "-installer.exe")
+    a = next((a for a in (info or {}).get("ativos", []) if a["nome"].endswith(fim)), None)
+    return a["tamanho"] if a else 0
 
 
 def tem_novidade(info, atual=None):
@@ -251,7 +287,15 @@ class AvisoAtualizacao:
         v.addWidget(notas, 1)
         self.modo = modo_instalacao()
         self.ativo = ativo_do_sistema(info, self.modo)
+        comp = ativo_complemento(info)
+        if comp is not None:
+            completo = ativo_completo(info, self.modo)
+            self.modo, self.ativo = "complemento", comp
         explica = {
+            "complemento": "Ao atualizar, o Prumo baixa só o complemento ({}" + (
+                ", em vez dos {:.0f} MB do pacote completo".format(completo / 1e6)
+                if comp is not None and completo else "") + "). A versão nova vale quando o Prumo for aberto "
+                "de novo; os seus arquivos e preferências não mudam.",
             "instalador": "Ao atualizar, o Prumo baixa o instalador ({}), fecha (perguntando se quer salvar o "
                           "que estiver aberto) e abre o instalador.",
             "appimage": "Ao atualizar, o Prumo baixa o arquivo novo ({}) para a mesma pasta do atual.",
@@ -311,6 +355,8 @@ def atualizar(info, modo=None, ativo=None, parent=None):
         return "pagina"
     if modo == "appimage":
         pasta = os.path.dirname(os.environ.get("APPIMAGE", "")) or os.path.expanduser("~")
+    elif modo == "complemento":
+        pasta = pasta_download()
     else:
         pasta = pasta_download()
     destino = os.path.join(pasta, ativo["nome"])
@@ -401,6 +447,9 @@ class JanelaDownload:
             baixar(self.ativo["url"], self.destino, self.ativo.get("digest", ""),
                    progresso=lambda f, t: self.estado.update(feito=f, total=t or self.estado["total"]),
                    cancelado=lambda: self.estado["cancelar"])
+            if self.modo == "complemento":
+                import PrumoComplemento
+                self.estado["instalada"] = PrumoComplemento.instalar_zip(self.destino)
         except Exception as exc:
             self.estado["erro"] = exc
         self.estado["fim"] = True
@@ -466,6 +515,17 @@ class JanelaDownload:
         self.situacao.setObjectName("PrumoOk")
         self.situacao.style().unpolish(self.situacao)
         self.situacao.style().polish(self.situacao)
+        if self.modo == "complemento":
+            self.situacao.setText("Pronto: a atualização foi baixada, conferida e instalada.")
+            self.titulo.setText("Prumo 3D {} instalado".format(self.texto_versao).replace("  ", " "))
+            self.detalhe.setText("A versão nova vale quando o Prumo for aberto de novo. Reabrir agora fecha o "
+                                 "Prumo (ele pergunta se quer salvar o que estiver aberto) e abre de novo.")
+            self.acao = "reabrir"
+            self.principal.setText("Reabrir agora")
+            self.principal.setVisible(True)
+            self.secundario.setText("Depois")
+            self._ajustar()
+            return
         if self.modo == "appimage":
             try:
                 os.chmod(self.destino, 0o755)
@@ -516,6 +576,10 @@ class JanelaDownload:
             self.d.accept()
             self._fim_do_objeto()
             instalar_ao_fechar(self.destino)
+        elif self.acao == "reabrir":
+            self.d.accept()
+            self._fim_do_objeto()
+            reabrir()
 
     def _cancelar(self):
         if not self.estado["fim"]:
@@ -602,6 +666,40 @@ def _disparar(caminho, popen=None, abrir=None):
     except Exception as exc:
         _registrar("processo de espera falhou: %r" % (exc,))
         FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc))
+        return False
+
+
+def executavel():
+    """O programa a abrir de novo: o AppImage, o Prumo3D.exe ou o executável do FreeCAD da instalação."""
+    if os.environ.get("APPIMAGE"):
+        return os.environ["APPIMAGE"]
+    casa = FreeCAD.getHomePath()
+    for nome in ("Prumo3D.exe", "FreeCAD.exe", "prumo3d", "FreeCAD", "freecad"):
+        p = os.path.join(casa, "bin", nome)
+        if os.path.isfile(p):
+            return p
+    return sys.executable
+
+
+def reabrir(popen=None, fechar=True):
+    """Fecha o Prumo (ele pergunta se quer salvar) e, se fechou, abre de novo assim que o processo terminar."""
+    import subprocess
+    mw = janela_principal() if fechar else None
+    if mw is not None and not mw.close():
+        _registrar("reabrir: fechamento cancelado pelo usuário")
+        return False
+    cmd = comando_instalar_depois(executavel(), os.getpid())
+    popen = popen or subprocess.Popen
+    try:
+        flags = 0
+        if sys.platform.startswith("win"):
+            flags = 0x00000008 | 0x08000000 | 0x00000200
+        popen(cmd, close_fds=True, creationflags=flags, stdin=subprocess.DEVNULL,
+              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _registrar("reabrir: %s" % cmd[-1])
+        return True
+    except Exception as exc:
+        _registrar("reabrir falhou: %r" % (exc,))
         return False
 
 

@@ -75,6 +75,15 @@ def info_sistema():
     import FreeCAD
     linhas = ["Prumo 3D %s" % texto(),
               "Base: FreeCAD %s" % base_freecad()]
+    try:
+        import PrumoComplemento as PC
+        est = PC.estado()
+        if est.get("delegou"):
+            linhas.append("Complemento da pasta do usuário ignorado: %s" % est.get("motivo", ""))
+        elif est.get("usuario"):
+            linhas.append("Complemento atualizado na pasta do usuário (pacote instalado: %s)" % PC.versao_programa())
+    except Exception:
+        pass
     c = commit()
     if c:
         linhas.append("Código: %s" % c)

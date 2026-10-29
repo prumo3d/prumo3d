@@ -5,6 +5,7 @@
 | Windows 10/11 (64 bits) | `Prumo3D_…-installer.exe` | Rode o instalador. Instala ao lado de um FreeCAD já existente, sem substituí-lo. |
 | Windows (portátil) | `Prumo3D_…-Windows-….7z` | Descompacte e abra `bin\Prumo3D.exe`. Não precisa instalar. |
 | Linux (64 bits) | `Prumo3D_…-Linux-….AppImage` | Marque como executável (`chmod +x`) e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
+| Já tem o Prumo 3D 1.1 ou mais novo | `Prumo3D_…-complemento.zip` | Não precisa baixar à mão: em **Ajuda → Sobre → Verificar atualizações**, o Prumo baixa só este arquivo (poucos MB) e a versão nova vale ao abrir de novo. |
 
 Cada arquivo tem um `-SHA256.txt` com o código de verificação.
 
