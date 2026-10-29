@@ -11,20 +11,6 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
-### Correções
-
-- **Vasos: todo suporte oferecido aparece no modelo.** No vaso deitado, escolher saia ou pernas não construía
-  nada. Agora a lista de suportes só mostra o que serve para a posição do vaso (deitado: selas ou pernas; em
-  pé: saia ou pernas), e o vaso deitado ganhou pernas: quatro tubos sob o costado, nas posições das selas.
-- **Vasos: pés de chapa, como nos reservatórios de compressor.** Em cada posição, uma tira de chapa dobrada
-  (4,75 mm) abraça o fundo do costado, desce aberta para os lados e termina em sapatas com furo de fixação.
-  Entra também no teste de pressão por elementos finitos, com o apoio nas sapatas.
-
-### Mudanças
-
-- **Sem a aba BIM:** o Prumo passa a focar na engenharia mecânica. A bancada BIM (arquitetura) sai de vista;
-  quem precisar pode religá-la em Preferências → Geral → Bancadas.
-
 ### Novidades
 
 - **Montagem com as restrições do SolidWorks:**
@@ -43,8 +29,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Faixa que mostra o que serve agora:** sem documento aberto, só aparece o que começa um trabalho (Novo,
   Abrir…). Nas abas que dependem de "estar dentro" de algo, aparece só o primeiro passo e uma dica: Desenho
   sem folha aberta (Folha ABNT, Paleta de vistas, Abrir folha), Montagem sem montagem aberta (Nova montagem,
-  **Abrir montagem**), Simulação sem estudo (Assistente, Novo estudo) e Planilha sem planilha aberta. As ferramentas raras de cada grupo ficam no botão **Mais**. Para ver tudo como antes: botão direito
-  na faixa → desmarque "Mostrar só as ferramentas do momento".
+  **Abrir montagem**), Simulação sem estudo (Assistente, Novo estudo) e Planilha sem planilha aberta. As ferramentas raras de cada grupo ficam no botão
+  **Mais**. Para ver tudo como antes: Preferências do Prumo, ou botão direito na faixa → desmarque "Mostrar só
+  as ferramentas do momento".
 - **Aba Desenho na ordem do trabalho:** Folha → Vistas → Cotas → Anotação → Entregar, com **Cotas gerais**,
   **Salvar PDF** (com o número do desenho no nome do arquivo) e **Exportar DXF** em um clique.
 - **Cota a mais não deixa o esboço vermelho:** uma cota que sobraria (ou entraria em conflito) vira **cota de
@@ -59,6 +46,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   Referência (não entra: gabarito, máquina vizinha).
 - **Componentes dos sólidos** (aba Montagem): um STEP (ou objeto) com vários sólidos vira uma peça para cada
   sólido, no lugar, prontas para receber restrições.
+- **Preferências:** liga e desliga "Faixa só com as ferramentas do momento" (vale na hora) e "Cota a mais vira
+  cota de referência".
 - **Procurar comando (Ctrl+K ou a lupa no alto da faixa):** digite parte do nome (furo, tangente, cota…) e
   tecle Enter. A faixa vai para a aba da ferramenta, para você aprender onde ela fica. Entende também nomes
   de outros programas (fillet, mate, drive…).
@@ -70,6 +59,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - **Cotas gerais:** um clique põe o comprimento, a altura e a profundidade totais da peça.
   - **Folha ABNT com arranjos prontos:** frontal, superior, lateral e isométrica; frontal, lateral e
     isométrica; frontal e superior; frontal e isométrica; ou só a isométrica.
+- **Vasos: pés de chapa, como nos reservatórios de compressor.** Em cada posição, uma tira de chapa dobrada
+  (4,75 mm) abraça o fundo do costado, desce aberta para os lados e termina em sapatas com furo de fixação.
+  Entra também no teste de pressão por elementos finitos, com o apoio nas sapatas.
+
+### Mudanças
+
+- **Painel lateral:** com a aba Árvore fechada, o painel que sobra continua com o nome em português.
+- **Sem a aba BIM:** o Prumo passa a focar na engenharia mecânica. A bancada BIM (arquitetura) sai de vista;
+  quem precisar pode religá-la em Preferências → Geral → Bancadas.
+
+### Correções
+
+- **Vasos: todo suporte oferecido aparece no modelo.** No vaso deitado, escolher saia ou pernas não construía
+  nada. Agora a lista de suportes só mostra o que serve para a posição do vaso (deitado: selas, pés de chapa ou
+  pernas; em pé: saia ou pernas), e o vaso deitado ganhou pernas: quatro tubos sob o costado, nas posições das selas.
 
 ## 1.0.2 — 28/10/2026
 
