@@ -541,6 +541,199 @@ def _carona(asm, peca, junta, parar):
     return vistos
 
 
+# ----------------------------------------------------------------------------- batente e trajetória
+VOLUME_CONTATO = 1e-3      # mm³: abaixo disso é só encostar
+
+
+def _pecas_com_solido(asm):
+    out = []
+    for o in getattr(asm, "Group", []):
+        if o.TypeId.startswith("Assembly::"):
+            continue
+        sh = getattr(o, "Shape", None)
+        try:
+            if sh is None or sh.isNull() or not sh.Solids:
+                continue
+        except Exception:
+            continue
+        out.append(o)
+    return out
+
+
+def _bloco_movel(j):
+    """(montagem, peças que se movem juntas quando a junta é pilotada)."""
+    asm = montagem_de(j.Reference1[0]) or montagem_de(j.Reference2[0])
+    terra = _aterrados(asm)
+    peca, outra = j.Reference2[0], j.Reference1[0]
+    if peca in terra:
+        peca, outra = outra, peca
+    return asm, _carona(asm, peca, j, terra | {outra})
+
+
+def colisoes(moveis, outros):
+    """[(peça que se move, peça parada, volume em comum)] onde há volume em comum (encostar não conta)."""
+    res = []
+    for a in moveis:
+        sa = a.Shape
+        for b in outros:
+            sb = b.Shape
+            if not sa.BoundBox.intersect(sb.BoundBox):
+                continue
+            try:
+                v = sa.common(sb).Volume
+            except Exception:
+                continue
+            if v > VOLUME_CONTATO:
+                res.append((a, b, v))
+    return res
+
+
+def mover_com_batente(j, giro=None, avanco=None, passo_giro=2.0, passo_avanco=1.0, ignorar=()):
+    """Como mover_junta, mas para quando a peça em movimento encosta em outra (batente de contato).
+
+    Anda em passos pequenos; ao achar volume em comum, volta por bisseção até a última posição livre (uns
+    centésimos de grau ou de mm antes do contato). Pares que já estavam sobrepostos no início (pino no furo
+    modelado com interferência, por exemplo) não contam. Devolve (valores alcançados, peça encostada ou None)."""
+    asm, moveis = _bloco_movel(j)
+    outros = [p for p in _pecas_com_solido(asm) if not any(p is m for m in moveis)
+              and not any(p is x for x in ignorar)]
+    ja = {(a.Name, b.Name) for a, b, _v in colisoes(moveis, outros)}
+
+    def bate():
+        for a, b, _v in colisoes(moveis, outros):
+            if (a.Name, b.Name) not in ja:
+                return b
+        return None
+    atual = valores_da_junta(j)
+    lim = limites_da_junta(j)
+    pedido = {"giro": giro, "avanco": avanco}
+    delta = {}
+    for k in MOVIMENTOS[j.JointType]:
+        v = pedido[k]
+        if v is None:
+            continue
+        lo, hi = lim[k]
+        if lo is not None:
+            v = max(v, lo)
+        if hi is not None:
+            v = min(v, hi)
+        d = v - atual[k]
+        if k == "giro":
+            d = (d + 180.0) % 360.0 - 180.0
+        delta[k] = d
+    if not delta:
+        return atual, None
+    n = max(1, int(math.ceil(max(abs(delta[k]) / (passo_giro if k == "giro" else passo_avanco) for k in delta))))
+
+    def em(t):
+        return {k: atual[k] + delta[k] * t for k in delta}
+    livre = 0.0
+    for i in range(1, n + 1):
+        t = float(i) / n
+        mover_junta(j, **em(t))
+        b = bate()
+        if b is None:
+            livre = t
+            continue
+        lo_, hi_ = livre, t
+        for _k in range(10):
+            meio = (lo_ + hi_) / 2.0
+            mover_junta(j, **em(meio))
+            if bate() is None:
+                lo_ = meio
+            else:
+                hi_ = meio
+        mover_junta(j, **em(lo_))
+        return valores_da_junta(j), b
+    return valores_da_junta(j), None
+
+
+def ponto_global(raiz, sub):
+    """Posição global de um vértice (ou do centro de uma aresta circular / do elemento) pelo caminho."""
+    sh = raiz.getSubObject(sub)
+    if sh is None or sh.isNull():
+        raise ValueError("Elemento %s não encontrado." % sub)
+    if sh.ShapeType == "Vertex":
+        p = sh.Point
+    elif sh.ShapeType == "Edge" and hasattr(sh.Curve, "Center"):
+        p = sh.Curve.Center
+    else:
+        p = sh.BoundBox.Center
+    try:
+        g = raiz.getGlobalPlacement() * raiz.Placement.inverse()
+        p = g.multVec(p)
+    except Exception:
+        pass
+    return FreeCAD.Vector(p)
+
+
+def faixa_da_junta(j):
+    """(movimento, de, até) para varrer a junta: os limites dela ou, sem limite, uma volta / ±100 mm."""
+    k = MOVIMENTOS[j.JointType][0]
+    lo, hi = limites_da_junta(j)[k]
+    atual = valores_da_junta(j)[k]
+    if k == "giro":
+        lo = atual - 180.0 if lo is None else lo
+        hi = (lo + 360.0) if limites_da_junta(j)[k][1] is None else hi
+    else:
+        lo = atual - 100.0 if lo is None else lo
+        hi = atual + 100.0 if hi is None else hi
+    return k, lo, hi
+
+
+def trajetoria(j, raiz, sub, n=72, batente=False, ignorar=()):
+    """Pontos (globais) por onde passa o elemento `sub` de `raiz` enquanto a junta varre a faixa dela.
+
+    Com batente, a varredura para no primeiro contato. A montagem volta para onde estava."""
+    import UtilsAssembly
+    asm = montagem_de(j.Reference1[0]) or montagem_de(j.Reference2[0])
+    salvo = UtilsAssembly.saveAssemblyPartsPlacements(asm)
+    k, de, ate = faixa_da_junta(j)
+    pts = []
+    try:
+        for i in range(n + 1):
+            v = de + (ate - de) * i / float(n)
+            if batente and i > 0:
+                _r, bateu = mover_com_batente(j, ignorar=ignorar, **{k: v})
+                pts.append(ponto_global(raiz, sub))
+                if bateu is not None:
+                    break
+            else:
+                mover_junta(j, **{k: v})
+                pts.append(ponto_global(raiz, sub))
+    finally:
+        UtilsAssembly.restoreAssemblyPartsPlacements(asm, salvo)
+        try:
+            asm.solve()
+        except Exception:
+            pass
+        asm.Document.recompute()
+    limpos = [pts[0]] if pts else []
+    for p in pts[1:]:
+        if (p - limpos[-1]).Length > 1e-6:
+            limpos.append(p)
+    return limpos
+
+
+def criar_trajetoria(doc, pts, nome="Trajetória"):
+    """Linha (polígono pelos pontos) no documento, fora da montagem, para medir e conferir folgas."""
+    import Part
+    if len(pts) < 2:
+        raise ValueError("O ponto não se moveu: escolha um ponto da peça que gira ou desliza.")
+    obj = doc.addObject("Part::Feature", "Trajetoria")
+    obj.Label = nome
+    obj.Shape = Part.makePolygon(pts)
+    if FreeCAD.GuiUp:
+        try:
+            obj.ViewObject.LineColor = (0.97, 0.75, 0.0)
+            obj.ViewObject.LineWidth = 3.0
+            obj.ViewObject.PointSize = 4.0
+        except Exception:
+            pass
+    doc.recompute()
+    return obj
+
+
 # ----------------------------------------------------------------------------------- grupo rígido
 def travar_juntos(componentes):
     """Trava os componentes uns nos outros onde estão (o "Rigid Group"/"As-built" do Fusion e do SolidCraft):
@@ -816,6 +1009,16 @@ if FreeCAD.GuiUp:
             self.limites = QtWidgets.QLabel("")
             self.limites.setWordWrap(True)
             s1.widget(self.limites)
+            self.batente = s1.linha("posicao", P.marcar("Parar no contato (batente)"),
+                                    "A peça para ao encostar em outra, em vez de atravessar.")
+            s2 = f.secao("Trajetória de um ponto", "ponta", aberta=False)
+            self.ponto = f.caixa(s2, "Ponto da peça que se move", _filtro_ponto, minimo=0, maximo=1)
+            self.btn_traj = QtWidgets.QPushButton("Traçar trajetória")
+            self.btn_traj.setToolTip("Varre a junta na faixa dela (os limites, ou uma volta) e desenha a linha por "
+                                     "onde o ponto passa. A montagem volta para onde estava.")
+            self.btn_traj.clicked.connect(self.tracar)
+            s2.widget(self.btn_traj)
+            self.trajetorias = []
             self._ocupado = False
             self.juntas.currentIndexChanged.connect(self._trocar)
             self.giro.valueChanged.connect(lambda v: self._pedir(giro=v))
@@ -871,18 +1074,46 @@ if FreeCAD.GuiUp:
                 return
             self._ocupado = True
             try:
-                r = mover_junta(j, giro=giro, avanco=avanco)
+                bateu = None
+                if self.batente.isChecked():
+                    r, bateu = mover_com_batente(j, giro=giro, avanco=avanco)
+                else:
+                    r = mover_junta(j, giro=giro, avanco=avanco)
                 if "giro" in r:
                     self.giro.setValue(r["giro"])
                     self.desl_giro.setValue(int(round(r["giro"] * 10)))
                 if "avanco" in r:
                     self.avanco.setValue(r["avanco"])
                     self.desl_avanco.setValue(int(round(r["avanco"] * 10)))
-                self.form.mensagem.mostrar(self.pronto_texto(), "ok")
+                if bateu is not None:
+                    self.form.mensagem.mostrar("Parou ao encostar em %s." % bateu.Label, "info")
+                else:
+                    self.form.mensagem.mostrar(self.pronto_texto(), "ok")
             except Exception as ex:
                 self.form.mensagem.mostrar(str(ex), "erro")
             finally:
                 self._ocupado = False
+
+        def tracar(self):
+            j = self.junta()
+            vals = self.ponto.valores()
+            if j is None or not vals:
+                self.form.mensagem.mostrar("Escolha a junta e clique num vértice (ou aresta redonda) da peça que "
+                                           "se move.", "erro")
+                return None
+            raiz, sub = vals[0]
+            try:
+                pts = trajetoria(j, raiz, sub, batente=self.batente.isChecked())
+                obj = criar_trajetoria(self.asm.Document, pts, "Trajetória (%s)" % j.Label)
+            except Exception as ex:
+                self.form.mensagem.mostrar(str(ex), "erro")
+                return None
+            self.trajetorias.append(obj.Name)
+            self._trocar()
+            comp = obj.Shape.Length
+            self.form.mensagem.mostrar("Trajetória desenhada: %d pontos, %s mm de percurso." % (
+                len(pts), ("%.1f" % comp).replace(".", ",")), "ok")
+            return obj
 
         def pendencia(self):
             if self.asm is None:
@@ -898,6 +1129,12 @@ if FreeCAD.GuiUp:
             return []
 
         def reject(self):
+            for n in getattr(self, "trajetorias", []):      # Cancelar também tira as trajetórias
+                try:
+                    if self.asm.Document.getObject(n) is not None:
+                        self.asm.Document.removeObject(n)
+                except Exception:
+                    pass
             if self._salvo is not None:
                 import UtilsAssembly
                 UtilsAssembly.restoreAssemblyPartsPlacements(self.asm, self._salvo)
@@ -907,6 +1144,17 @@ if FreeCAD.GuiUp:
                     pass
                 self.asm.Document.recompute()
             return super().reject()
+
+    def _filtro_ponto(obj, subs):
+        res = []
+        for s in subs:
+            ult = s.split(".")[-1]
+            if ult.startswith("Vertex") or ult.startswith("Edge"):
+                nome = ult.replace("Vertex", "vértice ").replace("Edge", "aresta ")
+                peca = s.split(".")[-2] if "." in s else obj.Name
+                o = obj.Document.getObject(peca)
+                res.append(("%s (%s)" % (nome, o.Label if o else peca), (obj, s)))
+        return res
 
     def PrumoUtil_fmt(v, un):
         if v is None:
@@ -919,7 +1167,8 @@ if FreeCAD.GuiUp:
             import PrumoUtil
             return {"Pixmap": PrumoUtil.icone("mover_junta.svg"), "MenuText": "Mover junta",
                     "ToolTip": "Gira uma dobradiça ou desliza um deslizante com um controle, vendo a montagem "
-                               "mexer (respeita os limites da junta)."}
+                               "mexer (respeita os limites da junta). Pode parar no contato com outra peça e "
+                               "traçar a trajetória de um ponto."}
 
         def IsActive(self):
             try:

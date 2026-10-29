@@ -45,6 +45,13 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   unifilar da linha, cota de eixo a eixo em cada trecho, balão com o número de cada peça, etiqueta P1, P2…
   em cada tubo, lista de material, lista de corte, soldas e observações. Chamado de novo, atualiza a mesma
   folha. Sai em PDF pelo Salvar PDF de sempre.
+- **Montagem: batente de contato e trajetória de um ponto** (ideias do SolidCraft), no próprio Mover junta:
+  - *Parar no contato*: com a opção ligada, a peça que gira ou desliza para ao encostar em outra, em vez de
+    atravessar (procura o ponto de contato com precisão de centésimos). A mensagem diz em qual peça encostou.
+  - *Trajetória de um ponto*: clique num vértice (ou aresta redonda) da peça que se move e em Traçar
+    trajetória. O Prumo varre a junta na faixa dela (os limites ou uma volta), desenha a linha por onde o
+    ponto passa e devolve a montagem para onde estava. Serve para conferir folga e curso. Com o batente
+    ligado, a linha termina no contato. Cancelar tira as trajetórias.
 
 ## 1.1.0 — 29/10/2026
 

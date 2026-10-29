@@ -11649,6 +11649,86 @@ class T82MontagemComoSolidCraft(unittest.TestCase):
         self.assertLess((rel.Base - rel2.Base).Length, 1e-3, "a peça travada acompanha o braço")
         self.assertGreater((self.solto.Placement.Base - antes).Length, 10.0)
 
+    def _batente_no_caminho(self):
+        """Bloco no lugar onde o braço fica a 90°: girando de 0 a 90 ele encosta antes."""
+        self.M.mover_junta(self.rev, giro=90.0)
+        bb = self.braco.Shape.BoundBox
+        self.M.mover_junta(self.rev, giro=0.0)
+        bat = self.asm.newObject("Part::Box", "Batente")
+        bat.Length = bat.Width = bat.Height = 10
+        bat.Placement.Base = bb.Center - FreeCAD.Vector(5, 5, 5)
+        self.doc.recompute()
+        self.assertEqual(self.M.colisoes([self.braco], [bat]), [])
+        return bat
+
+    def _vertice_da_ponta(self):
+        p1, _p2 = self.M._jcs(self.rev)
+        eixo = p1.Rotation.multVec(FreeCAD.Vector(0, 0, 1))
+
+        def dist(v):
+            w = v.Point - p1.Base
+            return (w - eixo * w.dot(eixo)).Length
+        i = max(range(len(self.braco.Shape.Vertexes)), key=lambda k: dist(self.braco.Shape.Vertexes[k]))
+        return "Braco.Vertex%d" % (i + 1), dist(self.braco.Shape.Vertexes[i])
+
+    def test_batente_para_no_contato(self):
+        bat = self._batente_no_caminho()
+        # o braço deste exemplo raspa na base ao girar: aqui só interessa o bloco
+        r, bateu = self.M.mover_com_batente(self.rev, giro=90.0, ignorar=[self.base])
+        self.assertIs(bateu, bat)
+        self.assertLess(r["giro"], 89.0)
+        self.assertGreater(r["giro"], 45.0)
+        self.assertEqual(self.M.colisoes([self.braco], [bat]), [], "para antes de entrar no batente")
+        # passo de 0,2° além do ponto de parada já invade
+        self.M.mover_junta(self.rev, giro=r["giro"] + 0.2)
+        self.assertTrue(self.M.colisoes([self.braco], [bat]))
+        # para o outro lado não há nada: vai até o fim
+        self.M.mover_junta(self.rev, giro=0.0)
+        r, bateu = self.M.mover_com_batente(self.rev, giro=-60.0, ignorar=[self.base])
+        self.assertIsNone(bateu)
+        self.assertAlmostEqual(r["giro"], -60.0, places=3)
+
+    def test_trajetoria_de_um_ponto(self):
+        sub, raio = self._vertice_da_ponta()
+        antes = FreeCAD.Placement(self.braco.Placement)
+        pts = self.M.trajetoria(self.rev, self.asm, sub, n=36)
+        self.assertTrue(self.braco.Placement.isSame(antes, 1e-6), "a montagem volta para onde estava")
+        c = FreeCAD.Vector()
+        for p in pts[:-1]:
+            c += p
+        c = c * (1.0 / (len(pts) - 1))
+        for p in pts:
+            self.assertAlmostEqual((p - c).Length, raio, delta=0.05)       # um círculo em volta do eixo
+        self.rev.EnableAngleMin = self.rev.EnableAngleMax = True
+        self.rev.AngleMin, self.rev.AngleMax = 0.0, 90.0
+        obj = self.M.criar_trajetoria(self.doc, self.M.trajetoria(self.rev, self.asm, sub, n=45))
+        self.assertAlmostEqual(obj.Shape.Length, raio * math.pi / 2.0, delta=raio * 0.01)
+        # com batente, o arco para no contato
+        self._batente_no_caminho()
+        curto = self.M.trajetoria(self.rev, self.asm, sub, n=45, batente=True, ignorar=[self.base])
+        comp = sum((b - a).Length for a, b in zip(curto[:-1], curto[1:]))
+        self.assertLess(comp, raio * math.pi / 2.0 * 0.98)
+
+    def test_painel_batente_e_trajetoria(self):
+        bat = self._batente_no_caminho()
+        sub, _r = self._vertice_da_ponta()
+        pn = self.M.PainelMoverJunta(self.asm, self.rev)
+        try:
+            pn.batente.setChecked(True)
+            pn.giro.setValue(90.0)
+            self._esp(0.3)
+            self.assertIn("Parou ao encostar em", pn.form.mensagem.text())   # na base, que o braço raspa
+            self.assertLess(self.M.valores_da_junta(self.rev)["giro"], 89.0)
+            self.assertEqual(pn.ponto.aceitar(self.asm, (sub,)), 1)
+            obj = pn.tracar()
+            self.assertIsNotNone(obj)
+            self.assertIn("Trajetória desenhada", pn.form.mensagem.text())
+            nome = obj.Name
+            pn.reject()
+            self.assertIsNone(self.doc.getObject(nome), "Cancelar tira a trajetória")
+        finally:
+            pn.close()
+
     def test_travar_pede_dois_componentes(self):
         with self.assertRaises(ValueError):
             self.M.travar_juntos([self.braco])
