@@ -1198,8 +1198,11 @@ class SeletorPerfil(QtWidgets.QWidget):
         lay = QtWidgets.QFormLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         self.familia = QtWidgets.QComboBox()
+        atual = PrumoPerfis.perfil(inicial) or PrumoPerfis.perfil(PERFIL_PADRAO)
         for f in PrumoPerfis.familias():
-            self.familia.addItem(f["nome"], f["id"])
+            if f.get("antiga") and f["id"] != atual["familia"]:
+                continue        # tabela substituída: só aparece para quem já usa um perfil dela
+            self.familia.addItem("%s (%d)" % (f["nome"], len(f["itens"])), f["id"])
         self.perfil = QtWidgets.QComboBox()
         self.perfil.setMaxVisibleItems(25)
         self.aviso = QtWidgets.QLabel("")
@@ -1222,7 +1225,8 @@ class SeletorPerfil(QtWidgets.QWidget):
         f = PrumoPerfis.familia(self.familia.currentData())
         for it in f["itens"]:
             marca = "" if PrumoPerfis.confiavel(it) else "  ⚠"
-            self.perfil.addItem("%s — %s kg/m%s" % (it["nome"], fmt(it["massa"], 2), marca), it["nome"])
+            obs = (" (%s)" % it["obs"]) if it.get("obs") else ""
+            self.perfil.addItem("%s — %s kg/m%s%s" % (it["nome"], fmt(it["massa"], 2), obs, marca), it["nome"])
         self.perfil.blockSignals(False)
         self._aviso()
         self.mudou.emit()
@@ -1239,6 +1243,18 @@ class SeletorPerfil(QtWidgets.QWidget):
 
     def nome(self):
         return self.perfil.currentData()
+
+    def mostrar(self, nome):
+        """Escolhe o perfil (também de uma família antiga, que entra na lista só quando é preciso)."""
+        it = PrumoPerfis.perfil(nome)
+        if not it:
+            return False
+        if self.familia.findData(it["familia"]) < 0:
+            f = PrumoPerfis.familia(it["familia"])
+            self.familia.addItem("%s (%d)" % (f["nome"], len(f["itens"])), f["id"])
+        self.familia.setCurrentIndex(self.familia.findData(it["familia"]))
+        self.perfil.setCurrentIndex(max(0, self.perfil.findData(it["nome"])))
+        return True
 
 
 def editar(est, padrao, grupos_extras, uniao=None, material=None, linhas_sem_barra=None, rotacoes=None):
@@ -1935,8 +1951,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self.nome.setEnabled(k > 0 or self.ao_vivo)
         it = PrumoPerfis.perfil(g["perfil"])
         if it:
-            self.sel.familia.setCurrentIndex(max(0, self.sel.familia.findData(it["familia"])))
-            self.sel.perfil.setCurrentIndex(max(0, self.sel.perfil.findData(it["nome"])))
+            self.sel.mostrar(it["nome"])
         self.giro.setValue(float(g.get("giro", 0.0)))
         self.fixacao.setCurrentText(g.get("fixacao", "Centro"))
         self.espelhar.setChecked(bool(g.get("espelhar", False)))

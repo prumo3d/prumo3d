@@ -1,0 +1,11 @@
+b192b90c4cddf9d4a1c7500b4b694f1c7cb4eba7 Sat Oct 3 07:31:38 2026 -0300
+
+Catálogos copiados da bancada Steel Structures para FreeCAD, de Marcos Roberto da Silva
+(https://github.com/marcos-rds/steel-structures), licença LGPL-2.1 (a mesma do Prumo 3D), pasta
+freecad/SteelStructures/catalogs, no commit acima. Fontes originais registradas dentro de cada arquivo:
+- gerdau_construcao_metalica_2023_01.json: Gerdau, Construção Metálica, Tabela de Bitolas 01/23;
+- tuper_hollow_2024.json: ArcelorMittal Tuper, Tabela Técnica de Produtos 2024 (com as correções de leitura
+  documentadas na bancada original);
+- abnt_nbr_6355_2012_a3.json: ABNT NBR 6355:2012, Anexo A, Tabela A.3 (perfis Ue);
+- abnt_nbr_16683_2018_solid.json: ABNT NBR 16683:2018 (versão corrigida de 23/04/2020), barras maciças.
+O Prumo converte esses arquivos com importar_steel_structures.py para Resources/perfis/perfis.json.

@@ -31,11 +31,18 @@ def dados():
             for it in fam["itens"]:
                 it["familia"] = fam["id"]
                 _cache["idx"][it["nome"]] = it
+        # nomes antigos (tabela anterior) apontam para o perfil equivalente do catálogo atual
+        for fam in _cache["d"]["familias"]:
+            for it in fam["itens"]:
+                for al in it.get("aliases", []):
+                    _cache["idx"].setdefault(al, it)
     return _cache["d"]
 
 
-def familias():
-    return dados()["familias"]
+def familias(com_antigas=True):
+    """Famílias da biblioteca; as marcadas "antiga" (tabelas substituídas) só para quem já as usa."""
+    fs = dados()["familias"]
+    return fs if com_antigas else [f for f in fs if not f.get("antiga")]
 
 
 def familia(fid):
@@ -90,6 +97,8 @@ def descricao_status(it):
         partes.append("Dados do catálogo do fabricante.")
     if derivados_relevantes(it):
         partes.append("Valores derivados: " + ", ".join(nomes_der.get(d, d) for d in derivados_relevantes(it)) + ".")
+    if it.get("substituto"):
+        partes.append("Tabela antiga do Prumo: o equivalente atual é %s (Gerdau 01/23)." % it["substituto"])
     return " ".join(partes)
 
 
@@ -136,12 +145,31 @@ def contorno(it):
     if t == "TQ":
         s, e = it["lado"], it["esp"]
         h, i = s / 2.0, s / 2.0 - e
-        return [(-h, -h), (h, -h), (h, h), (-h, h)], [[(-i, -i), (i, -i), (i, i), (-i, i)]]
+        ext, inn = [(-h, -h), (h, -h), (h, h), (-h, h)], [(-i, -i), (i, -i), (i, i), (-i, i)]
+        r = it.get("r_ext") or 0.0
+        if r > 0:       # cantos arredondados (tubos Tuper; os da tabela antiga ficam vivos, como eram)
+            ext, inn = _cantos(ext, r), _cantos(inn, max(r - e, 0.0))
+        return ext, [inn]
     if t == "TUBO":
         return ("circulo", it["D"], it["D"] - 2 * it["esp"]), []
     if t == "POL":      # seção personalizada (PrumoSecaoPersonalizada), já centrada na caixa
         return [tuple(p) for p in it["contorno"]], [[tuple(p) for p in f] for f in it.get("furos", [])]
     raise ValueError(t)
+
+
+def _cantos(quad, r, n=6):
+    """Quadrado/retângulo (4 pontos, sentido anti-horário) com cantos de raio r."""
+    if r <= 0:
+        return quad
+    us = [p[0] for p in quad]
+    vs = [p[1] for p in quad]
+    u0, u1, v0, v1 = min(us), max(us), min(vs), max(vs)
+    out = []
+    for cu, cv, a0 in ((u1 - r, v0 + r, -90.0), (u1 - r, v1 - r, 0.0), (u0 + r, v1 - r, 90.0), (u0 + r, v0 + r, 180.0)):
+        for k in range(n + 1):
+            a = math.radians(a0 + 90.0 * k / n)
+            out.append((cu + r * math.cos(a), cv + r * math.sin(a)))
+    return out
 
 
 def area_secao(it):

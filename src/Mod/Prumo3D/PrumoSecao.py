@@ -135,6 +135,10 @@ def _plastico(pols, eixo, area):
     return z
 
 
+FORMAS = {"T": "perfil T", "Ue": "perfil Ue", "RHS": "tubo retangular", "redonda": "barra redonda",
+          "quadrada": "barra quadrada", "chata": "barra chata"}
+
+
 def propriedades(perfil):
     """dict com A, Ix, Iy, Wx, Wy, Zx, Zy, rx, ry, J, Cw, I1, I2 (principais), rmin, centróide
     (cu, cv) em relação ao centro da caixa, x0/y0 (centro de cisalhamento em relação ao centróide),
@@ -147,6 +151,13 @@ def propriedades(perfil):
         return dict(_cache[chave])
     t = it["tipo"]
     p = {"nome": it["nome"], "tipo": t, "aproximada": not (t == "I" and it.get("R")) and t != "POL"}
+    if it.get("origem") == "catalogo":
+        p["catalogo"] = True
+        p["forma_nome"] = FORMAS.get(it.get("forma"), "seção")
+    # tubos Tuper, Ue e metalon: formados a frio (NBR 14762)
+    if it.get("forma") in ("RHS", "Ue") or it.get("fonte") == "F_TUPER_2024":
+        p["formado_a_frio"] = True
+        p.setdefault("forma_nome", {"TQ": "tubo quadrado", "TUBO": "tubo redondo"}.get(t, FORMAS.get(it.get("forma"), "o perfil")))
     if t == "TUBO":
         D, e = it["D"], it["esp"]
         di = D - 2 * e

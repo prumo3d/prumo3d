@@ -2076,9 +2076,7 @@ class T25EstruturaInterface(unittest.TestCase):
 
     def _escolher_perfil(self, d, nome):
         import PrumoPerfis
-        it = PrumoPerfis.perfil(nome)
-        d.sel.familia.setCurrentIndex(d.sel.familia.findData(it["familia"]))
-        d.sel.perfil.setCurrentIndex(d.sel.perfil.findData(nome))
+        self.assertTrue(d.sel.mostrar(PrumoPerfis.perfil(nome)["nome"]))
 
     def test_criar_com_grupos_pelo_dialogo(self):
         import PrumoEstrutura
@@ -3479,9 +3477,7 @@ class T33PaineisVisuais(unittest.TestCase):
 
     def _escolher_perfil(self, cmd, nome):
         import PrumoPerfis
-        it = PrumoPerfis.perfil(nome)
-        cmd.sel.familia.setCurrentIndex(cmd.sel.familia.findData(it["familia"]))
-        cmd.sel.perfil.setCurrentIndex(cmd.sel.perfil.findData(nome))
+        self.assertTrue(cmd.sel.mostrar(PrumoPerfis.perfil(nome)["nome"]))
 
     def test_modelo_ao_vivo(self):
         import PrumoModelos as M
@@ -12698,6 +12694,103 @@ class T87AtualizacaoSoDoComplemento(unittest.TestCase):
             A.compilada = comp_orig
 
 
+class T88CatalogosSteelStructures(unittest.TestCase):
+    """Catálogos oficiais trazidos da bancada Steel Structures (Gerdau 01/23, Tuper 2024, NBR 6355, NBR 16683)."""
+
+    def test_familias_e_credito(self):
+        import PrumoPerfis as P
+        ids = {f["id"]: len(f["itens"]) for f in P.familias()}
+        for fid, minimo in (("W", 100), ("HP", 8), ("T", 10), ("TQT", 600), ("TRT", 1100), ("TCT", 1100),
+                            ("UE", 85), ("BR", 50), ("BQ", 19), ("BC", 90)):
+            self.assertGreaterEqual(ids.get(fid, 0), minimo, fid)
+        visiveis = [f["id"] for f in P.familias(False)]
+        self.assertNotIn("TQ", visiveis)          # metalon da tabela antiga: só para quem já usa
+        self.assertNotIn("IU_ANT", visiveis)
+        self.assertIn("Steel Structures", P.fonte(P.perfil("Tubo ▭ 100 x 50 x 3"))["nome"])
+        self.assertTrue(P.confiavel(P.perfil("W 200 x 26,6")))
+
+    def test_nomes_antigos_continuam(self):
+        import PrumoPerfis as P
+        self.assertEqual(P.perfil('L 1.1/4" x 1/8"')["nome"], 'L 1 1/4" x 1/8"')
+        u = P.perfil('U 3" x 6,1 kg/m (4,10 lb/ft)')
+        self.assertEqual((u["familia"], u["tf"]), ("IU_ANT", 7.11))   # desenho já feito não muda
+        self.assertEqual(u["substituto"], 'U 3" x 6,10')
+        self.assertIn('U 3" x 6,10', P.descricao_status(u))
+        self.assertIsNone(P.perfil('U 3" x 7,44'))                     # em revisão técnica na fonte
+        self.assertIsNotNone(P.perfil("Tubo □ 15 x 15 x 0,90"))      # metalon antigo ainda abre
+
+    def test_propriedades_batem_com_as_tabelas(self):
+        """Inércia calculada pelo contorno x a publicada: Ue (NBR 6355, com as dobras) e W/L (Gerdau, sem os
+        raios de laminação, um pouco abaixo)."""
+        import PrumoSecao as S
+        ue = S.propriedades("Ue 200 x 75 x 20 x 2,00")
+        self.assertAlmostEqual(ue["A"] / 100.0, 7.54, delta=7.54 * 0.01)
+        self.assertAlmostEqual(ue["Ix"] / 1e4, 467.42, delta=467.42 * 0.02)
+        self.assertAlmostEqual(ue["Iy"] / 1e4, 56.3, delta=56.3 * 0.03)
+        w = S.propriedades("W 200 x 26,6")
+        self.assertLess(abs(w["Ix"] / 1e4 - 2611) / 2611, 0.04)
+        rhs = S.propriedades("Tubo ▭ 100 x 50 x 3")
+        m = rhs["massa_kgm"] / 7850 * 1e6
+        self.assertLess(abs(rhs["A"] - m) / m, 0.02)
+        # conferência independente: o mesmo tubo com arcos de verdade (sólido de 1 mm com os cantos arredondados
+        # pelo OpenCASCADE); o polígono do Prumo aproxima cada arco por 6 segmentos
+        import Part
+        b, h, t, ro = 50.0, 100.0, 3.0, 6.0
+
+        def caixa(bb, hh, r):
+            c = Part.makeBox(bb, hh, 1.0, FreeCAD.Vector(-bb / 2.0, -hh / 2.0, 0))
+            arestas = [e for e in c.Edges if abs(e.Vertexes[0].Point.z - e.Vertexes[1].Point.z) > 0.5]
+            return c.makeFillet(r, arestas)
+        tubo = caixa(b, h, ro).cut(caixa(b - 2 * t, h - 2 * t, ro - t)).Solids[0]
+        ix_ref = tubo.MatrixOfInertia.A11 - tubo.Volume / 12.0     # tira a parcela da espessura (z) de 1 mm
+        self.assertLess(abs(rhs["Ix"] - ix_ref) / ix_ref, 0.005)
+        self.assertLess(abs(rhs["A"] - tubo.Volume) / tubo.Volume, 0.005)
+
+    def test_verificacao_nas_familias_novas(self):
+        import PrumoSecao as S
+        import PrumoNBR8800 as N
+        esf = {"N": -20000.0, "Mx": 2.0e6, "My": 0.2e6, "Vz": 5000.0, "Vy": 500.0, "Mq": (1.0e6, 2.0e6, 1.0e6)}
+        for nome, frio in (("T 2\" x 1/4\"", False), ("Tubo ▭ 100 x 50 x 3", True), ("Ue 150 x 60 x 20 x 2,65", True),
+                           ("Tubo □ 80 x 80 x 3", True), ("Tubo ○ 88,9 x 3", True), ("Barra chata 50,8 x 6,35", False),
+                           ("Barra redonda Ø 31,75 (1.1/4\")", False)):
+            p = S.propriedades(nome)
+            r = N.verificar(p, 250.0, 400.0, 1500.0, esf)
+            self.assertTrue(0.0 < r["taxa"] < 1e6, nome)
+            frio_ok = any("formado a frio" in a for a in r["avisos"])
+            self.assertEqual(frio_ok, frio, nome)
+            if p["tipo"] == "POL":
+                self.assertFalse(any("personalizada" in a for a in r["avisos"]), nome)
+
+    def test_barras_da_estrutura_com_perfis_novos(self):
+        import PrumoEstrutura
+        doc = novo_doc("PrumoTesteCatalogos")
+        try:
+            for perfil in ("Tubo ▭ 100 x 50 x 3", "Ue 100 x 50 x 17 x 2,00", "T 2\" x 1/4\"", "Tubo □ 50 x 50 x 2"):
+                sk = esboco_linhas(doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 800))], "XZ")
+                est = PrumoEstrutura.criar(doc, sk, perfil, uniao="Meia-esquadria")
+                doc.recompute()
+                barras = PrumoEstrutura.barras_de(est)
+                self.assertEqual(len(barras), 2, perfil)
+                for b in barras:
+                    self.assertTrue(b.Shape.isValid() and b.Shape.Volume > 0, perfil)
+        finally:
+            fechar(doc)
+
+    def test_seletor_mostra_tabela_antiga_so_quando_precisa(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEstrutura as E
+        s = E.SeletorPerfil("W 150 x 13,0")
+        ids = [s.familia.itemData(i) for i in range(s.familia.count())]
+        self.assertNotIn("TQ", ids)
+        self.assertIn("TRT", ids)
+        self.assertTrue(s.mostrar("Tubo □ 15 x 15 x 0,90"))
+        self.assertEqual(s.nome(), "Tubo □ 15 x 15 x 0,90")
+        s2 = E.SeletorPerfil('U 3" x 6,1 kg/m (4,10 lb/ft)')
+        self.assertEqual(s2.nome(), 'U 3" x 6,1 kg/m (4,10 lb/ft)')
+        self.assertIn('U 3" x 6,10', s2.aviso.text())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -12720,4 +12813,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T78RoteiroDaChapa, T79InserirNoEsboco, T80MontagemComoSolidWorks,
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
-           T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento]
+           T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
+           T88CatalogosSteelStructures]

@@ -18,6 +18,17 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   portinhola, flangeadas, classe 150 ou 300, com face a face da ASME B16.10-2022 (conferida em duas fontes).
   Cada válvula leva junta e estojos dos dois lados e o flange de pescoço do tubo; o corte desconta tudo.
   No isométrico, símbolo de cada tipo e cota em cadeia até a válvula (e até as juntas de desmontagem).
+- **Catálogos de perfis oficiais na Estrutura** (trazidos da bancada Steel Structures, de Marcos Roberto da
+  Silva, LGPL-2.1, com crédito em cada perfil): Gerdau tabela de bitolas 01/23 (W, HP, I, U, T e cantoneiras),
+  Tuper 2024 (678 tubos quadrados, 1.190 retangulares e 1.131 redondos), Ue da NBR 6355:2012 (85) e barras
+  redonda, quadrada e chata da NBR 16683:2018. O tubo Sch 40/80 passa a "confirmado" (B36.10M conferida em duas
+  fontes). Tubos e Ue com os cantos e dobras arredondados: a área bate com a massa da tabela (antes, com
+  canto vivo, os tubos grossos passavam 7 %, contra a segurança). Inércia conferida com a da NBR 6355 e com o
+  sólido de cantos reais. T, tubo retangular, Ue e barras passam pela verificação da NBR 8800 pelo método
+  geral; tubos e Ue avisam que são formados a frio (NBR 14762).
+  - Desenhos já feitos não mudam: os I e U antigos (mesa estimada pela massa) e o metalon antigo ficam como
+    eram, numa lista que só aparece para quem usa, e o aviso diz qual é o equivalente Gerdau.
+  - Três U da Gerdau ficaram de fora (3" x 7,44, 10" x 30,80, 12" x 29,76): a própria fonte deixou em revisão.
 
 ## 1.2.0 — 29/10/2026
 

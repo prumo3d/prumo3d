@@ -82,6 +82,14 @@ GRUPOS = {
 }
 
 
+def _pol(p):
+    """Como chamar a seção poligonal no relatório: a desenhada no projeto ou a de catálogo (T, Ue, tubo
+    retangular, barras), as duas verificadas pelo método geral."""
+    if p.get("catalogo"):
+        return "%s de catálogo, método geral" % p.get("forma_nome", "seção")
+    return "seção personalizada"
+
+
 def elementos_comprimidos(p):
     """[(nome, grupo, b, t, quantos)] dos elementos da seção para 5.3.4."""
     t = p["tipo"]
@@ -146,7 +154,7 @@ def elementos_pol_area_efetiva(p, fy, chi):
         notas.append("chapa %s esbelta (bef = %.0f de %.0f mm)" % ("AA" if el["apoiada_nas_duas"] else "AL",
                                                                      bef, b))
     if not p.get("chapas"):
-        notas.append("seção personalizada sem chapas retangulares reconhecidas: flambagem local não verificada")
+        notas.append(_pol(p) + " sem chapas retangulares reconhecidas: flambagem local não verificada")
     return p["A"] - perda, "; ".join(notas)
 
 
@@ -227,9 +235,9 @@ def _ne_geral(p, L):
     Ne = min(raizes) if raizes else min(N1, N2, Nz)
     menor = min((N1, "flexão no eixo principal 1"), (N2, "flexão no eixo principal 2"), (Nz, "torção"))
     if Ne < 0.999 * menor[0]:
-        modo = "flexo-torção (seção personalizada)"
+        modo = "flexo-torção (%s)" % _pol(p)
     else:
-        modo = menor[1] + " (seção personalizada)"
+        modo = menor[1] + " (%s)" % _pol(p)
     return Ne, modo
 
 
@@ -483,7 +491,7 @@ def _flexao_pol(p, fy, Lb, Cb, eixo):
             txt += ", acima de λr: aproximado (a checar)"
         modos.append((m, txt))
     M, modo = min(modos, key=lambda x: x[0])
-    return M / GAMA_A1, modo + " — seção personalizada"
+    return M / GAMA_A1, modo + " — " + _pol(p)
 
 
 # ------------------------------------------------------------------ cortante (5.4.3)
@@ -532,11 +540,11 @@ def _cortante_pol(p, fy, direcao):
     almas = [c for c in p.get("chapas", [])
              if abs(c["direcao"][0] * direcao[0] + c["direcao"][1] * direcao[1]) > math.cos(math.radians(30))]
     if not almas:
-        return 0.6 * fy * p["A"] / 2.0 / GAMA_A1, "seção personalizada (Av = A/2, a checar)"
+        return 0.6 * fy * p["A"] / 2.0 / GAMA_A1, _pol(p) + " (Av = A/2, a checar)"
     V = 0.0
     for c in almas:
         V += _vrd(c["b"] * c["t"], fy, c["b"] / c["t"], 5.0 if c["apoiada_nas_duas"] else 1.2)
-    return V, "seção personalizada (%d chapa(s) paralela(s) à força)" % len(almas)
+    return V, "%s (%d chapa(s) paralela(s) à força)" % (_pol(p), len(almas))
 
 
 def cortante_y(p, fy, Lv=1e9):
@@ -607,13 +615,16 @@ def verificar(p, fy, fu, L, esf, K=1.0, Kz=1.0, balanco=False):
     if p["tipo"] == "TQ":
         avisos.append("tubo retangular de parede fina (metalon) costuma ser formado a frio: a norma é a "
                       "NBR 14762 (verificação pela NBR 8800 a checar)")
+    if p.get("formado_a_frio"):
+        avisos.append("%s é formado a frio: a norma é a NBR 14762 (verificação pela NBR 8800 a checar)"
+                      % p.get("forma_nome", "o perfil"))
     if p["tipo"] == "POL":
         if p.get("geral"):
-            avisos.append("seção personalizada: centro de cisalhamento, Cw e J por elementos finitos; FLT pelo "
+            avisos.append(_pol(p) + ": centro de cisalhamento, Cw e J por elementos finitos; FLT pelo "
                           "Mcr geral com os limites dos perfis I; chapas classificadas automaticamente "
                           "(mesas em balanço com kc = 0,35). Confira a classificação das chapas no relatório")
         else:
-            avisos.append("seção personalizada: a malha da seção falhou; flexo-torção e FLT sem empenamento "
+            avisos.append(_pol(p) + ": a malha da seção falhou; flexo-torção e FLT sem empenamento "
                           "(a checar)")
     if p["tipo"] == "L" and N > 0:
         avisos.append("cantoneira tracionada com Ct = 1,0: se for ligada por uma aba só, Ct < 1 (5.2.5)")
