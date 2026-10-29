@@ -27,16 +27,20 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.0** (29/10/2026)
+**Versão atual: 1.2.1** (29/10/2026)
 
-- **Tubulação de aço carbono:** solda de topo SCH 40/80 (ASME B36.10M/B16.9) com flanges classe 150/300
-  e contagem de soldas, e roscada BSP (NBR 5580 + conexões Tupy), com corte descontando as conexões.
-- **Folha isométrica:** A3 com o isométrico da linha, cotas, números das peças, lista de material e de corte.
-- **Desenho:** solda, rugosidade e ajuste furo/eixo (ISO 286) em português, no padrão de cartões.
-- **Montagem:** batente de contato e trajetória de um ponto no Mover junta.
-- **Vasos:** medida do costado pelo perímetro (fita métrica).
-- **Atualização só do complemento:** daqui em diante, poucos MB em vez do pacote inteiro.
+- **Válvulas na linha de aço:** gaveta, globo, esfera e retenção flangeadas (ASME B16.10), com junta,
+  estojos e flanges na lista e cota em cadeia no isométrico.
+- **Perfis oficiais na Estrutura:** Gerdau 01/23 (W, HP, I, U, T, cantoneiras), Tuper 2024 (cerca de 3.000
+  tubos quadrados, retangulares e redondos), Ue da NBR 6355 e barras da NBR 16683, trazidos da bancada Steel
+  Structures; desenhos já feitos não mudam.
+- **Esboço 3D como no ZW3D:** a linha segue ±X/±Y/±Z pelo mouse; duplo clique muda o comprimento e arrastar
+  a ponta troca o eixo depois de desenhar; o painel mostra se o esboço está bem definido.
+- **Arredondamento automático** (todas as arestas de um tipo de uma vez), **folhas em lote** (uma folha ABNT
+  por peça, com cotas e PDF) e **cotas do corte**.
 
+Na 1.2.0: tubulação de aço carbono com folha isométrica; solda, rugosidade e ajuste furo/eixo em português;
+batente e trajetória no Mover junta; perímetro do vaso; atualização só do complemento.
 Na 1.1.0: faixa que mostra o que serve no momento, Ctrl+K, Paleta de vistas, Mover junta e Travar juntos,
 pés de chapa nos vasos.
 Na 1.0.2: comprimento digitado durante o desenho no Esboço 3D.
