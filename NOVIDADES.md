@@ -60,7 +60,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   - **Folha ABNT com arranjos prontos:** frontal, superior, lateral e isométrica; frontal, lateral e
     isométrica; frontal e superior; frontal e isométrica; ou só a isométrica.
 - **Vasos: pés de chapa, como nos reservatórios de compressor.** Em cada posição, uma tira de chapa dobrada
-  (4,75 mm) abraça o fundo do costado, desce aberta para os lados e termina em sapatas com furo de fixação.
+  (4,75 mm) em perfil U, um em cada canto, abertos para as pontas do vaso, recortados no costado e com
+  sapata e furo de fixação.
   Entra também no teste de pressão por elementos finitos, com o apoio nas sapatas.
 
 ### Mudanças
