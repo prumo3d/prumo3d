@@ -33,6 +33,7 @@ SINONIMOS = {
     "peso": "massa", "medir": "medir", "interferencia": "interferencia", "colisao": "interferencia",
     "explodida": "explodida", "motor": "simulacao", "fem": "simulacao estudo", "tensao": "simulacao",
     "junta": "restricao", "fixar": "fixar peca", "ground": "fixar", "lock": "travar",
+    "lote": "folhas lote", "pranchas": "folhas lote", "automatico": "arredondamento automatico",
 }
 
 

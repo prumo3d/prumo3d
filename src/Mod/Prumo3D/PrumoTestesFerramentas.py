@@ -12091,7 +12091,7 @@ class T83FaixaDoMomento(unittest.TestCase):
         b = self.doc.addObject("Part::Box", "Caixa")
         self.doc.recompute()
         cmds, mais = self._aba("desenho")
-        self.assertEqual(cmds, {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_ListaMateriais"})
+        self.assertEqual(cmds, {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_FolhasLote", "Prumo_ListaMateriais"})
         self.assertEqual(mais, [])
         page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {}, [b], arranjo="frontal_superior")
         cmds, mais = self._aba("desenho")
@@ -13011,6 +13011,200 @@ class T88CatalogosSteelStructures(unittest.TestCase):
         self.assertIn('U 3" x 6,10', s2.aviso.text())
 
 
+class T89NovidadesDoZW3D(unittest.TestCase):
+    """Arredondamento automático, folhas em lote e cotas na vista em corte."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteZW")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _degrau(self):
+        import Part
+        base = Part.makeBox(100, 100, 20)
+        ressalto = Part.makeBox(40, 40, 30, FreeCAD.Vector(30, 30, 20))
+        return base.fuse(ressalto).removeSplitter()
+
+    # ---- arredondamento automático
+    def test_classifica_arestas_convexas_e_concavas(self):
+        import PrumoArredondar as A
+        sh = self._degrau()
+        tipos = [t for _i, t, _d, _r in A.classificar(sh)]
+        self.assertEqual(tipos.count("convexa"), 20)
+        self.assertEqual(tipos.count("concava"), 4)
+        self.assertEqual(len(A.escolher(sh, "concavas")), 4)
+        self.assertEqual(len(A.escolher(sh, "convexas", "Z")), 8)        # as 8 arestas verticais
+        self.assertEqual(len(A.escolher(sh, "todas")), 24)
+        # furo: a costura e as bordas circulares não são "retas"; a borda do furo é convexa
+        import Part
+        furada = Part.makeBox(60, 60, 10).cut(Part.makeCylinder(10, 10, FreeCAD.Vector(30, 30, 0)))
+        self.assertEqual(len(A.escolher(furada, "convexas", so_retas=True)), 12)
+        self.assertEqual(len(A.escolher(furada, "convexas")), 14)
+
+    def test_cria_arredondamento_no_part_e_no_corpo(self):
+        import PrumoArredondar as A
+        o = self.doc.addObject("Part::Feature", "Degrau")
+        o.Shape = self._degrau()
+        self.doc.recompute()
+        v0 = o.Shape.Volume
+        f, n = A.criar(o, 3.0, "concavas")
+        self.assertEqual(f.TypeId, "Part::Fillet")
+        self.assertEqual(n, 4)
+        self.assertTrue(f.Shape.isValid())
+        self.assertGreater(f.Shape.Volume, v0)                    # concordância põe material no canto
+        with self.assertRaises(ValueError):
+            A.criar(o, 500.0, "convexas")                         # raio maior que a peça: avisa e não deixa lixo
+        self.assertEqual(len([x for x in self.doc.Objects if x.TypeId == "Part::Fillet"]), 1)
+        corpo = self.doc.addObject("PartDesign::Body", "Corpo")
+        cx = corpo.newObject("PartDesign::AdditiveBox", "Caixa")
+        cx.Length, cx.Width, cx.Height = 80, 50, 30
+        self.doc.recompute()
+        f2, n2 = A.criar(corpo, 2.0, "convexas", "Z")
+        self.assertEqual(f2.TypeId, "PartDesign::Fillet")
+        self.assertEqual(n2, 4)
+        self.assertIs(corpo.Tip, f2)
+        self.assertLess(f2.Shape.Volume, 80 * 50 * 30)
+
+    def test_painel_do_arredondamento(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoArredondar as A
+        o = self.doc.addObject("Part::Feature", "Degrau")
+        o.Shape = self._degrau()
+        self.doc.recompute()
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(o)
+        pn = A.PainelArredondar()
+        pn.mostrar()
+        self.assertEqual(pn.peca.valores(), [o])
+        self.assertIn("20 aresta", pn.contagem.text())
+        pn.tipo.setCurrentIndex(pn.tipo.findData("concavas"))
+        self.assertIn("4 aresta", pn.contagem.text())
+        self.assertEqual(len(FreeCADGui.Selection.getSelectionEx()[0].SubElementNames), 4)  # em destaque
+        self.assertEqual(pn.peca.valores(), [o])                 # o destaque não troca a peça
+        pn.raio.setValue(4.0)
+        pn.accept()
+        fs = [x for x in self.doc.Objects if x.TypeId == "Part::Fillet"]
+        self.assertEqual(len(fs), 1)
+        self.assertTrue(fs[0].Shape.isValid())
+
+    # ---- folhas em lote
+    def _conjunto(self):
+        a = self.doc.addObject("Part::Box", "Chapa")
+        a.Length, a.Width, a.Height = 200, 100, 8
+        b = self.doc.addObject("Part::Cylinder", "Pino")
+        b.Radius, b.Height = 10, 60
+        lk = self.doc.addObject("App::Link", "Chapa2")
+        lk.LinkedObject = a
+        lk.Placement.Base = FreeCAD.Vector(0, 0, 100)
+        parte = self.doc.addObject("App::Part", "Conjunto")
+        parte.addObjects([a, b, lk])
+        self.doc.recompute()
+        return parte, a, b
+
+    def test_pecas_do_lote_sem_repetir(self):
+        import PrumoVistas as V
+        parte, a, b = self._conjunto()
+        lista = V.pecas_do_lote([parte])
+        self.assertEqual([(o.Name, q) for o, q in lista], [("Chapa", 2), ("Pino", 1)])
+
+    def test_folhas_em_lote(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import os
+        import tempfile
+        import PrumoVistas as V
+        parte, a, b = self._conjunto()
+        pasta = tempfile.mkdtemp(prefix="prumo_lote_")
+        feitas = V.folhas_em_lote(self.doc, [parte], "A3", prefixo="DES", pasta_pdf=pasta)
+        self.assertEqual(len(feitas), 2)
+        for k, (page, obj, qtd) in enumerate(feitas, 1):
+            et = dict(page.Template.EditableTexts)
+            self.assertEqual(et["numero"], "DES-%02d" % k)
+            self.assertEqual(et["folha"], "%d / 2" % k)
+            self.assertIn(obj.Label, page.Label)
+            cotas = [v for v in page.Views if v.TypeId == "TechDraw::DrawViewDimension"]
+            self.assertEqual(len(cotas), 3, page.Label)
+        self.assertIn("(2×)", dict(feitas[0][0].Template.EditableTexts)["titulo"])
+        pdfs = sorted(f for f in os.listdir(pasta) if f.endswith(".pdf"))
+        self.assertEqual(pdfs, ["DES-01.pdf", "DES-02.pdf"])
+        for f in pdfs:
+            with open(os.path.join(pasta, f), "rb") as fh:
+                self.assertEqual(fh.read(5), b"%PDF-")
+        # cotas gerais da chapa: 200 e 8 na frontal, 100 na lateral
+        valores = sorted(round(v.getRawValue(), 1) for v in feitas[0][0].Views
+                         if v.TypeId == "TechDraw::DrawViewDimension")
+        self.assertEqual(valores, [8.0, 100.0, 200.0])
+
+    def test_painel_folhas_em_lote(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoVistas as V
+        parte, _a, _b = self._conjunto()
+        pn = V.PainelFolhasLote(self.doc, [parte])
+        pn.mostrar()
+        self.assertIn("2 folha(s)", pn.resumo.text())
+        self.assertIn("(2×)", pn.resumo.text())
+        pn.cotas.setChecked(False)
+        pn.accept()
+        self.assertEqual(len(V.folhas(self.doc)), 2)
+
+    # ---- cotas na vista em corte
+    def test_cotas_do_corte(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import Part
+        import PrumoFolhas
+        import PrumoVistas as V
+        bloco = self.doc.addObject("Part::Feature", "Bloco")
+        bloco.Shape = Part.makeBox(100, 60, 40).cut(
+            Part.makeCylinder(10, 100, FreeCAD.Vector(0, 30, 20), FreeCAD.Vector(1, 0, 0)))
+        self.doc.recompute()
+        page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {}, [bloco], arranjo="frontal_iso")
+        frente = [v for v in V.grupo_da_peca(page, [bloco]).Views if v.Type == "Front"][0]
+        V.esperar_vistas([frente], 20.0)
+        corte = self.doc.addObject("TechDraw::DrawViewSection", "Corte")
+        page.addView(corte)
+        corte.BaseView = frente
+        corte.Source = [bloco]
+        corte.ScaleType = "Page"
+        corte.SectionNormal = FreeCAD.Vector(1, 0, 0)
+        corte.Direction = FreeCAD.Vector(1, 0, 0)
+        corte.XDirection = FreeCAD.Vector(0, 1, 0)
+        corte.SectionOrigin = FreeCAD.Vector(50, 30, 20)
+        corte.SectionDirection = "Right"
+        corte.SectionSymbol = "A"
+        self.doc.recompute()
+        import time
+        fim = time.time() + 20
+        while time.time() < fim and not V._vertices(corte):
+            FreeCADGui.updateGui()
+            time.sleep(0.05)
+        circ = V.circulos_do_corte(corte)
+        self.assertEqual(len(circ), 1, circ)
+        self.assertAlmostEqual(circ[0][1], 10.0, 3)
+        self.assertTrue(circ[0][3])
+        cotas = V.cotas_do_corte(page, corte)
+        self.assertEqual(len(cotas), 3)
+        valores = sorted(round(c.getRawValue(), 1) for c in cotas)
+        self.assertEqual(valores, [20.0, 40.0, 60.0])
+        self.assertEqual(cotas[-1].Type, "Diameter")
+        with self.assertRaises(ValueError):
+            V.cotas_do_corte(page, frente)
+
+    def test_ferramentas_na_faixa(self):
+        import PrumoRibbon as R
+        cmds = {c for t in R.TABS for _p, itens in t["panels"] for c, *_r in itens}
+        for c in ("Prumo_ArredondarAuto", "Prumo_FolhasLote", "Prumo_CotasCorte"):
+            self.assertIn(c, cmds)
+            if FreeCAD.GuiUp:
+                self.assertIn(c, FreeCADGui.listCommands())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13034,4 +13228,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
-           T88CatalogosSteelStructures]
+           T88CatalogosSteelStructures, T89NovidadesDoZW3D]

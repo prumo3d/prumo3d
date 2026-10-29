@@ -35,6 +35,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   desenhar, **duplo clique numa linha** abre a caixinha do comprimento (o que vem depois anda junto, sem
   deformar) e **arrastar a ponta** leva a linha para outro eixo. O painel mostra a situação do esboço: sem
   definição, subdefinido, não resolvido ou bem definido. Tab continua trocando para desenhar num plano.
+- **Arredondamento automático** (aba Peça, Acabamento). Arredonda de uma vez todas as arestas de um tipo:
+  cantos vivos para fora (quebrar canto), cantos para dentro (raio de concordância) ou todas; se quiser, só as
+  paralelas a X, Y ou Z ou só as retas. As arestas escolhidas ficam em destaque antes do OK. Num Corpo vira um
+  Arredondamento normal da árvore (editável depois). Raio grande demais avisa e não deixa nada pela metade.
+- **Folhas em lote** (aba Desenho). Escolha a montagem, a estrutura ou as peças: sai uma folha ABNT por peça
+  fabricada, com as vistas, a legenda da peça, "folha k / n", número do desenho com prefixo (ex.: DES-01) e as
+  cotas gerais; peças iguais saem numa folha só com a quantidade no título. Se quiser, já salva o PDF de cada
+  folha na pasta Folhas do projeto. Compradas, de referência, cordões de solda e tubulação ficam de fora.
+- **Cotas do corte** (aba Desenho, Cotas). Na vista em corte: largura e altura do corte e o diâmetro (ou raio)
+  de cada furo e arco cortado, de uma vez.
 
 ### Correções
 

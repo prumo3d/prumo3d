@@ -7,6 +7,8 @@ no mesmo grupo de projeção (1º diedro), então ficam alinhadas e acompanham a
 "Cotas gerais" põe o comprimento, a altura e a profundidade totais da peça nas vistas.
 """
 
+import math
+
 import FreeCAD
 
 import PrumoUtil
@@ -270,6 +272,151 @@ def esperar_vistas(vistas, segundos=20.0):
     return False
 
 
+# ---------------------------------------------------------------------------- folhas em lote
+def pecas_do_lote(objs):
+    """[(peça, quantidade)] das peças fabricadas da seleção (montagem, parte, estrutura ou peças), na ordem
+    da árvore e sem repetir: peças iguais (o mesmo objeto, vínculos dele ou o mesmo código) viram uma folha
+    só. Ficam de fora as compradas, as de referência, os cordões de solda e a tubulação."""
+    import PrumoBOM
+    r = []
+    chaves = {}
+    for obj, _sh, comprado in PrumoBOM.itens(objs):
+        if comprado:
+            continue
+        base = PrumoBOM._alvo(obj)
+        props = base.PropertiesList
+        if ("Perna" in props and "Pecas" in props) or PrumoBOM._e_tubulacao(base):
+            continue
+        codigo = str(getattr(base, "Codigo", "") or "").strip() if "Codigo" in props else ""
+        chave = ("codigo", codigo) if codigo else ("obj", base.Document.Name, base.Name)
+        if chave in chaves:
+            r[chaves[chave]][1] += 1
+            continue
+        chaves[chave] = len(r)
+        r.append([base, 1])
+    return [(o, q) for o, q in r]
+
+
+def folhas_em_lote(doc, objs, formato="A3", norma=None, arranjo="3vistas_iso", prefixo="", cotas=True,
+                   pasta_pdf=None, retrato=False):
+    """Uma folha ABNT por peça (vistas no 1º diedro, legenda da peça, folha "k / n"), com as cotas gerais.
+
+    prefixo: número do desenho de cada folha = prefixo + "-01", "-02"… (vazio: o código da peça, se tiver).
+    pasta_pdf: também salva o PDF de cada folha nessa pasta. Devolve [(folha, peça, quantidade)]."""
+    norma = norma or PrumoFolhas.NORMA_PADRAO
+    lista = pecas_do_lote(objs)
+    if not lista:
+        raise ValueError("Nenhuma peça fabricada na seleção.")
+    n = len(lista)
+    feitas = []
+    for k, (obj, qtd) in enumerate(lista, 1):
+        campos = {"folha": "%d / %d" % (k, n)}
+        if prefixo:
+            campos["numero"] = "%s-%02d" % (prefixo.rstrip("-"), k)
+        if qtd > 1:
+            titulo = PrumoFolhas.campos_padrao(doc, [obj]).get("titulo") or obj.Label
+            campos["titulo"] = "%s (%d×)" % (titulo, qtd)
+        page = PrumoFolhas.nova_folha(doc, formato, norma, retrato if formato == "A4" else False, campos,
+                                      [obj], arranjo=arranjo)
+        page.Label = "Folha %02d - %s" % (k, obj.Label)
+        feitas.append((page, obj, qtd))
+    doc.recompute()
+    if cotas:
+        for page, obj, _q in feitas:
+            grupo = grupo_da_peca(page, [obj])
+            if grupo is None or "Front" not in projecoes(grupo):
+                continue
+            esperar_vistas(list(grupo.Views), 20.0)
+            try:
+                cotas_gerais(page, [obj])
+            except ValueError:
+                pass
+    if pasta_pdf:
+        import os
+        os.makedirs(pasta_pdf, exist_ok=True)
+        for page, _o, _q in feitas:
+            try:            # a moldura e a legenda só vão para o PDF depois que a folha foi mostrada
+                page.ViewObject.show()
+            except Exception:
+                pass
+            salvar_pdf(page, os.path.join(pasta_pdf, os.path.basename(nome_do_arquivo(page, "pdf"))))
+    return feitas
+
+
+# ---------------------------------------------------------------------------- cotas do corte
+def e_corte(vista):
+    return vista is not None and vista.isDerivedFrom("TechDraw::DrawViewSection")
+
+
+def _arestas(vista):
+    r = []
+    i = 0
+    while i < 20000:
+        try:
+            e = vista.getEdgeByIndex(i)
+        except Exception:
+            break
+        if e is None:
+            break
+        r.append(("Edge%d" % i, e))
+        i += 1
+    return r
+
+
+def circulos_do_corte(vista):
+    """[(nome da aresta, raio, centro (x, y), círculo inteiro?)] dos furos e arcos da vista, sem repetir o
+    mesmo círculo (mesmo centro e raio)."""
+    vistos = []
+    r = []
+    for nome, e in _arestas(vista):
+        c = getattr(e, "Curve", None)
+        if c is None or not hasattr(c, "Radius") or not hasattr(c, "Center"):
+            continue
+        cen = FreeCAD.Vector(c.Center)
+        rr = float(c.Radius)
+        if any(abs(rr - r0) < 1e-4 and (cen - c0).Length < 1e-4 for r0, c0 in vistos):
+            continue
+        vistos.append((rr, cen))
+        inteiro = e.isClosed() or abs((e.LastParameter - e.FirstParameter) - 2 * math.pi) < 1e-6
+        r.append((nome, rr, (cen.x, cen.y), inteiro))
+    return r
+
+
+def cotas_do_corte(page, vista, limite_circulos=12):
+    """Cotas na vista em corte: largura e altura totais do corte e o diâmetro (ou raio) de cada furo e
+    arco cortado. Devolve as cotas criadas."""
+    if not e_corte(vista):
+        raise ValueError("Escolha uma vista em corte (Corte, na aba Desenho).")
+    if not _vertices(vista):
+        raise ValueError("A vista em corte ainda está sendo calculada; tente de novo.")
+    doc = page.Document
+    criadas = []
+    ex = _extremos(vista, "x")
+    if ex:
+        criadas.append(_cota(page, vista, "DistanceX", ex[0], ex[1], "Largura do corte", "baixo"))
+    ey = _extremos(vista, "y")
+    if ey:
+        criadas.append(_cota(page, vista, "DistanceY", ey[0], ey[1], "Altura do corte", "dir"))
+    try:
+        e = float(vista.getScale())
+    except Exception:
+        e = float(getattr(vista, "Scale", 1.0) or 1.0)
+    for k, (nome, raio, (cx, cy), inteiro) in enumerate(circulos_do_corte(vista)[:limite_circulos]):
+        d = doc.addObject("TechDraw::DrawViewDimension", "Cota")
+        d.Type = "Diameter" if inteiro else "Radius"
+        d.MeasureType = "Projected"
+        d.References2D = [(vista, nome)]
+        d.Label = ("Ø %s" if inteiro else "R %s") % PrumoUtil.fmt(2 * raio if inteiro else raio, 1)
+        page.addView(d)
+        ang = math.radians(45 + 30 * k)
+        dist = raio * e + 6.0
+        d.X, d.Y = cx * e + dist * math.cos(ang), cy * e + dist * math.sin(ang)
+        d.recompute()
+        criadas.append(d)
+    doc.recompute()
+    return criadas
+
+
 # ---------------------------------------------------------------------------- entregar
 def pecas_da_folha(page):
     """Peças mostradas nos grupos de vistas da folha (na ordem em que aparecem), sem repetir."""
@@ -523,6 +670,149 @@ if P is not None:
 
 
 if P is not None:
+    class PainelFolhasLote(P.PainelTarefa):
+        titulo = "Folhas em lote"
+        ajuda = ("Escolha a montagem, a estrutura ou as peças: o Prumo faz uma folha ABNT para cada peça "
+                 "fabricada, com as vistas, a legenda da peça e as cotas gerais. Peças iguais saem numa folha só.")
+
+        def __init__(self, doc=None, objs=None):
+            self.doc = doc or FreeCAD.ActiveDocument
+            self._objs_iniciais = list(objs or [])
+            self.feitas = []
+            super().__init__()
+
+        def montar(self):
+            f = self.form
+            s0 = f.secao("Peças", "selecao")
+            self.pecas = f.caixa(s0, "Montagem, estrutura ou peças", _filtro_pecas, minimo=1,
+                                 dica="Uma montagem inteira, uma parte ou várias peças (Ctrl + clique).")
+            for o in self._objs_iniciais:
+                self.pecas.aceitar(o)
+            self.resumo = QtWidgets.QLabel("")
+            self.resumo.setWordWrap(True)
+            s0.linha("info", self.resumo, "")
+            s1 = f.secao("Folhas", "folha")
+            self.formato = s1.linha("folha", P.lista(PrumoFolhas.FORMATOS, PrumoFolhas.FREECAD_PARAM().GetString(
+                "FolhaFormato", PrumoFolhas.FORMATO_PADRAO)), "A0 a A4.", "Formato")
+            self.arranjo = QtWidgets.QComboBox()
+            for k, (rot, _p, _i) in PrumoFolhas.ARRANJOS.items():
+                self.arranjo.addItem(rot, k)
+            i = self.arranjo.findData(PrumoFolhas.FREECAD_PARAM().GetString("FolhaArranjo",
+                                                                            PrumoFolhas.ARRANJO_PADRAO))
+            self.arranjo.setCurrentIndex(max(i, 0))
+            s1.linha("posicao", self.arranjo, "Quais vistas entram em cada folha (1º diedro).", "Vistas")
+            self.prefixo = s1.linha("quantidade", QtWidgets.QLineEdit(""), "Número do desenho de cada folha: "
+                                    "prefixo-01, prefixo-02… Vazio: o código da peça (Propriedades da peça).",
+                                    "Prefixo do nº")
+            self.cotas = s1.linha("comprimento", P.marcar("Cotas gerais em cada folha", True), "")
+            self.pdf = s1.linha("folha", P.marcar("Salvar o PDF de cada folha na pasta do projeto", False), "")
+            self.pecas.mudou.connect(self._resumir)
+            self._resumir()
+
+        def _resumir(self, *_a):
+            try:
+                lista = pecas_do_lote(self.pecas.valores())
+            except Exception:
+                lista = []
+            if not lista:
+                self.resumo.setText("")
+                return
+            txt = ", ".join("%s%s" % (o.Label, " (%d×)" % q if q > 1 else "") for o, q in lista[:8])
+            if len(lista) > 8:
+                txt += "…"
+            self.resumo.setText("%d folha(s): %s" % (len(lista), txt))
+
+        def pendencia(self):
+            if not self.pecas.valores():
+                return "Selecione a montagem, a estrutura ou as peças."
+            if not pecas_do_lote(self.pecas.valores()):
+                return "Nenhuma peça fabricada na seleção (compradas e de referência ficam de fora)."
+            return None
+
+        def pronto_texto(self):
+            return "OK cria %d folha(s)." % len(pecas_do_lote(self.pecas.valores()))
+
+        def executar(self):
+            import os
+            formato = self.formato.currentText()
+            PrumoFolhas.FREECAD_PARAM().SetString("FolhaFormato", formato)
+            PrumoFolhas.FREECAD_PARAM().SetString("FolhaArranjo", self.arranjo.currentData())
+            pasta = None
+            if self.pdf.isChecked():
+                base = os.path.dirname(self.doc.FileName) if self.doc.FileName else os.path.expanduser("~")
+                pasta = os.path.join(base, "Folhas")
+            self.feitas = folhas_em_lote(self.doc, self.pecas.valores(), formato,
+                                         PrumoFolhas.FREECAD_PARAM().GetString("FolhaNorma",
+                                                                               PrumoFolhas.NORMA_PADRAO),
+                                         self.arranjo.currentData(), self.prefixo.text().strip(),
+                                         self.cotas.isChecked(), pasta, formato == "A4")
+            if self.feitas:
+                _mostrar(self.feitas[0][0])
+            FreeCAD.Console.PrintMessage("Prumo: %d folha(s) criadas%s.\n" % (
+                len(self.feitas), (" e salvas em PDF em " + pasta) if pasta else ""))
+            return [p for p, _o, _q in self.feitas]
+
+    class CmdFolhasLote:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("folha_abnt.svg"), "MenuText": "Folhas em lote",
+                    "ToolTip": "Uma folha ABNT por peça da montagem ou da estrutura, com as vistas, a legenda "
+                               "da peça e as cotas gerais (e o PDF de cada uma, se quiser)."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None
+
+        def Activated(self):
+            try:
+                import TechDraw  # noqa: F401
+                import TechDrawGui  # noqa: F401
+            except ImportError:
+                pass
+            sel = [s.Object for s in FreeCADGui.Selection.getSelectionEx()]
+            PainelFolhasLote(FreeCAD.ActiveDocument, [o for o in sel if PrumoUtil.pecas([o])]).mostrar()
+
+    class CmdCotasCorte:
+        def GetResources(self):
+            return {"Pixmap": PrumoUtil.icone("cotas.svg"), "MenuText": "Cotas do corte",
+                    "ToolTip": "Na vista em corte selecionada (ou na única da folha): largura e altura do corte "
+                               "e o diâmetro de cada furo cortado."}
+
+        def IsActive(self):
+            return FreeCAD.ActiveDocument is not None and bool(folhas(FreeCAD.ActiveDocument))
+
+        def Activated(self):
+            sel = [s.Object for s in FreeCADGui.Selection.getSelectionEx()]
+            cortes = [o for o in sel if e_corte(o)]
+            page = None
+            if cortes:
+                page = cortes[0].findParentPage() if hasattr(cortes[0], "findParentPage") else None
+            if page is None:
+                page = _folha_ou_aviso()
+                if page is None:
+                    return None
+            if not cortes:
+                cortes = [v for v in page.Views if e_corte(v)]
+            if not cortes:
+                r = QtWidgets.QMessageBox.question(
+                    FreeCADGui.getMainWindow(), "Cotas do corte",
+                    "Esta folha ainda não tem vista em corte.\n\nSelecione a vista e clique em Corte "
+                    "(aba Desenho) para criar uma. Criar o corte agora?")
+                if r == QtWidgets.QMessageBox.Yes:
+                    try:
+                        FreeCADGui.runCommand("TechDraw_SectionView", 0)
+                    except Exception:
+                        pass
+                return None
+            doc = page.Document
+            doc.openTransaction("Cotas do corte")
+            try:
+                c = cotas_do_corte(page, cortes[0])
+            except ValueError as ex:
+                doc.abortTransaction()
+                QtWidgets.QMessageBox.information(FreeCADGui.getMainWindow(), "Cotas do corte", str(ex))
+                return None
+            doc.commitTransaction()
+            return c
+
     def _folha_ou_aviso():
         page = folha_ativa()
         if page is None:
@@ -656,3 +946,5 @@ def registrar_comandos():
         FreeCADGui.addCommand("Prumo_CotasGerais", CmdCotasGerais())
         FreeCADGui.addCommand("Prumo_SalvarPDF", CmdSalvarPDF())
         FreeCADGui.addCommand("Prumo_ExportarDXF", CmdExportarDXF())
+        FreeCADGui.addCommand("Prumo_FolhasLote", CmdFolhasLote())
+        FreeCADGui.addCommand("Prumo_CotasCorte", CmdCotasCorte())

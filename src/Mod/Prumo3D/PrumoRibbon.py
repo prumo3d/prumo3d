@@ -137,6 +137,7 @@ TABS = [
         ]),
         ("Acabamento", [
             ("PartDesign_Fillet", L, "Arredondar"), ("PartDesign_Chamfer", L, "Chanfro"),
+            ("Prumo_ArredondarAuto", S, "Arredondar automático"),
             ("PartDesign_Thickness", S, "Casca"), ("PartDesign_Draft", S, "Ângulo de saída"),
         ]),
         ("Padrões", [
@@ -201,7 +202,8 @@ TABS = [
     {"id": "desenho", "label": "Desenho", "wb": "TechDrawWorkbench", "panels": [
         ("Folha", [
             ("Prumo_NovaFolha", L, "Folha\nABNT"), ("Prumo_PaletaVistas", L, "Paleta de\nvistas"),
-            ("Prumo_AbrirFolha", S, "Abrir folha"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
+            ("Prumo_AbrirFolha", S, "Abrir folha"), ("Prumo_FolhasLote", S, "Folhas em lote"),
+            ("Prumo_ListaMateriais", S, "Lista de materiais"),
             ("TechDraw_PageDefault", S, "Folha em branco"), ("TechDraw_PageTemplate", S, "Folha de modelo"),
             ("TechDraw_FillTemplateFields", S, "Preencher carimbo"), ("TechDraw_RedrawPage", S, "Redesenhar"),
         ]),
@@ -215,6 +217,7 @@ TABS = [
         ]),
         ("Cotas", [
             ("TechDraw_CompDimensionTools", L, "Cota"), ("Prumo_CotasGerais", L, "Cotas\ngerais"),
+            ("Prumo_CotasCorte", S, "Cotas do corte"),
             ("TechDraw_Balloon", S, "Balão"),
             ("TechDraw_AxoLengthDimension", S, "Cota axonométrica"), ("TechDraw_DimensionRepair", S, "Reparar cotas"),
             ("TechDraw_ExtensionInsertPrefixGroup", S, "Prefixo ⌀"),
@@ -1587,7 +1590,8 @@ SEM_DOCUMENTO_SEMPRE = {"Std_New", "Std_Open", "Prumo_Preferencias", "Std_DlgMac
 # Abas que dependem de "estar dentro" de algo: sem isso aberto, só aparece o que começa (ou abre) esse algo.
 # aba: (chave da situação, o que aparece sem ela, dica do primeiro passo)
 INICIO_DA_ABA = {
-    "desenho": ("folha", {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_AbrirFolha", "Prumo_ListaMateriais"},
+    "desenho": ("folha", {"Prumo_NovaFolha", "Prumo_PaletaVistas", "Prumo_AbrirFolha", "Prumo_FolhasLote",
+                          "Prumo_ListaMateriais"},
                 "Crie a folha (Folha ABNT) ou abra uma que já existe: as vistas, cotas e anotações aparecem "
                 "com a folha aberta."),
     "montagem": ("montagem", {"Assembly_CreateAssembly", "Prumo_EditarMontagem", "Prumo_ListaMateriais",
