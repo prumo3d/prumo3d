@@ -1868,6 +1868,10 @@ class _RodaParaOsLados(QtCore.QObject):
 def _hide_native_toolbars():
     mw = FreeCADGui.getMainWindow()
     bar = _state["bar"]
+    # a faixa nunca fica escondida: um estado da janela salvo com ela oculta (ao restaurar o layout) a
+    # sumiria de vez, sem menu para trazer de volta
+    if bar is not None and mw.isVisible() and not bar.isVisible() and not mw.isFullScreen():
+        bar.show()
     for tb in mw.findChildren(QtWidgets.QToolBar):
         if tb is bar or tb.parent() is not mw:
             continue

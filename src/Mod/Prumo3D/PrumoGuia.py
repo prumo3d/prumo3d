@@ -235,6 +235,7 @@ class GuiaFrame(QtWidgets.QFrame):
         self.alert.setVisible(False)
         lay.addWidget(self.alert)
         self._svg = None
+        self._ultima = None
         self._apply_collapsed()
 
     def _collapsed(self):
@@ -260,6 +261,7 @@ class GuiaFrame(QtWidgets.QFrame):
         for w in (self.title, self.image, self.legend, self.text):
             w.setVisible(False)
         self._svg = None
+        self._ultima = None
         self.toggle.setVisible(True)
         self.toggle.setText("×")
         self.toggle.setToolTip("Dispensar este aviso")
@@ -327,6 +329,7 @@ class GuiaFrame(QtWidgets.QFrame):
         self.image.setVisible(g is not None and not self._collapsed())
         self.toggle.setVisible(g is not None)
         self._svg = g.svg() if g is not None else None
+        self._ultima = None
         self._apply_collapsed()
         items = getattr(g, "legend", []) if g is not None else []
         self.legend.setText("&nbsp;&nbsp;".join(
@@ -338,13 +341,32 @@ class GuiaFrame(QtWidgets.QFrame):
         self._render()
 
     def _render(self):
-        if not self._svg or self._collapsed():
+        if not self._svg or self._collapsed() or getattr(self, "_renderizando", False):
             return
+        try:
+            import shiboken6
+            if not (shiboken6.isValid(self) and shiboken6.isValid(self.image)):
+                return
+        except ImportError:
+            pass
         par = self.parentWidget()
         avail = (par.width() if par is not None else self.width()) - 40
         w = max(160, min(avail, 420))
         h = int(w * I.H / I.W)
         dpr = self.devicePixelRatioF()
+        # mudar a altura da imagem redimensiona o quadro, que chama _render de novo: só redesenha se a
+        # imagem muda (senão vira uma recursão de redimensionamentos que derruba o programa)
+        chave = (hash(self._svg), w, h, dpr, PrumoEstilo.escuro())
+        if chave == getattr(self, "_ultima", None):
+            return
+        self._renderizando = True
+        try:
+            self._desenhar(w, h, dpr)
+            self._ultima = chave
+        finally:
+            self._renderizando = False
+
+    def _desenhar(self, w, h, dpr):
         img = QtGui.QImage(int(w * dpr), int(h * dpr), QtGui.QImage.Format_ARGB32_Premultiplied)
         img.fill(0)
         if PrumoEstilo.escuro():

@@ -42,6 +42,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   mesmo sem cota a mais e sobravam cotas repetidas (uma comandando e outra entre parênteses). O guarda de
   restrições mexia no esboço enquanto a ferramenta ainda mostrava a prévia da cota; agora ele espera a
   ferramenta terminar.
+- **Faixa de ferramentas sumida.** Se a janela fosse salva com a faixa oculta, ela não voltava mais (não há
+  menu para reativá-la). Agora a faixa sempre reaparece.
+- **Queda ao redimensionar o quadro "Como funciona".** O desenho do quadro se redesenhava em cadeia a cada
+  redimensionamento e podia derrubar o programa; agora só redesenha quando muda de tamanho.
 
 ## 1.2.0 — 29/10/2026
 

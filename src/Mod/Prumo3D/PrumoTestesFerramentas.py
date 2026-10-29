@@ -2795,6 +2795,13 @@ class T30Faixa(unittest.TestCase):
         for _ in range(5):
             FreeCADGui.updateGui()
 
+    def test_faixa_escondida_pelo_estado_salvo_volta(self):
+        """Um estado da janela salvo com a faixa oculta não pode fazer a faixa sumir de vez."""
+        bar = self.R._state["bar"]
+        bar.hide()
+        self.R._hide_native_toolbars()
+        self.assertTrue(bar.isVisible())
+
     def test_medidas_dentro_dos_limites(self):
         R = self.R
         for h in (50, R.ALTURA_MIN, R.ALTURA_PADRAO, 170, R.ALTURA_MAX, 500):
