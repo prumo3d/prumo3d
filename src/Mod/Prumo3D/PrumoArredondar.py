@@ -56,7 +56,7 @@ def classificar(shape):
         for f in faces:
             if not any(f.isSame(g) for g in unicas):
                 unicas.append(f)
-        if len(unicas) != 2 or e.isDegenerated():
+        if len(unicas) != 2 or e.Length < 1e-9:
             continue
         p = _ponto_medio(e)
         try:
@@ -235,18 +235,18 @@ if P is not None:
                 base, ar = self.escolhidas()
             except Exception:
                 base, ar = None, []
+            super().atualizar()
             if hasattr(self, "contagem"):
                 self.contagem.setText("%d aresta(s) entram." % len(ar) if base is not None else "")
                 if base is not None:
                     self._destacar(base, ar)
-            super().atualizar()
 
         def _destacar(self, base, arestas):
             try:
                 self._ignorar_selecao = True
                 FreeCADGui.Selection.clearSelection()
                 if arestas:
-                    FreeCADGui.Selection.addSelection(base.Document.Name, base.Name, arestas)
+                    FreeCADGui.Selection.addSelection(base, arestas)
             except Exception:
                 pass
             finally:
