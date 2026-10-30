@@ -419,6 +419,22 @@ EXTRA.update({
 # confundem o usuário brasileiro ("Preencher" para Pad, "Perfuração" para
 # Pocket, "Filete" para Fillet...). Chave: (contexto do Qt, texto de origem).
 GLOSSARIO = {
+    # Montagem: avisos ao inserir peças (src/Mod/Assembly, textos passados para translate no Prumo)
+    ("Assembly", "Ground Part?"): "Fixar a peça?",
+    ("Assembly", "Do you want to ground the first inserted part automatically?\nYou need at least one grounded "
+                 "part in your assembly."):
+        "Fixar automaticamente a primeira peça inserida?\nA montagem precisa de pelo menos uma peça fixa.",
+    ("Assembly", "Yes"): "Sim", ("Assembly", "No"): "Não",
+    ("Assembly", "Always"): "Sempre fixar", ("Assembly", "Never"): "Nunca fixar",
+    ("Assembly", "Save Document"): "Salvar o documento", ("Assembly", "Save"): "Salvar",
+    ("Assembly", "Cancel"): "Cancelar",
+    ("Assembly", "The current document must be saved before inserting external parts."):
+        "Salve o documento atual antes de inserir peças de outros arquivos.",
+    ("Assembly", "The selected object's document must be saved before inserting it."):
+        "Salve o documento da peça escolhida antes de inseri-la.",
+    ("Assembly", "Match parts"): "Alinhar peças",
+    ("Assembly", "Select a part"): "Escolha uma peça",
+    ("Assembly", "Align dragger to..."): "Alinhar o arrasto a...",
     ("CmdPartDesignPad", "Pad"): "Extrusão",
     ("CmdPartDesignPocket", "Pocket"): "Cavidade",
     ("CmdPartDesignFillet", "Fillet"): "Arredondamento",

@@ -25,6 +25,8 @@ import re
 import os
 import FreeCAD as App
 
+translate = App.Qt.translate
+
 from pivy import coin
 from Part import LineSegment, Compound
 
@@ -609,7 +611,7 @@ class TaskAssemblyCreateView(QtCore.QObject):
         actionAlignToOrigin.triggered.connect(self.onAlignToPartOrigin)
 
         self.form.btnAlignDragger.setEnabled(False)
-        self.form.btnAlignDragger.setText("Select a part")
+        self.form.btnAlignDragger.setText(translate("Assembly", "Select a part"))
         self.form.btnRadialExplosion.clicked.connect(self.onRadialClicked)
 
         pref = Preferences.preferences()
@@ -756,9 +758,9 @@ class TaskAssemblyCreateView(QtCore.QObject):
         self.assembly.ViewObject.DraggerVisibility = val
         self.form.btnAlignDragger.setEnabled(val)
         if val:
-            self.form.btnAlignDragger.setText("Align dragger to...")
+            self.form.btnAlignDragger.setText(translate("Assembly", "Align dragger to..."))
         else:
-            self.form.btnAlignDragger.setText("Select a part")
+            self.form.btnAlignDragger.setText(translate("Assembly", "Select a part"))
 
     def onMovesChanged(self):
         # First reset positions

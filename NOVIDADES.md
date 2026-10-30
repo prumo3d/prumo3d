@@ -9,6 +9,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **Aviso em inglês ao montar.** O "Ground Part?" que aparece ao inserir a primeira peça na montagem agora sai
+  em português ("Fixar a peça?", com Sim, Sempre fixar, Nunca fixar e Não), assim como os avisos de salvar o
+  documento antes de inserir peças de outro arquivo, "Alinhar peças" e "Escolha uma peça" da vista explodida.
+- **Vistas no meio da folha.** Na Folha ABNT, na Paleta de vistas e nas folhas em lote, as vistas ficam no meio
+  da faixa entre a legenda e o alto do quadro, com folga para as cotas, em vez de coladas no alto.
+- **Publicação do Linux.** O AppImage passa a ser montado com uma versão fixa e conferida da ferramenta (a
+  versão "contínua" mudou sem aviso em 29/10/2026 e travou a publicação da 1.2.1).
+
 ## 1.2.1 — 29/10/2026
 
 ### Novidades

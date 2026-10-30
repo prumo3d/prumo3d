@@ -89,8 +89,28 @@ if ! "${conda_env}/bin/prumo3dcmd" --safe-mode --version; then
     exit 1
 fi
 
-curl -LO https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$(uname -m).AppImage
-chmod a+x appimagetool-$(uname -m).AppImage
+# Prumo 3D: appimagetool numa versão fixa e conferida (a "continuous" muda sem aviso: em 29/10/2026 passou
+# a recusar o ícone só em SVG e travou a publicação). A 1.9.0 pede o desktop-file-validate.
+AIT_VERSAO="1.9.0"
+AIT_SHA256_x86_64="46fdd785094c7f6e545b61afcfb0f3d98d8eab243f644b4b17698c01d06083d1"
+ait="appimagetool-$(uname -m).AppImage"
+if ! command -v desktop-file-validate >/dev/null 2>&1; then
+    (sudo -n apt-get install -y desktop-file-utils || (sudo -n apt-get update && sudo -n apt-get install -y desktop-file-utils)) \
+        >/dev/null 2>&1 || echo "aviso: não deu para instalar o desktop-file-utils"
+fi
+esperado_var="AIT_SHA256_$(uname -m)"
+esperado="${!esperado_var:-}"
+curl -fL -o "$ait" "https://github.com/AppImage/appimagetool/releases/download/${AIT_VERSAO}/appimagetool-$(uname -m).AppImage"
+if [ -n "$esperado" ] && ! echo "${esperado}  ${ait}" | sha256sum -c - ; then
+    echo "erro: o appimagetool ${AIT_VERSAO} baixado não confere com a soma esperada"
+    exit 1
+fi
+if ! command -v desktop-file-validate >/dev/null 2>&1; then
+    # sem o validador a 1.9.0 não roda: usa a continuous (o AppDir já tem PNG e .DirIcon para ela)
+    echo "aviso: sem desktop-file-validate; usando o appimagetool continuous"
+    curl -fL -o "$ait" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$(uname -m).AppImage"
+fi
+chmod a+x "$ait"
 
 echo -e "\nCreate the appimage"
 chmod a+x ./AppDir/AppRun

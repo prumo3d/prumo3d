@@ -13196,6 +13196,42 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         with self.assertRaises(ValueError):
             V.cotas_do_corte(page, frente)
 
+    def test_vistas_no_meio_da_folha(self):
+        """As vistas ficam no meio da faixa entre a legenda e o alto do quadro, não coladas no alto."""
+        import PrumoFolhas
+        import PrumoVistas as V
+        cx = self.doc.addObject("Part::Box", "Bloco")
+        cx.Length, cx.Width, cx.Height = 200, 100, 80
+        self.doc.recompute()
+        page = PrumoFolhas.nova_folha(self.doc, "A3", "NBR16752", False, {}, [cx])
+        grupo = V.grupo_da_peca(page, [cx])
+        e = float(page.Scale)
+        y_min, y_max = PrumoFolhas._faixa_vertical(page, 297.0)
+        alto = float(grupo.Y) + 80 * e / 2.0                       # alto da frontal (sem inferior)
+        baixo = float(grupo.Y) - 80 * e / 2.0 - (100 * e + PrumoFolhas.ESPACO_VISTAS)   # pé da superior
+        self.assertLessEqual(alto, y_max + 1e-6)
+        self.assertGreaterEqual(baixo, y_min - 1e-6)
+        self.assertAlmostEqual((alto + baixo) / 2.0, (y_min + y_max) / 2.0, delta=0.5)
+
+    def test_avisos_da_montagem_em_portugues(self):
+        """O aviso de fixar a primeira peça (e os outros da inserção de componente) sai em português."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import os
+        tr = FreeCAD.Qt.translate
+        self.assertEqual(tr("Assembly", "Ground Part?"), "Fixar a peça?")
+        self.assertTrue(tr("Assembly", "Do you want to ground the first inserted part automatically?\nYou need "
+                           "at least one grounded part in your assembly.").startswith("Fixar automaticamente"))
+        self.assertEqual(tr("Assembly", "Always"), "Sempre fixar")
+        self.assertEqual(tr("Assembly", "Never"), "Nunca fixar")
+        self.assertEqual(tr("Assembly", "Yes"), "Sim")
+        # e o código da montagem passa esses textos pela tradução
+        arq = os.path.join(FreeCAD.getHomePath(), "Mod", "Assembly", "CommandInsertLink.py")
+        if os.path.isfile(arq):
+            txt = open(arq, encoding="utf-8").read()
+            self.assertIn('translate("Assembly", "Ground Part?")', txt)
+            self.assertNotIn('msgBox.addButton("Always"', txt)
+
     def test_ferramentas_na_faixa(self):
         import PrumoRibbon as R
         cmds = {c for t in R.TABS for _p, itens in t["panels"] for c, *_r in itens}

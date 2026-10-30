@@ -266,7 +266,15 @@ def posicionar(page, fontes, grupo=None, iso=None, escala=None):
                 esq += fy + ESPACO_VISTAS
             grupo.X = x0 + esq + fx / 2.0
             acima = fy + ESPACO_VISTAS if "Bottom" in projecoes else 0.0
-            grupo.Y = alt - topo - acima - fz / 2.0
+            abaixo = fy + ESPACO_VISTAS if "Top" in projecoes else 0.0
+            # no meio da faixa entre a legenda e o alto do quadro, com folga para as cotas gerais
+            # (antes ficava colado no alto, com a metade de baixo da folha vazia)
+            y_min, y_max = _faixa_vertical(page, alt)
+            altura = acima + fz + abaixo
+            topo_grupo = (y_min + y_max) / 2.0 + altura / 2.0
+            if topo_grupo > y_max or topo_grupo - altura < y_min:
+                topo_grupo = alt - topo
+            grupo.Y = topo_grupo - acima - fz / 2.0
             direita_grupo = x0 + (lg * e) + max(col - (2 if com_iso else 1), 0) * ESPACO_VISTAS
         else:
             grupo.X, grupo.Y, direita_grupo = larg * 0.42, (alt + 60) * 0.55, larg * 0.6
@@ -286,6 +294,22 @@ def posicionar(page, fontes, grupo=None, iso=None, escala=None):
             iso.X, iso.Y = larg * 0.80, alt * 0.70
     escrever_escala(page)
     return e
+
+
+FOLGA_COTAS = 14.0       # mm livres em volta das vistas para as cotas gerais (ficam a 8 mm do contorno)
+
+
+def _faixa_vertical(page, alt):
+    """(y de baixo, y de cima) em mm da faixa útil para as vistas: da legenda até o alto do quadro,
+    descontada a folga das cotas."""
+    try:
+        import PrumoBOM
+        _e, _d, sup, inf = PrumoBOM.margens_da_folha(page)
+        leg = PrumoBOM.altura_legenda(page)
+    except Exception:
+        sup, inf, leg = 10.0, 10.0, None
+    leg = leg if leg else 60.0
+    return inf + leg + FOLGA_COTAS, alt - sup - FOLGA_COTAS
 
 
 def escrever_escala(page):

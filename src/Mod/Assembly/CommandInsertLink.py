@@ -25,6 +25,8 @@ import re
 import os
 import FreeCAD as App
 
+translate = App.Qt.translate
+
 from PySide.QtCore import QT_TRANSLATE_NOOP
 
 if App.GuiUp:
@@ -362,11 +364,11 @@ class TaskAssemblyInsertLink(QtCore.QObject):
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setIcon(QtWidgets.QMessageBox.Warning)
                 msgBox.setText(
-                    "The current document must be saved before inserting external parts."
+                    translate("Assembly", "The current document must be saved before inserting external parts.")
                 )
-                msgBox.setWindowTitle("Save Document")
-                saveButton = msgBox.addButton("Save", QtWidgets.QMessageBox.AcceptRole)
-                cancelButton = msgBox.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+                msgBox.setWindowTitle(translate("Assembly", "Save Document"))
+                saveButton = msgBox.addButton(translate("Assembly", "Save"), QtWidgets.QMessageBox.AcceptRole)
+                cancelButton = msgBox.addButton(translate("Assembly", "Cancel"), QtWidgets.QMessageBox.RejectRole)
 
                 msgBox.exec_()
 
@@ -377,10 +379,10 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             if selectedPart.Document.FileName == "":
                 msgBox = QtWidgets.QMessageBox()
                 msgBox.setIcon(QtWidgets.QMessageBox.Warning)
-                msgBox.setText("The selected object's document must be saved before inserting it.")
-                msgBox.setWindowTitle("Save Document")
-                saveButton = msgBox.addButton("Save", QtWidgets.QMessageBox.AcceptRole)
-                cancelButton = msgBox.addButton("Cancel", QtWidgets.QMessageBox.RejectRole)
+                msgBox.setText(translate("Assembly", "The selected object's document must be saved before inserting it."))
+                msgBox.setWindowTitle(translate("Assembly", "Save Document"))
+                saveButton = msgBox.addButton(translate("Assembly", "Save"), QtWidgets.QMessageBox.AcceptRole)
+                cancelButton = msgBox.addButton(translate("Assembly", "Cancel"), QtWidgets.QMessageBox.RejectRole)
 
                 msgBox.exec_()
 
@@ -465,16 +467,16 @@ class TaskAssemblyInsertLink(QtCore.QObject):
         fixPartPref = pref.GetInt("GroundFirstPart", 0)
         if fixPartPref == 0:  # unset
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setWindowTitle("Ground Part?")
+            msgBox.setWindowTitle(translate("Assembly", "Ground Part?"))
             msgBox.setText(
-                "Do you want to ground the first inserted part automatically?\nYou need at least one grounded part in your assembly."
+                translate("Assembly", "Do you want to ground the first inserted part automatically?\nYou need at least one grounded part in your assembly.")
             )
             msgBox.setIcon(QtWidgets.QMessageBox.Question)
 
-            yesButton = msgBox.addButton("Yes", QtWidgets.QMessageBox.YesRole)
-            noButton = msgBox.addButton("No", QtWidgets.QMessageBox.RejectRole)
-            yesAlwaysButton = msgBox.addButton("Always", QtWidgets.QMessageBox.YesRole)
-            noAlwaysButton = msgBox.addButton("Never", QtWidgets.QMessageBox.NoRole)
+            yesButton = msgBox.addButton(translate("Assembly", "Yes"), QtWidgets.QMessageBox.YesRole)
+            noButton = msgBox.addButton(translate("Assembly", "No"), QtWidgets.QMessageBox.RejectRole)
+            yesAlwaysButton = msgBox.addButton(translate("Assembly", "Always"), QtWidgets.QMessageBox.YesRole)
+            noAlwaysButton = msgBox.addButton(translate("Assembly", "Never"), QtWidgets.QMessageBox.NoRole)
 
             msgBox.exec_()
 

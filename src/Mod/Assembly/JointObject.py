@@ -1515,7 +1515,7 @@ class TaskAssemblyCreateJoint(QtCore.QObject):
         self.jForm.isolateType.currentIndexChanged.connect(self.updateIsolation)
 
         if self.activeType == "Part":
-            self.jForm.setWindowTitle("Match parts")
+            self.jForm.setWindowTitle(translate("Assembly", "Match parts"))
             self.jForm.jointType.hide()
             self.jForm.isolateType.hide()
 
