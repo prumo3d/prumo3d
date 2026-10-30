@@ -11,6 +11,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ## Em desenvolvimento
 
+### Novidades
+
+- **Esboço 3D: caixinha de comprimento junto do cursor**, como no esboço comum: mostra o comprimento ao vivo;
+  é só digitar o número (com o cursor na vista) e teclar Enter: a linha fica com essa medida e a próxima sai do
+  ponto novo.
+- **Esboço 3D: ímãs.** Perto de um ponto do esboço o cursor gruda nele (e a ponta fica presa ao ponto); perto
+  de uma linha, o ponto cai em cima dela; no eixo, a linha para alinhada com um ponto que já existe. Acaba a
+  linha que passa raspando ou por cima da outra.
+- **Tubulação ajusta o traçado às conexões.** Canto ou ramal desenhado fora dos ângulos que têm conexão na
+  linha (até 20° de diferença) gira sozinho para o ângulo da conexão, sem mudar os comprimentos: no PVC e na
+  rosca, joelho de 90° ou 45° e tê a 90°. Acontece ao criar a tubulação, ao dar OK no Esboço 3D que ela usa e
+  ao trocar a linha; também há o botão **Ajustar traçado às conexões** no painel.
+- **Aço: curva cortada.** Na linha de solda de topo, um canto de qualquer ângulo até 90° sai com a curva de 90°
+  raio longo cortada no ângulo (na lista: "Curva 90° raio longo … cortada a 73,3°"), com as duas soldas.
+
 ### Correções
 
 - **Aviso em inglês ao montar.** O "Ground Part?" que aparece ao inserir a primeira peça na montagem agora sai

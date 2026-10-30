@@ -585,9 +585,23 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     conexoes.append(_rec(rot, N(chave, dn=D), P, pern, L["corpo"][D], extras))
                     break
             else:
+                D = max(d1, d2)
+                if L.get("solda_topo") and tol <= desvio <= 90.0 + tol and D in L["joelho90"] and d1 == d2:
+                    # aço: curva de raio longo de 90° cortada no ângulo (o raio é o centro à face da de 90°)
+                    cf = L["joelho90"][D] * math.tan(math.radians(min(desvio, 90.0)) / 2.0)
+                    conferir("joelho90", D, "Curva 90° %s" % nome_dn(D))
+                    pern = [(s, p, u, dd, cf) for s, p, u, dd in ((s1, p1, u1, d1), (s2, p2, u2, d2))]
+                    for s, p, u, dd, c_ in pern:
+                        recuo[(s, p)] = c_ - bolsa[dd]
+                    conexoes.append(_rec("Curva cortada", "%s cortada a %s°" % (
+                        N("joelho90", dn=D), ("%.1f" % desvio).rstrip("0").rstrip(".").replace(".", ",")),
+                        P, pern, L["corpo"][D]))
+                    continue
                 avisos.append("Nó %d: a linha muda de direção em %.0f° entre os trechos %d e %d e não há "
-                              "conexão para isso no catálogo (use curvas de 90° ou 45°)."
-                              % (k + 1, desvio, s1 + 1, s2 + 1))
+                              "conexão para isso no catálogo (%s). Use Ajustar traçado às conexões."
+                              % (k + 1, desvio, s1 + 1, s2 + 1,
+                                 "uma curva vira no máximo 90°: use duas" if L.get("solda_topo")
+                                 else "só curvas de 90° e 45°"))
                 recuo[(s1, p1)] = recuo[(s2, p2)] = 0.0
             continue
         if n == 3:
@@ -597,8 +611,8 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                     if 180.0 - _ang(its[i][2], its[j][2]) < tol:
                         par = (i, j)
             if par is None:
-                avisos.append("Nó %d: três trechos sem dois alinhados — não há tê para essa geometria."
-                              % (k + 1))
+                avisos.append("Nó %d: três trechos sem dois alinhados — não há tê para essa geometria. "
+                              "Use Ajustar traçado às conexões." % (k + 1))
                 for s, p, u in its:
                     recuo[(s, p)] = 0.0
                 continue
@@ -637,7 +651,8 @@ def _montar(segs, dns, lid=CAT.PADRAO, tampar=False, registros=None, pontos=None
                 continue
             if abs(ang_r - 90.0) > tol:
                 avisos.append("Nó %d: ramal a %.1f° da linha principal; esta linha só tem "
-                              "%s." % (k + 1, ang_r, "tê a 90° e junção a 45°" if L.get("juncao") else "tê a 90°"))
+                              "%s. Use Ajustar traçado às conexões." % (
+                                  k + 1, ang_r, "tê a 90° e junção a 45°" if L.get("juncao") else "tê a 90°"))
                 for s, p, u in its:
                     recuo[(s, p)] = 0.0
                 continue
@@ -1115,7 +1130,7 @@ def _solido_conexao(c, L, k=1.0):
         return solido_flange(c, L)
     if c["tipo"] == "Válvula":
         return solido_valvula(c, L)
-    if L.get("solda_topo") and c["tipo"] in ("Joelho 90°", "Joelho 45°") and len(c["pernas"]) == 2 \
+    if L.get("solda_topo") and c["tipo"] in ("Joelho 90°", "Joelho 45°", "Curva cortada") and len(c["pernas"]) == 2 \
             and c["pernas"][0][3] == c["pernas"][1][3]:
         return solido_curva(c, L)
     if L.get("solda_topo") and c["tipo"] == "Luva de redução":
@@ -1435,7 +1450,162 @@ class Tubulacao:
         return None
 
 
-def criar(caminho, dn=25, lid=CAT.PADRAO, tampar=False, doc=None):
+# ======================================================================== ajustar o traçado às conexões
+TOL_AJUSTE = 20.0     # graus: até essa diferença o ângulo desenhado vira o da conexão (mais que isso, só avisa)
+
+
+def angulos_da_linha(L):
+    """(desvios de canto que têm conexão, ângulos de ramal que têm conexão, canto livre até 90°?)."""
+    cantos = [a for a, ch in ((90.0, "joelho90"), (45.0, "joelho45")) if L.get(ch)]
+    ramais = [90.0] + ([45.0, 135.0] if L.get("juncao") else [])
+    return cantos, ramais, bool(L.get("solda_topo"))
+
+
+def _girar_para(ref, u, alvo):
+    """Direção no plano de (ref, u) que faz `alvo` graus com ref, do lado de u."""
+    w = u - ref * u.dot(ref)
+    if w.Length < 1e-9:
+        return None
+    w.normalize()
+    a = math.radians(alvo)
+    v = ref * math.cos(a) + w * math.sin(a)
+    v.normalize()
+    return v
+
+
+def _mais_perto(valor, opcoes):
+    return min(opcoes, key=lambda o: abs(o - valor)) if opcoes else None
+
+
+def ajustes_do_tracado(pontos, segs, L, tol_max=TOL_AJUSTE, ancora=0):
+    """Novos pontos com os cantos e ramais nos ângulos que têm conexão na linha L, e a lista do que mudou.
+
+    Percorre o traçado a partir do ponto âncora: o que já foi visto fica parado e o trecho que sai do nó gira (no
+    plano dos dois trechos) até o ângulo da conexão mais próxima, levando junto o que vem depois (os
+    comprimentos não mudam). Só mexe quando a diferença é de até tol_max graus; acima disso fica como está (o
+    aviso da tubulação explica). Devolve (pontos, [(nó, de°, para°)])."""
+    import PrumoEsboco3D as E3
+    pts = [FreeCAD.Vector(p) for p in pontos]
+    tol = L.get("tol_ang", TOL_ANG)
+    cantos, ramais, canto_livre = angulos_da_linha(L)
+    # pontos no mesmo lugar (ramal preso a um ponto) andam juntos: ligações de comprimento zero
+    n = len(pts)
+    grupo = list(range(n))
+    for i in range(n):
+        for j in range(i):
+            if (pts[i] - pts[j]).Length < TOL_NO:
+                grupo[i] = grupo[j]
+                break
+    elos = [(i, grupo[i]) for i in range(n) if grupo[i] != i]
+    mudancas = []
+
+    def dirs(no):
+        """[(k, ponta que fica no nó, direção saindo do nó)] dos trechos que chegam no grupo `no`."""
+        r = []
+        for k, (i, j) in enumerate(segs):
+            for pi, pj in ((i, j), (j, i)):
+                if grupo[pi] == no:
+                    d = pts[pj] - pts[pi]
+                    if d.Length > 1e-9:
+                        d.normalize()
+                        r.append((k, pi, pj, d))
+        return r
+
+    def girar(k, pi, alvo_dir):
+        novos = E3.mudar_trecho(pts, list(segs) + elos, k, direcao=alvo_dir, ancora=pi)
+        if novos is None:
+            return False
+        pts[:] = novos
+        return True
+
+    visto = {grupo[ancora]}
+    fila = [grupo[ancora]]
+    while fila:
+        no = fila.pop(0)
+        its = dirs(no)
+        # quem já foi visto (o outro lado está num nó visitado) fica parado
+        fixos = [t for t in its if grupo[t[2]] in visto]
+        livres = [t for t in its if grupo[t[2]] not in visto]
+        if len(its) == 2 and len(fixos) == 1 and livres:
+            (_k, _pi, _pj, uf), (k, pi, pj, uo) = fixos[0], livres[0]
+            desvio = _ang(uf * -1.0, uo)
+            alvo = _mais_perto(desvio, [0.0] + cantos + ([90.0] if canto_livre else []))
+            livre = canto_livre and desvio <= 90.0 + tol          # aço: a curva cortada faz qualquer ângulo
+            if not livre and abs(alvo - desvio) > tol and abs(alvo - desvio) <= tol_max:
+                v = _girar_para(uf * -1.0, uo, alvo)
+                if v is not None and girar(k, pi, v):
+                    mudancas.append((no, desvio, alvo))
+        elif len(its) == 3:
+            # a corrida: o par mais perto de alinhado
+            pares = [(a, b) for a in range(3) for b in range(a + 1, 3)]
+            a, b = max(pares, key=lambda ab: _ang(its[ab[0]][3], its[ab[1]][3]))
+            r = 3 - a - b
+            c1, c2, rm = its[a], its[b], its[r]
+            if 180.0 - _ang(c1[3], c2[3]) > tol and 180.0 - _ang(c1[3], c2[3]) <= tol_max:
+                movel = c2 if grupo[c2[2]] not in visto else (c1 if grupo[c1[2]] not in visto else None)
+                fixo = c1 if movel is c2 else c2
+                if movel is not None and girar(movel[0], movel[1], fixo[3] * -1.0):
+                    mudancas.append((no, _ang(c1[3], c2[3]), 180.0))
+                    its = dirs(no)
+                    c1, c2, rm = its[a], its[b], its[r]
+            if grupo[rm[2]] not in visto:
+                ang_r = _ang(rm[3], c1[3])
+                alvo = _mais_perto(ang_r, ramais)
+                if abs(alvo - ang_r) > tol and abs(alvo - ang_r) <= tol_max:
+                    v = _girar_para(c1[3], rm[3], alvo)
+                    if v is not None and girar(rm[0], rm[1], v):
+                        mudancas.append((no, ang_r, alvo))
+        for t in dirs(no):
+            g = grupo[t[2]]
+            if g not in visto:
+                visto.add(g)
+                fila.append(g)
+    return pts, mudancas
+
+
+def ajustar_tracado(obj):
+    """Ajusta o Esboço 3D da tubulação aos ângulos das conexões da linha dela. Devolve a lista de mudanças
+    [(nó, de°, para°)] (vazia se nada mudou ou se o traçado não é um Esboço 3D)."""
+    import PrumoEsboco3D as E3
+    esb = obj.Caminho
+    if esb is None or not E3.e_esboco3d(esb):
+        return []
+    L = CAT.linha(obj.Linha)
+    constr = {int(k) for k in getattr(esb, "Construcao", [])}
+    todos = E3.segmentos(esb.Pontos, esb.Quebras, esb.Fechado)
+    segs = [sg for k, sg in enumerate(todos) if k not in constr]
+    novos, mud = ajustes_do_tracado(esb.Pontos, segs, L)
+    if not mud:
+        return []
+    # trecho que girou perde a restrição de eixo que não vale mais
+    rs = []
+    for r in esb.Restricoes:
+        t = r.split(":")
+        if t[0] == "eixo" and len(t) > 2:
+            k = int(t[1])
+            if 0 <= k < len(todos):
+                i, j = todos[k]
+                d = novos[j] - novos[i]
+                e = FreeCAD.Vector(*E3.EIXOS[t[2].strip().upper()])
+                if d.Length > 1e-9 and abs(abs(d.normalize().dot(e)) - 1.0) > 1e-6:
+                    continue
+        rs.append(r)
+    esb.Restricoes = rs
+    esb.Pontos = novos
+    esb.Document.recompute()
+    return mud
+
+
+def ajustar_dependentes(esboco):
+    """Depois de editar um Esboço 3D: ajusta os ângulos às conexões das tubulações que usam ele."""
+    feitas = []
+    for o in list(getattr(esboco, "InList", [])):
+        if e_tubulacao(o) and o.Caminho == esboco:
+            feitas += ajustar_tracado(o)
+    return feitas
+
+
+def criar(caminho, dn=25, lid=CAT.PADRAO, tampar=False, doc=None, ajustar=True):
     doc = doc or caminho.Document
     obj = doc.addObject("Part::FeaturePython", "Tubulacao")
     obj.Label = "Tubulação"
@@ -1444,6 +1614,13 @@ def criar(caminho, dn=25, lid=CAT.PADRAO, tampar=False, doc=None):
     obj.Linha = lid
     obj.Diametro = _dn_txt(dn, CAT.linha(lid))
     obj.TamparPontas = tampar
+    if ajustar:
+        try:
+            mud = ajustar_tracado(obj)
+            if mud:
+                FreeCAD.Console.PrintMessage("Prumo: traçado ajustado às conexões em %d ponto(s).\n" % len(mud))
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: ajuste do traçado: %s\n" % exc)
     if FreeCAD.GuiUp:
         VPTubulacao(obj.ViewObject)
         try:
@@ -1617,6 +1794,16 @@ if FreeCAD.GuiUp:
             self.caimento.toggled.connect(self._mudou)
             fl.addRow("", self.caimento)
             self.caimento.setVisible(bool(CAT.linha(obj.Linha).get("esgoto")))
+            self.bt_ajustar = QtWidgets.QPushButton("Ajustar traçado às conexões")
+            self.bt_ajustar.setToolTip("Gira os trechos do Esboço 3D para os ângulos que têm conexão nesta linha "
+                                       "(90° e 45° no PVC e na rosca; tê a 90°), sem mudar os comprimentos. "
+                                       "No aço, curva cortada faz qualquer canto até 90°.")
+            self.bt_ajustar.clicked.connect(self.ajustar_tracado)
+            fl.addRow("", self.bt_ajustar)
+            self.lb_ajuste = QtWidgets.QLabel("")
+            self.lb_ajuste.setWordWrap(True)
+            self.lb_ajuste.setObjectName("PrumoDica")
+            fl.addRow("", self.lb_ajuste)
             raiz.addWidget(card_l)
             card_s, ls = P.bloco("Trechos escolhidos na vista", "selecao")
             self.lb_sel = QtWidgets.QLabel()
@@ -1990,6 +2177,7 @@ if FreeCAD.GuiUp:
             if lid != self.obj.Linha:
                 self.obj.Linha = lid
                 self._encher_dn()
+                self.ajustar_tracado(avisar=False)   # outra linha, outros ângulos de conexão
             self.obj.Diametro = _dn_txt(self.dn.currentData(), CAT.linha(self.obj.Linha))
             self.obj.TamparPontas = self.cap.isChecked()
             self.obj.Caimento = self.caimento.isChecked()
@@ -1997,6 +2185,18 @@ if FreeCAD.GuiUp:
             self.obj.ClasseFlange = self.classe.currentData()
             self.caimento.setVisible(bool(CAT.linha(self.obj.Linha).get("esgoto")))
             self._atualizar()
+
+        def ajustar_tracado(self, avisar=True):
+            mud = ajustar_tracado(self.obj)
+            if mud:
+                txt = "; ".join("%s° → %s°" % (("%.1f" % de).rstrip("0").rstrip(".").replace(".", ","),
+                                                ("%.0f" % para)) for _n, de, para in mud[:6])
+                self.lb_ajuste.setText("Traçado ajustado em %d ponto(s): %s." % (len(mud), txt))
+                self._atualizar()
+            elif avisar:
+                self.lb_ajuste.setText("Os ângulos do traçado já têm conexão nesta linha (ou estão longe demais "
+                                       "de 90°/45° para ajustar sozinho).")
+            return mud
 
         def _dn_trecho(self, i, combo):
             if self._ocupado:

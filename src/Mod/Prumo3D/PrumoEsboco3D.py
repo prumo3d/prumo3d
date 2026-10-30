@@ -310,6 +310,7 @@ SENTIDOS = (("X", 1), ("X", -1), ("Y", 1), ("Y", -1), ("Z", 1), ("Z", -1))
 MODOS = ("EIXOS", "XY", "YZ", "ZX")
 # a linha gruda no eixo quando o mouse aponta a menos deste ângulo (na tela) dele; mais longe fica livre
 ANGULO_EIXO = 20.0
+IMA_PX = 12.0         # px: a esta distância do cursor um ponto do esboço "puxa" o cursor (ímã)
 CORES_EIXO = {"X": (0.85, 0.15, 0.15), "Y": (0.1, 0.6, 0.2), "Z": (0.15, 0.35, 0.9)}
 NOMES_DEFINICAO = {"sem": "Sem definição", "sub": "Subdefinido", "erro": "Não resolvido", "bem": "Bem definido"}
 CORES_DEFINICAO = {"sem": ("#C62828", "#FFFFFF"), "sub": ("#222222", "#FFFFFF"), "erro": ("#F7BE00", "#003A70"),
@@ -837,6 +838,44 @@ if FreeCAD.GuiUp:
                 self.vista.getSceneGraph().removeChild(self.raiz)
             except Exception:
                 pass
+
+    class CaixaComprimento(QtWidgets.QLineEdit):
+        """Caixinha de comprimento que anda junto do cursor na vista, como no esboço comum: mostra o
+        comprimento ao vivo e, ao digitar (com o cursor na vista), o número vai para ela; Enter fixa."""
+
+        def __init__(self):
+            super().__init__()
+            self.setWindowFlags(QtCore.Qt.ToolTip | QtCore.Qt.FramelessWindowHint)
+            self.setAttribute(QtCore.Qt.WA_ShowWithoutActivating, True)
+            self.setFocusPolicy(QtCore.Qt.NoFocus)
+            self.setReadOnly(True)
+            self.setAlignment(QtCore.Qt.AlignRight)
+            self.setFixedWidth(120)
+            self.digitando = False
+            self._estilo(False)
+
+        def _estilo(self, digitando):
+            self.digitando = digitando
+            borda = "#F7BE00" if digitando else "#003A70"
+            self.setStyleSheet("QLineEdit{border:2px solid %s; border-radius:3px; background:#FFFFFF; "
+                               "color:#003A70; font-weight:700; padding:1px 4px;}" % borda)
+
+        def mostrar(self, vista, pos, texto, digitando=False):
+            """pos: posição do cursor na vista (Coin: origem embaixo à esquerda)."""
+            try:
+                gv = vista.graphicsView()
+                pt = gv.mapToGlobal(QtCore.QPoint(int(pos[0]) + 18, gv.height() - int(pos[1]) + 14))
+            except Exception:
+                pt = QtGui.QCursor.pos() + QtCore.QPoint(18, 14)
+            self._estilo(digitando)
+            self.setText(texto)
+            self.move(pt)
+            if not self.isVisible():
+                self.show()
+
+        def esconder(self):
+            if self.isVisible():
+                self.hide()
 
     def _cursor_na_vista():
         w = QtWidgets.QApplication.widgetAt(QtGui.QCursor.pos())
@@ -1652,8 +1691,8 @@ if FreeCAD.GuiUp:
             if getattr(self, "auto", None) is not None and self.auto.isChecked():
                 n = len(pts) - 1
                 if coincide is not None and 0 <= coincide < n:
-                    if novo_trecho or n == 0:
-                        rs.append("coincidente:%d:%d" % (n, coincide))
+                    # começo de ramal ou ponta que fecha num ponto do esboço: os dois ficam presos
+                    rs.append("coincidente:%d:%d" % (n, coincide))
                 if not novo_trecho and n > 0:
                     e = eixo_de(p - pts[n - 1])
                     k = len(segmentos(pts, quebras, False)) - 1
@@ -1736,6 +1775,7 @@ if FreeCAD.GuiUp:
             self._cb = vista.addEventCallback("SoMouseButtonEvent", self._clique)
             self._cb_mov = vista.addEventCallback("SoLocation2Event", self._mover)
             self._previa = Previa(vista)
+            self._caixa = CaixaComprimento()
             self._filtro = FiltroTeclas(self)
             QtWidgets.QApplication.instance().installEventFilter(self._filtro)
             self._mostrar_estado()
@@ -1752,6 +1792,13 @@ if FreeCAD.GuiUp:
                 QtWidgets.QApplication.instance().removeEventFilter(self._filtro)
             if self._previa is not None:
                 self._previa.remover()
+            if getattr(self, "_caixa", None) is not None:
+                try:
+                    self._caixa.hide()
+                    self._caixa.deleteLater()
+                except Exception:
+                    pass
+            self._caixa = None
             self._cb = self._cb_mov = self._vista = self._filtro = self._previa = None
             self._candidato = None
 
@@ -1775,6 +1822,8 @@ if FreeCAD.GuiUp:
                 self._previa.linha(None, None)
                 self._previa.rotulo(None, "")
                 self._previa.triade(None, 0)
+            if getattr(self, "_caixa", None) is not None:
+                self._caixa.esconder()
             self._mostrar_estado()
 
         # ---- comprimento digitado durante o desenho
@@ -1855,13 +1904,20 @@ if FreeCAD.GuiUp:
                 return
             c = self._candidato
             ini = self._ultimo_global()
+            caixa = getattr(self, "_caixa", None)
             if ini is None or not c or c[0] is None:
                 self._previa.rotulo(None, "")
+                if caixa is not None:
+                    caixa.esconder()
                 return
+            # o comprimento vai na caixinha junto do cursor (o texto na vista fica só com o tipo do encaixe)
             if self._digitado:
-                self._previa.rotulo(c[0], "%s mm  (Enter)" % self._digitado)
+                texto = "%s mm" % self._digitado
             else:
-                self._previa.rotulo(c[0], "%s mm" % PrumoUtil.fmt((FreeCAD.Vector(c[0]) - ini).Length, 1))
+                texto = "%s mm" % PrumoUtil.fmt((FreeCAD.Vector(c[0]) - ini).Length, 1)
+            self._previa.rotulo(c[0], "" if caixa is not None else texto)
+            if caixa is not None and self._ultimo_mouse is not None and self._vista is not None:
+                caixa.mostrar(self._vista, self._ultimo_mouse, texto, bool(self._digitado))
 
         def _base_global(self):
             pts = self.pontos()
@@ -1916,6 +1972,84 @@ if FreeCAD.GuiUp:
             sinal = 1 if t > 0 else -1
             return eixo, sinal, base + FreeCAD.Vector(*EIXOS[eixo]) * t
 
+        # ---- ímãs (pontos e linhas do próprio esboço)
+        def _tela(self, p_global, vista=None):
+            v = vista or self._vista
+            return tuple(v.getPointOnScreen(p_global))[:2]
+
+        def _pontos_globais(self):
+            pl = self.obj.Placement
+            return [pl.multVec(FreeCAD.Vector(q)) for q in self.obj.Pontos]
+
+        def _ima_ponto(self, pos, raio=IMA_PX):
+            """(ponto global, índice) do ponto do esboço a até `raio` px do cursor (fora o próprio último ponto)."""
+            pts = self._pontos_globais()
+            base_idx = len(pts) - 1 if (pts and not self._ramal_pendente) else None
+            melhor = None
+            for i, q in enumerate(pts):
+                if i == base_idx or (base_idx is not None and (q - pts[base_idx]).Length < 1e-6):
+                    continue
+                try:
+                    sx, sy = self._tela(q)
+                except Exception:
+                    return None
+                d = math.hypot(sx - pos[0], sy - pos[1])
+                if d <= raio and (melhor is None or d < melhor[0]):
+                    melhor = (d, q, i)
+            return None if melhor is None else (melhor[1], melhor[2])
+
+        def _ima_trecho(self, pos, raio=IMA_PX * 0.75):
+            """(ponto global sobre a linha, índice da linha) a até `raio` px do cursor, fora das pontas e das
+            linhas que saem do último ponto."""
+            pts = self._pontos_globais()
+            base = pts[-1] if (pts and not self._ramal_pendente) else None
+            melhor = None
+            for k, (i, j) in enumerate(self.segs()):
+                a, b = pts[i], pts[j]
+                if base is not None and ((a - base).Length < 1e-6 or (b - base).Length < 1e-6):
+                    continue
+                try:
+                    (ax, ay), (bx, by) = self._tela(a), self._tela(b)
+                except Exception:
+                    return None
+                vx, vy = bx - ax, by - ay
+                l2 = vx * vx + vy * vy
+                if l2 < 1.0:
+                    continue
+                t = ((pos[0] - ax) * vx + (pos[1] - ay) * vy) / l2
+                if t <= 0.03 or t >= 0.97:
+                    continue
+                d = math.hypot(ax + vx * t - pos[0], ay + vy * t - pos[1])
+                if d <= raio and (melhor is None or d < melhor[0]):
+                    melhor = (d, a + (b - a) * t, k)
+            return None if melhor is None else (melhor[1], melhor[2])
+
+        def _ima_alinhado(self, pos, base, r):
+            """No eixo: se a ponta passa perto (na tela) do alinhamento de um ponto do esboço com o eixo, a
+            linha para exatamente ali (ponto, tipo)."""
+            eixo, sinal, fim = r
+            e = FreeCAD.Vector(*EIXOS[eixo])
+            try:
+                fx, fy = self._tela(fim)
+            except Exception:
+                return None
+            melhor = None
+            for i, q in enumerate(self._pontos_globais()):
+                t = (q - base).dot(e)
+                if abs(t) < 1e-6 or (t > 0) != (sinal > 0):
+                    continue
+                cand = base + e * t
+                try:
+                    cx, cy = self._tela(cand)
+                except Exception:
+                    return None
+                d = math.hypot(cx - fx, cy - fy)
+                if d <= IMA_PX * 0.75 and (melhor is None or d < melhor[0]):
+                    melhor = (d, cand, i)
+            if melhor is None:
+                return None
+            return melhor[1], "eixo %s%s, alinhado com P%d" % ("+" if sinal > 0 else "−", eixo, melhor[2] + 1)
+
         def _plano_de_frente(self):
             """Plano coordenado mais de frente para a vista (o ponto livre cai nele)."""
             try:
@@ -1944,6 +2078,12 @@ if FreeCAD.GuiUp:
                             self._idx_encaixe = dist.index(min(dist))
                             return p, "ponto P%d do esboço" % (self._idx_encaixe + 1)
                     return p, tipo
+            # ímãs: perto de um ponto do esboço o cursor gruda nele; perto de uma linha, cai em cima dela
+            # (assim a linha nova liga na outra em vez de passar raspando ou por cima)
+            r = self._ima_ponto(pos)
+            if r is not None:
+                self._idx_encaixe = r[1]
+                return r[0], "ponto P%d do esboço" % (r[1] + 1)
             base = self._base_global()
             plano = self.plano
             if self.modo == "EIXOS":
@@ -1951,8 +2091,18 @@ if FreeCAD.GuiUp:
                     r = self._eixo_pelo_mouse(pos, base)
                     if r is not None:
                         self._eixo_ativo = r[0]
+                        al = self._ima_alinhado(pos, base, r)
+                        if al is not None:
+                            return al
                         return r[2], "eixo %s%s" % ("+" if r[1] > 0 else "−", r[0])
+                r = self._ima_trecho(pos)
+                if r is not None:
+                    return r[0], "sobre a linha %d" % (r[1] + 1)
                 plano = self._plano_de_frente()
+            else:
+                r = self._ima_trecho(pos)
+                if r is not None:
+                    return r[0], "sobre a linha %d" % (r[1] + 1)
             p0, d = self._raio_da_vista(pos)
             p = no_plano(p0, d, base, plano)
             if p is None:
@@ -2049,6 +2199,15 @@ if FreeCAD.GuiUp:
 
         def accept(self):
             self._sair()
+            # tubulação sobre este esboço: os cantos e ramais vão para os ângulos das conexões da linha
+            try:
+                import PrumoTubulacao
+                mud = PrumoTubulacao.ajustar_dependentes(self.obj)
+                if mud:
+                    FreeCAD.Console.PrintMessage("Prumo: traçado ajustado às conexões da tubulação em %d "
+                                                 "ponto(s).\n" % len(mud))
+            except Exception as exc:
+                FreeCAD.Console.PrintLog("Prumo: ajuste às conexões: %s\n" % exc)
             self.doc.commitTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()

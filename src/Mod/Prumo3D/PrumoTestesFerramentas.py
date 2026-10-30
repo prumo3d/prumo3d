@@ -6671,16 +6671,22 @@ class T52Esboco3D(unittest.TestCase):
         try:
             # cursor quase sobre o eixo X: rótulo mostra o comprimento ao vivo
             pn._candidato = (V(300, 4, 0), "plano XY")
+            pn._ultimo_mouse = (200, 200)
             pn._atualizar_rotulo()
-            self.assertIn("300", pn._previa.txt.string.getValues()[0])
+            # a caixinha de comprimento anda junto do cursor, como no esboço comum
+            self.assertTrue(pn._caixa.isVisible())
+            self.assertIn("300", pn._caixa.text())
+            self.assertFalse(pn._caixa.digitando)
             for c in "1250":
                 self.assertTrue(tecla(getattr(QtCore.Qt, "Key_" + c), c))
-            self.assertIn("1250 mm", pn._previa.txt.string.getValues()[0])
+            self.assertEqual(pn._caixa.text(), "1250 mm")
+            self.assertTrue(pn._caixa.digitando)
             self.assertTrue(tecla(QtCore.Qt.Key_Return))
             self.assertEqual(len(o.Pontos), 2)
             self.assertTrue(o.Pontos[1].isEqual(V(1250, 0, 0), 1e-6), o.Pontos[1])
             self.assertIn("comprimento:0:1250", list(o.Restricoes))
             self.assertIn("eixo:0:X", list(o.Restricoes))
+            self.assertFalse(pn._caixa.digitando)                 # a próxima linha sai do ponto novo
             # direção livre (diagonal) e vírgula decimal; Backspace corrige
             pn._candidato = (V(1250 + 300, 300, 0), "plano XY")
             for c, k in (("1", QtCore.Qt.Key_1), ("0", QtCore.Qt.Key_0), ("9", QtCore.Qt.Key_9)):
@@ -6893,6 +6899,50 @@ class T52Esboco3D(unittest.TestCase):
         pn._mover({"Position": tela(o.Pontos[1] + V(0, 0, 500))})
         self.assertEqual(pn._previa.ativo, "Z")
         self.assertEqual(pn._previa.sep_triade.getNumChildren(), 3)
+        pn.bt_clicar.setChecked(False)
+        pn.accept()
+
+    def test_imas_nos_pontos_e_nas_linhas(self):
+        """Perto de um ponto do esboço o cursor gruda nele (e a ponta fica presa); perto de uma linha, cai em
+        cima dela; no eixo, para alinhado com um ponto existente."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pn = E.abrir_painel()
+        o = pn.obj
+        for p in ((0, 0, 0), (1000, 0, 0), (1000, 800, 0)):
+            pn.adicionar(V(*p))
+        v = self._vista_iso()
+        v.fitAll()
+        FreeCADGui.updateGui()
+        pn.bt_clicar.setChecked(True)
+
+        def tela(p):
+            return tuple(int(c) for c in v.getPointOnScreen(p))[:2]
+        x, y = tela(V(0, 0, 0))
+        p, tipo = pn.ponto_em((x + 6, y - 5))                   # 8 px do P1
+        self.assertEqual(tipo, "ponto P1 do esboço")
+        self.assertTrue(p.isEqual(V(0, 0, 0), 1e-6))
+        pn._clique({"Button": "BUTTON1", "State": "DOWN", "Position": (x + 6, y - 5)})
+        self.assertIn("coincidente:3:0", list(o.Restricoes))     # fechou no P1 e ficou preso
+        self.assertEqual(len(o.Shape.Wires), 1)
+        # começa um ramal e passa perto do meio da primeira linha: cai em cima dela
+        pn.bt_ramal.setChecked(True)
+        mx, my = tela(V(500, 0, 0))
+        p, tipo = pn.ponto_em((mx + 3, my + 4))
+        self.assertTrue(tipo.startswith("sobre a linha 1"), tipo)
+        self.assertAlmostEqual(p.y, 0.0, 6)
+        self.assertAlmostEqual(p.z, 0.0, 6)
+        # no eixo: a linha para alinhada com um ponto que já existe
+        pn.bt_ramal.setChecked(False)
+        pn.adicionar(V(0, 400, 0))                              # ramal novo a partir daqui (ponto solto)
+        q = tela(V(1000, 400, 0) + V(0, 0, 0))
+        p, tipo = pn.ponto_em(q)
+        self.assertIn("eixo +X", tipo)
+        p2, tipo2 = pn.ponto_em((q[0] + 4, q[1] + 2))
+        if "alinhado" in tipo2:
+            self.assertAlmostEqual(p2.x, 1000.0, 6)
         pn.bt_clicar.setChecked(False)
         pn.accept()
 
@@ -13241,6 +13291,124 @@ class T89NovidadesDoZW3D(unittest.TestCase):
                 self.assertIn(c, FreeCADGui.listCommands())
 
 
+class T90TracadoNasConexoes(unittest.TestCase):
+    """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
+    rosca vão para 90°/45°; no aço, a curva cortada faz qualquer canto até 90°)."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteTracado")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _torto(self):
+        V = FreeCAD.Vector
+        return [V(0, 0, 0), V(1000, 0, 0), V(1300, 1000, 0), V(1300, 1000, 800)]     # canto de ~73°
+
+    def test_ajuste_puro_mantem_comprimentos(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        import PrumoEsboco3D as E
+        pts = self._torto()
+        segs = E.segmentos(pts, [], False)
+        novos, mud = T.ajustes_do_tracado(pts, segs, C.linha(C.PADRAO))
+        self.assertEqual(len(mud), 1)
+        self.assertAlmostEqual(mud[0][2], 90.0)
+        for i, j in segs:
+            self.assertAlmostEqual((novos[j] - novos[i]).Length, (pts[j] - pts[i]).Length, 6)
+        r = T._montar([(novos[i], novos[j]) for i, j in segs], [25] * 3, C.PADRAO)
+        self.assertEqual([c["tipo"] for c in r["conexoes"]], ["Joelho 90°", "Joelho 90°"])
+        self.assertEqual(r["avisos"], [])
+        # longe demais de 0°, 45° e 90° (22° de desvio): não mexe
+        V = FreeCAD.Vector
+        p2 = [V(0, 0, 0), V(1000, 0, 0), V(1000 + 927.2, 374.6, 0)]
+        _n, mud2 = T.ajustes_do_tracado(p2, E.segmentos(p2, [], False), C.linha(C.PADRAO))
+        self.assertEqual(mud2, [])
+
+    def test_tres_trechos_tortos_viram_te(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        pts = [V(0, 0, 0), V(1000, 0, 0), V(1990, 150, 0), V(1000, 0, 0), V(1100, 900, 0)]
+        segs = E.segmentos(pts, [3], False)
+        novos, mud = T.ajustes_do_tracado(pts, segs, C.linha(C.PADRAO))
+        self.assertEqual(len(mud), 2)
+        r = T._montar([(novos[i], novos[j]) for i, j in segs], [25] * 3, C.PADRAO)
+        self.assertEqual([c["tipo"] for c in r["conexoes"]], ["Tê"])
+        self.assertEqual(r["avisos"], [])
+
+    def test_aco_faz_curva_cortada(self):
+        import PrumoTubulacao as T
+        import PrumoCatalogoTubos as C
+        import PrumoEsboco3D as E
+        pts = self._torto()
+        segs = E.segmentos(pts, [], False)
+        lid = "aco-topo-sch40"
+        L = C.linha(lid)
+        _n, mud = T.ajustes_do_tracado(pts, segs, L)
+        self.assertEqual(mud, [], "no aço o canto de 73° não precisa mudar")
+        r = T._montar([(pts[i], pts[j]) for i, j in segs], [50] * 3, lid)
+        c = r["conexoes"][0]
+        self.assertEqual(c["tipo"], "Curva cortada")
+        self.assertIn("cortada a 73,3°", c["desc"])
+        desvio = T._ang(c["pernas"][0][2] * -1.0, c["pernas"][1][2])
+        self.assertAlmostEqual(c["pernas"][0][4], L["joelho90"][50] * math.tan(math.radians(desvio) / 2.0), 6)
+        self.assertEqual(r["avisos"], [])
+        sh = T.forma(r)
+        self.assertTrue(sh.isValid())
+        self.assertIn("Curva cortada", [x["tipo"] for x in r["conexoes"]])
+        # duas soldas na curva cortada (uma em cada ponta)
+        self.assertGreaterEqual(T.soldas_de_topo(r), 4)
+
+    def test_criar_tubulacao_ajusta_o_esboco(self):
+        import PrumoTubulacao as T
+        import PrumoEsboco3D as E
+        e = E.criar(self.doc, self._torto())
+        e.Restricoes = ["eixo:0:X", "eixo:2:Z", "comprimento:1:1044.03"]
+        self.doc.recompute()
+        t = T.criar(e, dn=25)
+        self.assertEqual(list(t.Avisos), [])
+        self.assertEqual(sorted(t.Conexoes), ["2 × Joelho 90° soldável 25 mm"])
+        p = e.Pontos
+        self.assertAlmostEqual((p[2] - p[1]).Length, 1044.03, 1)
+        self.assertAlmostEqual(p[2].x, 1000.0, 3)                    # o trecho do meio virou +Y
+        self.assertIn("eixo:2:Z", list(e.Restricoes))
+        # quem não quer o ajuste
+        e2 = E.criar(self.doc, self._torto())
+        t2 = T.criar(e2, dn=25, ajustar=False)
+        self.assertTrue(any("Ajustar traçado" in a for a in t2.Avisos), t2.Avisos)
+
+    def test_editar_o_esboco_reajusta_a_tubulacao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTubulacao as T
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        e = E.criar(self.doc, [V(0, 0, 0), V(1000, 0, 0), V(1000, 1000, 0)])
+        t = T.criar(e, dn=25)
+        self.assertEqual(list(t.Avisos), [])
+        pn = E.abrir_painel(e)
+        pn.adicionar(V(1000 + 1000, 1000 + 300, 0))          # canto torto no fim (~73°)
+        pn.accept()
+        self.doc.recompute()
+        self.assertEqual(list(t.Avisos), [], t.Avisos)
+        self.assertEqual(sorted(t.Conexoes), ["2 × Joelho 90° soldável 25 mm"])
+        # o botão do painel da tubulação faz o mesmo
+        e.Pontos = list(e.Pontos[:3]) + [V(1300, 2000, 0)]
+        self.doc.recompute()
+        self.assertTrue(t.Avisos)
+        pt = T.abrir_painel(t)
+        mud = pt.ajustar_tracado()
+        self.assertTrue(mud)
+        self.assertIn("ajustado", pt.lb_ajuste.text())
+        pt.accept()
+        self.assertEqual(list(t.Avisos), [])
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13264,4 +13432,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T81DesenhoVistasProntas, T82MontagemComoSolidCraft,
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
-           T88CatalogosSteelStructures, T89NovidadesDoZW3D]
+           T88CatalogosSteelStructures, T89NovidadesDoZW3D,
+           T90TracadoNasConexoes]
