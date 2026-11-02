@@ -2795,6 +2795,65 @@ class T30Faixa(unittest.TestCase):
         for _ in range(5):
             FreeCADGui.updateGui()
 
+    def test_bancada_instalada_ganha_aba_sozinha(self):
+        """Complemento instalado (bancada na pasta Mod do usuário) aparece como aba, sem ativar nada."""
+        import os
+        import shutil
+        nome = "PrumoTesteBancadaExternaWorkbench"
+        pasta = os.path.join(FreeCAD.getUserAppDataDir(), "Mod", "PrumoTesteBancadaExterna")
+        os.makedirs(pasta, exist_ok=True)
+        with open(os.path.join(pasta, "InitGui.py"), "w", encoding="utf-8") as f:
+            f.write("class %s(Workbench):\n    MenuText = 'Bancada de teste'\n" % nome)
+
+        class Cmd:
+            def GetResources(self):
+                return {"MenuText": "Comando de teste", "ToolTip": "teste"}
+
+            def Activated(self):
+                pass
+
+            def IsActive(self):
+                return True
+        FreeCADGui.addCommand("PrumoTeste_CmdExterno", Cmd())
+
+        class BancadaTeste(FreeCADGui.Workbench):
+            MenuText = "Bancada de teste"
+
+            def Initialize(self):
+                self.appendToolbar("Ferramentas de teste", ["PrumoTeste_CmdExterno"])
+
+            def GetClassName(self):
+                return "Gui::PythonWorkbench"
+        BancadaTeste.__name__ = nome
+        FreeCADGui.addWorkbench(BancadaTeste())
+        try:
+            self.assertIn((nome, "Bancada de teste"), self.R.bancadas_externas())
+            novas = self.rb.atualizar_abas_externas()
+            self.assertEqual([t["wb"] for t in novas], [nome])
+            idx = self.rb.tab_index("ext:" + nome)
+            self.assertGreaterEqual(idx, 0)
+            self.assertEqual(self.rb.tabbar.tabText(idx), "Bancada de teste")
+            self.assertEqual(self.rb.atualizar_abas_externas(), [], "não repete a aba")
+            # clicar na aba ativa a bancada e mostra as ferramentas dela
+            self.rb.select_tab("ext:" + nome, user=True)
+            for _ in range(10):
+                FreeCADGui.updateGui()
+            self.assertEqual(FreeCADGui.activeWorkbench().name(), nome)
+            tab = self.rb._tabs[self.rb.tab_index("ext:" + nome)]
+            cmds = [c for _t, itens in tab["panels"] for c, *_r in itens]
+            self.assertIn("PrumoTeste_CmdExterno", cmds)
+        finally:
+            FreeCADGui.activateWorkbench("PartDesignWorkbench")
+            try:
+                FreeCADGui.removeWorkbench(nome)
+            except Exception:
+                pass
+            i = self.rb.tab_index("ext:" + nome)
+            if i >= 0:
+                self.rb._tabs.pop(i)
+                self.rb.tabbar.removeTab(i)
+            shutil.rmtree(pasta, ignore_errors=True)
+
     def test_faixa_escondida_pelo_estado_salvo_volta(self):
         """Um estado da janela salvo com a faixa oculta não pode fazer a faixa sumir de vez."""
         bar = self.R._state["bar"]

@@ -380,6 +380,57 @@ TABS = [
 
 STD_TOOLBARS = {"File", "Edit", "Clipboard", "Workbench", "Macro", "View", "Individual Views", "Structure", "Help"}
 
+
+def _classes_workbench(pasta):
+    """Nomes das classes de bancada definidas nos InitGui.py / init_gui.py de uma pasta de complemento."""
+    import os
+    import re
+    nomes = []
+    padrao = re.compile(r"^class\s+(\w+)\s*\(\s*(?:FreeCADGui\.|Gui\.)?Workbench\s*\)", re.M)
+    for raiz, subpastas, arquivos in os.walk(pasta):
+        subpastas[:] = [d for d in subpastas if not d.startswith((".", "__"))]
+        if raiz[len(pasta):].count(os.sep) > 3:
+            subpastas[:] = []
+        for a in arquivos:
+            if a in ("InitGui.py", "init_gui.py"):
+                try:
+                    with open(os.path.join(raiz, a), encoding="utf-8", errors="ignore") as f:
+                        nomes += padrao.findall(f.read())
+                except OSError:
+                    pass
+    return nomes
+
+
+def bancadas_externas():
+    """[(nome da bancada, rótulo)] das bancadas instaladas pelo usuário (complementos na pasta Mod dos dados do
+    usuário), ligadas e sem aba própria do Prumo. Cada uma ganha uma aba na faixa, sem precisar ativar nada."""
+    import os
+    try:
+        mod = os.path.join(FreeCAD.getUserAppDataDir(), "Mod")
+        pastas = [os.path.join(mod, d) for d in sorted(os.listdir(mod)) if os.path.isdir(os.path.join(mod, d))]
+    except OSError:
+        pastas = []
+    try:
+        import PrumoGui
+        desligadas = set(PrumoGui.bancadas_desligadas())
+    except Exception:
+        desligadas = set()
+    proprias = {t.get("wb") for t in TABS} | {w for t in TABS for w in t.get("wb_extra", ())}
+    proprias |= {"PrumoWorkbench", "StartWorkbench", "NoneWorkbench"}
+    try:
+        registradas = FreeCADGui.listWorkbenches()
+    except Exception:
+        registradas = {}
+    r = []
+    for pasta in pastas:
+        if os.path.basename(pasta) == "Prumo3D":
+            continue
+        for nome in _classes_workbench(pasta):
+            if nome in registradas and nome not in desligadas and nome not in proprias and nome not in [x[0] for x in r]:
+                wb = registradas[nome]
+                r.append((nome, WB_NAMES.get(nome) or getattr(wb, "MenuText", nome) or nome))
+    return r
+
 RIBBON_QSS = """
 #PrumoRibbon { background: #FFFFFF; }
 #PrumoTabRow { background: #F5F8FC; border-bottom: 1px solid #DCE4EC; }
@@ -1354,14 +1405,20 @@ class PrumoRibbon(QtWidgets.QWidget):
         if name == "StartWorkbench" or name == "NoneWorkbench":
             self.select_tab("inicio")
             return
+        for t in self.atualizar_abas_externas():
+            if t["wb"] == name:
+                self.select_tab(t["id"])
+                return
         self._make_dynamic(name)
 
-    def _make_dynamic(self, name):
+    @staticmethod
+    def _paineis_da_bancada_ativa():
+        """Painéis montados das barras de ferramentas da bancada ativa (as que não são do FreeCAD comum)."""
         try:
             wb = FreeCADGui.activeWorkbench()
             items = wb.getToolbarItems()
         except Exception:
-            items = {}
+            wb, items = None, {}
         mw = FreeCADGui.getMainWindow()
         panels = []
         for tbname, cmds in items.items():
@@ -1376,6 +1433,44 @@ class PrumoRibbon(QtWidgets.QWidget):
                 entries.append((c, L if not entries else S, None))
             if entries:
                 panels.append((title, entries))
+        return wb, panels
+
+    def atualizar_abas_externas(self):
+        """Uma aba para cada bancada instalada pelo usuário (complemento), logo que ela aparece. Devolve as
+        abas novas."""
+        novas = []
+        ja = {t.get("wb") for t in self._tabs}
+        for nome, rotulo in bancadas_externas():
+            if nome in ja:
+                continue
+            tab = {"id": "ext:" + nome, "label": rotulo, "wb": nome, "panels": [], "externa": True}
+            self._building = True
+            try:
+                # antes da aba temporária (que fica sempre por último)
+                if self._dynamic is not None and self._tabs and self._tabs[-1] is self._dynamic:
+                    pos = len(self._tabs) - 1
+                    self._tabs.insert(pos, tab)
+                    self.tabbar.insertTab(pos, rotulo)
+                else:
+                    self._tabs.append(tab)
+                    self.tabbar.addTab(rotulo)
+            finally:
+                self._building = False
+            novas.append(tab)
+        if novas and self._dynamic is not None and any(t["wb"] == self._dynamic.get("wb") for t in novas):
+            # a bancada que estava na aba temporária ganhou aba própria: a temporária sai
+            i = self._tabs.index(self._dynamic)
+            self._building = True
+            try:
+                self._tabs.pop(i)
+                self.tabbar.removeTab(i)
+            finally:
+                self._building = False
+            self._dynamic = None
+        return novas
+
+    def _make_dynamic(self, name):
+        wb, panels = self._paineis_da_bancada_ativa()
         label = WB_NAMES.get(name) or getattr(wb, "MenuText", name)
         tab = {"id": "dyn", "label": label, "wb": name, "panels": panels}
         self._building = True
@@ -1417,6 +1512,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         """Monta a aba. tudo=True mostra também o que esta situação esconderia (usado pelo "Mostrar onde"
         do guia e do tutorial); volta ao normal na próxima mudança de situação."""
         self._precarregar(tab)
+        if tab.get("externa"):
+            try:
+                ativa = FreeCADGui.activeWorkbench().name()
+            except Exception:
+                ativa = None
+            if ativa == tab.get("wb"):
+                _wb, tab["panels"] = self._paineis_da_bancada_ativa()
         page = QtWidgets.QWidget()
         page.setObjectName("PrumoPage")
         page.setAttribute(QtCore.Qt.WA_StyledBackground, True)
@@ -1974,6 +2076,8 @@ def install():
     _hide_native_toolbars()
     _apply_global_qss()
     ribbon.sync_workbench()
+    # bancadas instaladas pelo usuário ganham aba própria, sem precisar ativar em Preferências
+    QtCore.QTimer.singleShot(1500, ribbon.atualizar_abas_externas)
     return ribbon
 
 

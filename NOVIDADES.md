@@ -9,6 +9,14 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Bancada instalada já ganha aba.** Um complemento instalado (ex.: Solar, Movie) aparece como aba na faixa logo
+  ao abrir o Prumo, sem ir em Preferências nem escolher a bancada no menu; clicar na aba abre a bancada com as
+  ferramentas dela.
+
 ## 1.2.4 — 02/11/2026
 
 ### Correções
