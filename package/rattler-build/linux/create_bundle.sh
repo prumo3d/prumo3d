@@ -83,6 +83,9 @@ echo -e "################"
 pixi list -e default > AppDir/packages.txt || true
 sed -i "1s/.*/\nLIST OF PACKAGES:/" AppDir/packages.txt
 
+# Prumo 3D: o cv2 vem com o caminho absoluto do ambiente de montagem gravado; vira relativo à pasta dele
+"${conda_env}/bin/python" ../../scripts/corrigir_cv2.py "${conda_env}"
+
 echo "Running Prumo 3D command-line smoke test..."
 if ! "${conda_env}/bin/prumo3dcmd" --safe-mode --version; then
     echo "Prumo 3D command-line smoke test failed; the Linux bundle cannot start."

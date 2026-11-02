@@ -9,6 +9,15 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Correções
+
+- **OpenCV (cv2) no computador de quem instala.** Na 1.2.3 o cv2 importava na máquina que monta o pacote, mas não
+  no computador do usuário ("recursion is detected during loading of cv2 binary extensions"): os arquivos de
+  configuração do cv2 guardavam o caminho da pasta de montagem. Agora os caminhos são relativos à pasta do próprio
+  cv2, e o empacotamento recusa o pacote se sobrar caminho absoluto.
+
 ## 1.2.3 — 02/11/2026
 
 ### Novidades

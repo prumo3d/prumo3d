@@ -71,6 +71,9 @@ if [ -x /c/ProgramData/chocolatey/tools/shimgen.exe ]; then
     popd
 fi
 
+# Prumo 3D: o cv2 vem com o caminho absoluto do ambiente de montagem gravado; vira relativo à pasta dele
+"${copy_dir}"/bin/python.exe ../../scripts/corrigir_cv2.py "${copy_dir}"
+
 python_version=$("${copy_dir}"/bin/python.exe -c 'import platform; print("py" + platform.python_version_tuple()[0] + platform.python_version_tuple()[1])')
 version_name="Prumo3D_${BUILD_TAG}-Windows-$(uname -m)-${python_version}"
 
