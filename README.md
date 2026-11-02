@@ -27,12 +27,11 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.3** (02/11/2026)
+**Versão atual: 1.2.4** (02/11/2026)
 
-- **Junta inteligente na montagem:** escolha duas faces, arestas ou pontos e o Prumo põe a junta certa pela forma
-  (eixo e furo = concêntrica, faces planas = coincidente, cilindro na face = tangente), com a peça já no lugar.
-- **OpenCV (cv2) no pacote:** as bancadas que gravam e leem vídeo com o cv2 voltam a funcionar.
+- **OpenCV (cv2) corrigido:** na 1.2.3 ele não importava no computador do usuário; agora funciona (bancada Movie).
 
+Na 1.2.3: junta inteligente na montagem; OpenCV no pacote.
 Na 1.2.2: tubulação ajusta o traçado às conexões e curva cortada no aço; caixinha de comprimento e ímãs no
 Esboço 3D; aviso da montagem em português; vistas no meio da folha.
 Na 1.2.1: válvulas na linha de aço; perfis Gerdau, Tuper, Ue e barras; Esboço 3D como no ZW3D;
