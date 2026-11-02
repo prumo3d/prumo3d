@@ -65,7 +65,7 @@ TABS = [
             ("Std_ViewFront", S, "Frontal"), ("Std_ViewTop", S, "Superior"), ("Std_ViewRight", S, "Direita"),
             ("Std_ViewRear", S, "Traseira"), ("Std_ViewBottom", S, "Inferior"), ("Std_ViewLeft", S, "Esquerda"),
             ("Std_ViewFitSelection", S, "Enquadrar seleção"), ("Std_DrawStyle", S, "Estilo de exibição"),
-            ("Std_AlignToSelection", S, "Alinhar à seleção"),
+            ("Std_AlignToSelection", S, "Alinhar à seleção"), ("Prumo_Sombras", S, "Sombras"),
         ]),
         ("Ferramentas", [
             ("Std_Measure", L, "Medir"), ("Part_SelectFilter", S, "Filtro de seleção"),
