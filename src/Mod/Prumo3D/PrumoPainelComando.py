@@ -3129,7 +3129,28 @@ class PainelJunta(_Base):
                 "nums": tuple(f.numero(n) for n, _l, _u in self.MEDIDAS),
                 "lim": tuple((f.visivel(c), bool(f.check(c).isChecked()) if f.check(c) else False)
                              for c, _s, _r, _u in self.LIMITES),
-                "isolar": f.indice("isolateType")}
+                "isolar": f.indice("isolateType"), "aviso": self._aviso_da_tarefa()[0]}
+
+    def _aviso_da_tarefa(self):
+        """(texto, tipo, botão de conserto ou None) do aviso do Prumo na tarefa da junta (junta inteligente,
+        conferência da tangente...): ele fica no formulário do FreeCAD, que está escondido atrás dos cartões."""
+        try:
+            import JointObject
+            t = JointObject.activeTask
+        except Exception:
+            t = None
+        if t is None:
+            return "", "", None
+        msg = getattr(t, "ultimo_aviso", "") or ""
+        lb = getattr(t, "_prumo_aviso", None)
+        tipo = lb.property("tipo") if lb is not None and hasattr(lb, "property") else ""
+        bt = getattr(t, "_prumo_conserto", None)
+        try:
+            if bt is not None and not bt.isVisibleTo(bt.parentWidget() or bt):
+                bt = None
+        except Exception:
+            bt = None
+        return msg, tipo or "", bt
 
     def montar(self):
         e = self.estado()
@@ -3143,6 +3164,23 @@ class PainelJunta(_Base):
             restricao = getattr(JointObject.activeTask, "prumo_restricao", None)
         except Exception:
             restricao = None
+        msg, tipo_msg, conserto = self._aviso_da_tarefa()
+        if msg:
+            inteligente = msg.startswith("Junta inteligente")
+            c = UI.Cartao("Junta inteligente" if inteligente else "Atenção", "vinculo" if inteligente else "info")
+            import PrumoPainel
+            m = PrumoPainel.Mensagem()
+            texto = msg.split(": ", 1)[1] if inteligente and ": " in msg else msg
+            m.mostrar(texto[:1].upper() + texto[1:], tipo_msg or ("ok" if inteligente else "erro"))
+            c.widget(m)
+            self.campos["aviso"] = m
+            if conserto is not None:
+                bt = QtWidgets.QPushButton(conserto.text())
+                bt.setObjectName("PrumoConserto")
+                bt.clicked.connect(lambda _=False, b=conserto: b.click())
+                c.widget(bt)
+                self.campos["conserto"] = bt
+            self.lay.addWidget(c)
         if restricao:
             # Tangente / Coincidente do Prumo: por baixo é a junta Distância; mostra o nome pedido, não a grade
             import PrumoMontagem

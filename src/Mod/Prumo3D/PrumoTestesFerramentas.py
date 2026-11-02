@@ -13512,12 +13512,21 @@ class T91JuntaInteligente(unittest.TestCase):
     def test_eixo_no_furo_vira_concentrica(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
+        from PySide import QtWidgets
         self._escolher((self.base, self._face(self.base, "Cylinder")), (self.eixo, "Face1"))
         task, d = self.M.junta_inteligente()
         self.assertIsNotNone(task, d)
         self.assertEqual(task.joint.JointType, "Cylindrical")
         self.assertEqual(task.joint.Label, "Concêntrica")
         self.assertIn("eixo e furo", task.ultimo_aviso)
+        # o aviso aparece nos cartões do painel (o formulário do FreeCAD fica escondido atrás deles)
+        import PrumoPainelComando
+        self._esp(0.6)
+        cartoes = [w for w in QtWidgets.QApplication.allWidgets()
+                   if isinstance(w, PrumoPainelComando.PainelJunta) and w.isVisible()]
+        self.assertTrue(cartoes, "o painel em cartões da junta não abriu")
+        self.assertIn("aviso", cartoes[-1].campos)
+        self.assertIn("eixo e furo", cartoes[-1].campos["aviso"].text())
         self._gravar(task)
         a = self.eixo.Placement.Rotation.multVec(FreeCAD.Vector(0, 0, 1))
         self.assertAlmostEqual(abs(a.z), 1.0, places=4)              # o eixo ficou de pé, como o furo
