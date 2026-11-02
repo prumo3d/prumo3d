@@ -12325,7 +12325,9 @@ class T83FaixaDoMomento(unittest.TestCase):
         for c in ("Prumo_JuntaTangente", "Prumo_JuntaCoincidente", "Prumo_MoverJunta", "Assembly_Insert"):
             self.assertIn(c, cmds)
         self.assertNotIn("Prumo_EditarMontagem", cmds)
-        self.assertIn("Resolver", [a.text() for m in mais for a in m.acoes])
+        # Resolver é rara; sozinha no grupo, vai direto (um "Mais" de uma opção só não aparece)
+        self.assertTrue("Assembly_SolveAssembly" in cmds or "Resolver" in [a.text() for m in mais for a in m.acoes])
+        self.assertTrue(all(len(m.acoes) > 1 for m in mais), "Mais com uma opção só")
         FreeCADGui.ActiveDocument.resetEdit()
         self._esp(0.3)
         cmds, _m = self._aba("simulacao")
@@ -13444,6 +13446,10 @@ class T89NovidadesDoZW3D(unittest.TestCase):
                          if getattr(b, "_cmd", "") == "Std_Measure"]
                 self.assertEqual(len(medir), 1)
                 self.assertFalse(medir[0].property("prumo_dispensavel"))
+
+    def test_padroes_sem_mais_e_com_multitransformacao(self):
+        import PrumoRibbon as R
+        self.assertNotIn("PartDesign_MultiTransform", R.RAROS["peca"])
 
     def test_folha_abnt_so_no_desenho(self):
         import PrumoRibbon as R

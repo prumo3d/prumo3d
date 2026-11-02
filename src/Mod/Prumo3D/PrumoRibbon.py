@@ -1555,7 +1555,14 @@ class PrumoRibbon(QtWidgets.QWidget):
                 btn._cmd = nomes[0]     # o tutorial acha o botão pelo nome do comando
                 btn._cmds = nomes
                 panel.add(btn, size)
-            if raros:
+            if len(raros) == 1:
+                # um "Mais" com uma opção só não ajuda: a ferramenta vai direto para o grupo
+                nomes, acts, label = raros[0]
+                btn = RibbonButton(acts, S, label, panel)
+                btn._cmd = nomes[0]
+                btn._cmds = nomes
+                panel.add(btn, S)
+            elif raros:
                 mais = BotaoMais(raros, panel)
                 panel.add(mais, S)
             if panel.count == 0:
@@ -1725,7 +1732,7 @@ RAROS = {
         "TechDraw_WeldSymbol", "TechDraw_SurfaceFinishSymbols",
     },
     "peca": {
-        "PartDesign_SubShapeBinder", "PartDesign_Clone", "PartDesign_MultiTransform",
+        "PartDesign_SubShapeBinder", "PartDesign_Clone",
         "Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools",
         "Part_Section|Part_CrossSections|Part_ProjectionOnSurface",
         "Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder",
