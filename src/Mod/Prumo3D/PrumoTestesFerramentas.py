@@ -13568,6 +13568,74 @@ class T96BarraDeVistas(unittest.TestCase):
             fechar(doc)
 
 
+class T97CatalogoDePerfis(unittest.TestCase):
+    """Seleção de perfil como catálogo: miniaturas na lista, prévia com cotas, detalhes técnicos e perfil
+    customizado (medidas digitadas, guardadas no próprio nome)."""
+
+    def test_customizado_pelo_nome(self):
+        import PrumoPerfis as P
+        n = P.nome_customizado("I", [200, 100, 6.3, 8])
+        self.assertEqual(n, "Customizado I 200 x 100 x 6,3 x 8")
+        it = P.perfil(n)
+        self.assertEqual((it["tipo"], it["d"], it["bf"], it["tw"], it["tf"]), ("I", 200, 100, 6.3, 8))
+        area = 2 * 100 * 8 + (200 - 16) * 6.3
+        self.assertAlmostEqual(it["massa"], area * 1e-6 * 7850, places=3)
+        self.assertIsNone(P.perfil("Customizado I 10 x 100 x 6 x 8"), "espessura maior que a seção")
+        for t, (_r, campos) in P.TIPOS_CUSTOM.items():
+            nome = P.nome_customizado(t, [c[2] for c in campos])
+            self.assertIsNotNone(P.perfil(nome), nome)
+            self.assertGreater(P.area_secao(P.perfil(nome)), 0, nome)
+        self.assertEqual([r for r, _v in P.cotas(P.perfil("W 150 x 13,0"))][:4],
+                         ["Altura d", "Largura da mesa/aba bf", "Espessura da alma tw", "Espessura da mesa tf"])
+
+    def test_estrutura_com_perfil_customizado(self):
+        import PrumoEstrutura as E
+        import PrumoPerfis as P
+        doc = novo_doc("PrumoTesteCustom")
+        try:
+            sk = esboco_linhas(doc, [((0, 0), (1000, 0)), ((1000, 0), (1000, 600))], "XZ")
+            nome = P.nome_customizado("TR", [80, 40, 3])
+            est = E.criar(doc, sk, nome)
+            doc.recompute()
+            barras = E.barras_de(est)
+            self.assertEqual(len(barras), 2)
+            for b in barras:
+                self.assertTrue(b.Shape.isValid() and b.Shape.Volume > 0)
+            self.assertAlmostEqual(barras[0].MassaLinear, P.perfil(nome)["massa"], places=4)
+        finally:
+            fechar(doc)
+
+    def test_seletor_lista_previa_e_tecnico(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoEstrutura as E
+        import PrumoPerfis as P
+        s = E.SeletorPerfil("W 150 x 13,0")
+        self.assertEqual(s.nome(), "W 150 x 13,0")
+        self.assertGreater(s.lista.count(), 10)
+        self.assertFalse(s.lista.item(0).icon().isNull(), "a lista mostra a miniatura da seção")
+        self.assertIn("148", s.lista.currentItem().text())
+        self.assertIn("148 mm", s.dados.text())
+        s.busca.setText("200 x 15")
+        self.assertTrue(all("200 x 15" in s.lista.item(i).text() for i in range(s.lista.count())))
+        s.busca.setText("")
+        # customizado
+        mudou = []
+        s.mudou.connect(lambda: mudou.append(1))
+        s.familia.setCurrentIndex(s.familia.findData(P.FAMILIA_CUSTOM))
+        s.c_tipo.setCurrentIndex(s.c_tipo.findData("TQ"))
+        s.c_campos[0][1].setValue(60)
+        self.assertEqual(s.nome(), "Customizado TQ 60 x 3")
+        self.assertTrue(mudou)
+        s2 = E.SeletorPerfil("Customizado TQ 60 x 3")
+        self.assertEqual(s2.nome(), "Customizado TQ 60 x 3")
+        self.assertEqual(s2.c_campos[0][1].value(), 60)
+        d = s2.ver_tecnico()
+        self.assertIsNotNone(d)
+        self.assertTrue(d.isVisible())
+        d.close()
+
+
 class T90TracadoNasConexoes(unittest.TestCase):
     """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
     rosca vão para 90°/45°; no aço, a curva cortada faz qualquer canto até 90°)."""
@@ -14116,4 +14184,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis]

@@ -23,9 +23,9 @@ import PrumoUtil
 from PrumoUtil import fmt, fmt_dim
 
 try:
-    from PySide import QtCore, QtWidgets
+    from PySide import QtCore, QtGui, QtWidgets
 except ImportError:  # pragma: no cover
-    from PySide2 import QtCore, QtWidgets
+    from PySide2 import QtCore, QtGui, QtWidgets
 
 TOL = 1e-6
 UNIOES = ["Meia-esquadria", "Topo"]
@@ -1188,72 +1188,244 @@ def gravar_lista_de_corte(doc, linhas):
 
 # ============================================================================ interface
 class SeletorPerfil(QtWidgets.QWidget):
-    """Família + perfil, com aviso quando o dado é 'a conferir'. mudou: o perfil escolhido mudou
-    (também quando a troca de família cai no primeiro perfil da lista)."""
+    """Escolha do perfil como num catálogo: família e busca no alto; à esquerda a lista com a miniatura de
+    cada seção e as medidas; à direita a prévia com as cotas do catálogo, os dados e o botão dos detalhes
+    técnicos. A família "Customizado" troca a lista por campos para digitar as medidas.
+    mudou: o perfil escolhido mudou (também quando a troca de família cai no primeiro perfil da lista)."""
 
     mudou = QtCore.Signal()
 
     def __init__(self, inicial=PERFIL_PADRAO, parent=None):
         super().__init__(parent)
-        lay = QtWidgets.QFormLayout(self)
+        import PrumoPerfilVisual as PV
+        self._PV = PV
+        lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        topo = QtWidgets.QHBoxLayout()
         self.familia = QtWidgets.QComboBox()
+        self.busca = QtWidgets.QLineEdit()
+        self.busca.setPlaceholderText("Buscar perfil (W 150, L 2\", 50 x 50...)")
+        self.busca.setClearButtonEnabled(True)
+        topo.addWidget(self.familia, 3)
+        topo.addWidget(self.busca, 2)
+        lay.addLayout(topo)
         atual = PrumoPerfis.perfil(inicial) or PrumoPerfis.perfil(PERFIL_PADRAO)
         for f in PrumoPerfis.familias():
             if f.get("antiga") and f["id"] != atual["familia"]:
                 continue        # tabela substituída: só aparece para quem já usa um perfil dela
             self.familia.addItem("%s (%d)" % (f["nome"], len(f["itens"])), f["id"])
-        self.perfil = QtWidgets.QComboBox()
-        self.perfil.setMaxVisibleItems(25)
+        self.familia.addItem("Customizado (medidas digitadas)", PrumoPerfis.FAMILIA_CUSTOM)
+        corpo = QtWidgets.QHBoxLayout()
+        corpo.setSpacing(8)
+        # lista (coluna da esquerda) ou campos do customizado
+        self.pilha = QtWidgets.QStackedWidget()
+        self.lista = QtWidgets.QListWidget()
+        self.lista.setIconSize(QtCore.QSize(40, 40))
+        self.lista.setUniformItemSizes(True)
+        self.lista.setMinimumWidth(240)
+        self.lista.setStyleSheet("QListWidget::item { padding: 3px; } "
+                                 "QListWidget::item:selected { background: #DCE8F5; color: #1F2A36; }")
+        self.pilha.addWidget(self.lista)
+        self.pilha.addWidget(self._form_custom())
+        corpo.addWidget(self.pilha, 3)
+        # prévia
+        col = QtWidgets.QVBoxLayout()
+        self.titulo = QtWidgets.QLabel("")
+        self.titulo.setStyleSheet("font-weight:700;color:#003A70")
+        self.titulo.setWordWrap(True)
+        col.addWidget(self.titulo)
+        self.desenho = PV.DesenhoPerfil()
+        self.desenho.setMinimumSize(220, 165)
+        col.addWidget(self.desenho)
+        self.dados = QtWidgets.QLabel("")
+        self.dados.setTextFormat(QtCore.Qt.RichText)
+        self.dados.setWordWrap(True)
+        col.addWidget(self.dados)
         self.aviso = QtWidgets.QLabel("")
         self.aviso.setWordWrap(True)
-        lay.addRow("Família", self.familia)
-        lay.addRow("Perfil", self.perfil)
-        lay.addRow("", self.aviso)
+        col.addWidget(self.aviso)
+        self.bt_tecnico = QtWidgets.QPushButton("Ver detalhes técnicos…")
+        self.bt_tecnico.setToolTip("Desenho grande com todas as cotas, espessuras, CG e as propriedades da seção")
+        self.bt_tecnico.clicked.connect(self.ver_tecnico)
+        col.addWidget(self.bt_tecnico)
+        col.addStretch(1)
+        corpo.addLayout(col, 2)
+        lay.addLayout(corpo, 1)
+        self._nome = None
         self.familia.currentIndexChanged.connect(self._familia)
-        self.perfil.currentIndexChanged.connect(self._aviso)
-        self.perfil.currentIndexChanged.connect(lambda *_: self.mudou.emit())
-        it = PrumoPerfis.perfil(inicial) or PrumoPerfis.perfil(PERFIL_PADRAO)
-        self.familia.setCurrentIndex(max(0, self.familia.findData(it["familia"])))
-        self._familia()
-        self.perfil.setCurrentIndex(max(0, self.perfil.findData(it["nome"])))
-        self._aviso()
+        self.busca.textChanged.connect(lambda *_: self._encher())
+        self.lista.currentItemChanged.connect(self._da_lista)
+        if not self.mostrar(inicial):
+            self.mostrar(PERFIL_PADRAO)
 
+    # ---------------------------------------------------------------- customizado
+    def _form_custom(self):
+        w = QtWidgets.QWidget()
+        f = QtWidgets.QFormLayout(w)
+        self.c_tipo = QtWidgets.QComboBox()
+        for k, (rot, _c) in PrumoPerfis.TIPOS_CUSTOM.items():
+            self.c_tipo.addItem(rot, k)
+        f.addRow("Tipo", self.c_tipo)
+        self.c_campos = []
+        loc = QtCore.QLocale(QtCore.QLocale.Portuguese, QtCore.QLocale.Brazil)
+        for _k in range(4):
+            sb = QtWidgets.QDoubleSpinBox()
+            sb.setLocale(loc)
+            sb.setDecimals(2)
+            sb.setRange(0.1, 5000.0)
+            sb.setSuffix(" mm")
+            lb = QtWidgets.QLabel("")
+            f.addRow(lb, sb)
+            sb.valueChanged.connect(lambda *_: self._do_custom())
+            self.c_campos.append((lb, sb))
+        self.c_erro = QtWidgets.QLabel("")
+        self.c_erro.setStyleSheet("color:#B5523F")
+        self.c_erro.setWordWrap(True)
+        f.addRow(self.c_erro)
+        self.c_tipo.currentIndexChanged.connect(lambda *_: self._tipo_custom())
+        self._tipo_custom(sem_sinal=True)
+        return w
+
+    def _tipo_custom(self, valores=None, sem_sinal=False):
+        tipo = self.c_tipo.currentData()
+        campos = PrumoPerfis.TIPOS_CUSTOM[tipo][1]
+        for k, (lb, sb) in enumerate(self.c_campos):
+            vis = k < len(campos)
+            lb.setVisible(vis)
+            sb.setVisible(vis)
+            if vis:
+                lb.setText(campos[k][1])
+                sb.blockSignals(True)
+                sb.setValue(valores[k] if valores else campos[k][2])
+                sb.blockSignals(False)
+        if not sem_sinal:
+            self._do_custom()
+
+    def _do_custom(self):
+        tipo = self.c_tipo.currentData()
+        n = len(PrumoPerfis.TIPOS_CUSTOM[tipo][1])
+        nome = PrumoPerfis.nome_customizado(tipo, [sb.value() for _lb, sb in self.c_campos[:n]])
+        if PrumoPerfis.perfil(nome) is None:
+            self.c_erro.setText("Medidas impossíveis: as espessuras não cabem na seção.")
+            return
+        self.c_erro.setText("")
+        self._escolher(nome)
+
+    # ---------------------------------------------------------------- lista
     def _familia(self, *_a):
-        self.perfil.blockSignals(True)
-        self.perfil.clear()
-        f = PrumoPerfis.familia(self.familia.currentData())
+        custom = self.familia.currentData() == PrumoPerfis.FAMILIA_CUSTOM
+        self.pilha.setCurrentIndex(1 if custom else 0)
+        self.busca.setEnabled(not custom)
+        if custom:
+            self._do_custom()
+            return
+        self._encher()
+        if self.lista.currentItem() is None and self.lista.count():
+            self.lista.setCurrentRow(0)
+
+    def _encher(self, escolher=None):
+        fid = self.familia.currentData()
+        if fid == PrumoPerfis.FAMILIA_CUSTOM:
+            return
+        f = PrumoPerfis.familia(fid)
+        termo = self.busca.text().strip().lower().replace(",", ".")
+        alvo = escolher or self._nome
+        self.lista.blockSignals(True)
+        self.lista.clear()
+        achou = None
         for it in f["itens"]:
-            marca = "" if PrumoPerfis.confiavel(it) else "  ⚠"
+            if termo and termo not in it["nome"].lower().replace(",", "."):
+                continue
+            medidas = " × ".join(self._PV.fmt(v) for _r, v in PrumoPerfis.cotas(it)[:4])
+            marca = "" if PrumoPerfis.confiavel(it) else "  ⚠ a conferir"
             obs = (" (%s)" % it["obs"]) if it.get("obs") else ""
-            self.perfil.addItem("%s — %s kg/m%s%s" % (it["nome"], fmt(it["massa"], 2), obs, marca), it["nome"])
-        self.perfil.blockSignals(False)
+            texto = "%s%s\n%s mm · %s kg/m%s" % (it["nome"], obs, medidas, fmt(it["massa"], 2), marca)
+            li = QtWidgets.QListWidgetItem(QtGui.QIcon(self._PV.miniatura(it, 40)), texto)
+            li.setData(QtCore.Qt.UserRole, it["nome"])
+            li.setToolTip(PrumoPerfis.descricao_status(it))
+            self.lista.addItem(li)
+            if it["nome"] == alvo:
+                achou = li
+        self.lista.blockSignals(False)
+        if achou is not None:
+            self.lista.setCurrentItem(achou)
+            self.lista.scrollToItem(achou, QtWidgets.QAbstractItemView.PositionAtCenter)
+
+    def _da_lista(self, item, _ant=None):
+        if item is not None:
+            self._escolher(item.data(QtCore.Qt.UserRole))
+
+    # ---------------------------------------------------------------- escolha / prévia
+    def _escolher(self, nome):
+        it = PrumoPerfis.perfil(nome)
+        if it is None:
+            return
+        mudou = nome != self._nome
+        self._nome = nome
+        self.titulo.setText(it["nome"])
+        self.desenho.mostrar(it)
+        self.dados.setText(self._PV.tabela_html(it))
         self._aviso()
-        self.mudou.emit()
+        if mudou:
+            self.mudou.emit()
 
     def _aviso(self, *_a):
-        it = PrumoPerfis.perfil(self.perfil.currentData() or "")
+        it = PrumoPerfis.perfil(self._nome or "")
         if not it:
             self.aviso.setText("")
             return
         ok = PrumoPerfis.confiavel(it)
-        f = PrumoPerfis.fonte(it)
-        self.aviso.setText("<span style='color:%s'>%s</span><br><span style='color:#5B6876'>Fonte: %s</span>" % (
-            "#2E8B6A" if ok else "#B5523F", PrumoPerfis.descricao_status(it), f.get("nome", "")))
+        f = PrumoPerfis.fonte(it) if it.get("origem") != "customizado" else {}
+        self.aviso.setText("<span style='color:%s'>%s</span>%s" % (
+            "#2E8B6A" if ok else "#B5523F", PrumoPerfis.descricao_status(it),
+            ("<br><span style='color:#5B6876'>Fonte: %s</span>" % f.get("nome", "")) if f.get("nome") else ""))
+
+    def ver_tecnico(self):
+        it = PrumoPerfis.perfil(self._nome or "")
+        if it is None:
+            return None
+        d = self._PV.DialogoTecnico(it, self.window())
+        d.show()
+        self._tecnico = d
+        return d
 
     def nome(self):
-        return self.perfil.currentData()
+        return self._nome
 
     def mostrar(self, nome):
-        """Escolhe o perfil (também de uma família antiga, que entra na lista só quando é preciso)."""
+        """Escolhe o perfil (também de uma família antiga, que entra na lista só quando é preciso, ou um
+        perfil customizado)."""
+        lido = PrumoPerfis.ler_customizado(nome)
         it = PrumoPerfis.perfil(nome)
         if not it:
             return False
+        if lido is not None:
+            tipo, vals = lido
+            self.familia.blockSignals(True)
+            self.familia.setCurrentIndex(self.familia.findData(PrumoPerfis.FAMILIA_CUSTOM))
+            self.familia.blockSignals(False)
+            self.pilha.setCurrentIndex(1)
+            self.busca.setEnabled(False)
+            self.c_tipo.blockSignals(True)
+            self.c_tipo.setCurrentIndex(self.c_tipo.findData(tipo))
+            self.c_tipo.blockSignals(False)
+            self._tipo_custom(vals, sem_sinal=True)
+            self._escolher(nome)
+            return True
         if self.familia.findData(it["familia"]) < 0:
             f = PrumoPerfis.familia(it["familia"])
-            self.familia.addItem("%s (%d)" % (f["nome"], len(f["itens"])), f["id"])
+            self.familia.insertItem(self.familia.count() - 1, "%s (%d)" % (f["nome"], len(f["itens"])), f["id"])
+        self.familia.blockSignals(True)
         self.familia.setCurrentIndex(self.familia.findData(it["familia"]))
-        self.perfil.setCurrentIndex(max(0, self.perfil.findData(it["nome"])))
+        self.familia.blockSignals(False)
+        self.pilha.setCurrentIndex(0)
+        self.busca.setEnabled(True)
+        self.busca.blockSignals(True)
+        self.busca.clear()
+        self.busca.blockSignals(False)
+        self._encher(escolher=it["nome"])
+        self._escolher(it["nome"])
         return True
 
 
@@ -1447,8 +1619,8 @@ class DialogoEstrutura(QtWidgets.QDialog):
         self._criada = False
         self._vis_esqueleto = None
         self.setWindowTitle("Editar estrutura soldada" if est else "Estrutura soldada")
-        self.setMinimumSize(820, 600)
-        self.resize(860, 800)
+        self.setMinimumSize(960, 640)
+        self.resize(1120, 820)
         self.eds = arestas(esqueleto)
         if est is not None:
             padrao, extras = grupos_para_edicao(est)
@@ -1563,7 +1735,6 @@ class DialogoEstrutura(QtWidgets.QDialog):
         fl.addRow(P.rotulo("posicao", "Ponto de fixação", "Ponto da seção que fica sobre a linha"),
                   self.fixacao)
         fl.addRow("", self.espelhar)
-        self.sel.aviso.setMinimumHeight(self.sel.aviso.fontMetrics().lineSpacing() * 4 + 6)
         self.sel.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         ed.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
         topo.addWidget(ed, 1)

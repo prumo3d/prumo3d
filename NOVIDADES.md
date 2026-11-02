@@ -36,6 +36,16 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Barra de vistas na vista 3D**, pequena, embaixo e no meio (como a barra flutuante dos outros CAD):
   enquadrar tudo e a seleção, isométrica, frontal, superior, direita (as outras vistas no menu ao lado),
   estilo de exibição, plano de corte e sombras. Aparece em toda vista 3D aberta.
+- **Escolha do perfil como num catálogo** (Estrutura metálica e Trocar perfil): a lista mostra a miniatura
+  de cada seção com as medidas e a massa; ao lado, a prévia do perfil escolhido com as cotas do catálogo
+  (altura, largura, espessuras, raio), massa e área. Busca por nome (ex.: "200 x 15").
+- **Detalhes técnicos do perfil** (botão "Ver detalhes técnicos…"): desenho grande com todas as cotas,
+  chamadas das espessuras, CG e grade, e as propriedades da seção (Ix, Iy, Wx, Wy, Zx, Zy, rx, ry, J)
+  calculadas pelo Prumo.
+- **Perfil customizado:** na família "Customizado", escolha o tipo (I, U, cantoneira, tubo quadrado,
+  retangular ou redondo, barra chata, quadrada ou redonda) e digite as medidas. A massa sai pela geometria
+  (aço, 7.850 kg/m³) e as medidas ficam guardadas no nome do perfil (ex.: "Customizado I 200 x 100 x 6,3 x 8"),
+  então o arquivo abre igual em qualquer computador.
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

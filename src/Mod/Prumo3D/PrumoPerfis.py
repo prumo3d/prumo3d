@@ -46,6 +46,8 @@ def familias(com_antigas=True):
 
 
 def familia(fid):
+    if fid == FAMILIA_CUSTOM:
+        return familia_customizada()
     for f in familias():
         if f["id"] == fid:
             return f
@@ -54,7 +56,146 @@ def familia(fid):
 
 def perfil(nome):
     dados()
-    return _cache["idx"].get(nome)
+    it = _cache["idx"].get(nome)
+    if it is None and isinstance(nome, str) and nome.startswith(PREFIXO_CUSTOM):
+        it = item_customizado(nome)
+        if it is not None:
+            _cache["idx"][nome] = it
+    return it
+
+
+# ---------------------------------------------------------------- perfis customizados (medidas digitadas)
+# O nome guarda as medidas (ex.: "Customizado I 200 x 100 x 6,3 x 8"): a estrutura salva só o nome e o
+# perfil volta igual ao abrir o arquivo, sem depender de nada guardado fora dele.
+PREFIXO_CUSTOM = "Customizado "
+FAMILIA_CUSTOM = "CUSTOM"
+DENSIDADE_ACO = 7850.0      # kg/m³
+# chave: (rótulo, [(campo, rótulo do campo, valor inicial)])
+TIPOS_CUSTOM = {
+    "I": ("Perfil I / W / H", [("d", "Altura d", 200.0), ("bf", "Largura da mesa bf", 100.0),
+                               ("tw", "Espessura da alma tw", 6.3), ("tf", "Espessura da mesa tf", 8.0)]),
+    "U": ("Perfil U", [("d", "Altura d", 150.0), ("bf", "Largura da aba bf", 50.0),
+                       ("tw", "Espessura da alma tw", 5.0), ("tf", "Espessura da aba tf", 6.0)]),
+    "L": ("Cantoneira (abas iguais)", [("aba", "Aba b", 50.0), ("esp", "Espessura t", 6.35)]),
+    "TQ": ("Tubo quadrado", [("lado", "Lado", 50.0), ("esp", "Espessura t", 3.0)]),
+    "TR": ("Tubo retangular", [("h", "Altura h", 80.0), ("b", "Largura b", 40.0), ("esp", "Espessura t", 3.0)]),
+    "TUBO": ("Tubo redondo", [("D", "Diâmetro externo D", 60.3), ("esp", "Espessura t", 3.6)]),
+    "BC": ("Barra chata", [("b", "Largura b", 50.0), ("esp", "Espessura t", 6.35)]),
+    "BQ": ("Barra quadrada", [("b", "Lado b", 25.0)]),
+    "BR": ("Barra redonda", [("D", "Diâmetro D", 25.0)]),
+}
+
+
+def _num(v):
+    t = ("%.3f" % float(v)).rstrip("0").rstrip(".")
+    return t.replace(".", ",")
+
+
+def nome_customizado(tipo, valores):
+    """Nome do perfil customizado: guarda o tipo e as medidas em mm."""
+    if tipo not in TIPOS_CUSTOM:
+        raise ValueError("tipo de perfil customizado desconhecido: %s" % tipo)
+    campos = TIPOS_CUSTOM[tipo][1]
+    if len(valores) != len(campos):
+        raise ValueError("o perfil %s precisa de %d medidas" % (tipo, len(campos)))
+    return PREFIXO_CUSTOM + tipo + " " + " x ".join(_num(v) for v in valores)
+
+
+def ler_customizado(nome):
+    """(tipo, [medidas]) de um nome de perfil customizado, ou None."""
+    if not isinstance(nome, str) or not nome.startswith(PREFIXO_CUSTOM):
+        return None
+    resto = nome[len(PREFIXO_CUSTOM):].strip()
+    if " " not in resto:
+        return None
+    tipo, medidas = resto.split(" ", 1)
+    if tipo not in TIPOS_CUSTOM:
+        return None
+    try:
+        vals = [float(x.strip().replace(",", ".")) for x in medidas.split(" x ")]
+    except ValueError:
+        return None
+    if len(vals) != len(TIPOS_CUSTOM[tipo][1]) or any(v <= 0 for v in vals):
+        return None
+    return tipo, vals
+
+
+def _ret(u0, u1, v0, v1):
+    return [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
+
+
+def item_customizado(nome):
+    """Item do catálogo montado pelas medidas do nome (massa pela geometria, aço 7850 kg/m³)."""
+    lido = ler_customizado(nome)
+    if lido is None:
+        return None
+    tipo, vals = lido
+    m = dict(zip([c for c, _r, _v in TIPOS_CUSTOM[tipo][1]], vals))
+    it = {"nome": nome, "status": "usuario", "origem": "customizado", "derivado": [], "familia": FAMILIA_CUSTOM,
+          "tipo_custom": tipo}
+    if tipo in ("I", "U"):
+        if m["tw"] >= m["bf"] or 2 * m["tf"] >= m["d"]:
+            return None
+        it.update(tipo=tipo, d=m["d"], bf=m["bf"], tw=m["tw"], tf=m["tf"])
+    elif tipo == "L":
+        if m["esp"] >= m["aba"]:
+            return None
+        it.update(tipo="L", aba=m["aba"], esp=m["esp"])
+    elif tipo == "TQ":
+        if 2 * m["esp"] >= m["lado"]:
+            return None
+        it.update(tipo="TQ", lado=m["lado"], esp=m["esp"])
+    elif tipo == "TR":
+        h, b, e = m["h"], m["b"], m["esp"]
+        if 2 * e >= min(h, b):
+            return None
+        it.update(tipo="POL", forma="RHS", h=h, b=b, esp=e, oco=True,
+                  contorno=[list(p) for p in _ret(-b / 2, b / 2, -h / 2, h / 2)],
+                  furos=[[list(p) for p in _ret(-b / 2 + e, b / 2 - e, -h / 2 + e, h / 2 - e)]])
+    elif tipo == "TUBO":
+        if 2 * m["esp"] >= m["D"]:
+            return None
+        it.update(tipo="TUBO", D=m["D"], esp=m["esp"])
+    elif tipo == "BC":
+        it.update(tipo="POL", forma="chata", b=m["b"], esp=m["esp"], macica=True,
+                  contorno=[list(p) for p in _ret(-m["b"] / 2, m["b"] / 2, -m["esp"] / 2, m["esp"] / 2)], furos=[])
+    elif tipo == "BQ":
+        it.update(tipo="POL", forma="quadrada", b=m["b"], macica=True,
+                  contorno=[list(p) for p in _ret(-m["b"] / 2, m["b"] / 2, -m["b"] / 2, m["b"] / 2)], furos=[])
+    elif tipo == "BR":
+        r = m["D"] / 2.0
+        it.update(tipo="POL", forma="redonda", D=m["D"], macica=True, furos=[],
+                  contorno=[[r * math.cos(2 * math.pi * k / 64), r * math.sin(2 * math.pi * k / 64)] for k in range(64)])
+    area = area_secao(it)
+    it["area_cm2"] = round(area / 100.0, 3)
+    it["massa"] = area * 1e-6 * DENSIDADE_ACO
+    return it
+
+
+def familia_customizada():
+    return {"id": FAMILIA_CUSTOM, "nome": "Customizado (medidas digitadas)", "itens": [],
+            "fonte": {"chave": "CUSTOM", "nome": "Medidas digitadas pelo usuário", "url": ""}}
+
+
+# ---------------------------------------------------------------- cotas para mostrar (catálogo)
+ROTULOS_COTA = [("d", "Altura d"), ("h", "Altura h"), ("bw", "Alma bw"), ("bf", "Largura da mesa/aba bf"),
+                ("b", "Largura b"), ("aba", "Aba b"), ("lado", "Lado"), ("D", "Diâmetro D"),
+                ("tw", "Espessura da alma tw"), ("tf", "Espessura da mesa tf"), ("esp", "Espessura t"),
+                ("R", "Raio de concordância R"), ("r_ext", "Raio externo")]
+
+
+def cotas(it):
+    """[(rótulo, valor em mm)] das medidas do perfil, na ordem dos catálogos."""
+    out = []
+    for k, rot in ROTULOS_COTA:
+        v = it.get(k)
+        if isinstance(v, (int, float)) and v > 0:
+            if k == "D" and it.get("forma") == "Ue":
+                rot = "Enrijecedor D"
+            if k == "bf" and it.get("forma") == "Ue":
+                rot = "Aba bf"
+            out.append((rot, float(v)))
+    return out
 
 
 def nomes(fid=None):
@@ -84,6 +225,8 @@ def confiavel(it):
 
 
 def descricao_status(it):
+    if it.get("origem") == "customizado":
+        return "Perfil customizado: medidas digitadas; massa calculada pela geometria (aço, 7.850 kg/m³)."
     if it.get("status") == "usuario":
         return "Seção desenhada no projeto: propriedades calculadas pelo contorno."
     if confiavel(it):
