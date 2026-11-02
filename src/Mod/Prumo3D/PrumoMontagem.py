@@ -203,6 +203,148 @@ def _avisar(task, msg, conserto=None, tipo="erro"):
     task.ultimo_aviso = msg
 
 
+# ----------------------------------------------------------------------------------- junta inteligente
+# Como no SolidWorks: escolhidas duas faces/arestas/pontos de peças diferentes, o Prumo entende a forma de cada
+# uma e escolhe a junta (eixo + furo = concêntrica; duas faces planas = coincidente; cilindro + plano =
+# tangente...). O painel da junta abre com a peça já no lugar; dá para trocar o tipo antes do OK.
+def descrever(el):
+    """Forma de um elemento (Part.Face/Edge/Vertex): ('cilindro', {'eixo': (ponto, direção), 'lado': 'eixo'|
+    'furo', 'raio': r}), ('plano', {...}), ('esfera', ...), ('cone', ...), ('toro', ...), ('circulo', ...),
+    ('reta', ...), ('ponto', ...) ou ('outra', {})."""
+    import Part
+    if el is None:
+        return "outra", {}
+    if isinstance(el, Part.Vertex):
+        return "ponto", {"p": FreeCAD.Vector(el.Point)}
+    if isinstance(el, Part.Edge):
+        c = el.Curve
+        if isinstance(c, (Part.Line, Part.LineSegment)) or c.TypeId == "Part::GeomLine":
+            return "reta", {}
+        if isinstance(c, (Part.Circle, Part.ArcOfCircle)) or hasattr(c, "Radius") and hasattr(c, "Center") \
+                and hasattr(c, "Axis"):
+            return "circulo", {"raio": float(c.Radius), "eixo": (FreeCAD.Vector(c.Center), FreeCAD.Vector(c.Axis))}
+        return "outra", {}
+    if isinstance(el, Part.Face):
+        sup = el.Surface
+        nome = type(sup).__name__
+        if nome == "Plane":
+            return "plano", {}
+        if nome in ("Cylinder", "Cone"):
+            centro, direc = FreeCAD.Vector(sup.Center), FreeCAD.Vector(sup.Axis)
+            try:
+                if nome == "Cone":
+                    centro = FreeCAD.Vector(sup.Apex)
+                u0, u1, v0, v1 = el.ParameterRange
+                pm = el.valueAt((u0 + u1) / 2.0, (v0 + v1) / 2.0)
+                n = el.normalAt((u0 + u1) / 2.0, (v0 + v1) / 2.0)
+                r = pm - centro
+                r = r - direc * r.dot(direc)
+                lado = "eixo" if n.dot(r) > 0 else "furo"
+            except Exception:
+                lado = ""
+            return ("cilindro" if nome == "Cylinder" else "cone"), {
+                "eixo": (centro, direc), "lado": lado, "raio": float(getattr(sup, "Radius", 0.0))}
+        if nome == "Sphere":
+            return "esfera", {"raio": float(sup.Radius)}
+        if nome == "Toroid":
+            return "toro", {}
+        return "outra", {}
+    return "outra", {}
+
+
+# (tipo da junta do FreeCAD, restrição do Prumo para as juntas de distância zero, nome, por quê)
+REGRAS_JUNTA = {
+    ("cilindro", "cilindro"): ("Cylindrical", None, "Concêntrica", "duas faces cilíndricas: mesmo eixo"),
+    ("cilindro", "circulo"): ("Cylindrical", None, "Concêntrica", "face cilíndrica e borda redonda: mesmo eixo"),
+    ("circulo", "circulo"): ("Revolute", None, "Concêntrica encostada",
+                             "duas bordas redondas: mesmo eixo e encostadas (como a cabeça do parafuso no furo)"),
+    ("cone", "cone"): ("Cylindrical", None, "Concêntrica", "duas faces cônicas: mesmo eixo"),
+    ("cilindro", "cone"): ("Cylindrical", None, "Concêntrica", "faces de revolução: mesmo eixo"),
+    ("circulo", "cone"): ("Revolute", None, "Concêntrica encostada", "borda redonda num assento cônico"),
+    ("esfera", "esfera"): ("Ball", None, "Esférica (rótula)", "duas esferas: mesmo centro"),
+    ("esfera", "circulo"): ("Ball", None, "Esférica (rótula)", "esfera numa borda redonda: centro no centro"),
+    ("plano", "plano"): ("Distance", "coincidente", "Coincidente", "duas faces planas: encostadas"),
+    ("cilindro", "plano"): ("Distance", "tangente", "Tangente", "face cilíndrica numa face plana: encostada"),
+    ("esfera", "plano"): ("Distance", "tangente", "Tangente", "esfera numa face plana: encostada"),
+    ("cone", "plano"): ("Distance", "tangente", "Tangente", "face cônica numa face plana: encostada"),
+    ("cilindro", "esfera"): ("Distance", "tangente", "Tangente", "esfera encostada no cilindro"),
+    ("circulo", "plano"): ("Distance", "coincidente", "Coincidente", "borda redonda apoiada na face plana"),
+    ("plano", "reta"): ("Distance", "coincidente", "Coincidente", "aresta apoiada na face plana"),
+    ("plano", "ponto"): ("Distance", "coincidente", "Coincidente", "ponto na face plana"),
+    ("reta", "reta"): ("Distance", "coincidente", "Coincidente", "duas arestas retas: na mesma linha"),
+    ("ponto", "reta"): ("Distance", "coincidente", "Coincidente", "ponto na aresta"),
+    ("ponto", "ponto"): ("Distance", "coincidente", "Coincidente", "dois pontos no mesmo lugar"),
+    ("circulo", "ponto"): ("Distance", "coincidente", "Coincidente", "ponto no centro da borda redonda"),
+}
+
+
+def escolher_junta(f1, f2):
+    """Junta para duas formas (de descrever): dict com tipo (JointType do FreeCAD), restricao (coincidente/
+    tangente ou None), nome e motivo; None se não há regra (o painel avisa e pede outra escolha)."""
+    a, b = f1[0], f2[0]
+    regra = REGRAS_JUNTA.get(tuple(sorted((a, b))))
+    if regra is None:
+        return None
+    tipo, restr, nome, motivo = regra
+    if a == b == "cilindro":
+        lados = {f1[1].get("lado"), f2[1].get("lado")}
+        if lados == {"eixo", "furo"}:
+            motivo = "eixo e furo: mesmo eixo"
+    return {"tipo": tipo, "restricao": restr, "nome": nome, "motivo": motivo}
+
+
+def _elementos_da_selecao():
+    """[(objeto raiz, subnome, forma do elemento)] da seleção atual (faces, arestas, pontos)."""
+    r = []
+    for s in FreeCADGui.Selection.getSelectionEx("*", 0):
+        for sub in s.SubElementNames:
+            try:
+                el = s.Object.getSubObject(sub)
+            except Exception:
+                el = None
+            if el is not None and el.ShapeType in ("Face", "Edge", "Vertex"):
+                r.append((s.Object, sub, el))
+    return r
+
+
+def junta_inteligente():
+    """Com dois elementos escolhidos, abre a junta certa com as peças já no lugar. Devolve (painel, decisão)
+    ou (None, mensagem do que falta)."""
+    els = _elementos_da_selecao()
+    if len(els) != 2:
+        return None, "Escolha duas faces, arestas ou pontos, um em cada peça (Ctrl + clique)."
+    d = escolher_junta(descrever(els[0][2]), descrever(els[1][2]))
+    if d is None:
+        f = [NOMES_FORMA.get(descrever(e[2])[0], "?") for e in els]
+        return None, ("Não há junta automática para %s com %s: escolha a junta na faixa (Distância, Ângulo, "
+                      "Paralela...)." % (f[0], f[1]))
+    if d["restricao"]:
+        task = iniciar_junta(d["restricao"])
+    else:
+        import CommandCreateJoint
+        import JointObject
+        CommandCreateJoint.activateJoint(JointObject.JointTypes.index(d["tipo"]))
+        task = JointObject.activeTask
+        if task is not None and getattr(task, "joint", None) is not None:
+            task.jointName = d["nome"]
+            try:
+                task.joint.Label = d["nome"]
+            except Exception:
+                pass
+    if task is None:
+        return None, "A montagem precisa estar aberta para pôr a junta."
+    task.prumo_inteligente = d
+    if len(getattr(task, "refs", [])) == 2:
+        _avisar(task, "Junta inteligente: %s (%s). Confira a posição e clique em OK; para outra junta, troque o "
+                      "tipo abaixo." % (d["nome"].lower(), d["motivo"]), tipo="ok")
+    return task, d
+
+
+NOMES_FORMA = {"cilindro": "face cilíndrica", "plano": "face plana", "esfera": "esfera", "cone": "face cônica",
+               "toro": "face tórica", "circulo": "borda redonda", "reta": "aresta reta", "ponto": "ponto",
+               "outra": "essa forma"}
+
+
 # ----------------------------------------------------------------------------------- padrão de componentes
 def montagem_de(obj):
     for p in obj.InList:
@@ -1276,6 +1418,108 @@ if FreeCAD.GuiUp:
         def Activated(self):
             iniciar_junta(self.chave)
 
+    class EsperaJuntaInteligente(QtCore.QObject):
+        """Sem nada escolhido: espera os dois cliques (observador de seleção) e então abre a junta."""
+
+        def __init__(self, segundos=90):
+            super().__init__()
+            self.ativo = True
+            FreeCADGui.Selection.addObserver(self)
+            # como no painel da junta do FreeCAD: cada clique soma à seleção (não precisa de Ctrl)
+            try:
+                FreeCADGui.Selection.setSelectionStyle(FreeCADGui.Selection.SelectionStyle.GreedySelection)
+            except Exception:
+                pass
+            # quem desiste (clica no vazio ou deixa para lá) não leva uma junta surpresa depois
+            self._timer = QtCore.QTimer(self)
+            self._timer.setSingleShot(True)
+            self._timer.timeout.connect(self.parar)
+            self._timer.start(int(segundos * 1000))
+            FreeCAD.Console.PrintMessage("Prumo: junta inteligente — clique em duas faces, arestas ou pontos de "
+                                         "peças diferentes.\n")
+            try:
+                FreeCADGui.getMainWindow().statusBar().showMessage(
+                    "Junta inteligente: clique em duas faces, arestas ou pontos de peças diferentes "
+                    "(Esc cancela).", 15000)
+            except Exception:
+                pass
+
+        def parar(self):
+            if self.ativo:
+                self.ativo = False
+                try:
+                    FreeCADGui.Selection.removeObserver(self)
+                except Exception:
+                    pass
+                try:
+                    FreeCADGui.Selection.setSelectionStyle(FreeCADGui.Selection.SelectionStyle.NormalSelection)
+                except Exception:
+                    pass
+            _ESTADO_INTELIGENTE["espera"] = None
+
+        def addSelection(self, doc, obj, sub, pnt):
+            if not self.ativo:
+                return
+            if FreeCADGui.Control.activeDialog():
+                # outro painel abriu no meio (outra junta, outra ferramenta): a espera acaba aqui
+                self.parar()
+                return
+            if len(_elementos_da_selecao()) >= 2:
+                self.parar()
+                QtCore.QTimer.singleShot(0, _rodar_inteligente)
+
+        def removeSelection(self, *a):
+            pass
+
+        def setSelection(self, *a):
+            pass
+
+        def clearSelection(self, *a):
+            # clicar no vazio limpa a seleção: é o "deixa para lá"
+            QtCore.QTimer.singleShot(0, self._talvez_parar)
+
+        def _talvez_parar(self):
+            if self.ativo and not _elementos_da_selecao():
+                self.parar()
+
+    _ESTADO_INTELIGENTE = {"espera": None, "ultimo": None}
+
+    def _rodar_inteligente():
+        task, d = junta_inteligente()
+        _ESTADO_INTELIGENTE["ultimo"] = (task, d)
+        if task is None:
+            FreeCAD.Console.PrintWarning("Prumo: %s\n" % d)
+            try:
+                FreeCADGui.getMainWindow().statusBar().showMessage(d, 10000)
+            except Exception:
+                pass
+        return task, d
+
+    class CmdJuntaInteligente:
+        def GetResources(self):
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("junta_coincidente.svg"), "MenuText": "Junta inteligente",
+                    "ToolTip": "Escolha duas faces, arestas ou pontos (um em cada peça): o Prumo entende a forma e "
+                               "põe a junta certa — eixo e furo viram concêntrica, faces planas coincidente, cilindro "
+                               "na face tangente — com a peça já no lugar."}
+
+        def IsActive(self):
+            try:
+                import UtilsAssembly
+                return UtilsAssembly.activeAssembly() is not None
+            except Exception:
+                return False
+
+        def Activated(self):
+            esp = _ESTADO_INTELIGENTE.get("espera")
+            if esp is not None:
+                esp.parar()
+            if len(_elementos_da_selecao()) >= 2:
+                return _rodar_inteligente()
+            FreeCADGui.Selection.clearSelection()
+            _ESTADO_INTELIGENTE["espera"] = EsperaJuntaInteligente()
+            return _ESTADO_INTELIGENTE["espera"]
+
     class CmdPadrao:
         def GetResources(self):
             import PrumoUtil
@@ -1338,6 +1582,7 @@ if FreeCAD.GuiUp:
         FreeCADGui.addCommand("Prumo_JuntaTangente", CmdJunta("tangente", PrumoUtil.icone("junta_tangente.svg")))
         FreeCADGui.addCommand("Prumo_JuntaCoincidente",
                               CmdJunta("coincidente", PrumoUtil.icone("junta_coincidente.svg")))
+        FreeCADGui.addCommand("Prumo_JuntaInteligente", CmdJuntaInteligente())
         FreeCADGui.addCommand("Prumo_PadraoComponentes", CmdPadrao())
         FreeCADGui.addCommand("Prumo_MoverJunta", CmdMoverJunta())
         FreeCADGui.addCommand("Prumo_TravarJuntos", CmdTravarJuntos())

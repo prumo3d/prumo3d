@@ -9,6 +9,18 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## Em desenvolvimento
+
+### Novidades
+
+- **Junta inteligente na montagem** (como no SolidWorks). Escolha duas faces, arestas ou pontos, um em cada peça,
+  e clique em Junta inteligente (ou clique nela antes e depois nos dois elementos): o Prumo entende a forma e põe
+  a junta certa, com a peça já no lugar — eixo e furo viram concêntrica; duas bordas redondas, concêntrica
+  encostada (cabeça do parafuso no furo); duas faces planas, coincidente; cilindro ou esfera numa face plana,
+  tangente; duas esferas, rótula. O painel mostra a junta escolhida e o porquê; dá para trocar antes do OK.
+- **OpenCV (cv2) no pacote.** As bancadas que gravam e leem vídeo com o cv2 (ex.: Movie) voltam a funcionar; o
+  pacote confere que o cv2 importa antes de sair.
+
 ## 1.2.2 — 30/10/2026
 
 ### Novidades

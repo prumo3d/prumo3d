@@ -13409,6 +13409,185 @@ class T90TracadoNasConexoes(unittest.TestCase):
         self.assertEqual(list(t.Avisos), [])
 
 
+class T91JuntaInteligente(unittest.TestCase):
+    """Junta inteligente (como o SolidWorks): duas faces/arestas escolhidas e o Prumo põe a junta certa, com a
+    peça já no lugar."""
+
+    _esp = T62PainelDeComando._esp
+
+    def setUp(self):
+        import Part
+        import PrumoMontagem
+        self.M = PrumoMontagem
+        self.doc = novo_doc("PrumoJuntaInteligente")
+        FreeCAD.setActiveDocument(self.doc.Name)
+        V = FreeCAD.Vector
+        if not FreeCAD.GuiUp:
+            return
+        FreeCADGui.activateWorkbench("AssemblyWorkbench")
+        self.asm = self.doc.addObject("Assembly::AssemblyObject", "Assembly")
+        self.asm.newObject("Assembly::JointGroup", "Joints")
+        self.base = self.asm.newObject("Part::Feature", "Base")
+        self.base.Shape = Part.makeBox(100, 100, 30).cut(Part.makeCylinder(10, 30, V(50, 50, 0)))
+        self.eixo = self.asm.newObject("Part::Cylinder", "Eixo")
+        self.eixo.Radius, self.eixo.Height = 10, 80
+        self.eixo.Placement = FreeCAD.Placement(V(180, 40, 60), FreeCAD.Rotation(V(1, 0, 0), 20))
+        self.bloco = self.asm.newObject("Part::Box", "Bloco")
+        self.bloco.Length = self.bloco.Width = self.bloco.Height = 30
+        self.bloco.Placement = FreeCAD.Placement(V(-80, 20, 70), FreeCAD.Rotation(V(0, 0, 1), 15))
+        self.doc.recompute()
+        import JointObject
+        g = self.asm.Group[0].newObject("App::FeaturePython", "Fixa")
+        JointObject.GroundedJoint(g, self.base)
+        self.doc.recompute()
+        FreeCADGui.ActiveDocument.setEdit(self.asm)
+        self._esp(0.8)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp:
+            try:
+                esp = self.M._ESTADO_INTELIGENTE.get("espera")
+                if esp is not None:
+                    esp.parar()
+                if FreeCADGui.Control.activeDialog():
+                    FreeCADGui.Control.closeDialog()
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+        fechar(self.doc)
+
+    def _face(self, obj, tipo, z=None):
+        for i, f in enumerate(obj.Shape.Faces, 1):
+            if type(f.Surface).__name__ == tipo and (z is None or abs(f.CenterOfMass.z - z) < 1e-6):
+                return "Face%d" % i
+        raise AssertionError("sem face %s" % tipo)
+
+    def _aresta_circular(self, obj, z_local):
+        for i, e in enumerate(obj.Shape.Edges, 1):
+            if hasattr(e.Curve, "Radius") and abs(obj.Placement.inverse().multVec(e.Curve.Center).z - z_local) < 1e-6:
+                return "Edge%d" % i
+        raise AssertionError("sem aresta circular")
+
+    def _escolher(self, *itens):
+        FreeCADGui.Selection.clearSelection()
+        for obj, sub in itens:
+            FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name, "%s.%s" % (obj.Name, sub))
+
+    def _gravar(self, task):
+        self._esp(0.4)
+        self.assertEqual(len(task.refs), 2)
+        self.assertTrue(task.accept())
+        if FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        self._esp(0.4)
+        self.asm.solve()
+        self.doc.recompute()
+
+    def test_regras_pela_forma(self):
+        import Part
+        M = self.M
+        V = FreeCAD.Vector
+        furo = Part.makeBox(40, 40, 10).cut(Part.makeCylinder(5, 10, V(20, 20, 0)))
+        cil = [f for f in furo.Faces if type(f.Surface).__name__ == "Cylinder"][0]
+        self.assertEqual(M.descrever(cil)[1]["lado"], "furo")
+        pino = Part.makeCylinder(5, 30)
+        lat = [f for f in pino.Faces if type(f.Surface).__name__ == "Cylinder"][0]
+        self.assertEqual(M.descrever(lat)[1]["lado"], "eixo")
+        d = M.escolher_junta(M.descrever(lat), M.descrever(cil))
+        self.assertEqual((d["tipo"], d["nome"]), ("Cylindrical", "Concêntrica"))
+        self.assertIn("eixo e furo", d["motivo"])
+        circ = [e for e in pino.Edges if hasattr(e.Curve, "Radius")][0]
+        self.assertEqual(M.escolher_junta(M.descrever(circ), M.descrever(circ))["tipo"], "Revolute")
+        plano = [f for f in furo.Faces if type(f.Surface).__name__ == "Plane"][0]
+        d = M.escolher_junta(M.descrever(plano), M.descrever(plano))
+        self.assertEqual((d["tipo"], d["restricao"]), ("Distance", "coincidente"))
+        self.assertEqual(M.escolher_junta(M.descrever(lat), M.descrever(plano))["restricao"], "tangente")
+        esf = Part.makeSphere(5).Faces[0]
+        self.assertEqual(M.escolher_junta(M.descrever(esf), M.descrever(esf))["tipo"], "Ball")
+        reta = [e for e in furo.Edges if not hasattr(e.Curve, "Radius")][0]
+        self.assertEqual(M.escolher_junta(M.descrever(reta), M.descrever(reta))["restricao"], "coincidente")
+        toro = Part.makeTorus(20, 3).Faces[0]
+        self.assertIsNone(M.escolher_junta(M.descrever(toro), M.descrever(reta)))
+
+    def test_eixo_no_furo_vira_concentrica(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self._escolher((self.base, self._face(self.base, "Cylinder")), (self.eixo, "Face1"))
+        task, d = self.M.junta_inteligente()
+        self.assertIsNotNone(task, d)
+        self.assertEqual(task.joint.JointType, "Cylindrical")
+        self.assertEqual(task.joint.Label, "Concêntrica")
+        self.assertIn("eixo e furo", task.ultimo_aviso)
+        self._gravar(task)
+        a = self.eixo.Placement.Rotation.multVec(FreeCAD.Vector(0, 0, 1))
+        self.assertAlmostEqual(abs(a.z), 1.0, places=4)              # o eixo ficou de pé, como o furo
+        c = self.eixo.Placement.Base
+        self.assertAlmostEqual(c.x, 50.0, places=3)
+        self.assertAlmostEqual(c.y, 50.0, places=3)
+
+    def test_bordas_redondas_viram_concentrica_encostada(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        borda_furo = None
+        for i, e in enumerate(self.base.Shape.Edges, 1):
+            if hasattr(e.Curve, "Radius") and abs(e.Curve.Center.z - 30) < 1e-6:
+                borda_furo = "Edge%d" % i
+        self._escolher((self.base, borda_furo), (self.eixo, self._aresta_circular(self.eixo, 0.0)))
+        task, d = self.M.junta_inteligente()
+        self.assertEqual(task.joint.JointType, "Revolute")
+        self.assertEqual(task.joint.Label, "Concêntrica encostada")
+        self._gravar(task)
+        bb = self.eixo.Shape.BoundBox
+        self.assertAlmostEqual((bb.XMin + bb.XMax) / 2.0, 50.0, places=3)
+        self.assertTrue(abs(bb.ZMin - 30.0) < 1e-3 or abs(bb.ZMax - 30.0) < 1e-3, bb)   # borda na borda
+
+    def test_faces_planas_viram_coincidente(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self._escolher((self.base, self._face(self.base, "Plane", z=30.0)), (self.bloco, "Face5"))
+        task, d = self.M.junta_inteligente()
+        self.assertEqual(task.joint.JointType, "Distance")
+        self.assertEqual(task.joint.PrumoRestricao, "coincidente")
+        self._gravar(task)
+        bb = self.bloco.Shape.BoundBox
+        self.assertTrue(abs(bb.ZMin - 30.0) < 1e-3 or abs(bb.ZMax - 30.0) < 1e-3, bb)
+
+    def test_sem_selecao_espera_os_dois_cliques(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        FreeCADGui.Selection.clearSelection()
+        cmd = self.M.CmdJuntaInteligente()
+        self.assertTrue(cmd.IsActive())
+        esp = cmd.Activated()
+        self.assertIsNotNone(self.M._ESTADO_INTELIGENTE["espera"])
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name,
+                                          "%s.%s" % (self.base.Name, self._face(self.base, "Cylinder")))
+        self._esp(0.2)
+        self.assertTrue(esp.ativo, "um clique só: continua esperando")
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name, "%s.Face1" % self.eixo.Name)
+        self._esp(0.8)
+        self.assertFalse(esp.ativo)
+        task, d = self.M._ESTADO_INTELIGENTE["ultimo"]
+        self.assertIsNotNone(task, d)
+        self.assertEqual(task.joint.JointType, "Cylindrical")
+        task.reject()
+        # clicou numa peça e depois no vazio: desiste (sem clique nenhum, desiste sozinho depois de 90 s)
+        esp2 = cmd.Activated()
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.asm.Name, "%s.Face1" % self.eixo.Name)
+        self._esp(0.2)
+        FreeCADGui.Selection.clearSelection()
+        self._esp(0.3)
+        self.assertFalse(esp2.ativo)
+
+    def test_combinacao_sem_regra_explica(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        self._escolher((self.base, self._face(self.base, "Plane", z=30.0)))
+        task, msg = self.M.junta_inteligente()
+        self.assertIsNone(task)
+        self.assertIn("duas faces", msg)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13433,4 +13612,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
-           T90TracadoNasConexoes]
+           T90TracadoNasConexoes, T91JuntaInteligente]

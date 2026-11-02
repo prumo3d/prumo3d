@@ -156,6 +156,8 @@ requirements:
     - occt>=7.8,<7.9
     - olefile
     - opencamlib
+    # Prumo 3D: cv2 para as bancadas que gravam e leem vídeo (ex.: Movie); não vinha no pacote
+    - opencv
     - pandas
     - pip
     - pivy

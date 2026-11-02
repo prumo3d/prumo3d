@@ -146,6 +146,11 @@ if ! "$SIGN_DIR/bin/Prumo3DCmd.exe" --safe-mode --version; then
   echo "Prumo 3D command-line smoke test failed; the Windows bundle cannot start."
   exit 1
 fi
+# Prumo 3D: o OpenCV (cv2) precisa importar no Python do pacote
+if ! "$SIGN_DIR/bin/python.exe" -c "import cv2, numpy; print('cv2', cv2.__version__, 'numpy', numpy.__version__)"; then
+  echo "erro: o cv2 (OpenCV) não importa no pacote Windows"
+  exit 1
+fi
 
 # Prumo 3D: PRUMO_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
 if [ "${PRUMO_SEM_7Z:-0}" != "1" ]; then

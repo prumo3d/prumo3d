@@ -180,6 +180,7 @@ TABS = [
         ]),
         # nomes como os das restrições (mates) do SolidWorks/Inventor; a dica diz a junta do FreeCAD
         ("Restrições", [
+            ("Prumo_JuntaInteligente", L, "Junta\ninteligente"),
             ("Assembly_ToggleGrounded", L, "Fixar\npeça"), ("Assembly_CreateJointFixed", L, "Travar\n(fixa)"),
             ("Prumo_JuntaCoincidente", L, "Coincidente"), ("Prumo_JuntaTangente", L, "Tangente"),
             ("Assembly_CreateJointDistance", S, "Distância"),
