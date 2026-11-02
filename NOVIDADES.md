@@ -46,6 +46,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   retangular ou redondo, barra chata, quadrada ou redonda) e digite as medidas. A massa sai pela geometria
   (aço, 7.850 kg/m³) e as medidas ficam guardadas no nome do perfil (ex.: "Customizado I 200 x 100 x 6,3 x 8"),
   então o arquivo abre igual em qualquer computador.
+- **Grupo Vista saiu da aba Início:** as vistas ficam só na barra embaixo da vista 3D (a busca, Ctrl+K, continua achando).
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as
@@ -53,6 +54,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   fraca ou montagem muito grande pode deixar a vista mais lenta: aí é só desmarcar.
 
 ### Correções
+
+- **Tela de abertura com a versão antiga depois de atualizar só o complemento** (ex.: mostrava 1.2.0). O
+  complemento agora leva a tela de abertura com a versão dele, e o Prumo a usa no lugar da que veio na
+  instalação.
+- **Aviso "Networkx dependency is missing" ao abrir (aba Chapa).** O planificador novo da Chapa precisa da
+  biblioteca networkx, que não vinha no pacote; agora vem (e o empacotamento confere).
 
 - **Ferramentas presas às bancadas antigas.** Chapa, Planilha (Nova planilha, tabela de fator K), Desenho,
   Montagem e Superfícies só passavam a existir depois de entrar na aba delas; antes disso a busca de comandos,

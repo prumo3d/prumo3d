@@ -60,13 +60,7 @@ TABS = [
             ("Std_Cut", S, "Recortar"), ("Std_Copy", S, "Copiar"), ("Std_Paste", S, "Colar"),
             ("Std_Delete", S, "Excluir"), ("Std_Placement", S, "Posicionamento"), ("Std_Edit", S, "Editar objeto"),
         ]),
-        ("Vista", [
-            ("Std_ViewFitAll", L, "Enquadrar\ntudo"), ("Std_ViewIsometric", L, "Isométrica"),
-            ("Std_ViewFront", S, "Frontal"), ("Std_ViewTop", S, "Superior"), ("Std_ViewRight", S, "Direita"),
-            ("Std_ViewRear", S, "Traseira"), ("Std_ViewBottom", S, "Inferior"), ("Std_ViewLeft", S, "Esquerda"),
-            ("Std_ViewFitSelection", S, "Enquadrar seleção"), ("Std_DrawStyle", S, "Estilo de exibição"),
-            ("Std_AlignToSelection", S, "Alinhar à seleção"), ("Prumo_Sombras", S, "Sombras"),
-        ]),
+        # Vista: saiu daqui; as vistas ficam na barra flutuante embaixo da vista 3D (PrumoBarraVista)
         ("Ferramentas", [
             ("Part_SelectFilter", S, "Filtro de seleção"),
             ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),

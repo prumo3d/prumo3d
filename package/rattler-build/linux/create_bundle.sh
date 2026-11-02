@@ -92,7 +92,7 @@ if ! "${conda_env}/bin/prumo3dcmd" --safe-mode --version; then
     exit 1
 fi
 # Prumo 3D: o OpenCV (cv2) precisa importar no Python do pacote
-if ! "${conda_env}/bin/python" -c "import cv2, numpy; print('cv2', cv2.__version__, 'numpy', numpy.__version__)"; then
+if ! "${conda_env}/bin/python" -c "import cv2, numpy, networkx; print('cv2', cv2.__version__, 'numpy', numpy.__version__, 'networkx', networkx.__version__)"; then
     echo "erro: o cv2 (OpenCV) não importa no pacote Linux"
     exit 1
 fi

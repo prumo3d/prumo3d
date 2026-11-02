@@ -158,6 +158,8 @@ requirements:
     - opencamlib
     # Prumo 3D: cv2 para as bancadas que gravam e leem vídeo (ex.: Movie); não vinha no pacote
     - opencv
+    # Prumo 3D: networkx para o planificador novo da Chapa (SheetMetal); sem ele aparecia aviso ao abrir
+    - networkx
     - pandas
     - pip
     - pivy

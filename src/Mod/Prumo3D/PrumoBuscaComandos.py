@@ -71,6 +71,32 @@ def indice(tabs=None):
                 rot = " ".join(str(rot).split())
                 busca = normalizar(" ".join((rot, menu, t["label"], grupo, dica[:200])))
                 res.append((cmd, rot, t["id"], t["label"], grupo, busca))
+    # ferramentas da barra de vistas (embaixo da vista 3D): não têm aba
+    try:
+        import PrumoBarraVista
+        itens_barra = []
+        for it in PrumoBarraVista.ITENS:
+            if it == "|":
+                continue
+            if it[0] == "menu":
+                itens_barra += list(it[3])
+            else:
+                itens_barra.append(it)
+    except Exception:
+        itens_barra = []
+    for cmd, rot in itens_barra:
+        if cmd in vistos or (existentes is not None and cmd not in existentes):
+            continue
+        vistos.add(cmd)
+        menu = dica = ""
+        if FreeCADGui is not None:
+            try:
+                info = FreeCADGui.Command.get(cmd).getInfo()
+                menu, dica = info.get("menuText", ""), info.get("toolTip", "")
+            except Exception:
+                pass
+        busca = normalizar(" ".join((rot, menu, "vista barra de vistas", dica[:200])))
+        res.append((cmd, rot, None, "Barra de vistas", "Vistas", busca))
     return res
 
 
@@ -111,7 +137,7 @@ def rodar(item, ribbon=None):
     """Vai para a aba da ferramenta e roda o comando."""
     import FreeCADGui
     cmd, _rot, aba = item[0], item[1], item[2]
-    if ribbon is not None:
+    if ribbon is not None and aba:
         try:
             ribbon.select_tab(aba, user=True)
         except Exception:

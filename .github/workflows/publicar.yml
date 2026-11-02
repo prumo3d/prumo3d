@@ -351,6 +351,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then tag="${GITHUB_REF_NAME}"; else tag="v${VERSAO#v}"; fi
+          # o selo da tela de abertura com a versão também vai no complemento: quem atualiza só o
+          # complemento vê a versão nova ao abrir (o Prumo põe essa splash nos dados do usuário)
+          python3 -m pip install --quiet --user pillow
+          python3 prumo-build/ferramentas/selo_versao_splash.py "${tag#v}"
           python3 package/scripts/pacote_complemento.py "${tag}" arquivos
           echo "Complemento: $(ls arquivos/*-complemento.zip)" >> "$GITHUB_STEP_SUMMARY"
 

@@ -22,6 +22,8 @@ freecad = { path = "." }
 # Prumo 3D: o cv2 (OpenCV) para as bancadas de vídeo. Fica também aqui no manifesto porque a dependência só na
 # receita não refaz a lista travada (pixi.lock): o pacote saía sem o cv2.
 opencv = "*"
+# networkx: planificador novo da aba Chapa (SheetMetal)
+networkx = "*"
 
 [feature.freecad.target.win-64.dependencies]
 ucrt = "==10.0.20348.0"

@@ -89,6 +89,17 @@ def _is_old_prumo_splash(path):
         return False
 
 
+def _rodando_do_complemento():
+    """O módulo carregado é o do complemento (atualização só do Prumo, em <dados do usuário>/Mod), e não o
+    da instalação. Aí a splash da instalação é a da versão antiga: a do complemento vai para os dados do
+    usuário, que o FreeCAD lê antes."""
+    try:
+        dados = os.path.normcase(os.path.abspath(FreeCAD.getUserAppDataDir()))
+        return os.path.normcase(os.path.abspath(ADDON_DIR)).startswith(dados)
+    except Exception:
+        return False
+
+
 def install_splash():
     """Copia a splash para <dados do usuário>/Gui/images/splash_image.png.
 
@@ -99,7 +110,7 @@ def install_splash():
         return
     dest_dir = os.path.join(FreeCAD.getUserAppDataDir(), "Gui", "images")
     dest = os.path.join(dest_dir, "splash_image.png")
-    if "Prumo3D" in (FreeCAD.ConfigGet("SplashScreen") or ""):
+    if "Prumo3D" in (FreeCAD.ConfigGet("SplashScreen") or "") and not _rodando_do_complemento():
         # programa do Prumo (branding.xml): a splash já vem da instalação. Uma cópia nos dados do
         # usuário teria prioridade e ficaria velha a cada versão — então tira a cópia nossa.
         try:

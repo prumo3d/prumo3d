@@ -12232,7 +12232,8 @@ class T82MontagemComoSolidCraft(unittest.TestCase):
             cx.rodar_marcado()
             self._esp(0.5)
             self.assertFalse(cx.isVisible())
-            self.assertEqual(rb._tabs[rb.tabbar.currentIndex()]["id"], it[2], "a faixa mostra onde a ferramenta fica")
+            if it[2]:
+                self.assertEqual(rb._tabs[rb.tabbar.currentIndex()]["id"], it[2], "a faixa mostra onde a ferramenta fica")
         finally:
             cx.hide()
 
@@ -13474,6 +13475,16 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
         corpo = [c for c, *_r in dict(peca["panels"])["Corpo"]]
         self.assertEqual(corpo.index("Std_Refresh"), corpo.index("PartDesign_ShapeBinder") + 1)
+
+    def test_vistas_so_na_barra_de_baixo(self):
+        import PrumoRibbon as R
+        import PrumoBuscaComandos as B
+        nas_abas = [c for t in R.TABS for _p, its in t["panels"] for c, *_r in its
+                    if c in ("Std_ViewIsometric", "Std_ViewFitAll", "Std_ViewFront", "Prumo_Sombras")]
+        self.assertEqual(nas_abas, [])
+        achados = [it[0] for it in B.procurar("isométrica")]
+        if FreeCAD.GuiUp:
+            self.assertIn("Std_ViewIsometric", achados, "a busca ainda acha as vistas")
 
     def test_folha_abnt_so_no_desenho(self):
         import PrumoRibbon as R
