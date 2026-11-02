@@ -41,6 +41,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Aviso "Failed to disconnect (None) from signal linkActivated" no console** ao trocar o aviso do guia
+  ilustrado. Era só barulho (nada parava de funcionar), mas não aparece mais.
+
 - **Torneiras e trechos da tubulação não respondiam ao clique.** O painel da Tubulação parava de escutar a vista
   logo ao abrir: clicar nos trechos não escolhia nada e "Na ponta solta"/"No ponto clicado" não faziam nada.
   Agora escuta, e clicar no próprio tubo também escolhe o trecho (o traçado fica dentro dele). Apertar o botão da

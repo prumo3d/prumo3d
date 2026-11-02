@@ -8160,6 +8160,21 @@ class T57PainelDoEsboco(unittest.TestCase):
         self.assertFalse(any("Sketcher_ConstrainParallel" in sp for sp in specs))
         self.assertEqual(sum("Sketcher_ToggleConstruction" in sp for sp in specs), 1)
 
+    def test_aviso_compacto_sem_runtimewarning(self):
+        """Trocar de aviso não pode soltar 'Failed to disconnect (None) from signal' no console."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import warnings
+        import PrumoGuia
+        f = PrumoGuia.GuiaFrame()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f.set_compacto(["Primeiro aviso."])
+            f.set_compacto(["Segundo aviso."])
+            f.set_content("Título", None, "texto")
+        self.assertEqual([str(x.message) for x in w if issubclass(x.category, RuntimeWarning)], [])
+        f.deleteLater()
+
     def test_aviso_compacto(self):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")

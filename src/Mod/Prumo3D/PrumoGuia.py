@@ -39,6 +39,18 @@ QSS = """
 """
 
 
+
+def _desligar(sinal):
+    """Desliga tudo o que estiver ligado ao sinal, sem aviso quando não há nada ligado (o PySide6 avisa
+    "Failed to disconnect (None) from signal" em vez de dar erro)."""
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        try:
+            sinal.disconnect()
+        except Exception:
+            pass
+
 def _get(obj, name, default=None):
     try:
         return getattr(obj, name)
@@ -265,16 +277,10 @@ class GuiaFrame(QtWidgets.QFrame):
         self.toggle.setVisible(True)
         self.toggle.setText("×")
         self.toggle.setToolTip("Dispensar este aviso")
-        try:
-            self.toggle.clicked.disconnect()
-        except Exception:
-            pass
+        _desligar(self.toggle.clicked)
         self.toggle.clicked.connect(self._dispensar)
         self.alert.setTextFormat(QtCore.Qt.RichText)
-        try:
-            self.alert.linkActivated.disconnect()
-        except Exception:
-            pass
+        _desligar(self.alert.linkActivated)
         self.alert.linkActivated.connect(self._por_que)
         self._mostrar_compacto()
 
@@ -315,10 +321,7 @@ class GuiaFrame(QtWidgets.QFrame):
     def set_content(self, title, g, text):
         if getattr(self, "_msgs", None) is not None:      # vinha do modo compacto: volta ao normal
             self._msgs = None
-            try:
-                self.toggle.clicked.disconnect()
-            except Exception:
-                pass
+            _desligar(self.toggle.clicked)
             self.toggle.clicked.connect(self._toggle)
             self.toggle.setToolTip("Mostrar / ocultar o desenho")
             self.title.setVisible(True)

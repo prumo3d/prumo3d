@@ -24,6 +24,19 @@ NOMES_SUP = {"Plane": "plana", "Cylinder": "cilíndrica", "Sphere": "esférica",
 
 
 # ----------------------------------------------------------------------------------- tangência
+
+def _desligar(sinal):
+    """Desliga tudo o que estiver ligado ao sinal, sem aviso quando não há nada ligado (o PySide6 avisa
+    "Failed to disconnect (None) from signal" em vez de dar erro)."""
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        try:
+            sinal.disconnect()
+        except Exception:
+            pass
+
+
 def tipo_do_elemento(obj, elemento):
     """'Plane', 'Cylinder'… para faces; 'Edge'/'Vertex' para arestas e pontos; None se não achou."""
     if not elemento:
@@ -188,10 +201,7 @@ def _avisar(task, msg, conserto=None, tipo="erro"):
                 bt.setObjectName("PrumoConserto")
                 task.form.layout().insertWidget(1, bt)
                 task._prumo_conserto = bt
-            try:
-                bt.clicked.disconnect()
-            except Exception:
-                pass
+            _desligar(bt.clicked)
             bt.setText(conserto[0])
             bt.clicked.connect(lambda *_a, f=conserto[1]: f())
             bt.setVisible(True)
