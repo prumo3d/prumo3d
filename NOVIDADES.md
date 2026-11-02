@@ -33,6 +33,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   no grupo. Na aba Peça, Padrões mostra Multitransformação ao lado de Padrão linear e circular.
 - **Recalcular na aba Peça**, no grupo Corpo, logo abaixo de Vínculo de forma (saiu da aba Início).
 - **Ícones da aba Chapa no padrão do Prumo** (cores, contorno e destaque em âmbar como as demais abas).
+- **Barra de vistas na vista 3D**, pequena, embaixo e no meio (como a barra flutuante dos outros CAD):
+  enquadrar tudo e a seleção, isométrica, frontal, superior, direita (as outras vistas no menu ao lado),
+  estilo de exibição, plano de corte e sombras. Aparece em toda vista 3D aberta.
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

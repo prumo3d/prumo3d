@@ -13523,6 +13523,51 @@ class T95SemDependerDeBancada(unittest.TestCase):
             fechar(doc)
 
 
+class T96BarraDeVistas(unittest.TestCase):
+    """Barra de vistas pequena, embaixo e no meio da vista 3D: vistas, estilo, corte e sombras."""
+
+    def test_barra_embaixo_e_botoes_funcionam(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtWidgets
+        import PrumoBarraVista as B
+        import PrumoSombras
+        doc = novo_doc("PrumoTesteBarraVista")
+        antes = PrumoSombras.ligado()
+        try:
+            doc.addObject("Part::Box", "Caixa")
+            doc.recompute()
+            v = FreeCADGui.getDocument(doc.Name).ActiveView
+            B.instalar_nas_vistas()
+            gv = v.graphicsView()
+            barra = gv.findChild(QtWidgets.QFrame, B.NOME)
+            self.assertIsNotNone(barra, "a vista 3D não ganhou a barra de vistas")
+            for c in ("Std_ViewFitAll", "Std_ViewIsometric", "Std_ViewFront", "Std_ViewTop", "Std_ViewRight",
+                      "Std_DrawStyle", "Std_ToggleClipPlane", "Prumo_Sombras", "menu:Outras vistas"):
+                self.assertIn(c, barra.botoes)
+            barra.reposicionar()
+            g = barra.geometry()
+            self.assertLessEqual(g.height(), 40, "a barra tem de ser pequena")
+            self.assertAlmostEqual(g.center().x(), gv.width() / 2, delta=3)
+            self.assertGreater(g.top(), gv.height() / 2, "a barra fica embaixo")
+            FreeCADGui.getMainWindow().setActiveWindow(v) if hasattr(FreeCADGui.getMainWindow(), "setActiveWindow") else None
+            barra.botoes["Std_ViewFront"].click()
+            import time
+            fim = time.time() + 3
+            while abs(abs(v.getCameraOrientation().Q[0]) - 0.7071) > 1e-3 and time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            r = v.getCameraOrientation()
+            self.assertAlmostEqual(abs(r.Q[0]), 0.7071, places=3)
+            barra.botoes["Prumo_Sombras"].click()
+            self.assertEqual(PrumoSombras.ligado(), not antes)
+            barra.botoes["Prumo_Sombras"].click()
+            self.assertEqual(PrumoSombras.ligado(), antes)
+        finally:
+            PrumoSombras.definir(antes)
+            fechar(doc)
+
+
 class T90TracadoNasConexoes(unittest.TestCase):
     """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
     rosca vão para 90°/45°; no aço, a curva cortada faz qualquer canto até 90°)."""
@@ -14071,4 +14116,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas]

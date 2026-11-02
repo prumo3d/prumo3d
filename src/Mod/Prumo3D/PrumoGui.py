@@ -982,6 +982,12 @@ def _start_ribbon():
         PrumoRibbon.install()
     except Exception as exc:
         FreeCAD.Console.PrintError("Prumo: falha ao montar a faixa: {}\n".format(exc))
+    try:
+        import PrumoBarraVista
+
+        PrumoBarraVista.instalar()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: barra de vistas: {}\n".format(exc))
 
 
 def _start_ferramentas():
