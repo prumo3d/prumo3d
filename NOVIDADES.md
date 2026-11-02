@@ -31,6 +31,7 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Folha ABNT só na aba Desenho** (saiu do grupo Prumo da aba Peça, onde estava repetida).
 - **Sem botão "Mais" de uma opção só.** Quando o "Mais" de um grupo teria uma ferramenta só, ela aparece direto
   no grupo. Na aba Peça, Padrões mostra Multitransformação ao lado de Padrão linear e circular.
+- **Recalcular na aba Peça**, no grupo Corpo, logo abaixo de Vínculo de forma (saiu da aba Início).
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

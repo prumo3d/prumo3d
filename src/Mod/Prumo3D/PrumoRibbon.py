@@ -56,7 +56,7 @@ TABS = [
             ("Prumo_CopiarProjeto", S, "Copiar projeto"),
         ]),
         ("Editar", [
-            ("Std_Undo", S, "Desfazer"), ("Std_Redo", S, "Refazer"), ("Std_Refresh", S, "Recalcular"),
+            ("Std_Undo", S, "Desfazer"), ("Std_Redo", S, "Refazer"),
             ("Std_Cut", S, "Recortar"), ("Std_Copy", S, "Copiar"), ("Std_Paste", S, "Colar"),
             ("Std_Delete", S, "Excluir"), ("Std_Placement", S, "Posicionamento"), ("Std_Edit", S, "Editar objeto"),
         ]),
@@ -123,6 +123,7 @@ TABS = [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
             ("PartDesign_Plane", L, "Novo\nplano"),
             ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
+            ("Std_Refresh", S, "Recalcular"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
         ]),
         ("Adicionar material", [

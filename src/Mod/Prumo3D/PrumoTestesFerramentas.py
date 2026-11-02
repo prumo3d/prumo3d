@@ -13451,6 +13451,15 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         import PrumoRibbon as R
         self.assertNotIn("PartDesign_MultiTransform", R.RAROS["peca"])
 
+    def test_recalcular_na_peca_abaixo_do_vinculo_de_forma(self):
+        import PrumoRibbon as R
+        abas = [t["id"] for t in R.TABS for _p, its in t["panels"] for c, *_r in its
+                if "Std_Refresh" in c.split("|")]
+        self.assertEqual(abas, ["peca"])
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        corpo = [c for c, *_r in dict(peca["panels"])["Corpo"]]
+        self.assertEqual(corpo.index("Std_Refresh"), corpo.index("PartDesign_ShapeBinder") + 1)
+
     def test_folha_abnt_so_no_desenho(self):
         import PrumoRibbon as R
         abas = [t["id"] for t in R.TABS for _p, its in t["panels"] for c, *_r in its
