@@ -121,7 +121,8 @@ TABS = [
     {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
-            ("PartDesign_CompDatums", S, "Referências"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
+            ("PartDesign_Plane", L, "Novo\nplano"),
+            ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
         ]),
         ("Adicionar material", [

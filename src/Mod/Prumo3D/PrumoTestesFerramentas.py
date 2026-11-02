@@ -13424,6 +13424,14 @@ class T89NovidadesDoZW3D(unittest.TestCase):
             if FreeCAD.GuiUp:
                 self.assertIn(c, FreeCADGui.listCommands())
 
+    def test_plano_novo_em_destaque_na_peca(self):
+        import PrumoRibbon as R
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        itens = {c: tam for _p, its in peca["panels"] for c, tam, *_r in its}
+        self.assertEqual(itens.get("PartDesign_Plane"), R.L)
+        if FreeCAD.GuiUp:
+            self.assertIn("PartDesign_Plane", FreeCADGui.listCommands())
+
 
 class T90TracadoNasConexoes(unittest.TestCase):
     """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
