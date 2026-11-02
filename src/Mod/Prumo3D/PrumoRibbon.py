@@ -68,7 +68,7 @@ TABS = [
             ("Std_AlignToSelection", S, "Alinhar à seleção"), ("Prumo_Sombras", S, "Sombras"),
         ]),
         ("Ferramentas", [
-            ("Std_Measure", L, "Medir"), ("Part_SelectFilter", S, "Filtro de seleção"),
+            ("Part_SelectFilter", S, "Filtro de seleção"),
             ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),
             ("Std_TreeViewActions", S, "Opções da árvore"),
             ("Std_DlgMacroExecute", S, "Macros"), ("Prumo_Preferencias", L, "Preferências"),
@@ -161,7 +161,7 @@ TABS = [
         ]),
         ("Ferramentas", [
             ("PartDesign_Boolean", S, "Booleana"), ("Part_CheckGeometry", S, "Verificar geometria"),
-            ("Sketcher_ValidateSketch", S, "Validar esboço"), ("Std_Measure", L, "Medir"),
+            ("Sketcher_ValidateSketch", S, "Validar esboço"),
         ]),
         ("Prumo", [
             ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
@@ -267,7 +267,6 @@ TABS = [
         ("Conferir", [
             ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
             ("Prumo_Propriedades", S, "Propriedades da peça"), ("Prumo_Interferencia", S, "Interferência"),
-            ("Std_Measure", S, "Medir"),
         ]),
         ("Aprender", [("Prumo_TutorialEstrutura", L, "Tutorial")]),
     ]},
@@ -279,7 +278,7 @@ TABS = [
             ("Prumo_Tubulacao", L, "Tubos e\nconexões"), ("Prumo_IsometricoTubulacao", L, "Folha\nisométrica"),
         ]),
         ("Conferir", [
-            ("Prumo_Interferencia", L, "Verificar\ninterferência"), ("Std_Measure", S, "Medir"),
+            ("Prumo_Interferencia", L, "Verificar\ninterferência"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"),
         ]),
     ]},
@@ -294,7 +293,7 @@ TABS = [
             ("Prumo_DesenhoVaso", L, "Desenho\ndo vaso"),
         ]),
         ("Conferir", [
-            ("Prumo_Massa", L, "Propriedades\nde massa"), ("Std_Measure", S, "Medir"),
+            ("Prumo_Massa", L, "Propriedades\nde massa"),
         ]),
     ]},
     {"id": "chapa", "label": "Chapa", "wb": "SMWorkbench", "panels": [
@@ -360,7 +359,6 @@ TABS = [
         # loft, varredura, regrada e face de esboços ficam na aba Peça › Sólidos (um lugar só para cada ferramenta)
         ("Fechar", [
             ("Part_Builder", L, "Sólido das\nfaces"), ("Part_CheckGeometry", S, "Verificar geometria"),
-            ("Std_Measure", S, "Medir"),
         ]),
     ]},
     {"id": "prumo", "label": "Prumo", "wb": None, "panels": [
@@ -1182,6 +1180,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         hl = QtWidgets.QHBoxLayout(box)
         hl.setContentsMargins(0, 0, 0, 0)
         hl.setSpacing(1)
+        # Medir fica só aqui (vale em todas as abas) e nunca some, nem com a janela estreita
         for name, tip in (("Std_New", "Novo"), ("Std_Open", "Abrir"), ("Std_Save", "Salvar"),
                           ("Std_Undo", "Desfazer"), ("Std_Redo", "Refazer"), ("|", ""),
                           ("Std_Measure", "Medir")):
@@ -1210,7 +1209,7 @@ class PrumoRibbon(QtWidgets.QWidget):
             if acts:
                 b = RibbonButton(acts[:1], S, "", box)
                 b._cmd = name
-                b.setProperty("prumo_dispensavel", name in ("Std_Undo", "Std_Redo", "Std_Measure"))
+                b.setProperty("prumo_dispensavel", name in ("Std_Undo", "Std_Redo"))
                 b.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
                 b.setIconSize(QtCore.QSize(18, 18))
                 b.setFixedSize(28, 28)

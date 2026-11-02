@@ -26,6 +26,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   Acabamento/Padrões e de novo em Sólidos, "Acabamento de sólido"). Agora há um botão só para cada: o clique
   faz a operação no corpo, e a setinha do botão traz a versão para sólido solto. O botão "Booleana" de
   Sólidos também saiu, porque Unir, Subtrair e Interseção já estão ao lado.
+- **Medir só no topo**, ao lado de Salvar (vale em todas as abas e não some mais com a janela estreita). Saiu
+  das abas Início, Peça, Desenho, Estruturas, Vasos e Superfícies, onde estava repetido.
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

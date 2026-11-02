@@ -13430,6 +13430,21 @@ class T89NovidadesDoZW3D(unittest.TestCase):
             if FreeCAD.GuiUp:
                 self.assertIn(c, FreeCADGui.listCommands())
 
+    def test_medir_so_no_acesso_rapido(self):
+        import PrumoRibbon as R
+        nas_abas = [t["id"] for t in R.TABS for _p, its in t["panels"] for c, *_r in its
+                    if "Std_Measure" in c.split("|")]
+        self.assertEqual(nas_abas, [])
+        if FreeCAD.GuiUp:
+            rb = R._state.get("ribbon")
+            self.assertIsNotNone(rb)
+            if getattr(rb, "_quick_box", None) is not None:
+                from PySide import QtWidgets
+                medir = [b for b in rb._quick_box.findChildren(QtWidgets.QToolButton)
+                         if getattr(b, "_cmd", "") == "Std_Measure"]
+                self.assertEqual(len(medir), 1)
+                self.assertFalse(medir[0].property("prumo_dispensavel"))
+
     def test_plano_novo_em_destaque_na_peca(self):
         import PrumoRibbon as R
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
