@@ -11616,7 +11616,13 @@ class T79InserirNoEsboco(unittest.TestCase):
         import PrumoRibbon as R
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
         sol = dict(peca["panels"])["Sólidos"]
-        nomes = "|".join(c for c, _t, _r in sol).split("|")
+        nomes = "|".join(c for _p, its in peca["panels"] for c, _t, _r in its).split("|")
+        # nada repetido na aba Peça: cada comando aparece uma vez só
+        repetidos = sorted({c for c in nomes if nomes.count(c) > 1})
+        self.assertEqual(repetidos, [])
+        rotulos = [r.replace("\n", " ") for nome_p, its in peca["panels"] for _c, _t, r in its
+                   if nome_p in ("Acabamento", "Padrões", "Sólidos")]
+        self.assertEqual(sorted({r for r in rotulos if rotulos.count(r) > 1}), [])
         for c in ("Part_Box", "Part_Cylinder", "Part_Extrude", "Part_Revolve", "Part_Loft", "Part_Sweep",
                   "Part_Fillet", "Part_Chamfer", "Part_Thickness", "Part_Mirror", "Part_Cut", "Part_Fuse"):
             self.assertIn(c, nomes)

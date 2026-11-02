@@ -22,6 +22,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   quadrada fica com as faces paralelas ao plano. Duplo clique na árvore edita.
 - **Botão "Novo plano" grande na aba Peça** (grupo Corpo), ao lado de Esboço. Antes o plano ficava escondido
   dentro do botão pequeno Referências, que agora se chama "Eixo, ponto, sistema".
+- **Aba Peça sem ferramentas repetidas.** Arredondar, Chanfro, Casca e Espelhar apareciam duas vezes (em
+  Acabamento/Padrões e de novo em Sólidos, "Acabamento de sólido"). Agora há um botão só para cada: o clique
+  faz a operação no corpo, e a setinha do botão traz a versão para sólido solto. O botão "Booleana" de
+  Sólidos também saiu, porque Unir, Subtrair e Interseção já estão ao lado.
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

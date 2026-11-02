@@ -138,15 +138,16 @@ TABS = [
             ("PartDesign_CompPrimitiveSubtractive", S, "Sólido"),
         ]),
         ("Acabamento", [
-            ("PartDesign_Fillet", L, "Arredondar"), ("PartDesign_Chamfer", L, "Chanfro"),
+            ("PartDesign_Fillet|Part_Fillet", L, "Arredondar"), ("PartDesign_Chamfer|Part_Chamfer", L, "Chanfro"),
             ("Prumo_ArredondarAuto", S, "Arredondar automático"),
-            ("PartDesign_Thickness", S, "Casca"), ("PartDesign_Draft", S, "Ângulo de saída"),
+            ("PartDesign_Thickness|Part_Thickness", S, "Casca"), ("PartDesign_Draft", S, "Ângulo de saída"),
         ]),
         ("Padrões", [
-            ("PartDesign_Mirrored", L, "Espelhar"), ("PartDesign_LinearPattern", S, "Padrão linear"),
+            ("PartDesign_Mirrored|Part_Mirror", L, "Espelhar"), ("PartDesign_LinearPattern", S, "Padrão linear"),
             ("PartDesign_PolarPattern", S, "Padrão circular"), ("PartDesign_MultiTransform", S, "Multitransformação"),
         ]),
-        # Sólidos (bancada Part): só o que não tem igual no PartDesign
+        # Sólidos (bancada Part): só o que não tem igual no PartDesign. Arredondar, chanfro, casca e espelhar
+        # de sólido solto ficam no menu dos botões de Acabamento e Padrões (sem botão repetido).
         ("Sólidos", [
             ("PartDesign_CompPrimitiveAdditive", L, "Sólido"),
             ("Part_Cut", S, "Subtrair"), ("Part_Fuse", S, "Unir"), ("Part_Common", S, "Interseção"),
@@ -154,7 +155,6 @@ TABS = [
              "Primitivas soltas"),
             ("Part_Extrude|Part_Revolve|Part_Loft|Part_Sweep|Part_RuledSurface|Part_MakeFace", S,
              "Extrudar / girar sólido"),
-            ("Part_Fillet|Part_Chamfer|Part_Thickness|Part_Mirror|Part_Boolean", S, "Acabamento de sólido"),
             ("Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools", S, "Juntar / dividir"),
             ("Part_Section|Part_CrossSections|Part_ProjectionOnSurface", S, "Seção / projeção"),
             ("Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder", S, "Escala / offset"),
