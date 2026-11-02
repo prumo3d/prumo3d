@@ -127,6 +127,7 @@ TABS = [
         ("Adicionar material", [
             ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
             ("PartDesign_AdditiveLoft", S, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
+            ("Prumo_BarraVarredura", S, "Barra de varredura"),
             ("PartDesign_AdditiveHelix", S, "Hélice"),
         ]),
         ("Remover material", [

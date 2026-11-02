@@ -33,7 +33,8 @@ SINONIMOS = {
     "peso": "massa", "medir": "medir", "interferencia": "interferencia", "colisao": "interferencia",
     "explodida": "explodida", "motor": "simulacao", "fem": "simulacao estudo", "tensao": "simulacao",
     "junta": "restricao", "fixar": "fixar peca", "ground": "fixar", "lock": "travar",
-    "lote": "folhas lote", "pranchas": "folhas lote", "automatico": "arredondamento automatico",
+    "gradil": "barra varredura", "grade": "barra varredura", "xadrez": "barra varredura",
+    "chapa expandida": "barra varredura", "vergalhao": "barra varredura", "lote": "folhas lote", "pranchas": "folhas lote", "automatico": "arredondamento automatico",
 }
 
 

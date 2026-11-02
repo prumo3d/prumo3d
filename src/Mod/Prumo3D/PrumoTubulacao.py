@@ -1918,7 +1918,13 @@ if FreeCAD.GuiUp:
             self._atualizar()
             FreeCADGui.Selection.addObserver(self)
             self._observando = True
-            self._da_vista()
+            # o painel ainda não está no painel de tarefas: lê a seleção atual sem a conferência de "aberto"
+            # (que, chamada aqui, parava de escutar a vista e os cliques nos trechos não chegavam mais)
+            self._montando = True
+            try:
+                self._da_vista()
+            finally:
+                self._montando = False
 
         # ------------------------------------------------ seleção nos dois sentidos
         def _segs(self):
@@ -1930,7 +1936,7 @@ if FreeCAD.GuiUp:
             try:
                 import shiboken6
                 ok = (self.obj.Document.getObject(self.obj.Name) is not None and shiboken6.isValid(self.form)
-                      and bool(FreeCADGui.Control.activeDialog()))
+                      and (getattr(self, "_montando", False) or bool(FreeCADGui.Control.activeDialog())))
             except Exception:
                 ok = False
             if not ok:
@@ -1944,11 +1950,39 @@ if FreeCAD.GuiUp:
             if self._ocupado or self.obj.Caminho is None:
                 return
             nomes = []
+            pontos = []
             for so in FreeCADGui.Selection.getSelectionEx("", 0):
                 if so.Object is self.obj.Caminho:
                     nomes += [n for n in so.SubElementNames if n.startswith("Edge")]
+                elif so.Object is self.obj:
+                    # clique no tubo (o traçado fica dentro dele): o trecho mais perto do ponto clicado
+                    pontos += [FreeCAD.Vector(p) for p in so.PickedPoints]
             idxs = trechos_das_arestas(self.obj.Caminho, self._segs(), nomes)
+            for p in pontos:
+                k = self._trecho_perto(p)
+                if k is not None and k not in idxs:
+                    idxs.append(k)
             self._mostrar_escolha(idxs)
+            pend, self._torneira_pendente = getattr(self, "_torneira_pendente", None), None
+            if pend and idxs:
+                # o usuário clicou em "Na ponta solta"/"No ponto clicado" antes de escolher o trecho
+                QtCore.QTimer.singleShot(0, self.torneira_na_ponta if pend == "ponta" else self.torneira_no_ponto)
+            elif pend:
+                self._torneira_pendente = pend
+
+        def _trecho_perto(self, p):
+            """Índice do trecho (linha do traçado) mais perto do ponto p."""
+            melhor = None
+            for k, (a, b) in enumerate(self._segs()):
+                u = b - a
+                L = u.Length
+                if L < 1e-9:
+                    continue
+                t = max(0.0, min(L, (p - a).dot(u) / L))
+                d = (a + u * (t / L) - p).Length
+                if melhor is None or d < melhor[0]:
+                    melhor = (d, k)
+            return None if melhor is None else melhor[1]
 
         def _mostrar_escolha(self, idxs):
             self.escolhidos = idxs
@@ -2011,9 +2045,15 @@ if FreeCAD.GuiUp:
             self._atualizar()
             self.marcar_trechos(idxs)
 
+        def _pedir_trecho(self, modo):
+            self._torneira_pendente = modo
+            self.lb_sel.setText("Clique no tubo (ou na linha do traçado) do trecho onde vai a torneira%s." % (
+                "" if modo == "ponta" else ", no ponto em que ela deve ficar"))
+            return False
+
         def torneira_na_ponta(self):
             if not self.escolhidos:
-                return False
+                return self._pedir_trecho("ponta")
             i = self.escolhidos[0]
             soltas = self._pontas_soltas(i)
             if not soltas:
@@ -2029,7 +2069,7 @@ if FreeCAD.GuiUp:
 
         def torneira_no_ponto(self, pos=None):
             if not self.escolhidos:
-                return False
+                return self._pedir_trecho("meio")
             i = self.escolhidos[0]
             segs = self._segs()
             if pos is None:
@@ -2124,7 +2164,7 @@ if FreeCAD.GuiUp:
             if not self._vivo():
                 return
             try:
-                if self.obj.Caminho is not None and obj == self.obj.Caminho.Name and pnt:
+                if pnt and ((self.obj.Caminho is not None and obj == self.obj.Caminho.Name) or obj == self.obj.Name):
                     self.ponto_clicado = FreeCAD.Vector(*pnt)
             except Exception:
                 pass

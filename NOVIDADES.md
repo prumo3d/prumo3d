@@ -16,6 +16,17 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Bancada instalada já ganha aba.** Um complemento instalado (ex.: Solar, Movie) aparece como aba na faixa logo
   ao abrir o Prumo, sem ir em Preferências nem escolher a bancada no menu; clicar na aba abre a bancada com as
   ferramentas dela.
+- **Barra de varredura** (aba Peça, Adicionar material), como a do ZW3D: escolha o esboço (comum ou Esboço 3D) e
+  cada linha vira uma barra, redonda ou quadrada, maciça ou tubo; as que se cruzam ou se encontram ficam unidas
+  num sólido só (grade, xadrez, chapa expandida, gradil). Raio nos cantos opcional. No esboço comum, a barra
+  quadrada fica com as faces paralelas ao plano. Duplo clique na árvore edita.
+
+### Correções
+
+- **Torneiras e trechos da tubulação não respondiam ao clique.** O painel da Tubulação parava de escutar a vista
+  logo ao abrir: clicar nos trechos não escolhia nada e "Na ponta solta"/"No ponto clicado" não faziam nada.
+  Agora escuta, e clicar no próprio tubo também escolhe o trecho (o traçado fica dentro dele). Apertar o botão da
+  torneira antes de escolher pede o trecho e põe a torneira no clique seguinte.
 
 ## 1.2.4 — 02/11/2026
 

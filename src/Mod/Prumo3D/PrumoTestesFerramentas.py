@@ -7315,6 +7315,72 @@ class T53Tubulacao(unittest.TestCase):
         finally:
             FreeCADGui.Selection.clearSelection()
 
+    @staticmethod
+    def _eventos(s=0.5):
+        import time
+        from PySide import QtWidgets
+        fim = time.time() + s
+        while time.time() < fim:
+            QtWidgets.QApplication.processEvents()
+            time.sleep(0.02)
+
+    def test_painel_escuta_os_cliques_nos_trechos(self):
+        """O painel da tubulação continua escutando a vista depois de aberto (antes parava ao abrir)."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (1000, 0, 0), (1000, 800, 0)])
+        t = T.criar(e, dn=25)
+        pn = T.abrir_painel(t)
+        try:
+            self.assertTrue(pn._observando)
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(self.doc.Name, e.Name, "Edge2")
+            self._eventos()
+            self.assertEqual(pn.escolhidos, [1])
+            pn.accept()
+        finally:
+            FreeCADGui.Selection.clearSelection()
+
+    def test_torneira_clicando_no_tubo(self):
+        """Na vista o traçado fica dentro do tubo: clicar no tubo escolhe o trecho; o botão da torneira clicado
+        antes de escolher pede o trecho e põe a torneira no clique seguinte."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoTubulacao as T
+        e = self._tracado([(0, 0, 0), (2000, 0, 0), (2000, 1500, 0)])
+        t = T.criar(e, dn=25)
+        pn = T.abrir_painel(t)
+        try:
+            FreeCADGui.Selection.clearSelection()
+            pn._da_vista()
+            pn.dir_ponto.setCurrentIndex(pn.dir_ponto.findData("+Z"))
+            self.assertFalse(pn.torneira_na_ponta())
+            self.assertIn("Clique no tubo", pn.lb_sel.text())
+            # clique no tubo do segundo trecho, perto do fim (ponto na superfície do tubo)
+            import Part
+
+            def face_perto(p):
+                v = Part.Vertex(p)
+                return min(range(len(t.Shape.Faces)), key=lambda i: t.Shape.Faces[i].distToShape(v)[0]) + 1
+            r = t.Shape.BoundBox.ZMax                       # raio externo do tubo
+            face = face_perto(FreeCAD.Vector(2000 + r, 1200, 0))
+            FreeCADGui.Selection.addSelection(self.doc.Name, t.Name, "Face%d" % face, 2000 + r, 1200, 0)
+            self._eventos()
+            self.assertEqual(list(t.Pontos), ["2: fim: +Z"], (pn.escolhidos, pn.lb_sel.text()))
+            self.assertEqual(pn.escolhidos, [1])
+            # "No ponto clicado" pelo tubo: o ponto clicado vale
+            FreeCADGui.Selection.clearSelection()
+            pn._da_vista()
+            self.assertFalse(pn.torneira_no_ponto())
+            face1 = face_perto(FreeCAD.Vector(900, -r, 0))
+            FreeCADGui.Selection.addSelection(self.doc.Name, t.Name, "Face%d" % face1, 900, -r, 0)
+            self._eventos()
+            self.assertIn("1: 900: +Z", list(t.Pontos))
+            pn.accept()
+        finally:
+            FreeCADGui.Selection.clearSelection()
+
     def test_esgoto_serie_normal_com_caimento(self):
         import PrumoTubulacao as T
         import PrumoCatalogoTubos as C
@@ -13656,6 +13722,99 @@ class T91JuntaInteligente(unittest.TestCase):
         self.assertIn("duas faces", msg)
 
 
+class T92BarraDeVarredura(unittest.TestCase):
+    """Barra de varredura (como no ZW3D): redonda ou quadrada, maciça ou tubo, ao longo de todas as linhas do
+    esboço, unida nos cruzamentos."""
+
+    def setUp(self):
+        self.doc = novo_doc("PrumoTesteBarra")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        if FreeCAD.GuiUp and FreeCADGui.Control.activeDialog():
+            FreeCADGui.Control.closeDialog()
+        fechar(self.doc)
+
+    def _grade(self):
+        import Part
+        import Sketcher
+        V = FreeCAD.Vector
+        sk = self.doc.addObject("Sketcher::SketchObject", "Grade")
+        for i in range(3):
+            sk.addGeometry(Part.LineSegment(V(0, i * 50, 0), V(100, i * 50, 0)))
+            sk.addGeometry(Part.LineSegment(V(i * 50, 0, 0), V(i * 50, 100, 0)))
+        sk.addGeometry(Part.LineSegment(V(0, 0, 0), V(100, 100, 0)), True)        # construção: fica de fora
+        self.doc.recompute()
+        return sk
+
+    def test_grade_redonda_e_quadrada(self):
+        import PrumoBarraVarredura as B
+        sk = self._grade()
+        b = B.criar(sk, "Redondo", 10.0)
+        self.assertTrue(b.Shape.isValid())
+        self.assertEqual(len(b.Shape.Solids), 1, "as barras que se cruzam ficam unidas")
+        self.assertAlmostEqual(float(b.Comprimento), 600.0, 6)
+        self.assertAlmostEqual(b.Shape.BoundBox.ZLength, 10.0, 6)
+        b.Perfil = "Quadrado"
+        b.Lado = 12.0
+        self.doc.recompute()
+        bb = b.Shape.BoundBox
+        self.assertTrue(b.Shape.isValid())
+        self.assertAlmostEqual(bb.ZLength, 12.0, 6, "faces paralelas ao plano do esboço")
+        self.assertAlmostEqual(bb.XLength, 112.0, 6, "cantos fechados: prolonga meio lado")
+        v_macica = b.Shape.Volume
+        b.Parede = 2.0
+        self.doc.recompute()
+        self.assertTrue(b.Shape.isValid())
+        self.assertLess(b.Shape.Volume, v_macica * 0.7)
+
+    def test_tubo_redondo_e_cantos_arredondados(self):
+        import Part
+        import PrumoBarraVarredura as B
+        V = FreeCAD.Vector
+        L = [Part.makeLine(V(0, 0, 0), V(100, 0, 0)), Part.makeLine(V(100, 0, 0), V(100, 80, 0))]
+        f, c = B.montar(B.arredondar_cantos(L, 20.0), "Redondo", 10.0, 6.0, True, V(0, 0, 1))
+        self.assertTrue(f.isValid())
+        self.assertEqual(len(f.Solids), 1)
+        self.assertAlmostEqual(c, 100 + 80 - 2 * 20 + math.pi * 20 / 2, 4)
+        esperado = math.pi * (5 ** 2 - 3 ** 2) * c
+        self.assertAlmostEqual(f.Volume, esperado, delta=esperado * 0.01)
+        with self.assertRaises(ValueError):
+            B.montar(L, "Redondo", 10.0, 12.0)
+
+    def test_esboco_3d_e_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoBarraVarredura as B
+        import PrumoEsboco3D as E
+        V = FreeCAD.Vector
+        e = E.criar(self.doc, [V(0, 0, 0), V(200, 0, 0), V(200, 0, 150), V(200, 120, 150)])
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(e)
+        pn = B.PainelBarra()
+        pn.mostrar()
+        self.assertEqual(pn.caminho.valores(), [e])
+        pn.perfil.setCurrentIndex(pn.perfil.findData("Quadrado"))
+        pn.medida.setValue(20.0)
+        pn.interna.setValue(2.0)
+        pn.raio.setValue(30.0)
+        pn.accept()
+        bs = [o for o in self.doc.Objects if B.e_barra(o)]
+        self.assertEqual(len(bs), 1)
+        self.assertTrue(bs[0].Shape.isValid())
+        self.assertEqual(len(bs[0].Shape.Solids), 1)
+        self.assertEqual(bs[0].Perfil, "Quadrado")
+        # duplo clique edita a mesma barra
+        pe = B.PainelBarra().editar_objeto(bs[0])
+        pe.mostrar()
+        self.assertAlmostEqual(pe.medida.value(), 20.0)
+        pe.medida.setValue(25.0)
+        pe.accept()
+        self.doc.recompute()
+        self.assertAlmostEqual(float(bs[0].Lado), 25.0)
+        self.assertIn("Prumo_BarraVarredura", FreeCADGui.listCommands())
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13680,4 +13839,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T83FaixaDoMomento, T84EsbocoNaoSuperRestringe, T85SoldaRugosidadeAjuste,
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
-           T90TracadoNasConexoes, T91JuntaInteligente]
+           T90TracadoNasConexoes, T91JuntaInteligente,
+           T92BarraDeVarredura]
