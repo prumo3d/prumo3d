@@ -85,11 +85,28 @@ JUNTAS = {
 }
 
 
+def _limpar_tarefa_orfa():
+    """Painel de junta que ficou registrado de uma montagem já fechada: o FreeCAD tentaria fechá-lo e daria
+    "Cannot access attribute ... of deleted object". Esquece a tarefa morta antes de abrir outra."""
+    try:
+        import JointObject
+        t = JointObject.activeTask
+        if t is None:
+            return
+        try:
+            _ = t.assembly.Name
+        except (ReferenceError, RuntimeError, AttributeError):
+            JointObject.activeTask = None
+    except Exception:
+        pass
+
+
 def iniciar_junta(chave):
     """Abre o painel da junta Distância com o nome e a conferência da restrição pedida."""
     import CommandCreateJoint
     import JointObject
     rotulo, _dica = JUNTAS[chave]
+    _limpar_tarefa_orfa()
     CommandCreateJoint.activateJoint(JointObject.JointTypes.index("Distance"))
     task = JointObject.activeTask
     if task is None or not getattr(task, "creating", False) or getattr(task, "joint", None) is None:
@@ -333,6 +350,7 @@ def junta_inteligente():
     else:
         import CommandCreateJoint
         import JointObject
+        _limpar_tarefa_orfa()
         CommandCreateJoint.activateJoint(JointObject.JointTypes.index(d["tipo"]))
         task = JointObject.activeTask
         if task is not None and getattr(task, "joint", None) is not None:

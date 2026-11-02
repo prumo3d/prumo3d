@@ -61,6 +61,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Montagem: junta que não abria** com "Cannot access attribute 'clearUndo' of deleted object" depois de
+  fechar uma montagem com o painel de junta aberto.
+- **Textos do Prumo trocados de volta pelo inglês/português do FreeCAD** (ex.: "Sempre" em vez de
+  "Sempre fixar") depois de abrir certas bancadas; o tradutor do Prumo volta para cima sozinho.
+
 - **Tela de abertura com a versão antiga depois de atualizar só o complemento** (ex.: mostrava 1.2.0). O
   complemento agora leva a tela de abertura com a versão dele, e o Prumo a usa no lugar da que veio na
   instalação.

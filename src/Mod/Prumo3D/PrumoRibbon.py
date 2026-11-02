@@ -1592,6 +1592,11 @@ class PrumoRibbon(QtWidgets.QWidget):
         for t in TABS:
             self._precarregadas[t.get("id")] = True
         try:
+            import PrumoI18n        # as bancadas carregadas instalaram tradutores por cima do Prumo
+            PrumoI18n.raise_priority()
+        except Exception:
+            pass
+        try:
             idx = self.tabbar.currentIndex()
             if 0 <= idx < len(self._tabs):
                 self.build(self._tabs[idx])

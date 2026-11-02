@@ -13426,6 +13426,9 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         if not FreeCAD.GuiUp:
             self.skipTest("sem interface")
         import os
+        from PySide import QtWidgets
+        for _k in range(5):        # trocas de tradutor pendentes (outras bancadas) são resolvidas pelo Prumo
+            QtWidgets.QApplication.processEvents()
         tr = FreeCAD.Qt.translate
         self.assertEqual(tr("Assembly", "Ground Part?"), "Fixar a peça?")
         self.assertTrue(tr("Assembly", "Do you want to ground the first inserted part automatically?\nYou need "

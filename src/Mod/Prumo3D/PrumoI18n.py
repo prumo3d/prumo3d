@@ -645,6 +645,7 @@ def install():
         qm = os.path.join(ADDON_DIR, "translations", "prumo_ptbr.qm")
         _state["tr"] = PrumoTranslator(EXTRA, qm if os.path.isfile(qm) else "")
     raise_priority()
+    vigiar_idioma()
     QtCore.QTimer.singleShot(1500, retitle_docks)
 
 
@@ -675,10 +676,39 @@ def uninstall():
         _app().removeTranslator(_state["tr"])
 
 
+class _VigiaIdioma(QtCore.QObject):
+    """Qualquer tradutor novo (bancada carregada, módulo que chama updateLocale) entra por cima do Prumo e
+    volta o texto original do FreeCAD ("Sempre" em vez de "Sempre fixar"). A cada troca de tradutores o Prumo
+    volta para o topo (com um intervalo, porque a própria volta também avisa troca)."""
+
+    def eventFilter(self, obj, ev):
+        try:
+            if ev.type() == QtCore.QEvent.LanguageChange and obj is _app():
+                import time
+                if time.time() - _state.get("ultimo_topo", 0.0) > 0.5:
+                    QtCore.QTimer.singleShot(0, _topo)
+        except Exception:
+            pass
+        return False
+
+
+def _topo():
+    import time
+    _state["ultimo_topo"] = time.time()
+    raise_priority()
+
+
+def vigiar_idioma():
+    if _state.get("vigia") is None and _state["tr"] is not None:
+        _state["vigia"] = _VigiaIdioma()
+        _app().installEventFilter(_state["vigia"])
+
+
 def on_workbench(name):
     """Na primeira ativação de cada bancada o módulo instala seus tradutores."""
+    vigiar_idioma()
     if name in _state["seen"]:
         return
     _state["seen"].add(name)
-    QtCore.QTimer.singleShot(0, raise_priority)
+    QtCore.QTimer.singleShot(0, _topo)
     QtCore.QTimer.singleShot(200, retitle_docks)
