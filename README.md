@@ -27,13 +27,14 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.2** (30/10/2026)
+**Versão atual: 1.2.3** (02/11/2026)
 
-- **Tubulação ajusta o traçado às conexões:** canto ou ramal fora do ângulo de uma conexão gira sozinho para
-  90°/45° (PVC e rosca) sem mudar os comprimentos; no aço, curva de 90° cortada no ângulo.
-- **Esboço 3D:** caixinha de comprimento junto do cursor (digite e Enter) e ímãs nos pontos e nas linhas.
-- Aviso da montagem ("Fixar a peça?") em português e vistas no meio da folha.
+- **Junta inteligente na montagem:** escolha duas faces, arestas ou pontos e o Prumo põe a junta certa pela forma
+  (eixo e furo = concêntrica, faces planas = coincidente, cilindro na face = tangente), com a peça já no lugar.
+- **OpenCV (cv2) no pacote:** as bancadas que gravam e leem vídeo com o cv2 voltam a funcionar.
 
+Na 1.2.2: tubulação ajusta o traçado às conexões e curva cortada no aço; caixinha de comprimento e ímãs no
+Esboço 3D; aviso da montagem em português; vistas no meio da folha.
 Na 1.2.1: válvulas na linha de aço; perfis Gerdau, Tuper, Ue e barras; Esboço 3D como no ZW3D;
 arredondamento automático, folhas em lote e cotas do corte.
 Na 1.2.0: tubulação de aço carbono com folha isométrica; solda, rugosidade e ajuste furo/eixo em português;
