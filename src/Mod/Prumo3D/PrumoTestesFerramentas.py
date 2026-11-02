@@ -13815,6 +13815,48 @@ class T92BarraDeVarredura(unittest.TestCase):
         self.assertIn("Prumo_BarraVarredura", FreeCADGui.listCommands())
 
 
+class T93MenusComAcento(unittest.TestCase):
+    """Bancada externa com menu acentuado (ex.: Movie, "Câmeras e Objetos") não pode virar "CÃ¢meras" quando o
+    Prumo retraduz a interface."""
+
+    def test_menu_acentuado_sobrevive_a_retraducao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtCore, QtWidgets
+        nome = "PrumoTesteAcentoWorkbench"
+        titulo = "Câmeras e Animação"
+
+        class _Wb(FreeCADGui.Workbench):
+            MenuText = "Teste acento"
+
+            def Initialize(self):
+                self.appendMenu(titulo, ["Std_ViewFitAll"])
+
+            def GetClassName(self):
+                return "Gui::PythonWorkbench"
+
+        anterior = FreeCADGui.activeWorkbench().name()
+        FreeCADGui.addWorkbench(_Wb())
+        try:
+            FreeCADGui.activateWorkbench("_Wb")
+            mw = FreeCADGui.getMainWindow()
+
+            def titulos():
+                return [a.text().replace("&", "") for a in mw.menuBar().actions()]
+
+            self.assertIn(titulo, titulos())
+            QtWidgets.QApplication.sendEvent(mw, QtCore.QEvent(QtCore.QEvent.LanguageChange))
+            QtWidgets.QApplication.processEvents()
+            self.assertIn(titulo, titulos(), titulos())
+            self.assertFalse([t for t in titulos() if "Ã" in t], titulos())
+        finally:
+            FreeCADGui.activateWorkbench(anterior)
+            try:
+                FreeCADGui.removeWorkbench("_Wb")
+            except Exception:
+                pass
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13840,4 +13882,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura]
+           T92BarraDeVarredura, T93MenusComAcento]

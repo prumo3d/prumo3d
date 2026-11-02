@@ -27,6 +27,9 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   logo ao abrir: clicar nos trechos não escolhia nada e "Na ponta solta"/"No ponto clicado" não faziam nada.
   Agora escuta, e clicar no próprio tubo também escolhe o trecho (o traçado fica dentro dele). Apertar o botão da
   torneira antes de escolher pede o trecho e põe a torneira no clique seguinte.
+- **Menus acentuados de bancadas externas apareciam quebrados** (ex.: Movie mostrava "CÃ¢meras e Objetos" e
+  "AnimaÃ§Ã£o"). O nome do menu era lido com a codificação errada quando a interface era retraduzida. Agora sai
+  "Câmeras e Objetos", "Animação".
 
 ## 1.2.4 — 02/11/2026
 
