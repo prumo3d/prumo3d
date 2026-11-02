@@ -167,7 +167,7 @@ TABS = [
             ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
             ("Prumo_Variantes", L, "Variantes\nda peça"), ("Prumo_Modelo", L, "Modelo com\nregras"),
             ("Prumo_Massa", S, "Propriedades de massa"),
-            ("Prumo_ListaMateriais", S, "Lista de materiais"), ("Prumo_NovaFolha", S, "Folha ABNT"),
+            ("Prumo_ListaMateriais", S, "Lista de materiais"),
         ]),
     ]},
     {"id": "montagem", "label": "Montagem", "wb": "AssemblyWorkbench", "panels": [

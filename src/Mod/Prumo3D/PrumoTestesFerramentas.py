@@ -13445,6 +13445,12 @@ class T89NovidadesDoZW3D(unittest.TestCase):
                 self.assertEqual(len(medir), 1)
                 self.assertFalse(medir[0].property("prumo_dispensavel"))
 
+    def test_folha_abnt_so_no_desenho(self):
+        import PrumoRibbon as R
+        abas = [t["id"] for t in R.TABS for _p, its in t["panels"] for c, *_r in its
+                if "Prumo_NovaFolha" in c.split("|")]
+        self.assertEqual(abas, ["desenho"])
+
     def test_plano_novo_em_destaque_na_peca(self):
         import PrumoRibbon as R
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
