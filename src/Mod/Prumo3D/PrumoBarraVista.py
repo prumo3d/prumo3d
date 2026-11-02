@@ -152,10 +152,12 @@ class BarraVista(QtWidgets.QFrame):
         return b
 
     def _rodar(self, nome):
-        try:
-            FreeCADGui.runCommand(nome, 0)
-        except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: %s: %s\n" % (nome, exc))
+        import PrumoAvisoClique as AV
+        a = _acao(nome)
+        if a is not None and not a.isEnabled():
+            AV.clique_inativo(nome)
+            return
+        AV.executar(nome, lambda: FreeCADGui.runCommand(nome, 0))
 
     def _sombras(self, marcado):
         try:

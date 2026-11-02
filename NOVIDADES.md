@@ -47,6 +47,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   (aço, 7.850 kg/m³) e as medidas ficam guardadas no nome do perfil (ex.: "Customizado I 200 x 100 x 6,3 x 8"),
   então o arquivo abre igual em qualquer computador.
 - **Grupo Vista saiu da aba Início:** as vistas ficam só na barra embaixo da vista 3D (a busca, Ctrl+K, continua achando).
+- **Nenhum clique fica sem resposta.** Se a ferramenta não pode rodar agora (sem projeto aberto, sem a
+  seleção que ela pede, com um esboço ou painel aberto, fora de um esboço) o botão continua com cara de
+  desligado, mas o clique mostra um aviso embaixo da janela dizendo o porquê e o que fazer. Se a ferramenta
+  roda e dá erro, o aviso mostra o erro (em português quando o Prumo conhece a mensagem). Vale para a faixa,
+  a barra de vistas e a busca de comandos.
+- **Abas reposicionáveis:** segure uma aba da faixa e arraste para mudar a ordem; a ordem fica gravada.
 - **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
   as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as

@@ -142,7 +142,22 @@ def rodar(item, ribbon=None):
             ribbon.select_tab(aba, user=True)
         except Exception:
             pass
-    FreeCADGui.runCommand(cmd, 0)
+    import PrumoAvisoClique as AV
+    try:
+        acts = FreeCADGui.Command.get(cmd).getAction() or []
+    except Exception:
+        acts = []
+    if acts and not any(a.isEnabled() for a in acts):
+        try:
+            import PrumoSelecao
+            if PrumoSelecao.precisa_de_painel(cmd):
+                PrumoSelecao.pedir_para_comando(cmd)
+                return
+        except Exception:
+            pass
+        AV.clique_inativo(cmd, _rot)
+        return
+    AV.executar(cmd, lambda: FreeCADGui.runCommand(cmd, 0), _rot)
 
 
 # ------------------------------------------------------------------ janela

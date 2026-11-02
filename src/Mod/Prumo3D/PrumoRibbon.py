@@ -470,6 +470,7 @@ RIBBON_QSS = """
 #PrumoRibbon QToolButton:hover { background: #EAF1F8; border-color: #C9DAEA; }
 #PrumoRibbon QToolButton:pressed, #PrumoRibbon QToolButton:checked { background: #D8E6F3; border-color: #9FBEDD; }
 #PrumoRibbon QToolButton:disabled { color: #A3ADB8; }
+#PrumoRibbon QToolButton[inativo="true"] { color: #A3ADB8; }
 #PrumoRibbon QToolButton[sw_size="L"] { padding: 3px 4px 2px 4px; }
 #PrumoRibbon QToolButton[sw_size="L"][popupMode="1"] { padding-bottom: 12px; }
 #PrumoRibbon QToolButton[sw_size="L"]::menu-button {
@@ -761,6 +762,22 @@ def _quebra(texto):
     return texto[:pos] + "\n" + texto[pos + 1:]
 
 
+def ordenar_abas(tabs):
+    """As abas na ordem que o usuário deixou (arrastando); as que não estão na ordem gravada (novas) ficam
+    no lugar de sempre, depois das gravadas."""
+    try:
+        gravada = [x for x in _params().GetString("OrdemAbas", "").split(",") if x]
+    except Exception:
+        gravada = []
+    if not gravada:
+        return tabs
+    pos = {tid: k for k, tid in enumerate(gravada)}
+    conhecidas = [t for t in tabs if t["id"] in pos]
+    novas = [t for t in tabs if t["id"] not in pos]
+    conhecidas.sort(key=lambda t: pos[t["id"]])
+    return conhecidas + novas
+
+
 class RibbonButton(QtWidgets.QToolButton):
     """Botão ligado a uma ou várias QActions de um comando do FreeCAD."""
 
@@ -828,12 +845,21 @@ class RibbonButton(QtWidgets.QToolButton):
         n = a.whatsThis() if a is not None else ""
         return n or (getattr(self, "_cmd", "") if len(self._actions) == 1 else "")
 
+    def ativo(self):
+        """A ferramenta pode rodar agora (o botão fica clicável mesmo quando não pode, para explicar)."""
+        return not bool(self.property("inativo"))
+
     def _on_click(self):
         a = self._current
-        if _pedir_selecao(self.nome_comando(a)):
+        nome = self.nome_comando(a)
+        rotulo = self._label.replace("\n", " ") if (self._label and len(self._actions) == 1) else None
+        import PrumoAvisoClique as AV
+        if _pedir_selecao(nome):
             pass
         elif a is not None and a.isEnabled():
-            a.trigger()
+            AV.executar(nome, a.trigger, rotulo)
+        elif a is not None:
+            AV.clique_inativo(nome, rotulo)
         self._sync()
 
     def _sync(self):
@@ -850,7 +876,7 @@ class RibbonButton(QtWidgets.QToolButton):
                 if not x.icon().isNull():
                     icon = x.icon()
                     break
-        self.setIcon(_with_disabled(icon, _MED["iconL"] if self._size == L else _MED["iconS"]))
+        self._icone_base = icon
         txt = self._label if self._label else _clean(a.text())
         self.setText(_quebra(txt) if self._size == L else txt)
         self._ajustar_largura()
@@ -865,7 +891,18 @@ class RibbonButton(QtWidgets.QToolButton):
         enabled = any(x.isEnabled() for x in self._actions) if len(self._actions) > 1 else a.isEnabled()
         if not enabled and _selecao_depois(self.nome_comando(a)):
             enabled = True     # sem seleção, o clique abre o painel que pede a seleção
-        self.setEnabled(enabled)
+        # A ferramenta que não pode rodar agora fica com cara de desligada, mas o clique continua chegando:
+        # assim ele explica por quê (PrumoAvisoClique) em vez de não fazer nada.
+        self.setEnabled(True)
+        tam = _MED["iconL"] if self._size == L else _MED["iconS"]
+        ic = _with_disabled(getattr(self, "_icone_base", icon), tam)
+        if not enabled and not ic.isNull():
+            ic = QtGui.QIcon(ic.pixmap(QtCore.QSize(tam, tam), QtGui.QIcon.Disabled))
+        self.setIcon(ic)
+        if bool(self.property("inativo")) != (not enabled):
+            self.setProperty("inativo", not enabled)
+            self.style().unpolish(self)
+            self.style().polish(self)
         # Em grupos (menu), o botão não espelha o estado "marcado" da subopção
         checkable = a.isCheckable() and len(self._actions) == 1
         self.setCheckable(checkable)
@@ -1055,7 +1092,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         self.setObjectName("PrumoRibbon")
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
         self.setStyleSheet(_t(RIBBON_QSS))
-        self._tabs = list(TABS)
+        self._tabs = ordenar_abas(list(TABS))
         self._dynamic = None  # aba gerada para bancadas sem aba própria
         self._edit_prev = None
         self._ctx_edicao = None
@@ -1101,6 +1138,9 @@ class PrumoRibbon(QtWidgets.QWidget):
             self.tabbar.addTab(t["label"])
         self.tabbar.currentChanged.connect(self._on_tab_changed)
         self.tabbar.tabBarDoubleClicked.connect(self._toggle_collapse)
+        # segurar e arrastar uma aba muda a ordem (fica gravada para a próxima vez)
+        self.tabbar.setMovable(True)
+        self.tabbar.tabMoved.connect(self._aba_movida)
         # a barra de abas fica com todo o espaço que sobra (as abas continuam à esquerda): a aba ativa, em
         # negrito, cresce sem empurrar a última para fora
         rl.addWidget(self.tabbar, 1)
@@ -1347,6 +1387,14 @@ class PrumoRibbon(QtWidgets.QWidget):
         self._collapse_btn.setArrowType(QtCore.Qt.UpArrow if vis else QtCore.Qt.DownArrow)
 
     # ---- abas
+    def _aba_movida(self, de, para):
+        """O usuário arrastou uma aba: a lista interna acompanha a barra e a ordem fica gravada."""
+        if 0 <= de < len(self._tabs) and 0 <= para < len(self._tabs):
+            t = self._tabs.pop(de)
+            self._tabs.insert(para, t)
+        ids = [t["id"] for t in self._tabs if t["id"] != "dyn"]
+        _params().SetString("OrdemAbas", ",".join(ids))
+
     def tab_index(self, tab_id):
         for i, t in enumerate(self._tabs):
             if t["id"] == tab_id:

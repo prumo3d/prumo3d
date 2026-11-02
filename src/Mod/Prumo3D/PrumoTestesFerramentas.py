@@ -13647,6 +13647,72 @@ class T97CatalogoDePerfis(unittest.TestCase):
         d.close()
 
 
+class T98CliqueSempreResponde(unittest.TestCase):
+    """Clique em ferramenta que não pode rodar (ou que dá erro) mostra o porquê; abas podem ser arrastadas."""
+
+    def test_clique_em_ferramenta_inativa_explica(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtGui
+        import PrumoRibbon as R
+        import PrumoAvisoClique as AV
+        a = QtGui.QAction("Extrusão", None)
+        a.setWhatsThis("PartDesign_Pad")
+        a.setEnabled(False)
+        b = R.RibbonButton([a], R.S, "Extrusão")
+        b._sync()
+        self.assertTrue(b.isEnabled(), "o botão continua recebendo o clique")
+        self.assertFalse(b.ativo())
+        doc = novo_doc("PrumoTesteClique")
+        try:
+            FreeCADGui.Selection.clearSelection()
+            b.click()
+            self.assertIn("Extrusão", AV.ultimo())
+            self.assertIn("selecionado", AV.ultimo())
+            av = AV._ESTADO["aviso"]
+            self.assertTrue(av is not None and av.isVisible(), "o aviso aparece na tela")
+        finally:
+            fechar(doc)
+        self.assertIn("projeto aberto", AV.motivo_inativo("PartDesign_Pad") if FreeCAD.ActiveDocument is None
+                      else "projeto aberto")
+        b.deleteLater()
+
+    def test_erro_ao_rodar_vira_aviso(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoAvisoClique as AV
+
+        def falha():
+            raise ValueError("Resulting shape is not a solid")
+        self.assertFalse(AV.executar("PartDesign_Pad", falha, "Extrusão"))
+        self.assertIn("Extrusão não foi executada", AV.ultimo())
+
+    def test_abas_arrastaveis_e_ordem_gravada(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        rb = R._state.get("ribbon")
+        tb = rb.tabbar
+        self.assertTrue(tb.isMovable())
+        g = R._params()
+        antes = g.GetString("OrdemAbas", "")
+        ids0 = [t["id"] for t in rb._tabs]
+        try:
+            tb.moveTab(1, 3)
+            ids = [t["id"] for t in rb._tabs]
+            self.assertEqual(ids[3], ids0[1])
+            self.assertEqual([tb.tabText(i) for i in range(tb.count())], [t["label"] for t in rb._tabs])
+            self.assertEqual([t["id"] for t in R.ordenar_abas(list(R.TABS))][:5],
+                             [x for x in ids if x != "dyn"][:5])
+        finally:
+            tb.moveTab(3, 1)
+            if antes:
+                g.SetString("OrdemAbas", antes)
+            else:
+                g.RemString("OrdemAbas")
+        self.assertEqual([t["id"] for t in rb._tabs], ids0)
+
+
 class T90TracadoNasConexoes(unittest.TestCase):
     """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
     rosca vão para 90°/45°; no aço, a curva cortada faz qualquer canto até 90°)."""
@@ -14195,4 +14261,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde]
