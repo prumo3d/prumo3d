@@ -20,6 +20,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   cada linha vira uma barra, redonda ou quadrada, maciça ou tubo; as que se cruzam ou se encontram ficam unidas
   num sólido só (grade, xadrez, chapa expandida, gradil). Raio nos cantos opcional. No esboço comum, a barra
   quadrada fica com as faces paralelas ao plano. Duplo clique na árvore edita.
+- **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
+  as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
+  relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as
+  vistas abertas depois também ficam com sombra. Seleção e clique nas peças continuam iguais. Em placa de vídeo
+  fraca ou montagem muito grande pode deixar a vista mais lenta: aí é só desmarcar.
 
 ### Correções
 

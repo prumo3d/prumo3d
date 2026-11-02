@@ -7324,6 +7324,15 @@ class T53Tubulacao(unittest.TestCase):
             QtWidgets.QApplication.processEvents()
             time.sleep(0.02)
 
+    @classmethod
+    def _ate(cls, cond, s=4.0):
+        """Processa eventos até a condição valer (ou o tempo acabar): na bateria completa a interface é mais lenta."""
+        import time
+        fim = time.time() + s
+        cls._eventos(0.2)
+        while not cond() and time.time() < fim:
+            cls._eventos(0.1)
+
     def test_painel_escuta_os_cliques_nos_trechos(self):
         """O painel da tubulação continua escutando a vista depois de aberto (antes parava ao abrir)."""
         if not FreeCAD.GuiUp:
@@ -7366,7 +7375,7 @@ class T53Tubulacao(unittest.TestCase):
             r = t.Shape.BoundBox.ZMax                       # raio externo do tubo
             face = face_perto(FreeCAD.Vector(2000 + r, 1200, 0))
             FreeCADGui.Selection.addSelection(self.doc.Name, t.Name, "Face%d" % face, 2000 + r, 1200, 0)
-            self._eventos()
+            self._ate(lambda: list(t.Pontos))
             self.assertEqual(list(t.Pontos), ["2: fim: +Z"], (pn.escolhidos, pn.lb_sel.text()))
             self.assertEqual(pn.escolhidos, [1])
             # "No ponto clicado" pelo tubo: o ponto clicado vale
@@ -7375,7 +7384,7 @@ class T53Tubulacao(unittest.TestCase):
             self.assertFalse(pn.torneira_no_ponto())
             face1 = face_perto(FreeCAD.Vector(900, -r, 0))
             FreeCADGui.Selection.addSelection(self.doc.Name, t.Name, "Face%d" % face1, 900, -r, 0)
-            self._eventos()
+            self._ate(lambda: "1: 900: +Z" in list(t.Pontos))
             self.assertIn("1: 900: +Z", list(t.Pontos))
             pn.accept()
         finally:
@@ -13857,6 +13866,88 @@ class T93MenusComAcento(unittest.TestCase):
                 pass
 
 
+class T94Sombras(unittest.TestCase):
+    """Sombras na vista 3D: vem desmarcado, liga e desliga sem estragar a vista, a seleção nem as peças."""
+
+    def setUp(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoSombras as S
+        self.S = S
+        self.antes = S.ligado()
+        self.doc = novo_doc("PrumoTesteSombras")
+        FreeCAD.setActiveDocument(self.doc.Name)
+
+    def tearDown(self):
+        self.S.definir(self.antes)
+        fechar(self.doc)
+
+    def test_vem_desmarcado(self):
+        g = FreeCAD.ParamGet(self.S.PARAM)
+        valor = g.GetBool("Sombras", False)
+        g.RemBool("Sombras")
+        try:
+            self.assertFalse(self.S.ligado())
+        finally:
+            g.SetBool("Sombras", valor)
+        self.assertIn("Prumo_Sombras", FreeCADGui.listCommands())
+
+    def test_liga_desliga_e_a_vista_continua_igual(self):
+        S = self.S
+        b = self.doc.addObject("Part::Box", "Caixa")
+        self.doc.recompute()
+        v = FreeCADGui.getDocument(self.doc.Name).ActiveView
+        v.viewIsometric(); v.fitAll()
+        raiz = S._no_da_vista(v)
+        pai0, i0 = S._pai(v, raiz)
+        self.assertIsNotNone(pai0)
+        S.definir(True)
+        g = S._grupo_sombra(v)
+        self.assertIsNotNone(g, "a vista não ficou com sombras")
+        self.assertEqual(g.getTypeId().getName().getString(), "ShadowGroup")
+        S.definir(True)                                   # ligar de novo não embrulha duas vezes
+        self.assertEqual(S._pai(v, S._grupo_sombra(v))[0].getName().getString() != S.NOME_GRUPO, True)
+        # a seleção pelo clique continua achando a peça
+        FreeCADGui.updateGui()
+        sz = v.getSize()
+        achou = None
+        for fx in (0.5, 0.45, 0.55, 0.4, 0.6):
+            info = v.getObjectInfo((int(sz[0] * fx), int(sz[1] * 0.5)))
+            if info and info.get("Object") == b.Name:
+                achou = info
+                break
+        self.assertIsNotNone(achou, "com sombras o clique não acha a peça")
+        # peça nova e peça apagada com sombras ligadas
+        c = self.doc.addObject("Part::Cylinder", "Cil")
+        self.doc.recompute()
+        self.assertTrue(c.ViewObject.Visibility)
+        self.doc.removeObject(c.Name)
+        self.doc.recompute()
+        S.definir(False)
+        self.assertIsNone(S._grupo_sombra(v))
+        pai1, i1 = S._pai(v, raiz)
+        self.assertEqual((pai1.getName().getString(), i1), (pai0.getName().getString(), i0))
+        self.assertFalse(S.ligado())
+
+    def test_piso_acompanha_o_modelo(self):
+        S = self.S
+        b = self.doc.addObject("Part::Box", "Caixa")
+        b.Placement.Base = FreeCAD.Vector(0, 0, 50)
+        self.doc.recompute()
+        v = FreeCADGui.getDocument(self.doc.Name).ActiveView
+        S.definir(True)
+        from pivy import coin
+        g = S._grupo_sombra(v)
+        _i, piso = S._filhos_por_nome(g, S.NOME_GRUPO + "Piso")
+        tr = [piso.getChild(k) for k in range(piso.getNumChildren())
+              if piso.getChild(k).isOfType(coin.SoTransform.getClassTypeId())][0]
+        self.assertAlmostEqual(tr.translation.getValue()[2], 50, delta=1)
+        b.Placement.Base = FreeCAD.Vector(0, 0, -100)
+        self.doc.recompute()
+        S.aplicar()
+        self.assertAlmostEqual(tr.translation.getValue()[2], -100, delta=1)
+
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -13882,4 +13973,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras]

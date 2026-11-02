@@ -2,16 +2,16 @@
 """Prumo 3D: sombras na vista 3D (marca e desmarca na aba Início › Vista; vem desmarcado).
 
 Usa o ShadowGroup do Coin3D (o pivy não traz a classe, então o nó é lido de um texto Inventor, como faz o
-BIM em OfflineRenderingUtils.embedLight). O grupo dos objetos da vista ("ObjectGroup") passa a ficar dentro
-de um ShadowGroup com uma luz de sombra vinda de cima e um piso que só recebe sombra, logo abaixo do modelo.
-Desligar devolve o grupo dos objetos ao lugar original. A luz é fixa em relação ao modelo (sol ao alto, à
-frente e à esquerda), então a sombra não "anda" ao girar a vista.
+BIM em OfflineRenderingUtils.embedLight). A raiz dos objetos da vista (a mesma em que o FreeCAD põe e
+tira as peças) passa a ficar dentro de um ShadowGroup com uma luz de sombra vinda de cima e um piso discreto
+logo abaixo do modelo, que recebe a sombra. Desligar devolve a raiz ao lugar original. A luz é fixa em relação
+ao modelo (sol ao alto, à frente e à esquerda), então a sombra não "anda" ao girar a vista.
 """
 import FreeCAD
 
 PARAM = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 NOME_GRUPO = "PrumoSombras"
-DIRECAO_LUZ = (0.35, 0.45, -1.0)   # de cima, um pouco da frente e da esquerda
+DIRECAO_LUZ = (0.35, 0.45, -1.0)   # de cima, um pouco da frente e da esquerda: a sombra cai à frente, à vista
 
 TEXTO = """#Inventor V2.1 ascii
 ShadowGroup {
@@ -22,7 +22,7 @@ ShadowGroup {
     ShadowStyle { style NO_SHADOWING }
     ShadowDirectionalLight {
         direction %g %g %g
-        intensity 0.55
+        intensity 0.5
     }
     ShadowStyle { style CASTS_SHADOW_AND_SHADOWED }
 }
@@ -32,7 +32,7 @@ TEXTO_PISO = """#Inventor V2.1 ascii
 Separator {
     ShadowStyle { style SHADOWED }
     PickStyle { style UNPICKABLE }
-    Material { diffuseColor 1 1 1 transparency 0.999 }
+    Material { diffuseColor 0.78 0.80 0.83 transparency 0.35 }
     Transform { translation 0 0 0 scaleFactor 1 1 1 }
     Coordinate3 { point [ -1 -1 0, 1 -1 0, 1 1 0, -1 1 0 ] }
     Normal { vector [ 0 0 1 ] }
@@ -70,14 +70,33 @@ def _filhos_por_nome(no, nome):
     return -1, None
 
 
-def _raiz(view):
+def _no_da_vista(view):
+    """Nó raiz dos objetos da vista (SoFCUnifiedSelection): o FreeCAD põe e tira as peças nele."""
     return view.getViewer().getSceneGraph()
 
 
+def _pai(view, no):
+    """(pai, índice) do nó dentro da cena completa da vista (com câmera e luzes)."""
+    from pivy import coin
+    cena = view.getViewer().getSoRenderManager().getSceneGraph()
+    busca = coin.SoSearchAction()
+    busca.setNode(no)
+    busca.setInterest(coin.SoSearchAction.FIRST)
+    busca.setSearchingAll(True)
+    busca.apply(cena)
+    caminho = busca.getPath()
+    if caminho is None or caminho.getLength() < 2:
+        return None, -1
+    pai = caminho.getNodeFromTail(1)
+    return pai, caminho.getIndexFromTail(0)
+
+
 def _grupo_sombra(view):
-    raiz = _raiz(view)
-    _i, g = _filhos_por_nome(raiz, NOME_GRUPO)
-    return g
+    """O ShadowGroup do Prumo, se a vista estiver com sombras."""
+    pai, _i = _pai(view, _no_da_vista(view))
+    if pai is not None and pai.getName().getString() == NOME_GRUPO:
+        return pai
+    return None
 
 
 def _ajustar_piso(view, grupo=None):
@@ -89,66 +108,71 @@ def _ajustar_piso(view, grupo=None):
     _i, piso = _filhos_por_nome(grupo, NOME_GRUPO + "Piso")
     if piso is None:
         return
-    _i, objetos = _filhos_por_nome(grupo, "ObjectGroup")
-    if objetos is None:
-        return
-    vp = coin.SbViewportRegion()
-    acao = coin.SoGetBoundingBoxAction(vp)
-    acao.apply(objetos)
-    caixa = acao.getBoundingBox()
+    caixa = None
+    try:
+        doc = getattr(view, "_prumo_doc", None) or FreeCAD.ActiveDocument
+        bb = FreeCAD.BoundBox()
+        for o in (doc.Objects if doc else []):
+            vo = getattr(o, "ViewObject", None)
+            if vo is not None and vo.Visibility and hasattr(o, "Shape") and not o.Shape.isNull():
+                try:
+                    bb.add(o.Shape.BoundBox)
+                except Exception:
+                    pass
+        if bb.isValid():
+            caixa = (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax)
+    except Exception:
+        caixa = None
     tr = None
     for i in range(piso.getNumChildren()):
         if piso.getChild(i).isOfType(coin.SoTransform.getClassTypeId()):
             tr = piso.getChild(i)
-    if caixa.isEmpty() or tr is None:
+    if caixa is None or tr is None:
         return
-    mn, mx = caixa.getMin().getValue(), caixa.getMax().getValue()
-    cx, cy = (mn[0] + mx[0]) / 2.0, (mn[1] + mx[1]) / 2.0
-    tam = max(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2], 1.0)
+    x0, y0, z0, x1, y1, z1 = caixa
+    tam = max(x1 - x0, y1 - y0, z1 - z0, 1.0)
     folga = max(tam * 0.002, 0.01)
-    tr.translation.setValue(cx, cy, mn[2] - folga)
+    tr.translation.setValue((x0 + x1) / 2.0, (y0 + y1) / 2.0, z0 - folga)
     tr.scaleFactor.setValue(tam * 1.5, tam * 1.5, 1.0)
 
 
 def ligar_na_vista(view):
-    """Põe a vista com sombras. Devolve True se ficou ligada."""
-    from pivy import coin
-    raiz = _raiz(view)
+    """Põe a vista com sombras: a raiz dos objetos passa a ficar dentro de um ShadowGroup (com a luz de sombra
+    e o piso). O FreeCAD continua pondo e tirando peças na mesma raiz. Devolve True se ficou ligada."""
     if _grupo_sombra(view) is not None:
         _ajustar_piso(view)
         return True
-    i, objetos = _filhos_por_nome(raiz, "ObjectGroup")
-    if objetos is None:
+    raiz = _no_da_vista(view)
+    pai, i = _pai(view, raiz)
+    if pai is None:
         return False
-    d = DIRECAO_LUZ
-    grupo = _ler(TEXTO % d)
+    grupo = _ler(TEXTO % DIRECAO_LUZ)
     if grupo.getTypeId().getName().getString() != "ShadowGroup":
         return False
     grupo.setName(NOME_GRUPO)
     piso = _ler(TEXTO_PISO)
     piso.setName(NOME_GRUPO + "Piso")
     grupo.addChild(piso)
-    objetos.ref()
-    raiz.replaceChild(i, grupo)
-    grupo.addChild(objetos)
-    objetos.unref()
+    raiz.ref()
+    pai.replaceChild(i, grupo)
+    grupo.addChild(raiz)
+    raiz.unref()
     _ajustar_piso(view, grupo)
     return True
 
 
 def desligar_na_vista(view):
-    raiz = _raiz(view)
-    i, grupo = _filhos_por_nome(raiz, NOME_GRUPO)
+    grupo = _grupo_sombra(view)
     if grupo is None:
         return
-    _j, objetos = _filhos_por_nome(grupo, "ObjectGroup")
-    if objetos is None:
-        raiz.removeChild(i)
+    pai, i = _pai(view, grupo)
+    if pai is None:
         return
-    objetos.ref()
-    grupo.removeChild(objetos)
-    raiz.replaceChild(i, objetos)
-    objetos.unref()
+    raiz = _no_da_vista(view)
+    raiz.ref()
+    grupo.removeChild(raiz)
+    pai.replaceChild(i, raiz)
+    raiz.unref()
 
 
 def _vistas_3d():
@@ -160,6 +184,10 @@ def _vistas_3d():
         except Exception:
             continue
         for v in (gd.mdiViewsOfType("Gui::View3DInventor") if gd else []):
+            try:
+                v._prumo_doc = gd.Document
+            except Exception:
+                pass
             vistas.append(v)
     return vistas
 
