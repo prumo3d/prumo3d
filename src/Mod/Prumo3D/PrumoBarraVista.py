@@ -187,9 +187,17 @@ class BarraVista(QtWidgets.QFrame):
         self.raise_()
 
     def eventFilter(self, obj, ev):
-        if ev.type() in (QtCore.QEvent.Resize, QtCore.QEvent.Show):
-            QtCore.QTimer.singleShot(0, self.reposicionar)
+        try:
+            if ev.type() in (QtCore.QEvent.Resize, QtCore.QEvent.Show):
+                QtCore.QTimer.singleShot(0, self._reposicionar_se_vivo)
+        except Exception:
+            pass
         return False
+
+    def _reposicionar_se_vivo(self):
+        import shiboken6
+        if shiboken6.isValid(self) and shiboken6.isValid(self._alvo):
+            self.reposicionar()
 
 
 def _vistas_qt():
@@ -205,7 +213,10 @@ def _vistas_qt():
 def instalar_nas_vistas():
     """Põe a barra em toda vista 3D que ainda não tem (ou tira, se estiver desligada)."""
     n = 0
+    import shiboken6
     for gv in _vistas_qt():
+        if not shiboken6.isValid(gv) or not gv.isVisible() or gv.width() < 50:
+            continue          # vista sendo fechada ou ainda não mostrada: fica para a próxima rodada
         barra = gv.findChild(QtWidgets.QFrame, NOME)
         if not ligada():
             if barra is not None:
