@@ -1510,6 +1510,53 @@ class PrumoRibbon(QtWidgets.QWidget):
         finally:
             self._ignorar_sync = False
 
+    def precarregar_todas(self):
+        """Registra de uma vez os comandos de todas as bancadas que a faixa usa (Montagem, Desenho, Chapa,
+        Planilha, Superfícies...). O FreeCAD só cria esses comandos quando a bancada deles é ativada; sem isso,
+        a busca de comandos, o menu de contexto e os botões fora da aba de origem não achavam a ferramenta.
+        Ativa cada uma uma vez, sem trocar a aba, e volta para a bancada em que estava."""
+        if getattr(self, "_todas_precarregadas", False):
+            return []
+        self._todas_precarregadas = True
+        try:
+            atual = FreeCADGui.activeWorkbench().name()
+        except Exception:
+            atual = None
+        try:
+            existentes = set(FreeCADGui.listWorkbenches())
+        except Exception:
+            existentes = set()
+        bancadas = []
+        for t in TABS:
+            for wb in [t.get("wb")] + list(t.get("wb_extra") or ()):
+                if wb and wb not in bancadas and wb != atual and (not existentes or wb in existentes):
+                    bancadas.append(wb)
+        feitas = []
+        self._ignorar_sync = True
+        try:
+            for wb in bancadas:
+                try:
+                    FreeCADGui.activateWorkbench(wb)
+                    feitas.append(wb)
+                except Exception as exc:
+                    FreeCAD.Console.PrintLog("Prumo: bancada %s não carregou: %s\n" % (wb, exc))
+            if atual:
+                try:
+                    FreeCADGui.activateWorkbench(atual)
+                except Exception:
+                    pass
+        finally:
+            self._ignorar_sync = False
+        for t in TABS:
+            self._precarregadas[t.get("id")] = True
+        try:
+            idx = self.tabbar.currentIndex()
+            if 0 <= idx < len(self._tabs):
+                self.build(self._tabs[idx])
+        except Exception:
+            pass
+        return feitas
+
     def build(self, tab, tudo=False):
         """Monta a aba. tudo=True mostra também o que esta situação esconderia (usado pelo "Mostrar onde"
         do guia e do tutorial); volta ao normal na próxima mudança de situação."""
@@ -2087,6 +2134,7 @@ def install():
     ribbon.sync_workbench()
     # bancadas instaladas pelo usuário ganham aba própria, sem precisar ativar em Preferências
     QtCore.QTimer.singleShot(1500, ribbon.atualizar_abas_externas)
+    QtCore.QTimer.singleShot(2500, ribbon.precarregar_todas)
     return ribbon
 
 

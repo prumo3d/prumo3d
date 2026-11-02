@@ -41,6 +41,11 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Ferramentas presas às bancadas antigas.** Chapa, Planilha (Nova planilha, tabela de fator K), Desenho,
+  Montagem e Superfícies só passavam a existir depois de entrar na aba delas; antes disso a busca de comandos,
+  o menu de contexto e os botões chamados de outro lugar não achavam a ferramenta. Agora o Prumo registra tudo
+  logo ao abrir (sem trocar de aba), e cada ferramenta funciona de qualquer aba.
+
 - **Aviso "Failed to disconnect (None) from signal linkActivated" no console** ao trocar o aviso do guia
   ilustrado. Era só barulho (nada parava de funcionar), mas não aparece mais.
 

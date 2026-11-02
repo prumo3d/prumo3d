@@ -13490,6 +13490,39 @@ class T89NovidadesDoZW3D(unittest.TestCase):
             self.assertIn("PartDesign_Plane", FreeCADGui.listCommands())
 
 
+class T95SemDependerDeBancada(unittest.TestCase):
+    """Todos os comandos da faixa ficam registrados logo depois de abrir, sem precisar entrar na aba (ou na
+    bancada antiga) de cada um: busca de comandos, menu de contexto e botões funcionam de qualquer lugar."""
+
+    def test_comandos_da_faixa_registrados_sem_trocar_de_aba(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        rb = R._state.get("ribbon")
+        self.assertIsNotNone(rb)
+        rb.precarregar_todas()
+        lista = set(FreeCADGui.listCommands())
+        faltam = sorted({n for t in R.TABS for _p, its in t["panels"] for c, *_r in its for n in c.split("|")
+                         if n not in lista})
+        self.assertEqual(faltam, [])
+
+    def test_criar_planilha_e_chapa_de_fora_da_aba(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        R._state.get("ribbon").precarregar_todas()
+        doc = novo_doc("PrumoTesteSemBancada")
+        try:
+            FreeCAD.setActiveDocument(doc.Name)
+            FreeCADGui.activateWorkbench("PartDesignWorkbench")
+            FreeCADGui.runCommand("Spreadsheet_CreateSheet", 0)
+            self.assertTrue(doc.findObjects("Spreadsheet::Sheet"), "Nova planilha não funcionou fora da aba")
+            FreeCADGui.runCommand("Prumo_TabelaK", 0)
+            self.assertTrue(len(doc.findObjects("Spreadsheet::Sheet")) > 1, "tabela de fator K não foi criada")
+        finally:
+            fechar(doc)
+
+
 class T90TracadoNasConexoes(unittest.TestCase):
     """Cantos e ramais do Esboço 3D fora dos ângulos das conexões: o traçado se ajusta conforme a linha (PVC e
     rosca vão para 90°/45°; no aço, a curva cortada faz qualquer canto até 90°)."""
@@ -14038,4 +14071,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento, T94Sombras]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada]
