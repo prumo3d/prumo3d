@@ -6,6 +6,10 @@ BIM em OfflineRenderingUtils.embedLight). A raiz dos objetos da vista (a mesma e
 tira as peças) passa a ficar dentro de um ShadowGroup com uma luz de sombra vinda de cima e um piso discreto
 logo abaixo do modelo, que recebe a sombra. Desligar devolve a raiz ao lugar original. A luz é fixa em relação
 ao modelo (sol ao alto, à frente e à esquerda), então a sombra não "anda" ao girar a vista.
+
+As peças só projetam sombra (no piso); não recebem sombra nelas mesmas. A sombra sobre a própria peça, em
+placas de vídeo reais, saía em manchas e faixas ("acne" do mapa de sombra) e não acrescenta nada: as faces
+já ficam mais claras ou escuras pela luz normal da vista.
 """
 import FreeCAD
 
@@ -17,14 +21,14 @@ TEXTO = """#Inventor V2.1 ascii
 ShadowGroup {
     isActive TRUE
     quality 1
-    precision 0.6
+    precision 1
     smoothBorder 0.3
     ShadowStyle { style NO_SHADOWING }
     ShadowDirectionalLight {
         direction %g %g %g
-        intensity 0.5
+        intensity 0.3
     }
-    ShadowStyle { style CASTS_SHADOW_AND_SHADOWED }
+    ShadowStyle { style CASTS_SHADOW }
 }
 """
 

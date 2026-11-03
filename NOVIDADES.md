@@ -20,8 +20,13 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   cada linha vira uma barra, redonda ou quadrada, maciça ou tubo; as que se cruzam ou se encontram ficam unidas
   num sólido só (grade, xadrez, chapa expandida, gradil). Raio nos cantos opcional. No esboço comum, a barra
   quadrada fica com as faces paralelas ao plano. Duplo clique na árvore edita.
-- **Botão "Novo plano" grande na aba Peça** (grupo Corpo), ao lado de Esboço. Antes o plano ficava escondido
-  dentro do botão pequeno Referências, que agora se chama "Eixo, ponto, sistema".
+- **Botão "Novo plano" grande na aba Peça**, no grupo Ferramentas. Antes o plano ficava escondido dentro do
+  botão pequeno Referências, que agora se chama "Eixo, ponto, sistema". As ferramentas do grupo (Booleana,
+  Verificar geometria, Validar esboço) ficam à vista, sem o botão "Mais".
+- **Novo esboço mostra os planos com os eixos X, Y e Z.** Na aba Esboço, a janela "Escolher orientação" troca o
+  cubo por um desenho dos três planos com os eixos, com o plano escolhido em amarelo. Na aba Peça, o painel de
+  escolha do plano mostra na vista 3D os planos e também os eixos X, Y e Z; com o corpo vazio, a vista vai para
+  a isométrica, onde dá para clicar nos três planos.
 - **Aba Peça sem ferramentas repetidas.** Arredondar, Chanfro, Casca e Espelhar apareciam duas vezes (em
   Acabamento/Padrões e de novo em Sólidos, "Acabamento de sólido"). Agora há um botão só para cada: o clique
   faz a operação no corpo, e a setinha do botão traz a versão para sólido solto. O botão "Booleana" de
@@ -54,8 +59,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   roda e dá erro, o aviso mostra o erro (em português quando o Prumo conhece a mensagem). Vale para a faixa,
   a barra de vistas e a busca de comandos.
 - **Abas reposicionáveis:** segure uma aba da faixa e arraste para mudar a ordem; a ordem fica gravada.
-- **Sombras na vista 3D** (aba Início, grupo Vista: botão Sombras, marca e desmarca; vem desmarcado). Marcado,
-  as peças fazem sombra num piso discreto logo abaixo do modelo e umas nas outras; a luz vem de cima, fixa em
+- **Sombras na vista 3D** (botão Sombras na barra de vistas, marca e desmarca; vem desmarcado). Marcado,
+  as peças fazem sombra num piso discreto logo abaixo do modelo; a luz vem de cima, fixa em
   relação ao modelo, então a sombra não anda ao girar a vista. O piso acompanha o modelo ao recalcular e as
   vistas abertas depois também ficam com sombra. Seleção e clique nas peças continuam iguais. Em placa de vídeo
   fraca ou montagem muito grande pode deixar a vista mais lenta: aí é só desmarcar.

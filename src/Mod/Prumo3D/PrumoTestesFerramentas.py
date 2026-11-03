@@ -13511,6 +13511,10 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
         itens = {c: tam for _p, its in peca["panels"] for c, tam, *_r in its}
         self.assertEqual(itens.get("PartDesign_Plane"), R.L)
+        ferr = dict(peca["panels"])["Ferramentas"]
+        self.assertEqual(ferr[0][0], "PartDesign_Plane", "Novo plano abre o grupo Ferramentas")
+        for c, *_r in ferr:
+            self.assertNotIn(c, R.RAROS.get("peca", set()), "%s tem de ficar visível, fora do Mais" % c)
         if FreeCAD.GuiUp:
             self.assertIn("PartDesign_Plane", FreeCADGui.listCommands())
 
@@ -13584,6 +13588,27 @@ class T96BarraDeVistas(unittest.TestCase):
                 time.sleep(0.02)
             r = v.getCameraOrientation()
             self.assertAlmostEqual(abs(r.Q[0]), 0.7071, places=3)
+            # um a um, duas vezes (o 2º clique falhava com "objeto C++ já apagado" quando outro código pegava
+            # a mesma vista): nenhum botão pode dar erro, e as vistas padrão giram a câmera
+            esperado = {"Std_ViewFront": (0.7071, 0, 0, 0.7071), "Std_ViewTop": (0, 0, 0, 1),
+                        "Std_ViewRight": (0.5, 0.5, 0.5, 0.5), "Std_ViewBottom": (1, 0, 0, 0)}
+            nomes = [it[0] for it in B.ITENS if it != "|" and it[0] not in ("menu", "Prumo_Sombras", "Std_DrawStyle",
+                                                                             "Std_ToggleClipPlane")]
+            nomes += [n for it in B.ITENS if it != "|" and it[0] == "menu" for n, _d in it[3]]
+            for _rodada in (1, 2):
+                for n in nomes:
+                    v.graphicsView().findChild(QtWidgets.QFrame, B.NOME)   # outro código pegando a vista
+                    barra._rodar(n)
+                    QtWidgets.QApplication.processEvents()
+                    if n in esperado:
+                        fim = time.time() + 3
+                        while (any(abs(abs(x) - abs(y)) > 2e-3 for x, y in zip(v.getCameraOrientation().Q, esperado[n]))
+                               and time.time() < fim):
+                            QtWidgets.QApplication.processEvents()
+                            time.sleep(0.02)
+                        q = [abs(x) for x in v.getCameraOrientation().Q]
+                        for a_, b_ in zip(q, esperado[n]):
+                            self.assertAlmostEqual(a_, abs(b_), places=2, msg=n)
             barra.botoes["Prumo_Sombras"].click()
             self.assertEqual(PrumoSombras.ligado(), not antes)
             barra.botoes["Prumo_Sombras"].click()
@@ -13659,6 +13684,91 @@ class T97CatalogoDePerfis(unittest.TestCase):
         self.assertIsNotNone(d)
         self.assertTrue(d.isVisible())
         d.close()
+
+
+class T99PlanosNoNovoEsboco(unittest.TestCase):
+    """Novo esboço mostra os planos com os eixos X, Y e Z: desenho na janela de orientação e eixos na vista 3D
+    no painel de escolha do plano (aba Peça). As peças só projetam sombra (sem manchas nelas mesmas)."""
+
+    def test_desenho_dos_planos(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoNovoEsboco as N
+        imgs = {}
+        for pl in ("XY", "XZ", "YZ", None):
+            pm = N.desenho_planos(pl)
+            self.assertFalse(pm.isNull())
+            imgs[pl] = pm.toImage()
+        self.assertNotEqual(imgs["XY"], imgs["XZ"], "o destaque muda com o plano")
+        self.assertNotEqual(imgs["XZ"], imgs["YZ"])
+
+    def test_janela_de_orientacao_com_desenho(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtCore, QtWidgets
+        doc = novo_doc("PrumoTesteOrientacao")
+        visto = {}
+
+        def olhar():
+            d = QtWidgets.QApplication.activeModalWidget()
+            try:
+                visto["classe"] = d.metaObject().className() if d else None
+                if d is None:
+                    return
+                QtWidgets.QApplication.processEvents()
+                rot = d.findChild(QtWidgets.QLabel, "previewLabel")
+                visto["tam"] = (rot.width(), rot.height())
+                visto["xy"] = rot.pixmap().toImage()
+                d.findChild(QtWidgets.QRadioButton, "XZ_radioButton").setChecked(True)
+                visto["xz"] = rot.pixmap().toImage()
+            finally:
+                if d is not None:
+                    d.reject()
+        try:
+            QtCore.QTimer.singleShot(1500, olhar)
+            FreeCADGui.runCommand("Sketcher_NewSketch", 0)
+            self.assertEqual(visto.get("classe"), "SketcherGui::SketchOrientationDialog")
+            self.assertGreaterEqual(visto["tam"][0], 150, "o desenho dos planos substitui o cubo de 48 px")
+            self.assertNotEqual(visto["xy"], visto["xz"], "o plano escolhido fica em destaque")
+        finally:
+            fechar(doc)
+
+    def test_eixos_na_escolha_do_plano(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        doc = novo_doc("PrumoTesteEixosEsboco")
+        try:
+            corpo = doc.addObject("PartDesign::Body", "Body")
+            doc.recompute()
+            FreeCADGui.ActiveDocument.ActiveView.setActiveObject("pdbody", corpo)
+            eixos = [f for f in corpo.Origin.OriginFeatures if f.Role.endswith("_Axis")]
+            self.assertEqual(len(eixos), 3)
+            FreeCADGui.runCommand("PartDesign_NewSketch", 0)
+            fim = time.time() + 3
+            while not all(e.ViewObject.Visibility for e in eixos) and time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertTrue(FreeCADGui.Control.activeDialog(), "abre o painel de escolha do plano")
+            self.assertTrue(all(e.ViewObject.Visibility for e in eixos), "os eixos X, Y e Z aparecem com os planos")
+            FreeCADGui.Control.closeDialog()
+            fim = time.time() + 2
+            while any(e.ViewObject.Visibility for e in eixos) and time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertFalse(any(e.ViewObject.Visibility for e in eixos), "ao fechar, os eixos voltam a sumir")
+        finally:
+            try:
+                FreeCADGui.Control.closeDialog()
+            except Exception:
+                pass
+            fechar(doc)
+
+    def test_pecas_so_projetam_sombra(self):
+        import PrumoSombras as S
+        self.assertIn("style CASTS_SHADOW }", S.TEXTO)
+        self.assertNotIn("CASTS_SHADOW_AND_SHADOWED", S.TEXTO)
 
 
 class T98CliqueSempreResponde(unittest.TestCase):
@@ -14275,4 +14385,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T86TubulacaoAcoIsometrico, T87AtualizacaoSoDoComplemento,
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
-           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde]
+           T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
+           T99PlanosNoNovoEsboco]

@@ -115,7 +115,6 @@ TABS = [
     {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
-            ("PartDesign_Plane", L, "Novo\nplano"),
             ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
             ("Std_Refresh", S, "Recalcular"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
@@ -155,6 +154,7 @@ TABS = [
             ("Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder", S, "Escala / offset"),
         ]),
         ("Ferramentas", [
+            ("PartDesign_Plane", L, "Novo\nplano"),
             ("PartDesign_Boolean", S, "Booleana"), ("Part_CheckGeometry", S, "Verificar geometria"),
             ("Sketcher_ValidateSketch", S, "Validar esboço"),
         ]),
@@ -1831,7 +1831,6 @@ RAROS = {
         "Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools",
         "Part_Section|Part_CrossSections|Part_ProjectionOnSurface",
         "Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder",
-        "PartDesign_Boolean", "Part_CheckGeometry", "Sketcher_ValidateSketch",
     },
     "montagem": {"Assembly_SolveAssembly", "Prumo_Propriedades"},
     "estruturas": {"Prumo_AtualizarEstrutura", "Prumo_SecaoPersonalizada", "Prumo_Propriedades"},

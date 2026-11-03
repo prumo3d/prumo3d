@@ -999,6 +999,12 @@ def _start_ribbon():
         PrumoBarraVista.instalar()
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: barra de vistas: {}\n".format(exc))
+    try:
+        import PrumoNovoEsboco
+
+        PrumoNovoEsboco.instalar()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: planos do novo esboço: {}\n".format(exc))
 
 
 def _start_ferramentas():

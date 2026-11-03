@@ -94,7 +94,8 @@ class BarraVista(QtWidgets.QFrame):
         super().__init__(parent)
         self.setObjectName(NOME)
         self.setStyleSheet(QSS_ESCURO if _escuro() else QSS)
-        self._alvo = vista_qt
+        # não guarda o objeto Python da vista: o PySide invalida esse invólucro quando outro código pega a
+        # mesma vista (graphicsView(), findChildren); a vista é sempre o pai desta barra (parentWidget()).
         hl = QtWidgets.QHBoxLayout(self)
         hl.setContentsMargins(5, 3, 5, 3)
         hl.setSpacing(1)
@@ -162,7 +163,7 @@ class BarraVista(QtWidgets.QFrame):
     def _ativar_minha_vista(self):
         """Os comandos de vista agem na vista ativa: ativa a vista desta barra antes (com várias vistas
         abertas, o clique vale para a vista onde está a barra)."""
-        w = self._alvo
+        w = self.parentWidget()
         while w is not None and not isinstance(w, QtWidgets.QMdiSubWindow):
             w = w.parentWidget()
         if w is not None and w.mdiArea() is not None and w.mdiArea().activeSubWindow() is not w:
@@ -170,12 +171,14 @@ class BarraVista(QtWidgets.QFrame):
             QtWidgets.QApplication.processEvents()
 
     def _minha_vista_py(self):
-        """O objeto Python (View3DInventor) da vista desta barra, ou None."""
+        """O objeto Python (View3DInventor) da vista desta barra, ou None (compara o endereço do widget)."""
         try:
+            import shiboken6
+            meu = shiboken6.getCppPointer(self.parentWidget())[0]
             for gd in [FreeCADGui.getDocument(n) for n in FreeCAD.listDocuments()]:
                 for v in gd.mdiViewsOfType("Gui::View3DInventor"):
                     try:
-                        if v.graphicsView() == self._alvo:
+                        if shiboken6.getCppPointer(v.graphicsView())[0] == meu:
                             return v
                     except Exception:
                         continue
@@ -237,7 +240,7 @@ class BarraVista(QtWidgets.QFrame):
 
     def _reposicionar_se_vivo(self):
         import shiboken6
-        if shiboken6.isValid(self) and shiboken6.isValid(self._alvo):
+        if shiboken6.isValid(self) and self.parentWidget() is not None:
             self.reposicionar()
 
 
