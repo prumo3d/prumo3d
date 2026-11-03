@@ -9,6 +9,41 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.2.6 — 03/11/2026
+
+### Novidades
+
+- **Aba Componentes:** modelos prontos que completam o projeto, para leiaute, interferência e apresentação.
+  Escolha o modelo e o tamanho; trocar o tamanho depois redesenha. Categorias: motores elétricos (carcaças IEC
+  63 a 315), compressores (pistão com reservatório e parafuso), válvulas flangeadas (esfera, gaveta, globo,
+  retenção e borboleta, DN 15 a 300), caldeira flamotubular, secadores (refrigeração e adsorção), ar
+  comprimido (filtro-regulador-lubrificador, purgador, reservatório), trabalho em altura (trole para viga I),
+  pessoas (em pé com capacete e sentado) e outros (motobomba, ventilador, talha, quadro elétrico, extintor,
+  palete). **As medidas são representativas;** onde vêm de tabela (carcaça IEC, flange PN 16, palete PBR) estão
+  marcadas "a checar". Para projeto executivo, confira no catálogo do fabricante.
+- **Parafuso, porca e arruela** passaram da aba Estruturas para a aba Componentes.
+- **Dutos de ar-condicionado (HVAC)** na aba Tubulação: duto retangular, redondo e oval, retos e curvas,
+  transições (redondo–oval, retangular–redondo, retangular–oval) e flexível, com flanges e isolamento. Peças
+  paramétricas de **Francisco Rosa** (FreeCAD Parts Library, CC-BY 3.0), com painel em português; "Editar duto"
+  muda bocas, comprimento ou ângulo, chapa, flanges e isolamento.
+- **Modelagem direta** (ideias da bancada Direct, de Sergio Uhry, reescritas para o Prumo):
+  - **Extrudar face** (aba Peça): a face plana vira o perfil de uma Extrusão; o contorno é copiado, sem ligar
+    na face, para não quebrar quando a peça mudar.
+  - **Desenhar na face:** peça nova com o esboço no plano da face, sem ligação com a outra peça.
+  - **Linha guia** e **Peça pelas guias:** retas de referência a partir de uma aresta, deslocadas pela medida
+    digitada; os cruzamentos viram pontos de encaixe; quatro guias viram a base de uma peça.
+  - **Posicionar peça** (aba Montagem): face com face (encostadas) ou ponto com ponto.
+  - **Isolar / restaurar peça** (também na barra de vistas) e **Medir X, Y, Z** (abas Início e Montagem).
+  - **Matriz leve:** repetição por vínculos (o arquivo fica leve), por intervalo, vão livre ou dimensão total.
+  - **Matriz de furação** (aba Peça, Padrões): o furo em colunas e linhas, sem duplicar o esboço.
+- **Explosão animada** (aba Montagem, Apresentar; ideia da bancada Exploded Assembly, código novo): passos de
+  explosão com as peças selecionadas, parafusos e porcas do Prumo girando enquanto saem da rosca, barra de 0 a
+  100 %, Tocar, trajetórias, e Montada volta tudo exatamente ao lugar.
+
+### Correções
+
+- **A faixa não muda de altura** ao trocar de aba em telas estreitas (perdia 2 px no modo mais compacto).
+
 ## 1.2.5 — 02/11/2026
 
 ### Novidades

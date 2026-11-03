@@ -27,15 +27,17 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.5** (02/11/2026)
+**Versão atual: 1.2.6** (03/11/2026)
 
-- **Estrutura metálica:** escolha do perfil como num catálogo (miniaturas, cotas, detalhes técnicos) e perfil
-  customizado com as medidas que você quiser.
-- **Barra de varredura** redonda ou quadrada, **sombras** na vista 3D e **barra de vistas** embaixo da tela.
-- **Faixa mais limpa:** sem ferramentas repetidas, abas arrastáveis, todo clique explica quando não pode rodar.
-- **Correções:** torneiras na tubulação, ferramentas presas às bancadas antigas, menus acentuados de bancadas
-  externas, networkx da Chapa no pacote.
+- **Aba Componentes:** motores, compressores, válvulas, caldeiras, secadores, ar comprimido, trole, pessoas,
+  bombas e mais, prontos para o leiaute (medidas representativas); parafusos vieram para cá.
+- **Dutos de ar-condicionado (HVAC)** na aba Tubulação, com as peças paramétricas de Francisco Rosa.
+- **Modelagem direta:** extrudar face, desenhar na face, posicionar face com face, linhas guia, isolar peça,
+  medir X/Y/Z, matriz leve e matriz de furação.
+- **Explosão animada** na Montagem, com parafusos girando ao sair.
 
+Na 1.2.5: perfil como num catálogo, sombras, barra de vistas, tecla S, mouse do programa de origem,
+Adicionar / Remover material no painel, cota que diz o porquê.
 Na 1.2.4: OpenCV (cv2) corrigido.
 Na 1.2.3: junta inteligente na montagem; OpenCV no pacote.
 Na 1.2.2: tubulação ajusta o traçado às conexões e curva cortada no aço; caixinha de comprimento e ímãs no

@@ -1378,6 +1378,12 @@ class PrumoRibbon(QtWidgets.QWidget):
                 escolhido = n
                 break
         self._nivel_linha = escolhido
+        # a linha nunca encolhe de altura (esconder os botões dispensáveis do topo no nível 4 tirava 2 px):
+        # a faixa fica com a mesma altura em qualquer aba e largura
+        alt = max(getattr(self, "_alt_linha", 0), row.sizeHint().height())
+        if alt != getattr(self, "_alt_linha", 0):
+            self._alt_linha = alt
+            row.setMinimumHeight(alt)
         # setas sempre permitidas: só aparecem se nem o nível mais compacto couber (janela muito
         # estreita). Desligá-las faria a linha das abas impor largura mínima à janela inteira.
         self.tabbar.setUsesScrollButtons(True)
