@@ -252,9 +252,7 @@ TABS = [
             ("Prumo_Solda", L, "Cordão de\nsolda"), ("Prumo_ListaSoldas", S, "Lista de soldas"),
             ("Prumo_ListaDeCorte", S, "Lista de corte"),
         ]),
-        ("Peças padronizadas", [
-            ("Prumo_Fixador", L, "Parafuso,\nporca, arruela"),
-        ]),
+        # parafusos, porcas e arruelas: na aba Componentes
         ("Calcular", [
             ("Prumo_AssistenteEstrutura", L, "Assistente de\nestruturas"),
             ("Prumo_AnaliseEstrutura", L, "Simular\nestrutura"),
@@ -272,9 +270,30 @@ TABS = [
         ("Tubulação", [
             ("Prumo_Tubulacao", L, "Tubos e\nconexões"), ("Prumo_IsometricoTubulacao", L, "Folha\nisométrica"),
         ]),
+        ("Ar-condicionado (dutos)", [
+            ("Prumo_Dutos", L, "Dutos\n(HVAC)"), ("Prumo_EditarDuto", S, "Editar duto"),
+        ]),
         ("Conferir", [
             ("Prumo_Interferencia", L, "Verificar\ninterferência"),
             ("Prumo_ListaMateriais", S, "Lista de materiais"),
+        ]),
+    ]},
+    {"id": "componentes", "label": "Componentes", "wb": None, "panels": [
+        ("Máquinas", [
+            ("Prumo_Componentes_motores", L, "Motores"), ("Prumo_Componentes_compressores", L, "Compressores"),
+            ("Prumo_Componentes_caldeiras", L, "Caldeiras"), ("Prumo_Componentes_secadores", L, "Secadores"),
+        ]),
+        ("Tubulação e ar", [
+            ("Prumo_Componentes_valvulas", L, "Válvulas"), ("Prumo_Componentes_ar", L, "Ar\ncomprimido"),
+        ]),
+        ("Fixação", [
+            ("Prumo_Fixador", L, "Parafuso,\nporca, arruela"),
+        ]),
+        ("Segurança e pessoas", [
+            ("Prumo_Componentes_altura", L, "Trabalho\nem altura"), ("Prumo_Componentes_pessoas", L, "Pessoas"),
+        ]),
+        ("Outros", [
+            ("Prumo_Componentes_outros", L, "Bombas,\ntalhas e mais"), ("Prumo_Componentes", S, "Todos os componentes"),
         ]),
     ]},
     {"id": "vasos", "label": "Vasos", "wb": None, "panels": [
