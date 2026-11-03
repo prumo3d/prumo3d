@@ -3916,7 +3916,26 @@ class Encaixe:
             self.painel.hide()
             self.painel.setParent(None)
             self.painel.deleteLater()
+        op = getattr(self, "operacao", None)
+        if op is not None and shiboken.isValid(op):
+            op.hide()
+            op.setParent(None)
+            op.deleteLater()
+        self.operacao = None
         self.painel, self.obj = None, None
+
+    def _cartao_operacao(self, obj, panel):
+        """Adicionar / Remover material acima do painel (Extrusão, Cavidade, Revolução, Ranhura...)."""
+        self.operacao = None
+        try:
+            import PrumoTrocarOperacao as T
+            if obj is None or not T.pode_trocar(obj):
+                return
+            self.operacao = T.cartao(obj, panel)
+            lay = panel.layout()
+            lay.insertWidget(lay.indexOf(self.painel), self.operacao)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: cartão de operação: {}\n".format(exc))
 
     def _tick(self):
         try:
@@ -3957,6 +3976,7 @@ class Encaixe:
             self.painel = globals()[classe](obj, quadro, panel)
             lay = panel.layout()
             lay.insertWidget(lay.indexOf(quadro), self.painel)
+            self._cartao_operacao(obj, panel)
             return
         self.painel.atualizar()
         self.painel.mostrar_formulario()

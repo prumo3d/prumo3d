@@ -14000,6 +14000,129 @@ class T100IdeiasDeOutrosCAD(unittest.TestCase):
             fechar(doc)
 
 
+class T101AdicionarOuRemoverMaterial(unittest.TestCase):
+    """Chave Adicionar / Remover material: Extrusão vira Cavidade (e volta) no lugar, com esboço, medidas,
+    fórmulas e o que vem depois apontando para a operação nova."""
+
+    def _peca(self, nome):
+        import Part
+        import Sketcher
+        doc = novo_doc(nome)
+        corpo = doc.addObject("PartDesign::Body", "Body")
+        caixa = doc.addObject("PartDesign::AdditiveBox", "Caixa")
+        corpo.addObject(caixa)
+        caixa.Length = caixa.Width = 20
+        caixa.Height = 10
+        sk = doc.addObject("Sketcher::SketchObject", "Esboco")
+        corpo.addObject(sk)
+        xy = [f for f in corpo.Origin.OriginFeatures if f.Role == "XY_Plane"][0]
+        sk.AttachmentSupport = [(xy, "")]
+        sk.MapMode = "FlatFace"
+        sk.AttachmentOffset = FreeCAD.Placement(FreeCAD.Vector(0, 0, 10), FreeCAD.Rotation())
+        sk.addGeometry(Part.Circle(FreeCAD.Vector(10, 10, 0), FreeCAD.Vector(0, 0, 1), 3))
+        pad = doc.addObject("PartDesign::Pad", "Pad")
+        corpo.addObject(pad)
+        pad.Profile = sk
+        pad.setExpression("Length", "2.5 * 2")
+        doc.recompute()
+        return doc, corpo, pad
+
+    def test_troca_no_lugar_e_volta(self):
+        import math
+        import PrumoTrocarOperacao as T
+        doc, corpo, pad = self._peca("PrumoTesteTrocarOperacao")
+        try:
+            cil = math.pi * 9 * 5
+            self.assertAlmostEqual(corpo.Shape.Volume, 4000 + cil, delta=1)
+            # outra operação cita a extrusão numa fórmula
+            sk2 = doc.addObject("Sketcher::SketchObject", "Esboco2")
+            corpo.addObject(sk2)
+            import Part
+            yz = [f for f in corpo.Origin.OriginFeatures if f.Role == "XY_Plane"][0]
+            sk2.AttachmentSupport = [(yz, "")]
+            sk2.MapMode = "FlatFace"
+            sk2.addGeometry(Part.Circle(FreeCAD.Vector(3, 3, 0), FreeCAD.Vector(0, 0, 1), 1))
+            pk = doc.addObject("PartDesign::Pocket", "Furinho")
+            corpo.addObject(pk)
+            pk.Profile = sk2
+            pk.Reversed = True
+            pk.setExpression("Length", "Pad.Length")
+            doc.recompute()
+            self.assertTrue(pk.isValid(), pk.getStatusString())
+            ordem = [o.Name for o in corpo.Group]
+            novo = T.trocar(pad)
+            self.assertEqual(novo.TypeId, "PartDesign::Pocket")
+            self.assertIsNone(doc.getObject("Pad"), "a extrusão antiga sai")
+            self.assertEqual(novo.Profile[0], doc.getObject("Esboco"))
+            self.assertEqual(dict(novo.ExpressionEngine).get("Length"), "2.5 * 2", "fórmula da medida vai junto")
+            self.assertEqual(dict(pk.ExpressionEngine).get("Length"), "%s.Length" % novo.Name,
+                             "fórmula de outra operação passa a citar a nova")
+            self.assertEqual(pk.BaseFeature, novo, "o que vem depois continua em cima dela")
+            pos = [o.Name for o in corpo.Group]
+            self.assertEqual(pos.index(novo.Name), ordem.index("Pad"), "mesma posição na árvore")
+            doc.recompute()
+            self.assertAlmostEqual(novo.Shape.Volume, 4000 - cil, delta=1, msg="agora remove material")
+            volta = T.trocar(novo)
+            self.assertEqual(volta.TypeId, "PartDesign::Pad")
+            doc.recompute()
+            self.assertAlmostEqual(volta.Shape.Volume, 4000 + cil, delta=1)
+            self.assertEqual(pk.BaseFeature, volta)
+            self.assertFalse(T.pode_trocar(doc.getObject("Caixa")))
+        finally:
+            fechar(doc)
+
+    def test_ultima_operacao_vira_a_ponta(self):
+        import PrumoTrocarOperacao as T
+        doc, corpo, pad = self._peca("PrumoTesteTrocarPonta")
+        try:
+            self.assertEqual(corpo.Tip, pad)
+            novo = T.trocar(pad)
+            self.assertEqual(corpo.Tip, novo)
+            self.assertTrue(corpo.isValid())
+        finally:
+            fechar(doc)
+
+    def test_chave_no_painel(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        import PrumoPainelComando as PC
+        doc, corpo, pad = self._peca("PrumoTesteChaveOperacao")
+        try:
+            if not PC.ligado():
+                self.skipTest("painel de comando desligado")
+            FreeCADGui.ActiveDocument.setEdit(pad.Name, 0)
+            mw = FreeCADGui.getMainWindow()
+
+            def cartao():
+                return [w for w in mw.findChildren(QtWidgets.QWidget, "PrumoCartaoOperacao") if w.isVisible()]
+            fim = time.time() + 4
+            while not cartao() and time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.05)
+            self.assertTrue(cartao(), "o painel da Extrusão mostra Adicionar / Remover material")
+            import PrumoTrocarOperacao as T
+            novo = T.trocar_em_edicao(pad)
+            self.assertIsNotNone(novo)
+            fim = time.time() + 4
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                vp = FreeCADGui.ActiveDocument.getInEdit()
+                if vp is not None and vp.Object == novo:
+                    break
+                time.sleep(0.05)
+            vp = FreeCADGui.ActiveDocument.getInEdit()
+            self.assertTrue(vp is not None and vp.Object == novo, "o painel reabre na Cavidade")
+        finally:
+            try:
+                FreeCADGui.Control.closeDialog()
+                FreeCADGui.ActiveDocument.resetEdit()
+            except Exception:
+                pass
+            fechar(doc)
+
+
 class T98CliqueSempreResponde(unittest.TestCase):
     """Clique em ferramenta que não pode rodar (ou que dá erro) mostra o porquê; abas podem ser arrastadas."""
 
@@ -14615,4 +14738,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
-           T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD]
+           T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
+           T101AdicionarOuRemoverMaterial]

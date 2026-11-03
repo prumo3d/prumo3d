@@ -54,6 +54,10 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Busca (Ctrl+K) com os nomes de outros CAD:** entende os nomes do SolidWorks, ZW3D, Inventor e Fusion do guia
   "Vindo do SolidWorks" ("corte extrudado" acha Cavidade, "shell" acha Casca, "combine" acha Unir, "timeline"
   acha a Árvore do modelo).
+- **Adicionar / Remover material no próprio painel** (Extrusão ↔ Cavidade, Revolução ↔ Ranhura, Loft, Varredura e
+  Hélice). Errou a escolha? A chave no topo do painel troca a operação no lugar, sem apagar e refazer: mesmo
+  esboço, medidas e fórmulas, mesma posição na árvore, e o que vinha depois (padrões, fórmulas que citavam a
+  operação) passa a apontar para a nova. Os dois botões continuam na faixa.
 - **A ferramenta segue a seleção:** selecionou uma aresta ou face de outro corpo e clicou em Arredondar, Chanfro,
   Padrão etc.? O Prumo ativa esse corpo (com aviso na barra de status) em vez de recusar com "a seleção não está
   no corpo ativo". Desliga com a preferência AtivarCorpoDaSelecao.
