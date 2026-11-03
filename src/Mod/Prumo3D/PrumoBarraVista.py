@@ -33,6 +33,13 @@ ITENS = [
     ("Prumo_Sombras", "Sombras"),
 ]
 
+# comandos de câmera que a própria vista sabe fazer (não dependem da janela ativa)
+DIRETOS = {
+    "Std_ViewFitAll": "fitAll", "Std_ViewIsometric": "viewIsometric", "Std_ViewFront": "viewFront",
+    "Std_ViewTop": "viewTop", "Std_ViewRight": "viewRight", "Std_ViewRear": "viewRear",
+    "Std_ViewBottom": "viewBottom", "Std_ViewLeft": "viewLeft",
+}
+
 QSS = """
 QFrame#PrumoBarraVista { background: rgba(255,255,255,235); border: 1px solid #C9D3DE; border-radius: 9px; }
 QFrame#PrumoBarraVista QToolButton { border: none; border-radius: 6px; padding: 2px; background: transparent; }
@@ -162,9 +169,29 @@ class BarraVista(QtWidgets.QFrame):
             w.mdiArea().setActiveSubWindow(w)
             QtWidgets.QApplication.processEvents()
 
+    def _minha_vista_py(self):
+        """O objeto Python (View3DInventor) da vista desta barra, ou None."""
+        try:
+            for gd in [FreeCADGui.getDocument(n) for n in FreeCAD.listDocuments()]:
+                for v in gd.mdiViewsOfType("Gui::View3DInventor"):
+                    try:
+                        if v.graphicsView() == self._alvo:
+                            return v
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return None
+
     def _rodar(self, nome):
         self._ativar_minha_vista()
         import PrumoAvisoClique as AV
+        metodo = DIRETOS.get(nome)
+        v = self._minha_vista_py() if metodo else None
+        if v is not None:
+            # câmera: age direto na vista da barra, sem depender de qual janela está ativa
+            AV.executar(nome, lambda: getattr(v, metodo)())
+            return
         a = _acao(nome)
         if a is not None and not a.isEnabled():
             AV.clique_inativo(nome)
