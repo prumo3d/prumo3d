@@ -14123,6 +14123,241 @@ class T101AdicionarOuRemoverMaterial(unittest.TestCase):
             fechar(doc)
 
 
+class T102Componentes(unittest.TestCase):
+    """Aba Componentes: todo modelo em todo tamanho gera sólido válido e com cor por face; inserir e trocar o
+    tamanho redesenha; parafusos vieram da aba Estruturas."""
+
+    def test_todos_os_modelos_e_tamanhos(self):
+        import PrumoComponentes as C
+        n = 0
+        for _cid, _nome, modelos in C.CATALOGO:
+            for mid, _mn, tamanhos, _fn in modelos:
+                for t in tamanhos:
+                    forma, cores, info = C.gerar(mid, t)
+                    self.assertTrue(forma.isValid(), "%s %s" % (mid, t))
+                    self.assertEqual(len(cores), len(forma.Faces), "%s %s" % (mid, t))
+                    self.assertTrue(info, "%s %s sem informações" % (mid, t))
+                    n += 1
+        self.assertGreater(n, 80)
+
+    def test_inserir_e_trocar_tamanho(self):
+        import PrumoComponentes as C
+        doc = novo_doc("PrumoTesteComponentes")
+        try:
+            o = C.inserir(doc, "motor_iec", "90S", FreeCAD.Vector(100, 0, 0))
+            h1 = o.Shape.BoundBox.ZLength
+            self.assertAlmostEqual(o.Placement.Base.x, 100)
+            o.Tamanho = "160M"
+            doc.recompute()
+            self.assertGreater(o.Shape.BoundBox.ZLength, h1, "tamanho maior redesenha maior")
+            self.assertTrue(any("a checar" in d for d in o.Dados), "medida de tabela marcada a checar")
+        finally:
+            fechar(doc)
+
+    def test_aba_e_parafuso_mudou_de_aba(self):
+        import PrumoRibbon as R
+        abas = {t["id"]: [c for _n, its in t["panels"] for c, *_r in its] for t in R.TABS}
+        self.assertIn("Prumo_Fixador", abas["componentes"])
+        self.assertNotIn("Prumo_Fixador", abas["estruturas"])
+        if FreeCAD.GuiUp:
+            for c in abas["componentes"]:
+                self.assertIn(c, FreeCADGui.listCommands())
+
+
+class T103DutosHVAC(unittest.TestCase):
+    """Dutos de ar-condicionado: peças do Francisco Rosa copiadas sem as folhas de desenho, variáveis em
+    português, duas peças iguais independentes."""
+
+    def test_inserir_duas_e_mudar_uma(self):
+        import PrumoDutos as D
+        doc = novo_doc("PrumoTesteDutos")
+        try:
+            g1, v1 = D.inserir(doc, "ret_reto")
+            g2, v2 = D.inserir(doc, "ret_reto", FreeCAD.Vector(0, 2000, 0), {"Duct_Opening1_width": 900,
+                                                                          "_comprimento": 2500})
+            self.assertFalse([o for o in doc.Objects if o.TypeId.startswith("TechDraw")], "sem folhas de desenho")
+            self.assertFalse([o.Label for o in doc.Objects if not o.isValid()])
+            self.assertEqual(float(v1.Duct_Opening1_width), 600)
+            self.assertEqual(float(v2.Duct_Opening1_width), 900)
+            self.assertAlmostEqual(float(D.eixo(v2).Length), 2500, places=3)
+            self.assertEqual(g2.Label, "Duto retangular reto 2")
+            self.assertTrue(all(r for _g, itens in D.variaveis(v1) for _p, r, _t in itens))
+            self.assertIn("Largura da boca 1", [r for _g, itens in D.variaveis(v1) for _p, r, _t in itens])
+        finally:
+            fechar(doc)
+
+    def test_todas_as_pecas_abrem(self):
+        import os
+        import PrumoDutos as D
+        for pid, _nome, arq in D.PECAS:
+            self.assertTrue(os.path.isfile(os.path.join(D.PASTA, arq)), arq)
+        self.assertTrue(os.path.isfile(os.path.join(D.PASTA, "CREDITOS.md")))
+
+
+class T104ModelagemDireta(unittest.TestCase):
+    """Extrudar face, desenhar na face, posicionar, linhas guia, peça pelas guias, isolar, medir XYZ, matriz leve
+    e matriz de furação."""
+
+    def _caixa(self, nome):
+        doc = novo_doc(nome)
+        b = doc.addObject("PartDesign::Body", "Body")
+        bx = doc.addObject("PartDesign::AdditiveBox", "Caixa")
+        b.addObject(bx)
+        bx.Length, bx.Width, bx.Height = 100, 60, 20
+        doc.recompute()
+        return doc, b, bx
+
+    def _face(self, obj, z):
+        return [i for i, f in enumerate(obj.Shape.Faces) if abs(f.CenterOfMass.z - z) < 1e-6][0] + 1
+
+    def test_extrudar_desenhar_e_posicionar(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoDireto as D
+        S = FreeCADGui.Selection
+        doc, b, bx = self._caixa("PrumoTesteDireto1")
+        try:
+            S.clearSelection()
+            S.addSelection(doc.Name, b.Name, "%s.Face%d" % (bx.Name, self._face(bx, 20)))
+            pad = D.extrudar_face(editar=False)
+            pad.Length = 15
+            doc.recompute()
+            self.assertAlmostEqual(b.Shape.Volume, 100 * 60 * 35, delta=1)
+            self.assertEqual(pad.Profile[0].MapMode, "Deactivated", "contorno copiado, sem ligar na face")
+            S.clearSelection()
+            S.addSelection(doc.Name, b.Name, "%s.Face%d" % (bx.Name, self._face(bx, 20)))
+            sk = D.desenhar_na_face(editar=False)
+            self.assertNotEqual(sk.InList[0], b, "peça nova")
+            self.assertAlmostEqual(sk.getGlobalPlacement().Base.z, 20)
+            c = doc.addObject("Part::Box", "Cubo")
+            c.Placement.Base = FreeCAD.Vector(300, 0, 0)
+            doc.recompute()
+            S.clearSelection()
+            S.addSelection(c, "Face%d" % self._face(c, 0))
+            S.addSelection(doc.Name, b.Name, "%s.Face%d" % (pad.Name, self._face(pad, 35)))
+            D.posicionar()
+            self.assertAlmostEqual(c.Shape.BoundBox.ZMin, 35, places=4)
+        finally:
+            fechar(doc)
+
+    def test_guias_cruzamentos_e_peca(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoDireto as D
+        S = FreeCADGui.Selection
+        doc, b, bx = self._caixa("PrumoTesteGuias")
+        try:
+            def aresta(eixo):
+                for i, e in enumerate(bx.Shape.Edges):
+                    d = (e.Vertexes[-1].Point - e.Vertexes[0].Point).normalize()
+                    if abs(getattr(d, eixo)) > 0.99 and abs(e.CenterOfMass.y) < 1e-6 and \
+                            (eixo == "z" and abs(e.CenterOfMass.x) < 1e-6 or eixo == "x" and abs(e.CenterOfMass.z) < 1e-6):
+                        return "%s.Edge%d" % (bx.Name, i + 1)
+            gs = []
+            for sub, dist, vet in ((aresta("z"), 0, None), (aresta("z"), 500, FreeCAD.Vector(1, 0, 0)),
+                                   (aresta("x"), 0, None), (aresta("x"), 300, FreeCAD.Vector(0, 0, 1))):
+                S.clearSelection()
+                S.addSelection(doc.Name, b.Name, sub)
+                gs.append(D.guia_da_selecao(dist, vet))
+            self.assertEqual(len(D.atualizar_cruzamentos(doc)), 4)
+            pad = D.peca_pelas_guias(gs, editar=False)
+            self.assertTrue(pad.isValid())
+            import Part
+            self.assertAlmostEqual(Part.Face(pad.Profile[0].Shape.Wires[0]).Area, 500 * 300, delta=1)
+        finally:
+            fechar(doc)
+
+    def test_isolar_medir_e_matrizes(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import math
+        import Part
+        import PrumoDireto as D
+        S = FreeCADGui.Selection
+        doc, b, bx = self._caixa("PrumoTesteMatrizes")
+        try:
+            c = doc.addObject("Part::Box", "Cubo")
+            c.Placement.Base = FreeCAD.Vector(0, 0, 50)
+            doc.recompute()
+            S.clearSelection()
+            S.addSelection(c)
+            D.isolar()
+            self.assertFalse(b.ViewObject.Visibility)
+            self.assertTrue(c.ViewObject.Visibility)
+            D.isolar()
+            self.assertTrue(b.ViewObject.Visibility, "restaura como estava")
+            S.clearSelection()
+            S.addSelection(c, "Face%d" % self._face(c, 50))
+            S.addSelection(doc.Name, b.Name, "%s.Face%d" % (bx.Name, self._face(bx, 20)))
+            d, dx, dy, dz, _a, _b = D.medir_xyz()
+            self.assertAlmostEqual(d, 30)
+            self.assertAlmostEqual(abs(dz), 30)
+            arr = D.matriz_leve(c, {"X": (4, "vao", 50.0, False), "Y": (2, "total", 400.0, False)})
+            bb = arr.Shape.BoundBox
+            self.assertAlmostEqual(bb.XLength, 3 * 60 + 10, places=3)
+            self.assertAlmostEqual(bb.YLength, 400, places=3)
+            self.assertAlmostEqual(D.passo("total", 400, 10, 2), 390)
+            sk = doc.addObject("Sketcher::SketchObject", "SkFuro")
+            b.addObject(sk)
+            sk.MapMode = "Deactivated"
+            sk.Placement = FreeCAD.Placement(FreeCAD.Vector(0, 0, 20), FreeCAD.Rotation())
+            sk.addGeometry(Part.Circle(FreeCAD.Vector(10, 10, 0), FreeCAD.Vector(0, 0, 1), 3))
+            pk = doc.addObject("PartDesign::Pocket", "Pocket")
+            b.addObject(pk)
+            pk.Profile = sk
+            pk.Type = "ThroughAll"
+            doc.recompute()
+            D.matriz_furacao(pk, 4, 20, 2, 25)
+            doc.recompute()
+            furos = (100 * 60 * 20 - b.Shape.Volume) / (math.pi * 9 * 20)
+            self.assertAlmostEqual(furos, 8, places=2)
+        finally:
+            fechar(doc)
+
+    def test_comandos_na_faixa(self):
+        import PrumoRibbon as R
+        todos = {c for t in R.TABS for _n, its in t["panels"] for c, *_r in its}
+        for c in ("Prumo_ExtrudarFace", "Prumo_DesenharNaFace", "Prumo_LinhaGuia", "Prumo_PecaPelasGuias",
+                  "Prumo_MatrizFuracao", "Prumo_Posicionar", "Prumo_MatrizLeve", "Prumo_MedirXYZ", "Prumo_Isolar",
+                  "Prumo_Explosao"):
+            self.assertIn(c, todos)
+            if FreeCAD.GuiUp:
+                self.assertIn(c, FreeCADGui.listCommands())
+
+
+class T105ExplosaoAnimada(unittest.TestCase):
+    """Explosão animada: passos um depois do outro, parafuso gira ao sair, trajetórias e volta exata."""
+
+    def test_passos_giro_e_volta(self):
+        import PrumoExplosao as E
+        import PrumoFixadores as F
+        doc = novo_doc("PrumoTesteExplosao")
+        try:
+            a = doc.addObject("Part::Box", "Base")
+            tampa = doc.addObject("Part::Box", "Tampa")
+            tampa.Placement.Base.z = 20
+            fx = F.criar(doc, "sextavado", "M10", 40, FreeCAD.Placement(FreeCAD.Vector(5, 5, 30), FreeCAD.Rotation()))
+            doc.recompute()
+            antes = (FreeCAD.Placement(tampa.Placement), FreeCAD.Placement(fx.Placement))
+            ex = E.criar(doc)
+            E.adicionar_passo(ex, [fx], FreeCAD.Vector(0, 0, 1), 80)
+            E.adicionar_passo(ex, [tampa], FreeCAD.Vector(0, 0, 1), 60)
+            ex.Abertura = 50
+            self.assertAlmostEqual(fx.Placement.Base.z, 110)
+            self.assertAlmostEqual(tampa.Placement.Base.z, 20, msg="o segundo passo só começa depois do primeiro")
+            self.assertGreater(abs(fx.Placement.Rotation.Angle), 1e-3, "o parafuso gira ao sair")
+            ex.Abertura = 100
+            self.assertAlmostEqual(tampa.Placement.Base.z, 80)
+            self.assertEqual(len(E.trajetorias(ex, True).Shape.Edges), 2)
+            ex.Abertura = 0
+            self.assertTrue(tampa.Placement.isSame(antes[0], 1e-9))
+            self.assertTrue(fx.Placement.isSame(antes[1], 1e-9), "volta exata para a montagem")
+            E.remover_passo(ex, 0)
+            self.assertEqual(len(E.passos(ex)), 1)
+        finally:
+            fechar(doc)
+
+
 class T98CliqueSempreResponde(unittest.TestCase):
     """Clique em ferramenta que não pode rodar (ou que dá erro) mostra o porquê; abas podem ser arrastadas."""
 
@@ -14739,4 +14974,5 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T90TracadoNasConexoes, T91JuntaInteligente,
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
-           T101AdicionarOuRemoverMaterial]
+           T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
+           T105ExplosaoAnimada]

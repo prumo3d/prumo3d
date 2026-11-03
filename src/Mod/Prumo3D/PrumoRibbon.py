@@ -65,6 +65,7 @@ TABS = [
             ("Part_SelectFilter", S, "Filtro de seleção"),
             ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),
             ("Std_TreeViewActions", S, "Opções da árvore"),
+            ("Prumo_MedirXYZ", S, "Medir X, Y, Z"), ("Prumo_Isolar", S, "Isolar peça"),
             ("Std_DlgMacroExecute", S, "Macros"), ("Prumo_Preferencias", L, "Preferências"),
         ]),
         ("Estrutura", [
@@ -119,6 +120,10 @@ TABS = [
             ("Std_Refresh", S, "Recalcular"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
         ]),
+        ("Modelagem direta", [
+            ("Prumo_ExtrudarFace", L, "Extrudar\nface"), ("Prumo_DesenharNaFace", S, "Desenhar na face"),
+            ("Prumo_LinhaGuia", S, "Linha guia"), ("Prumo_PecaPelasGuias", S, "Peça pelas guias"),
+        ]),
         ("Adicionar material", [
             ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
             ("PartDesign_AdditiveLoft", S, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
@@ -139,6 +144,7 @@ TABS = [
         ("Padrões", [
             ("PartDesign_Mirrored|Part_Mirror", L, "Espelhar"), ("PartDesign_LinearPattern", S, "Padrão linear"),
             ("PartDesign_PolarPattern", S, "Padrão circular"), ("PartDesign_MultiTransform", S, "Multitransformação"),
+            ("Prumo_MatrizFuracao", S, "Matriz de furação"),
         ]),
         # Sólidos (bancada Part): só o que não tem igual no PartDesign. Arredondar, chanfro, casca e espelhar
         # de sólido solto ficam no menu dos botões de Acabamento e Padrões (sem botão repetido).
@@ -170,6 +176,7 @@ TABS = [
             ("Assembly_CreateAssembly", L, "Nova\nmontagem"), ("Prumo_EditarMontagem", L, "Abrir\nmontagem"),
             ("Assembly_Insert", L, "Inserir\ncomponente"),
             ("Assembly_InsertNewPart", S, "Nova peça aqui"), ("Prumo_PadraoComponentes", S, "Padrão de componentes"),
+            ("Prumo_Posicionar", S, "Posicionar peça"), ("Prumo_MatrizLeve", S, "Matriz leve"),
             ("Prumo_ComponentesDosSolidos", S, "Componentes dos sólidos"),
             ("Assembly_SolveAssembly", S, "Resolver"), ("Assembly_CreateView", S, "Vista explodida"),
             ("Assembly_CreateSimulation", S, "Simulação"), ("Prumo_ListaMateriais", S, "Lista de materiais"),
@@ -191,8 +198,12 @@ TABS = [
             ("Assembly_CreateJointRackPinion", S, "Pinhão e cremalheira"), ("Assembly_CreateJointScrew", S, "Fuso"),
             ("Assembly_CreateJointGearBelt", S, "Engrenagem / correia"),
         ]),
+        ("Apresentar", [
+            ("Prumo_Explosao", L, "Explosão\nanimada"),
+        ]),
         ("Conferir", [
-            ("Prumo_Interferencia", L, "Verificar\ninterferência"),
+            ("Prumo_Interferencia", L, "Verificar\ninterferência"), ("Prumo_MedirXYZ", S, "Medir X, Y, Z"),
+            ("Prumo_Isolar", S, "Isolar peça"),
         ]),
     ]},
     # na ordem do trabalho: folha -> vistas -> cotas -> anotação -> entregar. Sem folha aberta, só aparece o

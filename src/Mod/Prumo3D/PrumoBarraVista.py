@@ -30,6 +30,7 @@ ITENS = [
     "|",
     ("Std_DrawStyle", "Estilo de exibição"),
     ("Std_ToggleClipPlane", "Plano de corte"),
+    ("Prumo_Isolar", "Isolar / restaurar peça"),
     ("Prumo_Sombras", "Sombras"),
 ]
 
