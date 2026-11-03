@@ -35,7 +35,8 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - **Ícones da aba Chapa no padrão do Prumo** (cores, contorno e destaque em âmbar como as demais abas).
 - **Barra de vistas na vista 3D**, pequena, embaixo e no meio (como a barra flutuante dos outros CAD):
   enquadrar tudo e a seleção, isométrica, frontal, superior, direita (as outras vistas no menu ao lado),
-  estilo de exibição, plano de corte e sombras. Aparece em toda vista 3D aberta.
+  estilo de exibição, plano de corte e sombras. Aparece em toda vista 3D aberta. Com várias vistas abertas, o
+  clique vale para a vista onde está a barra.
 - **Escolha do perfil como num catálogo** (Estrutura metálica e Trocar perfil): a lista mostra a miniatura
   de cada seção com as medidas e a massa; ao lado, a prévia do perfil escolhido com as cotas do catálogo
   (altura, largura, espessuras, raio), massa e área. Busca por nome (ex.: "200 x 15").

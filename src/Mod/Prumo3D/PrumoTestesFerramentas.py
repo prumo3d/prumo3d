@@ -2435,6 +2435,17 @@ class T21EnquadrarEsboco(unittest.TestCase):
         self._esperar(600)
         vp = vista.graphicsView().viewport()
         larg, alt = vp.width(), vp.height()
+
+        def dentro():
+            for x, y in ((0, 0), (5000, 0), (5000, 5000), (0, 5000)):
+                px, py = vista.getPointOnViewport(FreeCAD.Vector(x, y, 0))
+                if not (-1 <= px <= larg + 1 and -1 <= py <= alt + 1):
+                    return False
+            return True
+        for _k in range(20):          # a animação da câmera pode demorar com a máquina carregada
+            if dentro():
+                break
+            self._esperar(150)
         for x, y in ((0, 0), (5000, 0), (5000, 5000), (0, 5000)):
             px, py = vista.getPointOnViewport(FreeCAD.Vector(x, y, 0))
             self.assertTrue(-1 <= px <= larg + 1 and -1 <= py <= alt + 1, (x, y, px, py, larg, alt))

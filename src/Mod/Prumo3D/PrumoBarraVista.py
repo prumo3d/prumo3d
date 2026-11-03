@@ -131,6 +131,7 @@ class BarraVista(QtWidgets.QFrame):
                     # comando de grupo (Estilo de exibição): o menu dele abre no clique
                     b.setMenu(a.menu())
                     b.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+                    b.pressed.connect(self._ativar_minha_vista)
                 else:
                     b.clicked.connect(lambda _c=False, n=nome: self._rodar(n))
             hl.addWidget(b)
@@ -151,7 +152,18 @@ class BarraVista(QtWidgets.QFrame):
         b.setFocusPolicy(QtCore.Qt.NoFocus)
         return b
 
+    def _ativar_minha_vista(self):
+        """Os comandos de vista agem na vista ativa: ativa a vista desta barra antes (com várias vistas
+        abertas, o clique vale para a vista onde está a barra)."""
+        w = self._alvo
+        while w is not None and not isinstance(w, QtWidgets.QMdiSubWindow):
+            w = w.parentWidget()
+        if w is not None and w.mdiArea() is not None and w.mdiArea().activeSubWindow() is not w:
+            w.mdiArea().setActiveSubWindow(w)
+            QtWidgets.QApplication.processEvents()
+
     def _rodar(self, nome):
+        self._ativar_minha_vista()
         import PrumoAvisoClique as AV
         a = _acao(nome)
         if a is not None and not a.isEnabled():
