@@ -947,7 +947,7 @@ def solido_valvula(c, L):
 def soldas_de_topo(res):
     """Soldas de topo da linha: cada ponta de conexão ligada a tubo, mais as emendas de barra."""
     L = res["linha"]
-    if not L.get("solda_topo"):
+    if not L.get("solda_topo") or L.get("duto"):
         return 0
     n = sum(1 for c in res["conexoes"] if not c.get("so_lista") and c["tipo"] not in ("Caixa", "Válvula")
             for p in c["pernas"] if p[0] >= 0)
@@ -1004,7 +1004,91 @@ def _cil(r, p, u, comp):
     return Part.makeCylinder(r, comp, p, u)
 
 
+# ---------------------------------------------------------------- duto retangular (seção largura × altura)
+def _cima(u):
+    """Direção da altura da seção: Z (para cima) no trecho deitado; X no trecho em pé."""
+    ref = FreeCAD.Vector(0, 0, 1) if abs(u.z) < 0.9 else FreeCAD.Vector(1, 0, 0)
+    c = ref - u * ref.dot(u)
+    c.normalize()
+    return c
+
+
+def _ret_wire(w, h, P, u, cima=None):
+    import Part
+    a = cima if cima is not None else _cima(u)
+    b = u.cross(a)
+    b.normalize()
+    pts = [P + b * (s1 * w / 2.0) + a * (s2 * h / 2.0) for s1, s2 in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
+    return Part.makePolygon(pts + [pts[0]])
+
+
+def _wh(L, dd, folga=0.0):
+    tb = L["tubos"][dd]
+    return tb["L"] - folga, tb["H"] - folga
+
+
+def _ret_tubo(L, dd, ini, u, comp, cima=None):
+    import Part
+    w, h = _wh(L, dd)
+    e = L["tubos"][dd]["e"]
+    ext = Part.Face(_ret_wire(w, h, ini, u, cima)).extrude(u * comp)
+    inn = Part.Face(_ret_wire(w - 2 * e, h - 2 * e, ini - u * 0.1, u, cima)).extrude(u * (comp + 0.2))
+    return ext.cut(inn)
+
+
+def _ret_curva(c, L):
+    import Part
+    P = c["no"]
+    (_s1, _p1, u1, d1, A), (_s2, _p2, u2, _d2, _A2) = c["pernas"][:2]
+    delta = math.radians(180.0 - _ang(u1, u2))
+    Rc = A / math.tan(delta / 2.0)
+    bis = (u1 + u2)
+    bis.normalize()
+    M = P + bis * (math.hypot(A, Rc) - Rc)
+    T1, T2 = P + u1 * A, P + u2 * A
+    arco = Part.Wire([Part.Arc(T1, M, T2).toShape()])
+    w, h = _wh(L, d1)
+    e = L["tubos"][d1]["e"]
+
+    def corpo(ww, hh):
+        perfil = _ret_wire(ww, hh, T1, -u1, _cima(u1))
+        return arco.makePipeShell([perfil], True, True)       # Frenet: a seção acompanha a curva
+    return corpo(w, h).cut(corpo(w - 2 * e, h - 2 * e))
+
+
+def _ret_reducao(c, L):
+    import Part
+    P = c["no"]
+    (_s1, _p1, u1, d1, a1), (_s2, _p2, u2, d2, a2) = c["pernas"][:2]
+    ini, fim = P + u1 * a1, P + u2 * a2
+    (w1, h1), (w2, h2) = _wh(L, d1), _wh(L, d2)
+    e = max(L["tubos"][d1]["e"], L["tubos"][d2]["e"])
+    up = _cima(u2)
+
+    def corpo(f):
+        return Part.makeLoft([_ret_wire(w1 - f, h1 - f, ini, u2, up), _ret_wire(w2 - f, h2 - f, fim, u2, up)], True)
+    return corpo(0).cut(corpo(2 * e))
+
+
+def _ret_conexao(c, L):
+    """Derivação, tampa e emendas do duto retangular: um trecho de duto por perna, unidos no nó."""
+    P = c["no"]
+    corpo = None
+    for _s, _pt, u, dd, cf in c["pernas"]:
+        if cf <= 0:
+            continue
+        perna = _ret_tubo(L, dd, P, u, cf)
+        corpo = perna if corpo is None else corpo.fuse(perna)
+    if corpo is None:
+        import Part
+        return Part.Shape()
+    return corpo.removeSplitter() if hasattr(corpo, "removeSplitter") else corpo
+
+
 def solido_tubo(t, L):
+    if L.get("secao") == "ret":
+        u = (t["fim"] - t["ini"]).normalize()
+        return _ret_tubo(L, t["dn"], t["ini"], u, (t["fim"] - t["ini"]).Length)
     tb = L["tubos"][t["dn"]]
     u = (t["fim"] - t["ini"]).normalize()
     comp = (t["fim"] - t["ini"]).Length
@@ -1126,6 +1210,13 @@ def solido_reducao(c, L):
 
 def _solido_conexao(c, L, k=1.0):
     import Part
+    if L.get("secao") == "ret":
+        if c["tipo"] in ("Joelho 90°", "Joelho 45°", "Curva cortada") and len(c["pernas"]) == 2 \
+                and c["pernas"][0][3] == c["pernas"][1][3]:
+            return _ret_curva(c, L)
+        if c["tipo"] == "Luva de redução":
+            return _ret_reducao(c, L)
+        return _ret_conexao(c, L)
     if c["tipo"] == "Flange":
         return solido_flange(c, L)
     if c["tipo"] == "Válvula":
@@ -1213,7 +1304,7 @@ def _ler_valvula(txt):
     return v, tipo
 
 
-TEXTO_EMENDA = {"bolsa": "pela bolsa", "solda": "com solda de topo", "luva": "com luva"}
+TEXTO_EMENDA = {"bolsa": "pela bolsa", "solda": "com solda de topo", "luva": "com luva", "flange": "com flange"}
 
 
 def _dn_txt(d, L=None):

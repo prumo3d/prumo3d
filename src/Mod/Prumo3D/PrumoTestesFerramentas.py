@@ -13488,7 +13488,8 @@ class T89NovidadesDoZW3D(unittest.TestCase):
         self.assertEqual(abas, ["peca"])
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
         corpo = [c for c, *_r in dict(peca["panels"])["Corpo"]]
-        self.assertEqual(corpo.index("Std_Refresh"), corpo.index("PartDesign_ShapeBinder") + 1)
+        # Recalcular (grande) logo depois da coluna Vínculo de forma / Vínculo de subforma / Clonar
+        self.assertEqual(corpo.index("Std_Refresh"), corpo.index("PartDesign_Clone") + 1)
 
     def test_vistas_so_na_barra_de_baixo(self):
         import PrumoRibbon as R
@@ -14316,7 +14317,7 @@ class T104ModelagemDireta(unittest.TestCase):
 
     def test_comandos_na_faixa(self):
         import PrumoRibbon as R
-        todos = {c for t in R.TABS for _n, its in t["panels"] for c, *_r in its}
+        todos = {n for t in R.TABS for _n, its in t["panels"] for c, *_r in its for n in c.split("|")}
         for c in ("Prumo_ExtrudarFace", "Prumo_DesenharNaFace", "Prumo_LinhaGuia", "Prumo_PecaPelasGuias",
                   "Prumo_MatrizFuracao", "Prumo_Posicionar", "Prumo_MatrizLeve", "Prumo_MedirXYZ", "Prumo_Isolar",
                   "Prumo_Explosao"):
@@ -14457,6 +14458,133 @@ class T106RevisaoDaFaixa(unittest.TestCase):
         self.assertEqual(mw.dockWidgetArea(prop), QtCore.Qt.LeftDockWidgetArea, "voltou para a esquerda")
         self.assertIn(prop, mw.tabifiedDockWidgets(ds[P.ARVORE]), "voltou para as abas do painel")
         self.assertEqual(P._barra_titulo(prop).objectName(), "PrumoSemTitulo")
+
+
+class T107LayoutEDutos(unittest.TestCase):
+    """Início com Peça, Esboço e Montagem antes de abrir documento; Peça reorganizada; dutos de ar-condicionado
+    na mesma ferramenta de tubos (Esboço 3D, curvas, derivação); esboço novo no centro; Aparência na barra."""
+
+    def test_comecar_so_sem_documento(self):
+        import PrumoRibbon as R
+        ini = [t for t in R.TABS if t["id"] == "inicio"][0]
+        comecar = dict(ini["panels"])["Começar"]
+        self.assertEqual([(c, t) for c, t, _r in comecar], [("Prumo_NovaPeca", R.L), ("Prumo_NovoEsbocoAvulso", R.L),
+                                                            ("Prumo_NovaMontagem", R.L)])
+        sem = (False,) + (False,) * 10
+        com = (True,) + (False,) * 10
+        self.assertEqual(R.como_mostrar(ini, "Prumo_NovaPeca", sem), "sim")
+        if R.faixa_contextual():
+            self.assertEqual(R.como_mostrar(ini, "Prumo_NovaPeca", com), "nao")
+        if FreeCAD.GuiUp:
+            for c, _t, _r in comecar:
+                self.assertIn(c, FreeCADGui.listCommands())
+
+    def test_peca_reorganizada(self):
+        import PrumoRibbon as R
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        grupos = [n for n, _i in peca["panels"]]
+        self.assertEqual(grupos.index("Modelagem direta"), grupos.index("Adicionar material") + 1)
+        corpo = [c for c, _t, _r in dict(peca["panels"])["Corpo"]]
+        self.assertEqual(corpo[2:5], ["PartDesign_ShapeBinder", "PartDesign_SubShapeBinder", "PartDesign_Clone"])
+        for c in ("PartDesign_SubShapeBinder", "PartDesign_Clone"):
+            self.assertNotIn(c, R.RAROS["peca"], "à vista, sem o Mais")
+        add = {c: t for c, t, _r in dict(peca["panels"])["Adicionar material"]}
+        self.assertEqual(add["PartDesign_AdditiveLoft"], R.L)
+        self.assertEqual(sum(1 for t in add.values() if t == R.S), 3, "Varredura, Barra e Hélice numa coluna")
+        pad = [c for c, _t, _r in dict(peca["panels"])["Padrões"]]
+        self.assertIn("PartDesign_MultiTransform|Prumo_MatrizFuracao", pad)
+        self.assertEqual(R.ICONES_FAIXA.get("Std_Refresh"), "recalcular.svg")
+
+    def test_icones_svg_validos(self):
+        import glob
+        import os
+        import xml.dom.minidom
+        import PrumoUtil
+        ruins = []
+        for f in glob.glob(os.path.join(PrumoUtil.RES_DIR, "icons", "*.svg")):
+            try:
+                xml.dom.minidom.parse(f)
+            except Exception:
+                ruins.append(os.path.basename(f))
+        self.assertEqual(ruins, [])
+
+    def test_dutos_na_ferramenta_de_tubos(self):
+        import Part
+        import PrumoCatalogoTubos as C
+        import PrumoTubulacao as T
+        self.assertIn("duto-ret", C.LINHAS)
+        self.assertIn("duto-redondo", C.LINHAS)
+        self.assertEqual(C.rotulo("duto-ret", C.cod_ret(600, 400)), "600 × 400")
+        self.assertEqual(C.dn_do_texto("600 × 400"), C.cod_ret(600, 400))
+        doc = novo_doc("PrumoTesteDutosTubos")
+        try:
+            sk = doc.addObject("Sketcher::SketchObject", "Tracado")
+            V = FreeCAD.Vector
+            for a, b in ((V(0, 0, 0), V(3000, 0, 0)), (V(3000, 0, 0), V(3000, 2000, 0)),
+                         (V(1500, 0, 0), V(1500, -1500, 0))):
+                sk.addGeometry(Part.LineSegment(a, b))
+            doc.recompute()
+            for lid, dn in (("duto-ret", C.cod_ret(600, 400)), ("duto-redondo", 400)):
+                o = T.criar(sk, dn, lid, doc=doc)
+                doc.recompute()
+                self.assertTrue(o.Shape.isValid(), lid)
+                self.assertEqual(len(o.Shape.Solids), 6, "%s: 3 trechos, curva, derivação e o que sobra" % lid)
+                self.assertAlmostEqual(o.Shape.BoundBox.ZLength, 400, delta=1, msg=lid)
+        finally:
+            fechar(doc)
+
+    def test_esboco_novo_no_centro(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        import PrumoNovoEsboco as N
+        doc = novo_doc("PrumoTesteCentro")
+        try:
+            b = doc.addObject("PartDesign::Body", "Body")
+            doc.recompute()
+            sk = b.newObject("Sketcher::SketchObject", "Sketch")
+            xz = [f for f in b.Origin.OriginFeatures if f.Role == "XZ_Plane"][0]
+            sk.AttachmentSupport = [(xz, "")]
+            sk.MapMode = "FlatFace"
+            sk.AttachmentOffset = FreeCAD.Placement(FreeCAD.Vector(500, 300, 0), FreeCAD.Rotation())
+            doc.recompute()
+            FreeCADGui.ActiveDocument.setEdit(sk.Name)
+            fim = time.time() + 4
+            v = FreeCADGui.ActiveDocument.ActiveView
+            alvo = sk.getGlobalPlacement().Base
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                p = v.getCameraNode().position.getValue()
+                if abs(p[0] - alvo.x) < 1 and abs(p[2] - alvo.z) < 1:
+                    break
+                time.sleep(0.05)
+            p = v.getCameraNode().position.getValue()
+            self.assertAlmostEqual(p[0], alvo.x, delta=1)
+            self.assertAlmostEqual(p[2], alvo.z, delta=1)
+            self.assertTrue(N._ESTADO.get("vigia_esboco") is not None)
+        finally:
+            FreeCADGui.ActiveDocument.resetEdit()
+            fechar(doc)
+
+    def test_aparencia_na_barra(self):
+        import PrumoBarraVista as B
+        self.assertIn("Prumo_Aparencia", [it[0] for it in B.ITENS if it != "|"])
+        if FreeCAD.GuiUp:
+            import PrumoInspetor as I
+            j = I.janela_aparencia()
+            self.assertTrue(j.isVisible())
+            I.janela_aparencia()
+            self.assertFalse(j.isVisible(), "segundo clique fecha")
+
+    def test_networkx_do_complemento(self):
+        import SheetMetalTools
+        self.assertTrue(SheetMetalTools.smIsNetworkxAvailable() in (True, False))
+        import inspect
+        fonte = inspect.getsource(SheetMetalTools.smIsNetworkxAvailable)
+        if "Prumo3D" not in fonte:
+            self.skipTest("o SheetMetal desta instalação não é o do Prumo (programa de teste antigo)")
+        self.assertIn("libs", fonte)
 
 
 class T98CliqueSempreResponde(unittest.TestCase):
@@ -15076,4 +15204,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada, T106RevisaoDaFaixa]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos]

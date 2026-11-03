@@ -851,6 +851,7 @@ def register_commands():
     try:
         import PrumoInicio
         FreeCADGui.addCommand("Prumo_Inicio", PrumoInicio.CmdInicio())
+        PrumoInicio.registrar_comecar()
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: tela inicial indisponível: {}\n".format(exc))
     for modulo, registro in (("PrumoCotas", lambda m: FreeCADGui.addCommand("Prumo_Cotas", m.CmdCotas())),
@@ -879,6 +880,7 @@ def register_commands():
                              ("PrumoDireto", lambda m: m.registrar_comandos()),
                              ("PrumoExplosao", lambda m: m.registrar_comandos()),
                              ("PrumoPainelLateral", lambda m: m.registrar_comandos()),
+                             ("PrumoInspetor", lambda m: m.registrar_comandos()),
                              ("PrumoBuscaComandos", lambda m: m.registrar_comandos()),
                              ("PrumoAnotacoes", lambda m: m.registrar_comandos()),
                              ("PrumoAjustes", lambda m: m.registrar_comandos()),

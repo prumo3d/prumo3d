@@ -696,3 +696,30 @@ class CmdInicio:
 
     def IsActive(self):
         return True
+
+
+class CmdComecar:
+    """Início, sem documento: começar uma peça, um esboço ou uma montagem (documento novo)."""
+
+    DADOS = {"peca": ("PartDesign_Body", "Peça", "Documento novo com um corpo para modelar a peça."),
+             "esboco": ("Sketcher_NewSketch", "Esboço", "Documento novo com um esboço 2D."),
+             "montagem": ("Geoassembly", "Montagem", "Documento novo com uma montagem para juntar as peças.")}
+
+    def __init__(self, tipo):
+        self.tipo = tipo
+
+    def GetResources(self):
+        ic, nome, dica = self.DADOS[self.tipo]
+        return {"Pixmap": ic, "MenuText": nome, "ToolTip": dica}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        _new(self.tipo)
+
+
+def registrar_comecar():
+    FreeCADGui.addCommand("Prumo_NovaPeca", CmdComecar("peca"))
+    FreeCADGui.addCommand("Prumo_NovoEsbocoAvulso", CmdComecar("esboco"))
+    FreeCADGui.addCommand("Prumo_NovaMontagem", CmdComecar("montagem"))

@@ -29,6 +29,7 @@ ITENS = [
       ("Std_AlignToSelection", "Alinhar à seleção")]),
     "|",
     ("Std_DrawStyle", "Estilo de exibição"),
+    ("Prumo_Aparencia", "Aparência (cor e transparência)"),
     ("Std_ToggleClipPlane", "Plano de corte"),
     ("Prumo_Isolar", "Isolar / restaurar peça"),
     ("Prumo_Sombras", "Sombras"),

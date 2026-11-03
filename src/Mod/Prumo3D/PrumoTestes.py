@@ -963,6 +963,7 @@ class _Resultado(unittest.TextTestResult):
     def startTest(self, test):
         super().startTest(test)
         self._t0 = time.time()
+        _andamento("... " + test.id().split(".", 1)[-1])
         try:
             FreeCADGui.updateGui()
         except Exception:
@@ -970,6 +971,7 @@ class _Resultado(unittest.TextTestResult):
 
     def _reg(self, test, status, det=""):
         self.linhas.append((status, test.id().split(".", 1)[-1], time.time() - self._t0, det))
+        _andamento("[%s] %s" % (status, test.id().split(".", 1)[-1]))
 
     def addSuccess(self, test):
         super().addSuccess(test)
@@ -986,6 +988,49 @@ class _Resultado(unittest.TextTestResult):
     def addError(self, test, err):
         super().addError(test, err)
         self._reg(test, "erro", "".join(traceback.format_exception(*err))[-1500:])
+
+
+# andamento gravado na hora (se o programa fechar no meio, fica o último teste e a pilha da falha)
+ANDAMENTO = os.path.join(FreeCAD.getUserAppDataDir(), "PrumoTestes-andamento.log")
+_AND = {"f": None}
+
+
+def _andamento(linha):
+    f = _AND["f"]
+    if f is None:
+        return
+    try:
+        f.write(linha + "\n")
+        f.flush()
+    except Exception:
+        pass
+
+
+def _abrir_andamento():
+    try:
+        f = open(ANDAMENTO, "w", encoding="utf-8", buffering=1)
+        _AND["f"] = f
+        f.write("Prumo 3D — andamento dos testes — %s\n" % time.strftime("%d/%m/%Y %H:%M:%S"))
+        import faulthandler
+        faulthandler.enable(file=f, all_threads=True)
+    except Exception:
+        _AND["f"] = None
+
+
+def _fechar_andamento():
+    f = _AND.pop("f", None)
+    _AND["f"] = None
+    try:
+        import faulthandler
+        faulthandler.disable()
+    except Exception:
+        pass
+    if f is not None:
+        try:
+            f.write("fim\n")
+            f.close()
+        except Exception:
+            pass
 
 
 def rodar(completo=True, mostrar=True):
@@ -1006,7 +1051,11 @@ def _executar(completo):
     runner = unittest.TextTestRunner(stream=buf, resultclass=_Resultado, verbosity=2)
     ativo = FreeCAD.ActiveDocument
     t0 = time.time()
-    res = runner.run(suite)
+    _abrir_andamento()
+    try:
+        res = runner.run(suite)
+    finally:
+        _fechar_andamento()
     total = res.testsRun
     aprov = total - len(res.failures) - len(res.errors) - len(res.skipped)
     linhas = ["Prumo 3D — testes automáticos — %s" % time.strftime("%d/%m/%Y %H:%M"),

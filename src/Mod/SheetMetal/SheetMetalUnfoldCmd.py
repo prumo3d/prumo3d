@@ -58,7 +58,8 @@ elif SheetMetalTools.smIsNetworkxAvailable():
         NewUnfolderAvailable = True
 else:
     NewUnfolderAvailable = False
-    FreeCAD.Console.PrintWarning(
+    # Prumo 3D: só no relatório (era um aviso a cada abertura); o planificador antigo continua funcionando
+    FreeCAD.Console.PrintLog(
         translate("SheetMetal",
             "Networkx dependency is missing and required for the new Unfolder\n"
             "Try uninstalling SheetMetal, refresh Addon Manager's cache, and reinstall\n"

@@ -355,6 +355,11 @@ jobs:
           # complemento vê a versão nova ao abrir (o Prumo põe essa splash nos dados do usuário)
           python3 -m pip install --quiet --user pillow
           python3 prumo-build/ferramentas/selo_versao_splash.py "${tag#v}"
+          # networkx (Python puro) junto do complemento: quem atualiza só o complemento numa instalação antiga,
+          # sem o networkx no pacote, também tem o planificador novo da Chapa (SheetMetal procura em libs/)
+          python3 -m pip download --quiet --no-deps --only-binary=:all: "networkx==3.4.2" -d /tmp/nx
+          mkdir -p src/Mod/Prumo3D/libs
+          python3 -c "import zipfile,glob; z=zipfile.ZipFile(glob.glob('/tmp/nx/networkx-*.whl')[0]); [z.extract(n,'src/Mod/Prumo3D/libs') for n in z.namelist() if n.startswith('networkx/') and '/tests/' not in n]"
           python3 package/scripts/pacote_complemento.py "${tag}" arquivos
           echo "Complemento: $(ls arquivos/*-complemento.zip)" >> "$GITHUB_STEP_SUMMARY"
 

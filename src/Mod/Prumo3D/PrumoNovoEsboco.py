@@ -284,9 +284,56 @@ class _Filtro(QtCore.QObject):
         return False
 
 
+def centralizar_no_esboco(sk, altura_vazio=200.0):
+    """Leva o centro da vista para a origem do esboço (sem girar). Com o modelo vazio, ajusta o zoom."""
+    from pivy import coin
+    v = FreeCADGui.ActiveDocument.ActiveView
+    cam = v.getCameraNode()
+    alvo = sk.getGlobalPlacement().Base
+    dirv = cam.orientation.getValue().multVec(coin.SbVec3f(0, 0, -1))
+    dist = cam.focalDistance.getValue()
+    p = coin.SbVec3f(alvo.x, alvo.y, alvo.z) - dirv * dist
+    cam.position.setValue(p)
+    vazio = not any(getattr(o, "Shape", None) is not None and not o.Shape.isNull() and o.Shape.Solids
+                    for o in sk.Document.Objects)
+    if vazio and sk.GeometryCount == 0 and cam.isOfType(coin.SoOrthographicCamera.getClassTypeId()):
+        cam.height.setValue(altura_vazio)
+    return True
+
+
+def _vigiar_esbocos():
+    """Esboço novo (vazio) entrou em edição: depois que o FreeCAD gira a vista para ele, centraliza na origem
+    do esboço (antes abria fora do centro da tela)."""
+    try:
+        gd = FreeCADGui.ActiveDocument
+        vp = gd.getInEdit() if gd is not None else None
+        obj = vp.Object if vp is not None else None
+    except Exception:
+        obj = None
+    chave = (obj.Document.Name, obj.Name) if obj is not None else None
+    if chave == _ESTADO.get("editando"):
+        return
+    _ESTADO["editando"] = chave
+    if obj is not None and obj.TypeId == "Sketcher::SketchObject" and obj.GeometryCount == 0 and \
+            FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Prumo3D").GetBool("CentralizarEsbocoNovo", True):
+        def fazer(doc=obj.Document.Name, nome=obj.Name):
+            try:
+                o = FreeCAD.getDocument(doc).getObject(nome)
+                if o is not None:
+                    centralizar_no_esboco(o)
+            except Exception:
+                pass
+        QtCore.QTimer.singleShot(900, fazer)       # depois da animação da vista normal ao esboço
+
+
 def instalar():
     if _ESTADO["filtro"] is not None:
         return
+    t = QtCore.QTimer(QtWidgets.QApplication.instance())
+    t.setInterval(300)
+    t.timeout.connect(_vigiar_esbocos)
+    t.start()
+    _ESTADO["vigia_esboco"] = t
     f = _Filtro(QtWidgets.QApplication.instance())
     QtWidgets.QApplication.instance().installEventFilter(f)
     _ESTADO["filtro"] = f

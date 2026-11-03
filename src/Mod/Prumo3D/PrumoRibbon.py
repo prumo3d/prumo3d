@@ -49,6 +49,11 @@ WB_NAMES = {
 # Abas. Cada item: (comando, tamanho, rótulo). "\n" quebra o rótulo grande.
 TABS = [
     {"id": "inicio", "label": "Início", "wb": None, "panels": [
+        # sem documento aberto: começar uma peça, um esboço ou uma montagem (somem depois de abrir)
+        ("Começar", [
+            ("Prumo_NovaPeca", L, "Peça"), ("Prumo_NovoEsbocoAvulso", L, "Esboço"),
+            ("Prumo_NovaMontagem", L, "Montagem"),
+        ]),
         ("Arquivo", [
             ("Std_New", L, "Novo"), ("Std_Open", L, "Abrir"), ("Std_Save", L, "Salvar"),
             ("Std_SaveAs", S, "Salvar como"), ("Std_Import", S, "Importar"), ("Std_Export", S, "Exportar"),
@@ -116,19 +121,19 @@ TABS = [
     {"id": "peca", "label": "Peça", "wb": "PartDesignWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Corpo", [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
-            ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
-            ("Std_Refresh", L, "Recalcular"),
-            ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
+            ("PartDesign_ShapeBinder", S, "Vínculo de forma"), ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"),
+            ("PartDesign_Clone", S, "Clonar"),
+            ("Std_Refresh", L, "Recalcular"), ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"),
+        ]),
+        ("Adicionar material", [
+            ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
+            ("PartDesign_AdditiveLoft", L, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
+            ("Prumo_BarraVarredura", S, "Barra de varredura"),
+            ("PartDesign_AdditiveHelix", S, "Hélice"),
         ]),
         ("Modelagem direta", [
             ("Prumo_ExtrudarFace", L, "Extrudar\nface"), ("Prumo_DesenharNaFace", S, "Desenhar na face"),
             ("Prumo_LinhaGuia", S, "Linha guia"), ("Prumo_PecaPelasGuias", S, "Peça pelas guias"),
-        ]),
-        ("Adicionar material", [
-            ("PartDesign_Pad", L, "Extrusão"), ("PartDesign_Revolution", L, "Revolução"),
-            ("PartDesign_AdditiveLoft", S, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
-            ("Prumo_BarraVarredura", S, "Barra de varredura"),
-            ("PartDesign_AdditiveHelix", S, "Hélice"),
         ]),
         ("Remover material", [
             ("PartDesign_Pocket", L, "Cavidade"), ("PartDesign_Hole", L, "Furo"),
@@ -143,8 +148,8 @@ TABS = [
         ]),
         ("Padrões", [
             ("PartDesign_Mirrored|Part_Mirror", L, "Espelhar"), ("PartDesign_LinearPattern", S, "Padrão linear"),
-            ("PartDesign_PolarPattern", S, "Padrão circular"), ("PartDesign_MultiTransform", S, "Multitransformação"),
-            ("Prumo_MatrizFuracao", S, "Matriz de furação"),
+            ("PartDesign_PolarPattern", S, "Padrão circular"),
+            ("PartDesign_MultiTransform|Prumo_MatrizFuracao", S, "Multitransformação"),
         ]),
         # Sólidos (bancada Part): só o que não tem igual no PartDesign. Arredondar, chanfro, casca e espelhar
         # de sólido solto ficam no menu dos botões de Acabamento e Padrões (sem botão repetido).
@@ -905,6 +910,9 @@ class RibbonButton(QtWidgets.QToolButton):
                 if not x.icon().isNull():
                     icon = x.icon()
                     break
+        fixo = ICONES_FAIXA.get(self.nome_comando(a))
+        if fixo:
+            icon = _icone_fixo(fixo)
         self._icone_base = icon
         txt = self._label if self._label else _clean(a.text())
         self.setText(_quebra(txt) if self._size == L else txt)
@@ -958,6 +966,18 @@ def _pedir_selecao(nome):
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: seleção para {}: {}\n".format(nome, exc))
     return False
+
+
+# ícones do Prumo no lugar do ícone do FreeCAD (o do Recalcular é miúdo perto dos outros)
+ICONES_FAIXA = {"Std_Refresh": "recalcular.svg"}
+_CACHE_ICONES = {}
+
+
+def _icone_fixo(arq):
+    if arq not in _CACHE_ICONES:
+        import PrumoUtil
+        _CACHE_ICONES[arq] = QtGui.QIcon(PrumoUtil.icone(arq))
+    return _CACHE_ICONES[arq]
 
 
 # No menu da setinha, quando a peça (corpo) e o sólido solto têm o mesmo nome, cada um diz para que serve
@@ -1861,7 +1881,10 @@ ESBOCO_SO_NA_EDICAO = {"Sketcher_LeaveSketch", "Sketcher_ViewSketch", "Sketcher_
 # Situação: a faixa esconde o que depende de uma situação que ainda não existe (sem documento, sem folha
 # aberta) e manda as ferramentas raras para o "Mais" do grupo. O que depende só da seleção continua no lugar
 # (esmaecido) para a faixa não mudar de tamanho a cada clique.
-SEM_DOCUMENTO_SEMPRE = {"Std_New", "Std_Open", "Prumo_Preferencias", "Std_DlgMacroExecute"}
+SEM_DOCUMENTO_SEMPRE = {"Std_New", "Std_Open", "Prumo_Preferencias", "Std_DlgMacroExecute",
+                        "Prumo_NovaPeca", "Prumo_NovoEsbocoAvulso", "Prumo_NovaMontagem"}
+# só antes de abrir um documento (o grupo Começar do Início)
+SO_SEM_DOCUMENTO = {"Prumo_NovaPeca", "Prumo_NovoEsbocoAvulso", "Prumo_NovaMontagem"}
 
 # Abas que dependem de "estar dentro" de algo: sem isso aberto, só aparece o que começa (ou abre) esse algo.
 # aba: (chave da situação, o que aparece sem ela, dica do primeiro passo)
@@ -1897,7 +1920,6 @@ RAROS = {
         "TechDraw_WeldSymbol", "TechDraw_SurfaceFinishSymbols",
     },
     "peca": {
-        "PartDesign_SubShapeBinder", "PartDesign_Clone",
         "Part_CompJoinFeatures|Part_CompSplitFeatures|Part_CompCompoundTools",
         "Part_Section|Part_CrossSections|Part_ProjectionOnSurface",
         "Part_Scale|Part_CompOffset|Part_Defeaturing|Part_Builder",
@@ -2003,6 +2025,8 @@ def como_mostrar(tab, cmd, sit, acts=()):
         return "sim"
     if not sit[0]:
         return "sim" if nome in SEM_DOCUMENTO_SEMPRE or _ativo(nome, acts) else "nao"
+    if nome in SO_SEM_DOCUMENTO:
+        return "nao"
     ini = INICIO_DA_ABA.get(tab.get("id"))
     if ini is not None and not _dentro(ini[0], sit):
         if nome not in ini[1]:

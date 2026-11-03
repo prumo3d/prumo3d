@@ -14,6 +14,7 @@ Cada linha (sistema) traz as medidas que o traçado automático precisa, em mm:
 As medidas vêm do catálogo do fabricante indicado em "fonte". Itens marcados em "a_conferir" saíram com
 valor duvidoso na tabela de origem (erro de impressão provável): o traçado usa e avisa.
 """
+import math
 
 TIGRE_SOLDAVEL = {
     "id": "pvc-soldavel-af",
@@ -565,9 +566,94 @@ ACO_ROSCA_M = {
 }
 
 
+# ============================================================== dutos de ar-condicionado (HVAC)
+# Chapa de aço galvanizado. As medidas são REPRESENTATIVAS para leiaute: espessura da chapa pelo maior lado
+# (faixas usuais de SMACNA / ABNT NBR 16401, A CHECAR), curva com raio de eixo = 1 × a medida (redondo: 1 ×
+# o diâmetro), derivação com colar de 100 mm, redução de comprimento 1,5 × a diferença (mínimo 150 mm).
+def _chapa_duto(lado):
+    return 0.50 if lado <= 300 else 0.65 if lado <= 750 else 0.80 if lado <= 1400 else 0.95
+
+
+_DUTO_RED = (100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000)
+_DUTO_RET = ((200, 150), (250, 200), (300, 200), (300, 250), (400, 250), (400, 300), (500, 300), (500, 400),
+             (600, 300), (600, 400), (800, 400), (800, 500), (1000, 500), (1200, 600), (1500, 800))
+
+
+def cod_ret(w, h):
+    """Código inteiro de uma seção retangular (o traçado trata os 'diâmetros' como números): 600 × 400 -> 6000400."""
+    return int(w) * 10000 + int(h)
+
+
+def ret_de(cod):
+    return divmod(int(cod), 10000)
+
+
+def _linha_duto(ret):
+    tams = [cod_ret(w, h) for w, h in _DUTO_RET] if ret else list(_DUTO_RED)
+
+    def medidas(k):
+        if ret:
+            w, h = ret_de(k)
+            return w, h, max(w, h)
+        return k, k, k
+    tubos, j90, j45, te, red_pares, te_red = {}, {}, {}, {}, {}, {}
+    for k in tams:
+        w, h, m = medidas(k)
+        e = _chapa_duto(m)
+        tubos[k] = {"De": float(m), "e": e, "bolsa_tubo": 0.0, "kg_m": round(2 * (w + h) / 1000.0 * e * 7.85, 2)
+                    if ret else round(math.pi * w / 1000.0 * e * 7.85, 2), "L": float(w), "H": float(h)}
+        j90[k] = float(w)                         # raio do eixo = 1 × a largura (ou o diâmetro)
+        j45[k] = float(w) * math.tan(math.radians(22.5))
+        te[k] = m / 2.0 + 100.0
+    for i, D in enumerate(tams):
+        for d in tams[:i]:
+            mD, md = medidas(D)[2], medidas(d)[2]
+            if md >= mD:
+                continue
+            red_pares[(D, d)] = max(150.0, 1.5 * (mD - md))
+            te_red[(D, d)] = (mD + 200.0, md / 2.0 + 100.0 + (mD - md) / 2.0)
+    nome = "Duto retangular de chapa galvanizada" if ret else "Duto redondo de chapa galvanizada"
+    return {
+        "id": "duto-ret" if ret else "duto-redondo",
+        "nome": nome,
+        "material": "Aço galvanizado",
+        "materiais": {"tubo": "Chapa de aço galvanizado", "conexao": "Chapa de aço galvanizado"},
+        "fabricante": "Ar-condicionado (HVAC)",
+        "sufixo": "",
+        "duto": True,
+        "secao": "ret" if ret else "redonda",
+        "solda_topo": True,             # curvas lisas em qualquer ângulo até 90° e reduções cônicas/em pirâmide
+        "emenda": "flange",
+        "rotulo_dn": "Ø %d",
+        "nomes": {"joelho90": "Curva 90° de duto {dn}", "joelho45": "Curva 45° de duto {dn}",
+                  "te": "Derivação de duto {dn}", "te_reducao": "Derivação de duto {D} × {d}",
+                  "luva_reducao": "Redução de duto {D} × {d}", "cap": "Tampa de duto {dn}",
+                  "tubo": "Duto %s {dn}" % ("retangular" if ret else "redondo")},
+        "fonte": "Medidas representativas do Prumo para leiaute (a checar no projeto de ar-condicionado)",
+        "norma": "ABNT NBR 16401 e SMACNA (espessura da chapa por faixa de medida, a checar)",
+        "pressao": "Baixa pressão (a checar no projeto)",
+        "temperatura_max": "—",
+        "cor": (0.78, 0.80, 0.83),
+        "barra": 1200.0 if ret else 3000.0,
+        "diametros": tuple(tams),
+        "tubos": tubos,
+        "bolsa": {k: 0.0 for k in tams},
+        "corpo": {k: tubos[k]["De"] for k in tams},
+        "joelho90": j90, "joelho45": j45, "te": te, "te_ramal": te,
+        "te_reducao": te_red, "cruzeta": {}, "luva": {}, "luva_reducao": red_pares,
+        "bucha_curta": {}, "bucha_longa": {}, "cap": {k: 2.0 for k in tams},
+        "densidade": 7850.0,
+        "a_conferir": {},
+    }
+
+
+DUTO_REDONDO = _linha_duto(False)
+DUTO_RET = _linha_duto(True)
+
+
 LINHAS = {TIGRE_SOLDAVEL["id"]: TIGRE_SOLDAVEL, TIGRE_AQUATHERM["id"]: TIGRE_AQUATHERM,
           TIGRE_ESGOTO["id"]: TIGRE_ESGOTO, ACO_TOPO_40["id"]: ACO_TOPO_40, ACO_TOPO_80["id"]: ACO_TOPO_80,
-          ACO_ROSCA_M["id"]: ACO_ROSCA_M}
+          ACO_ROSCA_M["id"]: ACO_ROSCA_M, DUTO_RET["id"]: DUTO_RET, DUTO_REDONDO["id"]: DUTO_REDONDO}
 PADRAO = TIGRE_SOLDAVEL["id"]
 
 
@@ -621,6 +707,8 @@ def flange(L, d):
 def rotulo(L, d):
     """Como o diâmetro aparece para quem usa: '25 mm' (PVC), 'DN 100' (esgoto), 'DN 50 (2")' (aço)."""
     L = linha(L)
+    if L.get("secao") == "ret":
+        return "%d × %d" % ret_de(d)
     if L.get("nps") and d in L["nps"]:
         return 'DN %d (%s")' % (d, L["nps"][d])
     return L.get("rotulo_dn", "%d mm") % d
@@ -629,6 +717,8 @@ def rotulo(L, d):
 def rotulo_curto(L, d):
     """Diâmetro nas reduções: '2"' no aço, o número nas outras linhas."""
     L = linha(L)
+    if L.get("secao") == "ret":
+        return "%d × %d" % ret_de(d)
     if L.get("nps") and d in L["nps"]:
         return '%s"' % L["nps"][d]
     return "%d" % d
@@ -637,6 +727,9 @@ def rotulo_curto(L, d):
 def dn_do_texto(txt):
     """Número do diâmetro em '25 mm', 'DN 100' ou 'DN 50 (2")'."""
     import re
+    m2 = re.search(r"(\d+)\s*[×x]\s*(\d+)", str(txt))
+    if m2:
+        return cod_ret(m2.group(1), m2.group(2))
     m = re.search(r"\d+", str(txt))
     return int(m.group()) if m else 0
 

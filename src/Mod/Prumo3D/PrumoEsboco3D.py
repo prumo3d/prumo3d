@@ -862,11 +862,17 @@ if FreeCAD.GuiUp:
 
         def mostrar(self, vista, pos, texto, digitando=False):
             """pos: posição do cursor na vista (Coin: origem embaixo à esquerda)."""
+            # junto do cursor de verdade: a posição do Coin vem em pixels da tela e, com a escala do Windows
+            # (125 %, 150 %), não bate com a do Qt (a caixinha ia parar longe do desenho)
+            pt = QtGui.QCursor.pos() + QtCore.QPoint(18, 14)
             try:
                 gv = vista.graphicsView()
-                pt = gv.mapToGlobal(QtCore.QPoint(int(pos[0]) + 18, gv.height() - int(pos[1]) + 14))
+                r = QtCore.QRect(gv.mapToGlobal(QtCore.QPoint(0, 0)), gv.size())
+                if not r.contains(QtGui.QCursor.pos()):
+                    dpr = gv.devicePixelRatioF() or 1.0
+                    pt = gv.mapToGlobal(QtCore.QPoint(int(pos[0] / dpr) + 18, gv.height() - int(pos[1] / dpr) + 14))
             except Exception:
-                pt = QtGui.QCursor.pos() + QtCore.QPoint(18, 14)
+                pass
             self._estilo(digitando)
             self.setText(texto)
             self.move(pt)

@@ -890,3 +890,74 @@ class Observador:
 
     def slotActivateDocument(self, doc):
         self._agendar()
+
+
+# ------------------------------------------------------------------ Aparência em janela (barra de vistas)
+_JANELA_AP = {"j": None, "obs": None}
+
+
+class _ObsSelecaoAparencia:
+    def _atualizar(self, *_a):
+        j = _JANELA_AP.get("j")
+        try:
+            import shiboken6
+            if j is None or not shiboken6.isValid(j) or not j.isVisible():
+                return
+            j.ap.montar(selecionados())
+        except Exception:
+            pass
+
+    addSelection = removeSelection = setSelection = clearSelection = _atualizar
+
+
+def janela_aparencia():
+    """Aparência (cor, transparência, linhas) numa janelinha acima da barra de vistas; acompanha a seleção."""
+    import FreeCADGui
+    import shiboken6
+    j = _JANELA_AP.get("j")
+    if j is not None and shiboken6.isValid(j):
+        if j.isVisible():
+            j.hide()
+            return j
+    else:
+        mw = FreeCADGui.getMainWindow()
+        j = QtWidgets.QDialog(mw, QtCore.Qt.Tool)
+        j.setWindowTitle("Aparência")
+        j.setObjectName("PrumoUI")
+        j.setStyleSheet(UI.qss())
+        lay = QtWidgets.QVBoxLayout(j)
+        lay.setContentsMargins(0, 0, 0, 0)
+        j.ap = Aparencia(j)
+        lay.addWidget(j.ap)
+        j.resize(340, 520)
+        _JANELA_AP["j"] = j
+        if _JANELA_AP["obs"] is None:
+            _JANELA_AP["obs"] = _ObsSelecaoAparencia()
+            FreeCADGui.Selection.addObserver(_JANELA_AP["obs"])
+    j.ap.montar(selecionados())
+    # perto do canto de baixo à direita da janela, acima da barra de vistas
+    mw = FreeCADGui.getMainWindow()
+    g = mw.geometry()
+    j.move(g.right() - j.width() - 40, g.bottom() - j.height() - 110)
+    j.show()
+    j.raise_()
+    return j
+
+
+class CmdAparencia:
+    def GetResources(self):
+        import PrumoUtil
+        return {"Pixmap": PrumoUtil.icone("aparencia.svg"), "MenuText": "Aparência",
+                "ToolTip": "Cor, transparência e linhas do que estiver selecionado (a mesma aba Aparência do painel "
+                           "lateral, numa janelinha). Clique de novo para fechar."}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        janela_aparencia()
+
+
+def registrar_comandos():
+    import FreeCADGui
+    FreeCADGui.addCommand("Prumo_Aparencia", CmdAparencia())
