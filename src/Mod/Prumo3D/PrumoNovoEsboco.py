@@ -12,6 +12,8 @@ import FreeCADGui
 from PySide import QtCore, QtGui, QtWidgets
 
 AZUL = "#003A70"
+# quem vem do SolidWorks/Fusion (Y para cima) chama de "frente" o plano XY; aqui Z é para cima e a frente é XZ
+NOMES_PLANOS = {"XY": "superior (planta)", "XZ": "frontal", "YZ": "lateral (direita)"}
 AMARELO = "#F7BE00"
 TAM = (200, 165)
 _ESTADO = {"filtro": None}
@@ -131,7 +133,11 @@ def ajustar_dialogo(dlg):
         return False
     rotulo.setMinimumSize(*TAM)
     rotulo.setMaximumSize(*TAM)
-    rotulo.setToolTip("Planos XY, XZ e YZ com os eixos X, Y e Z; o plano escolhido fica em amarelo.")
+    rotulo.setToolTip("Planos XY, XZ e YZ com os eixos X, Y e Z; o plano escolhido fica em amarelo.\n"
+                      "Aqui Z aponta para cima: a frente é o plano XZ (no SolidWorks e no Fusion, a "
+                      "\"frente\" é o XY).")
+    for n, r in zip(("XY", "XZ", "YZ"), radios):
+        r.setText("Plano %s: %s" % (n, NOMES_PLANOS[n]))
     des = _Desenho(dlg)
     # o FreeCAD redesenha o cubo no "clicked"; nossas ligações vêm depois da dele, então o desenho fica por último
     for w in radios + ([inv] if inv is not None else []):
@@ -157,6 +163,21 @@ def _origens_em_escolha(doc):
         if planos and any(getattr(f.ViewObject, "Visibility", False) for f in planos):
             res.append((o, filhos))
     return res
+
+
+def nomear_planos_na_lista(painel):
+    """Lista do painel de escolha: "Plano-XY (Plano de base)" ganha o nome familiar (superior, frontal...)."""
+    import re
+    n = 0
+    for lw in painel.findChildren(QtWidgets.QListWidget):
+        for i in range(lw.count()):
+            it = lw.item(i)
+            t = it.text()
+            m = re.search(r"\b(XY|XZ|YZ)[-_ ]?(?:Plane|plane)?\b", t)
+            if m and "(" in t and NOMES_PLANOS[m.group(1)] not in t:
+                it.setText("%s: %s" % (t, NOMES_PLANOS[m.group(1)]))
+                n += 1
+    return n
 
 
 def mostrar_eixos():
@@ -237,6 +258,15 @@ def _enquadrar():
         pass
 
 
+def _nomear_se_vivo(painel):
+    try:
+        import shiboken6
+        if shiboken6.isValid(painel):
+            nomear_planos_na_lista(painel)
+    except Exception:
+        pass
+
+
 # ------------------------------------------------------------------ ganchos
 class _Filtro(QtCore.QObject):
     def eventFilter(self, obj, ev):
@@ -248,6 +278,7 @@ class _Filtro(QtCore.QObject):
                 elif nome == "PartDesignGui::TaskFeaturePick":
                     for atraso in (0, 300):
                         QtCore.QTimer.singleShot(atraso, mostrar_eixos)
+                    QtCore.QTimer.singleShot(0, lambda p=obj: _nomear_se_vivo(p))
         except Exception:
             pass
         return False

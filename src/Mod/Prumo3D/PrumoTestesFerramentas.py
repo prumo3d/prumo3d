@@ -13771,6 +13771,235 @@ class T99PlanosNoNovoEsboco(unittest.TestCase):
         self.assertNotIn("CASTS_SHADOW_AND_SHADOWED", S.TEXTO)
 
 
+class T100IdeiasDeOutrosCAD(unittest.TestCase):
+    """Ideias trazidas do estudo do ThunderealCAD: planos com nome familiar, sinônimos de outros CAD na busca,
+    mouse do programa de origem, caixa da tecla S, ferramenta que segue a seleção (ativa o corpo) e erros de
+    cota que dizem o porquê."""
+
+    def test_planos_com_nome_familiar(self):
+        import PrumoNovoEsboco as N
+        self.assertEqual(N.NOMES_PLANOS["XZ"], "frontal")
+        self.assertIn("superior", N.NOMES_PLANOS["XY"])
+        if not FreeCAD.GuiUp:
+            return
+        from PySide import QtCore, QtWidgets
+        doc = novo_doc("PrumoTesteNomesPlanos")
+        visto = {}
+
+        def olhar():
+            d = QtWidgets.QApplication.activeModalWidget()
+            try:
+                if d is None:
+                    return
+                QtWidgets.QApplication.processEvents()
+                visto["textos"] = [d.findChild(QtWidgets.QRadioButton, n + "_radioButton").text()
+                                   for n in ("XY", "XZ", "YZ")]
+            finally:
+                if d is not None:
+                    d.reject()
+        try:
+            QtCore.QTimer.singleShot(1500, olhar)
+            FreeCADGui.runCommand("Sketcher_NewSketch", 0)
+            self.assertEqual(visto.get("textos"), ["Plano XY: superior (planta)", "Plano XZ: frontal",
+                                                   "Plano YZ: lateral (direita)"])
+        finally:
+            fechar(doc)
+
+    def test_lista_do_painel_ganha_o_nome(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtWidgets
+        import PrumoNovoEsboco as N
+        w = QtWidgets.QWidget()
+        lw = QtWidgets.QListWidget(w)
+        for t in ("Plano-XY (Plano de base)", "Plano-XZ (Plano de base)", "Esboço (Esboço)"):
+            lw.addItem(t)
+        self.assertEqual(N.nomear_planos_na_lista(w), 2)
+        self.assertEqual(lw.item(1).text(), "Plano-XZ (Plano de base): frontal")
+        self.assertEqual(lw.item(2).text(), "Esboço (Esboço)")
+        self.assertEqual(N.nomear_planos_na_lista(w), 0, "não repete o nome")
+        w.deleteLater()
+
+    def test_busca_entende_outros_cad(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoBuscaComandos as B
+        itens = B.indice()
+
+        def acha(texto, cmd):
+            cmds = [c for it in B.procurar(texto, itens, limite=20) for c in it[0].split("|")]
+            self.assertIn(cmd, cmds, "%r devia achar %s; achou %s" % (texto, cmd, cmds))
+        acha("corte extrudado", "PartDesign_Pocket")       # nome do SolidWorks, da tabela do guia
+        acha("pocket", "PartDesign_Pocket")
+        acha("cut", "PartDesign_Pocket")
+        acha("shell", "PartDesign_Thickness")
+        acha("loft", "PartDesign_AdditiveLoft")
+        acha("combine", "Part_Fuse")
+        acha("timeline", "Prumo_Arvore")
+        acha("fillet", "PartDesign_Fillet")
+
+    def test_mouse_do_programa_de_origem(self):
+        import PrumoOrigemCAD as O
+        vista = FreeCAD.ParamGet(O.VISTA)
+        p = FreeCAD.ParamGet(O.PARAM)
+        antes = (vista.GetString("NavigationStyle", ""), vista.GetBool("ZoomAtCursor", True),
+                 p.GetString("ProgramaOrigem", ""), p.GetBool("OrigemPerguntada", False))
+        try:
+            self.assertTrue(O.aplicar("solidworks"))
+            self.assertEqual(vista.GetString("NavigationStyle", ""), "Gui::SolidWorksNavigationStyle")
+            self.assertEqual(O.atual(), "solidworks")
+            self.assertTrue(O.perguntado())
+            O.aplicar("autodesk")
+            self.assertEqual(vista.GetString("NavigationStyle", ""), "Gui::RevitNavigationStyle")
+            self.assertIn("Shift", O.descricao("autodesk"))
+            self.assertFalse(O.aplicar("inexistente"))
+            for _pid, _n, estilo, *_r in O.PROGRAMAS:
+                self.assertTrue(estilo.startswith("Gui::") and estilo.endswith("NavigationStyle"))
+            if FreeCAD.GuiUp:
+                f = O.FaixaOrigem()
+                self.assertEqual(set(f.botoes), {x[0] for x in O.PROGRAMAS})
+                f.deleteLater()
+        finally:
+            if antes[0]:
+                vista.SetString("NavigationStyle", antes[0])
+            else:
+                vista.RemString("NavigationStyle")
+            vista.SetBool("ZoomAtCursor", antes[1])
+            p.SetString("ProgramaOrigem", antes[2])
+            p.SetBool("OrigemPerguntada", antes[3])
+
+    def test_caixa_da_tecla_s(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtCore, QtGui, QtWidgets
+        import PrumoRibbon as R
+        import PrumoCaixaS as C
+        rb = R._state.get("ribbon")
+        doc = novo_doc("PrumoTesteCaixaS")
+        try:
+            rb.select_tab("peca")
+            QtWidgets.QApplication.processEvents()
+            itens = C.itens_da_aba()
+            cmds = [c for it in itens for c in it[0].split("|")]
+            self.assertIn("PartDesign_Pad", cmds)
+            self.assertLessEqual(len(itens), C.MAX_ITENS)
+            caixa = C.abrir(QtCore.QPoint(300, 300))
+            self.assertTrue(caixa.isVisible())
+            self.assertEqual(caixa.lista.count(), len(itens), "sem texto: as ferramentas da aba")
+            caixa.campo.setText("furo")
+            self.assertTrue(any(caixa.lista.item(i).data(QtCore.Qt.UserRole)[0] == "PartDesign_Hole"
+                                for i in range(caixa.lista.count())))
+            caixa.hide()
+            # a tecla S na vista 3D abre a caixa; dentro de um esboço, não
+            gv = FreeCADGui.ActiveDocument.ActiveView.graphicsView()
+            alvo = gv.viewport()
+            alvo.setFocus()
+            QtWidgets.QApplication.processEvents()
+            if QtWidgets.QApplication.focusWidget() is not None and C._em_vista_3d(QtWidgets.QApplication.focusWidget()):
+                foco = QtWidgets.QApplication.focusWidget()
+                ov = QtGui.QKeyEvent(QtCore.QEvent.ShortcutOverride, QtCore.Qt.Key_S, QtCore.Qt.NoModifier, "s")
+                QtWidgets.QApplication.sendEvent(foco, ov)
+                self.assertTrue(ov.isAccepted(), "o S fica com a vista")
+                QtWidgets.QApplication.sendEvent(foco, QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_S,
+                                                                       QtCore.Qt.NoModifier, "s"))
+                for _i in range(10):
+                    QtWidgets.QApplication.processEvents()
+                self.assertTrue(C._ESTADO["caixa"].isVisible())
+                C._ESTADO["caixa"].hide()
+        finally:
+            fechar(doc)
+
+    def test_ferramenta_segue_o_corpo_da_selecao(self):
+        """C++ (PartDesign/Gui/Utils.cpp): só vale no app compilado pelo GitHub."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        doc = novo_doc("PrumoTesteCorpoSelecao")
+        try:
+            corpos = []
+            for i in range(2):
+                b = doc.addObject("PartDesign::Body", "Body%d" % i)
+                cx = doc.addObject("PartDesign::AdditiveBox", "Caixa%d" % i)
+                b.addObject(cx)
+                cx.Placement.Base = FreeCAD.Vector(30 * i, 0, 0)
+                corpos.append((b, cx))
+            doc.recompute()
+            v = FreeCADGui.ActiveDocument.ActiveView
+            v.setActiveObject("pdbody", corpos[0][0])
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(doc.Name, corpos[1][1].Name, "Edge1")
+            recusa = {}
+
+            def fechar_recusa():
+                m = QtWidgets.QApplication.activeModalWidget()
+                if m is not None:
+                    recusa["texto"] = m.windowTitle()
+                    m.reject()
+            from PySide import QtCore
+            QtCore.QTimer.singleShot(1500, fechar_recusa)   # app antigo: a recusa é uma janela modal
+            FreeCADGui.runCommand("PartDesign_Fillet", 0)
+            self.assertNotIn("texto", recusa, "recusou: %s" % recusa.get("texto"))
+            fim = time.time() + 2
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                if v.getActiveObject("pdbody") == corpos[1][0]:
+                    break
+                time.sleep(0.02)
+            self.assertEqual(v.getActiveObject("pdbody"), corpos[1][0],
+                             "o corpo da seleção vira o ativo (em vez de recusar)")
+        finally:
+            try:
+                FreeCADGui.Control.closeDialog()
+            except Exception:
+                pass
+            fechar(doc)
+
+    def test_cota_de_angulo_em_paralelas_diz_porque(self):
+        """C++ (TechDraw/App/DrawViewDimension.cpp): só vale no app compilado pelo GitHub."""
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        doc = novo_doc("PrumoTesteCotaParalela")
+        try:
+            cx = doc.addObject("Part::Box", "Caixa")
+            pag = doc.addObject("TechDraw::DrawPage", "Pagina")
+            tpl = doc.addObject("TechDraw::DrawSVGTemplate", "Modelo")
+            pag.Template = tpl
+            vista = doc.addObject("TechDraw::DrawViewPart", "Vista")
+            pag.addView(vista)
+            vista.Source = [cx]
+            vista.Direction = FreeCAD.Vector(0, -1, 0)
+            doc.recompute()
+            fim = time.time() + 10
+            while time.time() < fim and not vista.getVisibleEdges():
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.05)
+            arestas = vista.getVisibleEdges()
+            self.assertGreaterEqual(len(arestas), 4, "a vista projetou a caixa")
+            par = None
+            for i in range(len(arestas)):
+                for j in range(i + 1, len(arestas)):
+                    d1 = arestas[i].Vertexes[-1].Point - arestas[i].Vertexes[0].Point
+                    d2 = arestas[j].Vertexes[-1].Point - arestas[j].Vertexes[0].Point
+                    if d1.Length > 1e-6 and d2.Length > 1e-6 and d1.cross(d2).Length < 1e-6:
+                        par = (i, j)
+                        break
+                if par:
+                    break
+            self.assertIsNotNone(par)
+            cota = doc.addObject("TechDraw::DrawViewDimension", "Cota")
+            cota.Type = "Angle"
+            cota.References2D = [(vista, ["Edge%d" % par[0], "Edge%d" % par[1]])]
+            pag.addView(cota)
+            doc.recompute()
+            self.assertIn("paralelas", cota.getStatusString() if hasattr(cota, "getStatusString") else "",
+                          "a cota diz que as arestas são paralelas")
+        finally:
+            fechar(doc)
+
+
 class T98CliqueSempreResponde(unittest.TestCase):
     """Clique em ferramenta que não pode rodar (ou que dá erro) mostra o porquê; abas podem ser arrastadas."""
 
@@ -14386,4 +14615,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T88CatalogosSteelStructures, T89NovidadesDoZW3D,
            T90TracadoNasConexoes, T91JuntaInteligente,
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
-           T99PlanosNoNovoEsboco]
+           T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD]

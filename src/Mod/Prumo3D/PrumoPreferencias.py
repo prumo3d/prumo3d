@@ -16,7 +16,8 @@ UNIDADES_PATH = "User parameter:BaseApp/Preferences/Units"
 
 # (parâmetro, rótulo, padrão, vale só ao reabrir?)
 APARENCIA = [("TelaInicial", "Mostrar a tela inicial ao abrir", True, False),
-             ("RibbonContextual", "Faixa só com as ferramentas do momento (as raras no “Mais”)", True, False)]
+             ("RibbonContextual", "Faixa só com as ferramentas do momento (as raras no “Mais”)", True, False),
+             ("CaixaS", "Tecla S na vista 3D abre a caixa de ferramentas no cursor", True, False)]
 PAINEL = [("PainelLateralUnico", "Painel lateral único (árvore, propriedades e comando em abas)", True, True),
           ("PropriedadesEmCartoes", "Propriedades em cartões", True, False),
           ("PainelDeComando", "Comandos em cartões (no lugar dos formulários do FreeCAD)", True, False),
@@ -67,6 +68,7 @@ class JanelaPreferencias(QtWidgets.QDialog):
         self.col = col
         col.setSpacing(10)
         self._tema()
+        self._mouse()
         self._grupo("Aparência", "aparencia", APARENCIA)
         self._grupo("Painel lateral", "arvore", PAINEL)
         self._grupo("Esboço", "esboco", ESBOCO)
@@ -109,6 +111,14 @@ class JanelaPreferencias(QtWidgets.QDialog):
                     rb.build(rb._tabs[rb.tabbar.currentIndex()])
             except Exception:
                 pass
+
+    def _mouse(self):
+        """Mouse da vista 3D pelo nome do programa de origem (SolidWorks, Inventor/Fusion...)."""
+        import PrumoOrigemCAD
+        c, combo = PrumoOrigemCAD.cartao_preferencias(UI)
+        self.campos["mouse"] = combo
+        self.col.addWidget(c)
+        return c
 
     def _programacao(self):
         """Relatório e console Python: fechados para quem só desenha; quem programa liga aqui."""

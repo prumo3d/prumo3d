@@ -12,15 +12,35 @@ import unicodedata
 # palavra digitada -> palavras que aparecem no rótulo (para quem vem de outros programas)
 SINONIMOS = {
     "mate": "restricao junta", "mates": "restricao junta", "restricao": "junta", "constraint": "restricao",
-    "extrude": "extrusao ressalto", "extrusao": "ressalto", "boss": "ressalto", "cut": "corte rebaixo",
-    "pocket": "rebaixo", "fillet": "arredondamento", "filete": "arredondamento", "chamfer": "chanfro",
+    "extrude": "extrusao", "extrusao": "ressalto", "boss": "ressalto", "cut": "cavidade subtrair corte",
+    "pocket": "cavidade", "fillet": "arredondar", "filete": "arredondar", "chamfer": "chanfro",
     "pattern": "padrao matriz", "matriz": "padrao", "mirror": "espelhar", "espelho": "espelhar",
     "drawing": "folha desenho", "sheet": "folha", "dimension": "cota", "dimensao": "cota", "medida": "cota medir",
     "bom": "lista materiais", "interference": "interferencia", "explode": "explodida",
-    "hole": "furo", "shell": "casca", "revolve": "revolucao", "sweep": "varredura", "loft": "transicao",
+    "hole": "furo", "shell": "casca", "revolve": "revolucao", "sweep": "varredura", "loft": "loft", "transicao": "loft",
     "sketch": "esboco", "plano": "plano referencia", "weld": "solda", "gear": "engrenagem",
     "drive": "mover junta", "rigid": "travar", "rigido": "travar", "concentric": "concentrica",
     "tangent": "tangente", "coincident": "coincidente", "parallel": "paralela",
+    # Fusion, Inventor, Onshape e outros (inglês e português)
+    "pad": "extrusao", "join": "extrusao unir", "combine": "unir subtrair intersecao", "union": "unir",
+    "subtract": "subtrair", "intersect": "intersecao", "thicken": "casca", "split": "dividir",
+    "draft": "angulo saida", "helix": "helice", "coil": "helice", "thread": "rosca", "knurl": "rosca",
+    "joint": "junta", "joints": "junta", "revolute": "dobradica", "slider": "deslizante", "ball": "esferica",
+    "insert": "inserir componente", "place": "inserir componente", "derive": "vinculo forma",
+    "derived": "vinculo forma", "project": "geometria externa", "projetar": "geometria externa",
+    "projection": "geometria externa", "convert": "geometria externa", "trim": "aparar", "offset": "offset",
+    "timeline": "arvore modelo", "historico": "arvore modelo", "rollback": "arvore modelo",
+    "history": "arvore modelo", "browser": "arvore modelo", "featuremanager": "arvore modelo",
+    "balloon": "balao", "parts": "lista materiais", "centermark": "centro circulo",
+    "section": "vista corte", "projected": "vista", "baseview": "vista", "isometric": "isometrica",
+    "rectangular": "padrao linear", "linear": "padrao linear", "circular": "padrao circular",
+    "polar": "padrao circular", "multitransform": "multitransformacao", "body": "corpo", "part": "parte peca",
+    "component": "componente", "assembly": "montagem", "sheetmetal": "chapa", "flange": "aba",
+    "hem": "bainha", "unfold": "planificar", "flat": "planificar", "frame": "estrutura", "weldment": "estrutura soldada",
+    "sweep": "varredura", "pipe": "tubulacao varredura", "rib": "reforco", "web": "reforco",
+    "parameters": "variaveis", "parametros": "variaveis", "equations": "variaveis", "equacoes": "variaveis",
+    "configuration": "variantes", "configuracao": "variantes", "configuracoes": "variantes",
+    "measure": "medir", "inspect": "medir verificar",
     # como o pessoal digita (SolidWorks em português, termos de chão de fábrica)
     "ressalto": "extrusao", "base": "extrusao", "nervura": "reforco", "rib": "reforco",
     "referencia": "referencias plano", "datum": "referencias", "pdf": "salvar pdf", "dxf": "exportar dxf",
@@ -43,6 +63,31 @@ def normalizar(t):
     return " ".join(t.lower().replace("\n", " ").replace("&", "").split())
 
 
+_OUTROS = {}
+
+
+def _nomes_outros_cad(cmd):
+    """Nomes que o comando tem no SolidWorks, ZW3D, Inventor e Fusion (tabela do guia "Vindo do SolidWorks")."""
+    if not _OUTROS:
+        try:
+            import PrumoGuiaMigracao
+            for linha in PrumoGuiaMigracao.EQUIVALENCIAS:
+                sw, outros, cmds = linha[1], linha[2], linha[5]
+                for c in cmds:
+                    _OUTROS.setdefault(c, []).extend([sw, outros])
+        except Exception:
+            _OUTROS["-"] = []
+    partes = []
+    for c in str(cmd).split("|"):
+        for nome in _OUTROS.get(c, []):
+            # "Extrude / Extrusion" e "Ressalto/Base extrudado" valem como nomes separados
+            for parte in str(nome).replace("(", "/").replace(")", "/").split("/"):
+                n = normalizar(parte)
+                if n and n not in partes:
+                    partes.append(n)
+    return partes
+
+
 def indice(tabs=None):
     """[(comando, rótulo, aba_id, aba_rótulo, grupo, texto_de_busca)] de tudo o que está na faixa."""
     if tabs is None:
@@ -58,7 +103,7 @@ def indice(tabs=None):
         for grupo, itens in t.get("panels", []):
             for item in itens:
                 cmd, _tam, rot = item[0], item[1], item[2]
-                if cmd in vistos or (existentes is not None and cmd not in existentes):
+                if cmd in vistos or (existentes is not None and cmd.split("|")[0] not in existentes):
                     continue
                 vistos.add(cmd)
                 menu = dica = ""
@@ -70,7 +115,7 @@ def indice(tabs=None):
                         pass
                 rot = " ".join(str(rot).split())
                 busca = normalizar(" ".join((rot, menu, t["label"], grupo, dica[:200])))
-                res.append((cmd, rot, t["id"], t["label"], grupo, busca))
+                res.append((cmd, rot, t["id"], t["label"], grupo, busca, _nomes_outros_cad(cmd)))
     # ferramentas da barra de vistas (embaixo da vista 3D): não têm aba
     try:
         import PrumoBarraVista
@@ -115,22 +160,31 @@ def procurar(texto, itens=None, limite=12):
     for it in itens:
         rot = normalizar(it[1])
         busca = it[5]
-        if all(p in busca for p in palavras):
-            if rot == q:
-                nota = 0
-            elif rot.startswith(q):
-                nota = 1
-            elif all(p in rot for p in palavras):
-                nota = 2
-            else:
-                nota = 4
+        outros = it[6] if len(it) > 6 else []
+        palavras_rot = rot.split()
+        if rot == q:
+            nota = 0
+        elif rot.startswith(q):
+            nota = 1
+        elif any(o == q or o.startswith(q + " ") for o in outros):
+            nota = 1.5                         # nome no SolidWorks/Fusion... ("corte extrudado")
+        elif all(p in rot for p in palavras):
+            nota = 2
+        elif extras and any(e in palavras_rot or rot.startswith(e) for e in extras):
+            nota = 2.5                         # sinônimo ("shell" -> Casca)
+        elif outros and all(any(p in o.split() for o in outros) for p in palavras):
+            nota = 3                           # palavra inteira de um nome de outro CAD
+        elif all(p in busca for p in palavras):
+            nota = 4
         elif extras and any(e in rot for e in extras):
-            nota = 3
+            nota = 4.5
         else:
             continue
-        res.append((nota, len(rot), it))
-    res.sort(key=lambda x: (x[0], x[1]))
-    return [it for _n, _l, it in res[:limite]]
+        # desempate: mais palavras do sinônimo no rótulo ("bom" -> Lista de materiais antes de Lista de corte)
+        acertos = sum(1 for e in extras if e in palavras_rot)
+        res.append((nota, -acertos, len(rot), it))
+    res.sort(key=lambda x: (x[0], x[1], x[2]))
+    return [x[3] for x in res[:limite]]
 
 
 def rodar(item, ribbon=None):
@@ -218,7 +272,10 @@ if QtWidgets is not None:
 
         def filtrar(self, texto):
             self.lista.clear()
-            for it in procurar(texto, self.itens()):
+            achados = procurar(texto, self.itens())
+            if not normalizar(texto) and getattr(self, "padrao", None):
+                achados = self.padrao          # caixa da tecla S: sem nada digitado, as ferramentas da aba
+            for it in achados:
                 li = QtWidgets.QListWidgetItem("%s   —   %s › %s" % (it[1], it[3], it[4]))
                 try:
                     import FreeCADGui
@@ -232,7 +289,9 @@ if QtWidgets is not None:
                 self.lista.addItem(li)
             if self.lista.count():
                 self.lista.setCurrentRow(0)
-            self.dica.setText("Enter roda · ↑↓ escolhe · Esc fecha" if self.lista.count() or not texto
+            self.dica.setText(("Ferramentas da aba · digite para procurar todas · Enter roda · Esc fecha"
+                               if not texto and getattr(self, "padrao", None)
+                               else "Enter roda · ↑↓ escolhe · Esc fecha") if self.lista.count() or not texto
                               else "Nada com esse nome. Tente outra palavra.")
 
         def eventFilter(self, obj, ev):
@@ -253,10 +312,19 @@ if QtWidgets is not None:
             QtCore.QTimer.singleShot(0, lambda: rodar(it, self.ribbon))
             return it
 
-        def abrir(self, ancora=None):
+        def abrir(self, ancora=None, ponto=None, padrao=None):
+            """Abre debaixo da âncora (lupa) ou no ponto (cursor, tecla S). `padrao`: itens mostrados sem texto."""
+            self.padrao = padrao
             self.campo.clear()
             self.filtrar("")
-            if ancora is not None:
+            if ponto is not None:
+                self.adjustSize()
+                tela = QtGui.QGuiApplication.screenAt(ponto) or QtGui.QGuiApplication.primaryScreen()
+                g = tela.availableGeometry()
+                x = min(max(ponto.x() - 20, g.left()), g.right() - self.width())
+                y = min(max(ponto.y() - 20, g.top()), g.bottom() - self.height())
+                self.move(x, y)
+            elif ancora is not None:
                 p = ancora.mapToGlobal(QtCore.QPoint(ancora.width(), ancora.height()))
                 self.adjustSize()
                 self.move(p.x() - self.width(), p.y() + 2)

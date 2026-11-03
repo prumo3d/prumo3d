@@ -51,6 +51,8 @@ namespace PartDesignGui
 bool setEdit(App::DocumentObject* obj, PartDesign::Body* body = nullptr);
 
 /// Return active body or show a warning message
+/// Prumo 3D: the single body holding the whole selection of \a doc (null if none or several)
+PartDesign::Body* bodyOfSelection(App::Document* doc);
 PartDesign::Body* getBody(
     bool messageIfNot,
     bool autoActivate = true,

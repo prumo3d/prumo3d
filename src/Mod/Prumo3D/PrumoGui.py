@@ -1005,6 +1005,12 @@ def _start_ribbon():
         PrumoNovoEsboco.instalar()
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: planos do novo esboço: {}\n".format(exc))
+    try:
+        import PrumoCaixaS
+
+        PrumoCaixaS.instalar()
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning("Prumo: caixa da tecla S: {}\n".format(exc))
 
 
 def _start_ferramentas():

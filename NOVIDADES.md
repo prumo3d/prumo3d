@@ -42,6 +42,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   enquadrar tudo e a seleção, isométrica, frontal, superior, direita (as outras vistas no menu ao lado),
   estilo de exibição, plano de corte e sombras. Aparece em toda vista 3D aberta. Com várias vistas abertas, o
   clique vale para a vista onde está a barra.
+- **Planos com o nome de sempre no novo esboço:** "Plano XY: superior (planta)", "Plano XZ: frontal",
+  "Plano YZ: lateral (direita)", na janela de orientação e na lista do painel da aba Peça. No SolidWorks e no
+  Fusion a "frente" é o XY; aqui Z aponta para cima e a frente é o XZ.
+- **Mouse como no programa que você já usa.** Na tela inicial (até a primeira escolha) e em Preferências do
+  Prumo, cartão "Mouse da vista 3D": SolidWorks, Inventor / Fusion, Onshape, Siemens NX ou Blender. Girar,
+  arrastar e aproximar a vista passam a ser como no programa escolhido, e a rodinha aproxima onde está o cursor.
+- **Tecla S abre a caixa de ferramentas no cursor** (como no SolidWorks, Fusion e Onshape): com o mouse na vista
+  3D, S mostra ali as ferramentas principais da aba e uma linha de busca para todas. Dentro do esboço o S
+  continua sendo a relação Simétrica. Desliga em Preferências.
+- **Busca (Ctrl+K) com os nomes de outros CAD:** entende os nomes do SolidWorks, ZW3D, Inventor e Fusion do guia
+  "Vindo do SolidWorks" ("corte extrudado" acha Cavidade, "shell" acha Casca, "combine" acha Unir, "timeline"
+  acha a Árvore do modelo).
+- **A ferramenta segue a seleção:** selecionou uma aresta ou face de outro corpo e clicou em Arredondar, Chanfro,
+  Padrão etc.? O Prumo ativa esse corpo (com aviso na barra de status) em vez de recusar com "a seleção não está
+  no corpo ativo". Desliga com a preferência AtivarCorpoDaSelecao.
 - **Escolha do perfil como num catálogo** (Estrutura metálica e Trocar perfil): a lista mostra a miniatura
   de cada seção com as medidas e a massa; ao lado, a prévia do perfil escolhido com as cotas do catálogo
   (altura, largura, espessuras, raio), massa e área. Busca por nome (ex.: "200 x 15").
@@ -66,6 +81,12 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
   fraca ou montagem muito grande pode deixar a vista mais lenta: aí é só desmarcar.
 
 ### Correções
+
+- **Cota do desenho com erro que diz o porquê.** Antes: "Invalid selection - Det = 0". Agora: "Cota de ângulo
+  na vista Vista (Edge2, Edge4): as arestas Edge2 e Edge4 são paralelas, não há ângulo entre elas", e avisa
+  quando as referências mudaram depois que a vista foi atualizada. Uma cota de distância em referências que não
+  servem agora dá erro em vez de ficar com uma medida sem sentido.
+- **Busca de comandos não achava Arredondar, Chanfro, Casca e Espelhar da aba Peça** (botões com setinha).
 
 - **Montagem: junta que não abria** com "Cannot access attribute 'clearUndo' of deleted object" depois de
   fechar uma montagem com o painel de junta aberto.

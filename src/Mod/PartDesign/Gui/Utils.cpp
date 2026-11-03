@@ -26,6 +26,7 @@
 #include <Precision.hxx>
 
 
+#include <App/Application.h>
 #include <App/Origin.h>
 #include <App/Datums.h>
 #include <App/Part.h>
@@ -33,6 +34,7 @@
 #include <Gui/CommandT.h>
 #include <Gui/MainWindow.h>
 #include <Gui/MDIView.h>
+#include <Gui/Selection/Selection.h>
 #include <Mod/PartDesign/App/Body.h>
 #include <Mod/PartDesign/App/Feature.h>
 #include <Mod/PartDesign/App/FeatureSketchBased.h>
@@ -109,6 +111,41 @@ bool setEdit(App::DocumentObject* obj, PartDesign::Body* body)
 }
 
 /*!
+ * \brief Prumo 3D: the body that holds everything selected in \a doc, or null when the selection is
+ * empty, spans several bodies, or has something outside a body. Off with Mod/Prumo3D/AtivarCorpoDaSelecao.
+ */
+PartDesign::Body* bodyOfSelection(App::Document* doc)
+{
+    auto hGrp = App::GetApplication().GetParameterGroupByPath(
+        "User parameter:BaseApp/Preferences/Mod/Prumo3D"
+    );
+    if (!doc || !hGrp->GetBool("AtivarCorpoDaSelecao", true)) {
+        return nullptr;
+    }
+    PartDesign::Body* found = nullptr;
+    for (auto& sel : Gui::Selection().getSelection(doc->getName())) {
+        auto* obj = sel.pObject;
+        if (!obj) {
+            continue;
+        }
+        if (auto* b = dynamic_cast<PartDesign::Body*>(obj)) {
+            // the body itself selected (whole body picked in the tree)
+            if (found && found != b) {
+                return nullptr;
+            }
+            found = b;
+            continue;
+        }
+        auto* body = PartDesign::Body::findBodyOf(obj);
+        if (!body || (found && found != body)) {
+            return nullptr;
+        }
+        found = body;
+    }
+    return found;
+}
+
+/*!
  * \brief Return active body or show a warning message.
  * If \a autoActivate is true (the default) then if there is
  * only single body in the document it will be activated.
@@ -132,6 +169,24 @@ PartDesign::Body* getBody(
         bool singleBodyDocument = doc->countObjectsOfType<PartDesign::Body>() == 1;
         if (assertModern) {
             activeBody = activeView->getActiveObject<PartDesign::Body*>(PDBODYKEY, topParent, subname);
+
+            // Prumo 3D: a ferramenta segue a seleção. Se tudo o que está selecionado é de um mesmo corpo
+            // e ele não é o ativo, ativa esse corpo (com aviso na barra de status) em vez de recusar com
+            // "a seleção não está no corpo ativo". Preferência Mod/Prumo3D/AtivarCorpoDaSelecao.
+            if (messageIfNot && autoActivate) {
+                PartDesign::Body* doSelecionado = bodyOfSelection(doc);
+                if (doSelecionado && doSelecionado != activeBody) {
+                    auto* novo = makeBodyActive(doSelecionado, doc, topParent, subname);
+                    if (novo) {
+                        activeBody = novo;
+                        Gui::getMainWindow()->showMessage(
+                            QObject::tr("Active body changed to \"%1\" (the body of the selection)")
+                                .arg(QString::fromUtf8(novo->Label.getValue())),
+                            5000
+                        );
+                    }
+                }
+            }
 
             if (!activeBody && singleBodyDocument && autoActivate) {
                 auto bodies = doc->getObjectsOfType(PartDesign::Body::getClassTypeId());

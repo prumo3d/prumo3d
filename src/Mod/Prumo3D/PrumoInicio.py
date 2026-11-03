@@ -310,6 +310,16 @@ class InicioPrumo(QtWidgets.QWidget):
         head.addLayout(tc, 1)
         self.v.addLayout(head)
 
+        # até a primeira escolha: mouse igual ao do CAD de origem
+        self.faixa_origem = None
+        try:
+            import PrumoOrigemCAD
+            if not PrumoOrigemCAD.perguntado():
+                self.faixa_origem = PrumoOrigemCAD.FaixaOrigem()
+                self.v.addWidget(self.faixa_origem)
+        except Exception as exc:
+            FreeCAD.Console.PrintLog("Prumo: faixa de origem: {}\n".format(exc))
+
         # novo projeto
         self._section("Novo projeto")
         grid = QtWidgets.QGridLayout()

@@ -464,6 +464,40 @@ short DrawViewDimension::mustExecute() const
     return DrawView::mustExecute();
 }
 
+namespace
+{
+/// Prumo 3D: o tipo da cota como se fala ("de distância", "de raio"...)
+std::string tipoEmPortugues(const char* tipo)
+{
+    const std::string t = tipo ? tipo : "";
+    if (t == "Distance") {
+        return "de distância";
+    }
+    if (t == "DistanceX") {
+        return "horizontal";
+    }
+    if (t == "DistanceY") {
+        return "vertical";
+    }
+    if (t == "Radius") {
+        return "de raio";
+    }
+    if (t == "Diameter") {
+        return "de diâmetro";
+    }
+    if (t == "Angle") {
+        return "de ângulo";
+    }
+    if (t == "Angle3Pt") {
+        return "de ângulo por 3 pontos";
+    }
+    if (t == "Area") {
+        return "de área";
+    }
+    return t;
+}
+}  // namespace
+
 App::DocumentObjectExecReturn* DrawViewDimension::execute()
 {
     if (!okToProceed()) {
@@ -489,6 +523,28 @@ App::DocumentObjectExecReturn* DrawViewDimension::execute()
     // we have either or both valid References3D and References2D
     ReferenceVector references = getEffectiveReferences();
 
+    // Prumo 3D (ideia do ThunderealCAD, docs/TechDrawErrors.md 3.3): a falha vira o erro de recálculo que a
+    // pessoa lê, dizendo qual cota, de qual vista, em quais elementos e por quê, e se as referências foram
+    // reencontradas pela geometria depois que a vista mudou. Antes: "Invalid selection - Det = 0".
+    auto described = [&](const std::string& why) {
+        std::string subs;
+        for (const auto& ref : references) {
+            if (!ref.getSubName().empty()) {
+                subs += (subs.empty() ? "" : ", ") + ref.getSubName();
+            }
+        }
+        DrawViewPart* view = getViewPart();
+        std::string text = std::string("Cota ") + tipoEmPortugues(Type.getValueAsString()) + " na vista "
+            + (view ? view->Label.getValue() : "?") + (subs.empty() ? "" : " (" + subs + ")") + ": "
+            + (why.empty() ? std::string("a medida falhou") : why);
+        if (!m_referencesCorrect) {
+            text += ". As referências mudaram depois que a vista foi atualizada e não foram reencontradas: "
+                    "confira se a cota ainda está nas arestas certas";
+        }
+        return new App::DocumentObjectExecReturn(text, this);
+    };
+
+    try {
     if (Type.isValue("Distance") || Type.isValue("DistanceX") || Type.isValue("DistanceY")) {
         if (getRefType() == RefType::oneEdge) {
             m_linearPoints = getPointsOneEdge(references);
@@ -502,6 +558,11 @@ App::DocumentObjectExecReturn* DrawViewDimension::execute()
         else if (getRefType() == RefType::vertexEdge) {
             m_linearPoints = getPointsEdgeVert(references);
         }
+        else {
+            // antes "dava certo" com os pontos de nada
+            throw Base::RuntimeError("uma cota de distância precisa de uma aresta, duas arestas, dois vértices "
+                                     "ou uma aresta e um vértice");
+        }
         m_hasGeometry = true;
     }
     else if (Type.isValue("Radius") ||
@@ -511,24 +572,31 @@ App::DocumentObjectExecReturn* DrawViewDimension::execute()
     }
     else if (Type.isValue("Angle")) {
         if (getRefType() != RefType::twoEdge) {
-            throw Base::RuntimeError("Angle dimension has non-edge references");
+            throw Base::RuntimeError("uma cota de ângulo precisa de duas arestas retas");
         }
         m_anglePoints = getAnglePointsTwoEdges(references);
         m_hasGeometry = true;
     }
     else if (Type.isValue("Angle3Pt")) {
         if (getRefType() != RefType::threeVertex) {
-            throw Base::RuntimeError("3 point angle dimension has non-vertex references");
+            throw Base::RuntimeError("uma cota de ângulo por 3 pontos precisa de três vértices");
         }
         m_anglePoints = getAnglePointsThreeVerts(references);
         m_hasGeometry = true;
     }
     else if (Type.isValue("Area")) {
         if (getRefType() != RefType::oneFace) {
-            throw Base::RuntimeError("area dimension has non-face references");
+            throw Base::RuntimeError("uma cota de área precisa de uma face");
         }
         m_areaPoint = getAreaParameters(references);
         m_hasGeometry = true;
+    }
+    }
+    catch (const Base::Exception& e) {
+        return described(e.what());
+    }
+    catch (const std::exception& e) {
+        return described(e.what());
     }
 
     overrideKeepUpdated(false);
@@ -1212,24 +1280,29 @@ anglePoints DrawViewDimension::getAnglePointsTwoEdges(ReferenceVector references
         TechDraw::BaseGeomPtr geom0 = getViewPart()->getGeomByIndex(iSubelement0);
         TechDraw::BaseGeomPtr geom1 = getViewPart()->getGeomByIndex(iSubelement1);
         if (!geom0 || !geom1) {
-            std::stringstream ssMessage;
-            ssMessage << getNameInDocument() << " can not find geometry for 2d reference (5)";
-            throw Base::RuntimeError(ssMessage.str());
+            throw Base::RuntimeError("a vista não tem mais a " + references.at(geom0 ? 1 : 0).getSubName());
         }
-        if (geom0->getGeomType() != GeomType::GENERIC) {
-            std::stringstream ssMessage;
-            ssMessage << getNameInDocument() << " first 2d reference is a "
-                      << geom0->geomTypeName();
-            throw Base::RuntimeError(ssMessage.str());
-        }
-        if (geom1->getGeomType() != GeomType::GENERIC) {
-            std::stringstream ssMessage;
-            ssMessage << getNameInDocument() << " second 2d reference is a "
-                      << geom0->geomTypeName();
-            throw Base::RuntimeError(ssMessage.str());
+        for (size_t i = 0; i < 2; ++i) {
+            const TechDraw::BaseGeomPtr& geom = i == 0 ? geom0 : geom1;
+            if (geom->getGeomType() != GeomType::GENERIC) {
+                throw Base::RuntimeError(references.at(i).getSubName() + " não é uma reta (é "
+                                         + geom->geomTypeName() + ")");
+            }
         }
         auto generic0 = std::static_pointer_cast<TechDraw::Generic>(geom0);
         auto generic1 = std::static_pointer_cast<TechDraw::Generic>(geom1);
+        // arestas paralelas não têm vértice: dito com as arestas, antes que apparentInter() diga
+        // "Invalid selection - Det = 0" (ideia do ThunderealCAD)
+        {
+            const Base::Vector3d dir0 = generic0->asVector();
+            const Base::Vector3d dir1 = generic1->asVector();
+            const double cross = dir0.x * dir1.y - dir0.y * dir1.x;
+            if (std::fabs(cross) < 1e-10 * std::max(1.0, dir0.Length() * dir1.Length())) {
+                throw Base::ValueError("as arestas " + references.at(0).getSubName() + " e "
+                                       + references.at(1).getSubName()
+                                       + " são paralelas, não há ângulo entre elas");
+            }
+        }
         Base::Vector3d apex = generic0->apparentInter(generic1);
 
         Base::Vector3d farPoint0{generic0->getEndPoint()};
