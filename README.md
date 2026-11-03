@@ -27,10 +27,16 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.4** (02/11/2026)
+**Versão atual: 1.2.5** (02/11/2026)
 
-- **OpenCV (cv2) corrigido:** na 1.2.3 ele não importava no computador do usuário; agora funciona (bancada Movie).
+- **Estrutura metálica:** escolha do perfil como num catálogo (miniaturas, cotas, detalhes técnicos) e perfil
+  customizado com as medidas que você quiser.
+- **Barra de varredura** redonda ou quadrada, **sombras** na vista 3D e **barra de vistas** embaixo da tela.
+- **Faixa mais limpa:** sem ferramentas repetidas, abas arrastáveis, todo clique explica quando não pode rodar.
+- **Correções:** torneiras na tubulação, ferramentas presas às bancadas antigas, menus acentuados de bancadas
+  externas, networkx da Chapa no pacote.
 
+Na 1.2.4: OpenCV (cv2) corrigido.
 Na 1.2.3: junta inteligente na montagem; OpenCV no pacote.
 Na 1.2.2: tubulação ajusta o traçado às conexões e curva cortada no aço; caixinha de comprimento e ímãs no
 Esboço 3D; aviso da montagem em português; vistas no meio da folha.
