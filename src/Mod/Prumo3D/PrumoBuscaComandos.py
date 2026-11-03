@@ -214,6 +214,27 @@ def rodar(item, ribbon=None):
     AV.executar(cmd, lambda: FreeCADGui.runCommand(cmd, 0), _rot)
 
 
+def icone_do_comando(cmd):
+    """Ícone do comando (o primeiro de um grupo "A|B"): o mesmo do botão da faixa, ou o do comando."""
+    from PySide import QtGui
+    nome = str(cmd).split("|")[0]
+    try:
+        import PrumoRibbon
+        for a in PrumoRibbon._cmd_actions(nome):
+            if not a.icon().isNull():
+                return a.icon()
+    except Exception:
+        pass
+    try:
+        import FreeCADGui
+        pix = FreeCADGui.Command.get(nome).getInfo().get("pixmap", "")
+        if pix:
+            return QtGui.QIcon(pix) if pix.endswith(".svg") or "/" in pix or "\\" in pix else FreeCADGui.getIcon(pix)
+    except Exception:
+        pass
+    return QtGui.QIcon()
+
+
 # ------------------------------------------------------------------ janela
 try:
     from PySide import QtCore, QtGui, QtWidgets
@@ -277,14 +298,7 @@ if QtWidgets is not None:
                 achados = self.padrao          # caixa da tecla S: sem nada digitado, as ferramentas da aba
             for it in achados:
                 li = QtWidgets.QListWidgetItem("%s   —   %s › %s" % (it[1], it[3], it[4]))
-                try:
-                    import FreeCADGui
-                    pix = FreeCADGui.Command.get(it[0]).getInfo().get("pixmap", "")
-                    if pix:
-                        li.setIcon(QtGui.QIcon(pix) if pix.endswith(".svg") or "/" in pix or "\\" in pix
-                                   else FreeCADGui.getIcon(pix))
-                except Exception:
-                    pass
+                li.setIcon(icone_do_comando(it[0]))
                 li.setData(QtCore.Qt.UserRole, it)
                 self.lista.addItem(li)
             if self.lista.count():

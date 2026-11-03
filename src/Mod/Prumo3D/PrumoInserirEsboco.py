@@ -622,7 +622,7 @@ if FreeCAD.GuiUp:
 
     class CmdTextoEsboco:
         def GetResources(self):
-            return {"Pixmap": _icone_draft("Draft_ShapeString"), "MenuText": "Texto",
+            return {"Pixmap": PrumoUtil.icone("texto_esboco.svg"), "MenuText": "Texto",
                     "ToolTip": "Escreve um texto como geometria do esboço (letras em linhas e curvas), para "
                                "extrudar, cortar ou gravar. Vai para o esboço em edição, o selecionado ou um novo."}
 
@@ -634,7 +634,7 @@ if FreeCAD.GuiUp:
 
     class CmdImportarDXF:
         def GetResources(self):
-            return {"Pixmap": _icone_draft("Draft_Wire"), "MenuText": "Importar DXF",
+            return {"Pixmap": PrumoUtil.icone("importar_dxf.svg"), "MenuText": "Importar DXF",
                     "ToolTip": "Traz as linhas, arcos e curvas de um arquivo DXF para o esboço em edição, o "
                                "selecionado ou um novo."}
 
@@ -646,7 +646,7 @@ if FreeCAD.GuiUp:
 
     class CmdMatrizCaminho:
         def GetResources(self):
-            return {"Pixmap": _icone_draft("Draft_PathArray"), "MenuText": "Matriz em caminho",
+            return {"Pixmap": PrumoUtil.icone("matriz_caminho.svg"), "MenuText": "Matriz em caminho",
                     "ToolTip": "Repete uma peça ao longo de um caminho (esboço, arame, hélice ou arestas)."}
 
         def IsActive(self):

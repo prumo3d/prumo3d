@@ -64,7 +64,7 @@ TABS = [
         ("Ferramentas", [
             ("Part_SelectFilter", S, "Filtro de seleção"),
             ("Std_ToggleClipPlane", S, "Plano de corte"), ("Prumo_Arvore", S, "Árvore do modelo"),
-            ("Std_TreeViewActions", S, "Opções da árvore"),
+            ("Std_TreeViewActions", S, "Opções da árvore"), ("Prumo_JuntarPainel", S, "Juntar painel lateral"),
             ("Prumo_MedirXYZ", S, "Medir X, Y, Z"), ("Prumo_Isolar", S, "Isolar peça"),
             ("Std_DlgMacroExecute", S, "Macros"), ("Prumo_Preferencias", L, "Preferências"),
         ]),
@@ -117,7 +117,7 @@ TABS = [
         ("Corpo", [
             ("PartDesign_Body", L, "Novo\ncorpo"), ("PartDesign_CompSketches|Prumo_Esboco3D", L, "Esboço"),
             ("PartDesign_CompDatums", S, "Eixo, ponto, sistema"), ("PartDesign_ShapeBinder", S, "Vínculo de forma"),
-            ("Std_Refresh", S, "Recalcular"),
+            ("Std_Refresh", L, "Recalcular"),
             ("PartDesign_SubShapeBinder", S, "Vínculo de subforma"), ("PartDesign_Clone", S, "Clonar"),
         ]),
         ("Modelagem direta", [
@@ -161,14 +161,13 @@ TABS = [
         ]),
         ("Ferramentas", [
             ("PartDesign_Plane", L, "Novo\nplano"),
-            ("PartDesign_Boolean", S, "Booleana"), ("Part_CheckGeometry", S, "Verificar geometria"),
-            ("Sketcher_ValidateSketch", S, "Validar esboço"),
+            ("Part_CheckGeometry", L, "Verificar\ngeometria"), ("Sketcher_ValidateSketch", L, "Validar\nesboço"),
+            ("PartDesign_Boolean", S, "Booleana"),
         ]),
         ("Prumo", [
             ("Prumo_Cotas", L, "Cotas da\noperação"), ("Prumo_Propriedades", L, "Propriedades\nda peça"),
-            ("Prumo_Variantes", L, "Variantes\nda peça"), ("Prumo_Modelo", L, "Modelo com\nregras"),
-            ("Prumo_Massa", S, "Propriedades de massa"),
-            ("Prumo_ListaMateriais", S, "Lista de materiais"),
+            ("Prumo_Massa", L, "Propriedades\nde massa"), ("Prumo_ListaMateriais", L, "Lista de\nmateriais"),
+            ("Prumo_Variantes", S, "Variantes da peça"), ("Prumo_Modelo", S, "Modelo com regras"),
         ]),
     ]},
     {"id": "montagem", "label": "Montagem", "wb": "AssemblyWorkbench", "panels": [
@@ -836,7 +835,7 @@ class RibbonButton(QtWidgets.QToolButton):
         if len(actions) > 1:
             menu = QtWidgets.QMenu(self)
             for a in actions:
-                menu.addAction(_proxy_selecao(a, self) or a)
+                menu.addAction(_com_rotulo(_proxy_selecao(a, self) or a, self))
             menu.triggered.connect(self._on_menu)
             self.setMenu(menu)
             self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
@@ -959,6 +958,41 @@ def _pedir_selecao(nome):
     except Exception as exc:
         FreeCAD.Console.PrintWarning("Prumo: seleção para {}: {}\n".format(nome, exc))
     return False
+
+
+# No menu da setinha, quando a peça (corpo) e o sólido solto têm o mesmo nome, cada um diz para que serve
+ROTULOS_MENU = {
+    "PartDesign_Fillet": "Arredondar na peça (corpo)", "Part_Fillet": "Arredondar sólido solto",
+    "PartDesign_Chamfer": "Chanfro na peça (corpo)", "Part_Chamfer": "Chanfro em sólido solto",
+    "PartDesign_Thickness": "Casca na peça (corpo)", "Part_Thickness": "Casca de sólido solto",
+    "PartDesign_Mirrored": "Espelhar na peça (corpo)", "Part_Mirror": "Espelhar sólido solto",
+}
+
+
+def _com_rotulo(a, parent):
+    """A ação no menu da setinha com o rótulo de ROTULOS_MENU (cópia que dispara a original)."""
+    nome = a.whatsThis() or getattr(getattr(a, "_original", None), "whatsThis", lambda: "")()
+    rot = ROTULOS_MENU.get(nome)
+    if not rot:
+        return a
+    if getattr(a, "_original", None) is not None:
+        a.setText(rot)
+        return a
+    QAction = getattr(QtGui, "QAction", None) or QtWidgets.QAction
+    px = QAction(a.icon(), rot, parent)
+    px.setToolTip(a.toolTip())
+    px._original = a
+    px.triggered.connect(lambda checked=False, original=a: original.trigger() if original.isEnabled() else
+                         _clique_inativo(original))
+    return px
+
+
+def _clique_inativo(a):
+    try:
+        import PrumoAvisoClique as AV
+        AV.clique_inativo(a.whatsThis(), a.text())
+    except Exception:
+        pass
 
 
 def _proxy_selecao(a, parent):

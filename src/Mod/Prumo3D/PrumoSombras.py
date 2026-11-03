@@ -118,11 +118,14 @@ def _ajustar_piso(view, grupo=None):
         bb = FreeCAD.BoundBox()
         for o in (doc.Objects if doc else []):
             vo = getattr(o, "ViewObject", None)
-            if vo is not None and vo.Visibility and hasattr(o, "Shape") and not o.Shape.isNull():
-                try:
-                    bb.add(o.Shape.BoundBox)
-                except Exception:
-                    pass
+            if vo is None or not vo.Visibility or not _conta_para_o_piso(o):
+                continue
+            try:
+                sbb = o.Shape.BoundBox
+                if sbb.isValid() and sbb.DiagonalLength < 1e9:
+                    bb.add(sbb)
+            except Exception:
+                pass
         if bb.isValid():
             caixa = (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax)
     except Exception:
@@ -131,13 +134,42 @@ def _ajustar_piso(view, grupo=None):
     for i in range(piso.getNumChildren()):
         if piso.getChild(i).isOfType(coin.SoTransform.getClassTypeId()):
             tr = piso.getChild(i)
-    if caixa is None or tr is None:
+    if tr is None:
+        return
+    if caixa is None:                      # nenhum sólido à vista: sem piso
+        tr.scaleFactor.setValue(1e-6, 1e-6, 1.0)
         return
     x0, y0, z0, x1, y1, z1 = caixa
     tam = max(x1 - x0, y1 - y0, z1 - z0, 1.0)
     folga = max(tam * 0.002, 0.01)
     tr.translation.setValue((x0 + x1) / 2.0, (y0 + y1) / 2.0, z0 - folga)
     tr.scaleFactor.setValue(tam * 1.5, tam * 1.5, 1.0)
+
+
+DATUMS = ("App::Origin", "App::Line", "App::Plane", "App::Point", "PartDesign::Plane", "PartDesign::Line",
+          "PartDesign::Point", "PartDesign::CoordinateSystem", "Sketcher::SketchObject")
+
+
+def _conta_para_o_piso(o):
+    """Só sólidos de verdade definem o piso: planos, eixos e esboços (que aparecem ao criar um esboço) não."""
+    if o.TypeId.startswith(DATUMS) or getattr(getattr(o, "Proxy", None), "__class__", None).__name__ == "LinhaGuia":
+        return False
+    sh = getattr(o, "Shape", None)
+    return sh is not None and not sh.isNull() and bool(sh.Solids)
+
+
+def em_edicao():
+    """Esboço, operação ou painel aberto: as sombras saem enquanto isso (planos, eixos e textos de cota
+    temporários apareciam duplicados e faziam sombra)."""
+    try:
+        import FreeCADGui
+        for nome in FreeCAD.listDocuments():
+            gd = FreeCADGui.getDocument(nome)
+            if gd is not None and gd.getInEdit() is not None:
+                return True
+        return bool(FreeCADGui.Control.activeDialog())
+    except Exception:
+        return False
 
 
 def ligar_na_vista(view):
@@ -199,6 +231,8 @@ def _vistas_3d():
 def aplicar(ligar=None):
     """Liga ou desliga as sombras em todas as vistas 3D abertas (ligar=None segue a preferência)."""
     ligar = ligado() if ligar is None else ligar
+    if ligar and em_edicao():
+        ligar = False                # volta sozinha quando a edição acabar (vigia abaixo)
     n = 0
     for v in _vistas_3d():
         try:
@@ -241,8 +275,37 @@ def _depois(f):
         pass
 
 
+_VIGIA = {"t": None, "edicao": None}
+
+
+def _vigiar_edicao(sim):
+    """Com sombras ligadas: tira enquanto há edição/painel aberto e põe de volta quando fecha."""
+    try:
+        from PySide import QtCore, QtWidgets
+    except Exception:
+        return
+    t = _VIGIA["t"]
+    if sim and t is None:
+        t = QtCore.QTimer(QtWidgets.QApplication.instance())
+        t.setInterval(400)
+
+        def tick():
+            e = em_edicao()
+            if e != _VIGIA["edicao"]:
+                _VIGIA["edicao"] = e
+                aplicar()
+        t.timeout.connect(tick)
+        t.start()
+        _VIGIA["t"] = t
+    elif not sim and t is not None:
+        t.stop()
+        _VIGIA["t"] = None
+        _VIGIA["edicao"] = None
+
+
 def _observar(sim):
     global _OBS
+    _vigiar_edicao(sim)
     if sim and _OBS is None:
         _OBS = _Observador()
         FreeCAD.addDocumentObserver(_OBS)

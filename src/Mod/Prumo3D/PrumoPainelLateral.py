@@ -265,6 +265,33 @@ def _sem_titulo(d):
         atual.deleteLater()
 
 
+def _com_titulo(d, titulo):
+    tb = _barra_titulo(d)
+    if tb is not None and tb.objectName() == "PrumoSemTitulo":
+        d.setTitleBarWidget(None)
+        tb.deleteLater()
+    if titulo and d.windowTitle() != titulo:
+        d.setWindowTitle(titulo)
+
+
+def juntar_de_novo():
+    """Volta Árvore, Propriedades, Aparência e Comando para o painel lateral, em abas, à esquerda."""
+    mw = FreeCADGui.getMainWindow()
+    ds = docks(mw)
+    for d in ds.values():
+        if d.isFloating():
+            d.setFloating(False)
+    _estado["juntou"] = False
+    for nome in (ARVORE, PROPRIEDADES):
+        if ds.get(nome) is not None:
+            ds[nome].show()
+    _juntar(mw, ds)
+    for n, d in ds.items():
+        _sem_titulo(d)
+    organizar()
+    return True
+
+
 def _nomear(ds):
     for nome in (ARVORE, PROPRIEDADES, APARENCIA):
         d = ds.get(nome)
@@ -521,9 +548,15 @@ def organizar(no_inicio=False):
                 _estado["aviso_cartoes"] = True
                 FreeCAD.Console.PrintWarning("Prumo: propriedades em cartões: {}\n".format(exc))
     _nomear(ds)
+    arv = ds.get(ARVORE)
+    juntos = set(mw.tabifiedDockWidgets(arv)) | {arv} if arv is not None else set()
     for n, d in ds.items():
-        if n in EXTRAS and (d.isFloating() or mw.dockWidgetArea(d) != QtCore.Qt.LeftDockWidgetArea):
-            continue          # solto ou em outro lado: mantém a barra de título para poder mover
+        separado = d.isFloating() or mw.dockWidgetArea(d) != QtCore.Qt.LeftDockWidgetArea or \
+            (n in (PROPRIEDADES, APARENCIA, TAREFA) and d.isVisible() and d not in juntos)
+        if separado:
+            # solto ou em outro lado: com barra de título (e nome) para poder arrastar de volta
+            _com_titulo(d, titulo_real(n))
+            continue
         _sem_titulo(d)
     if not _estado["juntou"] and not no_inicio:
         _juntar(mw, ds)
@@ -665,3 +698,21 @@ def mostrar_propriedades():
         d.show()
         d.raise_()
     return d
+
+
+class CmdJuntarPainel:
+    def GetResources(self):
+        import PrumoUtil
+        return {"Pixmap": PrumoUtil.icone("juntar_painel.svg"), "MenuText": "Juntar o painel lateral",
+                "ToolTip": "Volta Árvore, Propriedades e Comando para o painel lateral (se algum foi arrastado para "
+                           "outro lado ou ficou solto)."}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        juntar_de_novo()
+
+
+def registrar_comandos():
+    FreeCADGui.addCommand("Prumo_JuntarPainel", CmdJuntarPainel())

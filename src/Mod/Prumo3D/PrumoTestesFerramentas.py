@@ -14358,6 +14358,107 @@ class T105ExplosaoAnimada(unittest.TestCase):
             fechar(doc)
 
 
+class T106RevisaoDaFaixa(unittest.TestCase):
+    """Revisão da 1.2.6: tamanhos dos botões pedidos, menus da setinha sem nomes repetidos, ícones próprios,
+    ícone em toda linha da caixa da tecla S, sombras fora durante a edição e painel lateral que volta."""
+
+    def test_tamanhos(self):
+        import PrumoRibbon as R
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        tam = {c: t for _p, its in peca["panels"] for c, t, *_r in its}
+        for c in ("Std_Refresh", "Part_CheckGeometry", "Sketcher_ValidateSketch", "Prumo_Massa",
+                  "Prumo_ListaMateriais"):
+            self.assertEqual(tam[c], R.L, c)
+        for c in ("Prumo_Variantes", "Prumo_Modelo"):
+            self.assertEqual(tam[c], R.S, c)
+
+    def test_menu_da_setinha_sem_nome_repetido(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoRibbon as R
+        for grupo in ("PartDesign_Fillet|Part_Fillet", "PartDesign_Chamfer|Part_Chamfer",
+                      "PartDesign_Thickness|Part_Thickness", "PartDesign_Mirrored|Part_Mirror"):
+            acts = R._acoes_de(grupo.split("|"))
+            b = R.RibbonButton(acts, R.L, "x")
+            textos = [a.text() for a in b.menu().actions()]
+            self.assertEqual(len(textos), len(set(textos)), textos)
+            self.assertTrue(any("solto" in t for t in textos), textos)
+            b.deleteLater()
+
+    def test_icones_proprios(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import os
+        for cmd, arq in (("Prumo_BarraVarredura", "barra_varredura.svg"), ("Prumo_TextoEsboco", "texto_esboco.svg"),
+                         ("Prumo_ImportarDXF", "importar_dxf.svg"), ("Prumo_MatrizCaminho", "matriz_caminho.svg")):
+            pix = FreeCADGui.Command.get(cmd).getInfo().get("pixmap", "")
+            self.assertEqual(os.path.basename(pix), arq, cmd)
+
+    def test_caixa_s_com_icone_em_todas(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        from PySide import QtCore
+        import PrumoRibbon as R
+        import PrumoCaixaS as C
+        rb = R._state.get("ribbon")
+        doc = novo_doc("PrumoTesteIconesS")
+        try:
+            for aba in ("peca", "montagem", "componentes"):
+                rb.select_tab(aba)
+                caixa = C.abrir(QtCore.QPoint(300, 300))
+                sem = [caixa.lista.item(i).text() for i in range(caixa.lista.count())
+                       if caixa.lista.item(i).icon().isNull()]
+                caixa.hide()
+                self.assertEqual(sem, [], "aba %s" % aba)
+        finally:
+            fechar(doc)
+
+    def test_sombras_saem_na_edicao_e_piso_so_de_solidos(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoSombras as S
+        doc = novo_doc("PrumoTesteSombraEdicao")
+        try:
+            b = doc.addObject("PartDesign::Body", "Body")
+            doc.recompute()
+            pl = [f for f in b.Origin.OriginFeatures if f.Role == "XY_Plane"][0]
+            self.assertFalse(S._conta_para_o_piso(pl), "plano da origem não define o piso")
+            cx = doc.addObject("Part::Box", "Caixa")
+            doc.recompute()
+            self.assertTrue(S._conta_para_o_piso(cx))
+            self.assertFalse(S.em_edicao())
+        finally:
+            fechar(doc)
+
+    def test_painel_lateral_volta(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelLateral as P
+        if not P.ligado():
+            self.skipTest("painel lateral único desligado")
+        self.assertIn("Prumo_JuntarPainel", FreeCADGui.listCommands())
+        from PySide import QtCore, QtWidgets
+        mw = FreeCADGui.getMainWindow()
+        ds = P.docks(mw)
+        prop = ds.get(P.PROPRIEDADES)
+        if prop is None:
+            self.skipTest("sem Propriedades")
+        try:
+            mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, prop)
+            prop.show()
+            QtWidgets.QApplication.processEvents()
+            P.organizar()
+            tb = P._barra_titulo(prop)
+            self.assertTrue(tb is None or tb.objectName() != "PrumoSemTitulo",
+                            "do outro lado, fica com título para arrastar de volta")
+        finally:
+            P.juntar_de_novo()
+            QtWidgets.QApplication.processEvents()
+        self.assertEqual(mw.dockWidgetArea(prop), QtCore.Qt.LeftDockWidgetArea, "voltou para a esquerda")
+        self.assertIn(prop, mw.tabifiedDockWidgets(ds[P.ARVORE]), "voltou para as abas do painel")
+        self.assertEqual(P._barra_titulo(prop).objectName(), "PrumoSemTitulo")
+
+
 class T98CliqueSempreResponde(unittest.TestCase):
     """Clique em ferramenta que não pode rodar (ou que dá erro) mostra o porquê; abas podem ser arrastadas."""
 
@@ -14975,4 +15076,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa]

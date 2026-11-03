@@ -450,7 +450,8 @@ if P is not None:
 
     class CmdBarraVarredura:
         def GetResources(self):
-            return {"Pixmap": "PartDesign_AdditivePipe", "MenuText": "Barra de varredura",
+            import PrumoUtil
+            return {"Pixmap": PrumoUtil.icone("barra_varredura.svg"), "MenuText": "Barra de varredura",
                     "ToolTip": "Barra redonda ou quadrada (maciça ou tubo) ao longo de todas as linhas de um esboço; "
                                "as que se cruzam ficam unidas: grade, xadrez, chapa expandida, gradil."}
 

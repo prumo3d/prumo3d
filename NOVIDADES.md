@@ -42,6 +42,19 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 
 ### Correções
 
+- **Sombras saem durante a edição** (esboço, operação ou painel aberto) e voltam ao fechar: ao criar um esboço
+  com as sombras ligadas apareciam planos e textos duplicados, sombra dos planos e um piso enorme. O piso agora
+  só considera os sólidos (planos, eixos e esboços não contam).
+- **Menu da setinha sem nomes repetidos:** Arredondar, Chanfro, Casca e Espelhar mostravam duas opções com o
+  mesmo nome; agora "… na peça (corpo)" e "… sólido solto".
+- **Caixa da tecla S e busca com ícone em todas as linhas** (as ferramentas com setinha saíam sem ícone).
+- **Painel lateral:** Propriedades (ou outra aba) arrastada para outro lado ficava sem título e não dava para
+  voltar. Agora o painel solto mostra o título para arrastar, e "Juntar painel lateral" (aba Início,
+  Ferramentas) põe tudo de volta.
+- **Tamanhos na aba Peça:** Recalcular, Verificar geometria, Validar esboço, Propriedades de massa e Lista de
+  materiais em botão grande; Variantes da peça e Modelo com regras em botão pequeno.
+- **Ícones no padrão do Prumo:** Barra de varredura (agora diferente da Varredura), Texto, Importar DXF e
+  Matriz em caminho.
 - **A faixa não muda de altura** ao trocar de aba em telas estreitas (perdia 2 px no modo mais compacto).
 
 ## 1.2.5 — 02/11/2026
