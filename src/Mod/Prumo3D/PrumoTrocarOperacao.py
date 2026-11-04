@@ -188,7 +188,11 @@ if FreeCAD.GuiUp:
 
     def _botao_ok():
         mw = FreeCADGui.getMainWindow()
-        for caixa in mw.findChildren(QtWidgets.QDialogButtonBox):
+        # só o OK do painel de tarefas: outro OK visível na janela (ex.: tela inicial) abriria outra coisa
+        vistas = [w for w in mw.findChildren(QtWidgets.QWidget)
+                  if w.metaObject().className() == "Gui::TaskView::TaskView" and w.isVisible()]
+        caixas = [c for v in vistas for c in v.findChildren(QtWidgets.QDialogButtonBox)]
+        for caixa in caixas:
             if not caixa.isVisible():
                 continue
             b = caixa.button(QtWidgets.QDialogButtonBox.Ok)
@@ -204,15 +208,25 @@ if FreeCAD.GuiUp:
             ok.click()
         else:
             try:
-                FreeCADGui.ActiveDocument.resetEdit()
+                FreeCADGui.getDocument(doc.Name).resetEdit()
             except Exception:
                 pass
-        QtWidgets.QApplication.processEvents()
+        import time
+        gdoc = FreeCADGui.getDocument(doc.Name)
+        fim = time.time() + 3
+        while True:  # o OK fecha o painel no próximo giro de eventos
+            QtWidgets.QApplication.processEvents()
+            try:
+                if gdoc.getInEdit() is None or time.time() > fim:
+                    break
+            except Exception:
+                break
+            time.sleep(0.02)
         velho = doc.getObject(nome)
         if velho is None:
             return None
         try:
-            if FreeCADGui.ActiveDocument.getInEdit() is not None:
+            if FreeCADGui.getDocument(doc.Name).getInEdit() is not None:
                 import PrumoAvisoClique as AV
                 AV.mostrar("Não deu para trocar: conclua ou corrija a operação antes (o painel não fechou).",
                            "erro")
@@ -225,7 +239,17 @@ if FreeCAD.GuiUp:
             import PrumoAvisoClique as AV
             AV.mostrar("Não deu para trocar a operação: %s" % exc, "erro")
             return None
-        QtCore.QTimer.singleShot(0, lambda: FreeCADGui.ActiveDocument.setEdit(novo.Name, 0))
+        doc_nome, novo_nome = doc.Name, novo.Name
+
+        def reabrir():
+            # o documento da peça (não o "ativo", que pode ser outro aberto ao lado)
+            try:
+                gd = FreeCADGui.getDocument(doc_nome)
+                FreeCADGui.setActiveDocument(doc_nome)
+                gd.setEdit(novo_nome, 0)
+            except Exception:
+                pass
+        QtCore.QTimer.singleShot(0, reabrir)
         return novo
 
     def cartao(obj, parent=None):
