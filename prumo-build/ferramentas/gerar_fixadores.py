@@ -30,6 +30,10 @@ def main(saida=SAIDA):
             comps[m] = [x for x in serie if 2 * dn <= x <= 10 * dn]
     out["comprimentos"] = comps
     out["observacoes"] = d.get("observacoes", [])
+    extra = os.path.join(AQUI, "dados", "fixadores_extra.json")
+    if os.path.exists(extra):  # tipos adicionais (medidas nominais, todos "a checar")
+        ex = json.load(open(extra, encoding="utf-8"))
+        out["extra"] = {"fonte": ex["fonte"], "tipos": ex["tipos"]}
     os.makedirs(os.path.dirname(saida), exist_ok=True)
     with open(saida, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(out, fh, ensure_ascii=False, indent=1)

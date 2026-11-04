@@ -9,6 +9,34 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.2.7 — 04/11/2026
+
+### Novidades
+
+- **Começar pela aba Início:** sem documento aberto, botões grandes **Peça**, **Esboço** e **Montagem**.
+- **Aba Peça reorganizada:** Vínculo de forma, Vínculo de subforma e Clonar à vista (saíram do Mais);
+  Recalcular grande com ícone do Prumo; Loft grande, com Varredura, Barra de varredura e Hélice em coluna;
+  Modelagem direta logo depois de Adicionar material; Matriz de furação na setinha da Multitransformação.
+- **Dutos de ar-condicionado dentro de Tubos e conexões:** linhas **Duto retangular** e **Duto redondo** de
+  chapa galvanizada, ao lado das de água e aço, com as mesmas ferramentas (traçado, Esboço 3D, curvas,
+  reduções e derivações). Medidas representativas, marcadas "a checar".
+- **Mais fixadores** na aba Componentes: allen cabeça escareada (ISO 10642) e abaulada (ISO 7380-1), sem
+  cabeça ponta copo (ISO 4029), porca baixa (ISO 4035), autotravante com náilon (DIN 985), flangeada
+  (EN 1661 / DIN 6923) e cega (DIN 1587), arruela larga (ISO 7093-1), Phillips cabeça panela (ISO 7045) e
+  autocravantes para chapa (porca e pino, tipo PEM). **Medidas nominais a checar contra a norma**; forma
+  simplificada, sem rosca.
+- **Aparência** abre em janela pelo botão da barra de vistas de baixo.
+
+### Correções
+
+- Esboço novo abre centrado na tela.
+- Esboço 3D: a caixinha de comprimento aparece junto do cursor (antes ia longe com a escala do Windows).
+- Aviso "Networkx dependency is missing" a cada abertura: o complemento traz a biblioteca.
+- Adicionar / Remover material no painel podia clicar no OK errado (abria documento novo) e não reabria o
+  painel na operação nova.
+- Ícone da Matriz de furação faltando.
+- Testes automáticos gravam o andamento em `PrumoTestes-andamento.log` (mostra onde parou se fechar).
+
 ## 1.2.6 — 03/11/2026
 
 ### Novidades

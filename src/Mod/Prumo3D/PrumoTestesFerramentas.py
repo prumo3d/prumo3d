@@ -1498,7 +1498,7 @@ class T20Fixadores(unittest.TestCase):
 
     def test_tabelas_completas(self):
         import PrumoFixadores as F
-        for t in F.TIPOS:
+        for t in F.CHAVE:   # os 4 tipos confirmados (os novos ficam no T108)
             self.assertEqual(F.diametros(t), ["M3", "M4", "M5", "M6", "M8", "M10", "M12", "M16", "M20", "M24"])
 
     def test_medidas_de_norma(self):
@@ -1513,7 +1513,7 @@ class T20Fixadores(unittest.TestCase):
         import PrumoFixadores as F
         for t in F.TIPOS:
             for m in F.diametros(t):
-                comp = 3 * float(m[1:]) if t in ("sextavado", "allen") else 0
+                comp = 3 * float(m[1:]) if t in ("sextavado", "allen") else 0   # 0: os novos usam o padrão
                 sh = F.forma(t, m, comp)
                 self.assertTrue(sh.isValid(), (t, m))
                 self.assertEqual(len(sh.Solids), 1, (t, m))
@@ -15176,6 +15176,55 @@ class T94Sombras(unittest.TestCase):
         self.assertAlmostEqual(tr.translation.getValue()[2], -100, delta=1)
 
 
+
+class T108FixadoresNovos(unittest.TestCase):
+    """Catálogo de fixadores ampliado: escareado, abaulado, sem cabeça, porcas baixa/trava/flange/cega,
+    arruela larga, Phillips e autocravantes (medidas nominais "a checar")."""
+
+    NOVOS = ("escareado_allen", "abaulado_allen", "sem_cabeca", "porca_baixa", "porca_trava", "porca_flange",
+             "arruela_larga", "porca_cega", "panela_phillips", "pem_porca", "pem_pino")
+
+    def test_tipos_no_catalogo_e_a_checar(self):
+        import PrumoFixadores as F
+        F.dados()
+        for t in self.NOVOS:
+            self.assertIn(t, F.TIPOS)
+            ds = F.diametros(t)
+            self.assertTrue(ds, t)
+            self.assertEqual(F.medidas(t, ds[0]).get("status"), "a checar", t)
+        self.assertIn("checar", F.dados()["extra"]["fonte"].lower())
+
+    def test_todas_as_formas_sao_solidos_validos(self):
+        import PrumoFixadores as F
+        F.dados()
+        for t in self.NOVOS:
+            for m in F.diametros(t):
+                cs = F.comprimentos(t, m) or [0.0]
+                for c in {cs[0], cs[-1]}:
+                    sh = F.forma(t, m, c)
+                    self.assertTrue(sh.isValid() and len(sh.Solids) == 1 and sh.Volume > 0, (t, m, c))
+
+    def test_criar_no_documento_e_documento_antigo(self):
+        import PrumoFixadores as F
+        doc = novo_doc("PrumoTesteFixNovos")
+        try:
+            o = F.criar(doc, "escareado_allen", "M6", 20)
+            self.assertFalse(o.isDerivedFrom("Part::Feature") and o.Shape.isNull())
+            self.assertIn("ISO 10642", o.Denominacao)
+            self.assertIn("escareado_allen", o.getEnumerationsOfProperty("Tipo"))
+            o.Tipo = "porca_trava"
+            o.Diametro = "M8"
+            doc.recompute()
+            self.assertIn("DIN 985", o.Label + o.Denominacao)
+            # documento antigo (enumeração só com os 4 tipos de antes) ganha os novos ao abrir
+            o.Tipo = ["sextavado", "allen", "porca", "arruela"]
+            o.Tipo = "allen"
+            o.Proxy.onDocumentRestored(o)
+            self.assertEqual(o.Tipo, "allen")
+            self.assertIn("pem_porca", o.getEnumerationsOfProperty("Tipo"))
+        finally:
+            fechar(doc)
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -15204,4 +15253,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos]

@@ -27,15 +27,15 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.6** (03/11/2026)
+**Versão atual: 1.2.7** (04/11/2026)
 
-- **Aba Componentes:** motores, compressores, válvulas, caldeiras, secadores, ar comprimido, trole, pessoas,
-  bombas e mais, prontos para o leiaute (medidas representativas); parafusos vieram para cá.
-- **Dutos de ar-condicionado (HVAC)** na aba Tubulação, com as peças paramétricas de Francisco Rosa.
-- **Modelagem direta:** extrudar face, desenhar na face, posicionar face com face, linhas guia, isolar peça,
-  medir X/Y/Z, matriz leve e matriz de furação.
-- **Explosão animada** na Montagem, com parafusos girando ao sair.
+- **Aba Início:** botões grandes Peça, Esboço e Montagem para começar.
+- **Dutos de ar-condicionado** dentro de Tubos e conexões, com as mesmas ferramentas da tubulação.
+- **Mais fixadores:** escareado, abaulado, sem cabeça, porcas baixa, autotravante, flangeada e cega, arruela
+  larga, Phillips e autocravantes (medidas a checar).
+- **Aba Peça reorganizada**, esboço novo centrado e Aparência na barra de vistas.
 
+Na 1.2.6: aba Componentes, dutos HVAC de Francisco Rosa, modelagem direta, explosão animada.
 Na 1.2.5: perfil como num catálogo, sombras, barra de vistas, tecla S, mouse do programa de origem,
 Adicionar / Remover material no painel, cota que diz o porquê.
 Na 1.2.4: OpenCV (cv2) corrigido.

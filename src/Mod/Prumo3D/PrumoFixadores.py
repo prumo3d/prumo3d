@@ -47,19 +47,46 @@ def dados():
     if "d" not in _cache:
         with open(ARQUIVO, encoding="utf-8") as fh:
             _cache["d"] = json.load(fh)
+        # tipos adicionais (medidas nominais da norma, todos "a checar")
+        for k, t in _cache["d"].get("extra", {}).get("tipos", {}).items():
+            TIPOS.setdefault(k, t["nome"])
+            NORMA.setdefault(k, t["norma"])
     return _cache["d"]
 
 
+def _extra(tipo):
+    return dados().get("extra", {}).get("tipos", {}).get(tipo)
+
+
+def _tabela(tipo):
+    ex = _extra(tipo)
+    return ex["tabela"] if ex else dados()[CHAVE[tipo]]
+
+
 def diametros(tipo):
-    tab = dados()[CHAVE[tipo]]
-    return sorted(tab.keys(), key=lambda m: float(m[1:]))
+    return sorted(_tabela(tipo).keys(), key=lambda m: float(m[1:]))
 
 
 def medidas(tipo, m):
-    return dados()[CHAVE[tipo]][m]
+    md = dict(_tabela(tipo)[m])
+    if _extra(tipo):
+        md.setdefault("status", "a checar")
+    return md
+
+
+def tem_comprimento(tipo):
+    ex = _extra(tipo)
+    if ex is None:
+        return tipo in ("sextavado", "allen")
+    return bool(ex.get("comprimentos")) or tipo == "pem_porca"
 
 
 def comprimentos(tipo, m):
+    ex = _extra(tipo)
+    if ex is not None:
+        if tipo == "pem_porca":   # comprimento da haste = espessura de chapa (código 00, 0, 1, 2)
+            return sorted(ex["tabela"].get(m, {}).get("chapa", {}).values())
+        return list(ex.get("comprimentos", {}).get(m, []))
     if tipo not in ("sextavado", "allen"):
         return []
     lst = dados().get("comprimentos", {}).get(m)
@@ -68,8 +95,10 @@ def comprimentos(tipo, m):
     return [6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100]
 
 
-def passo(m):
+def passo(m, tipo=None):
     p = dados().get("passo", {}).get(m)
+    if p is None and tipo and _extra(tipo):
+        return _tabela(tipo).get(m, {}).get("P")
     return p["valor"] if isinstance(p, dict) else p
 
 
@@ -78,7 +107,7 @@ def confirmado(tipo, m):
 
 
 def denominacao(tipo, m, comp=None):
-    if tipo in ("sextavado", "allen"):
+    if tem_comprimento(tipo) and comp:
         return "%s %s %s × %s" % (TIPOS[tipo], NORMA[tipo], m, fmt_dim(comp))
     return "%s %s %s" % (TIPOS[tipo], NORMA[tipo], m)
 
@@ -113,9 +142,82 @@ def forma(tipo, m, comp=0.0):
     if tipo == "porca":
         h = _hexagono(md["s"], md["m"])
         return h.cut(Part.makeCylinder(d / 2.0, md["m"] + 0.02, FreeCAD.Vector(0, 0, -0.01)))
-    if tipo == "arruela":
+    if tipo in ("arruela", "arruela_larga"):
         anel = Part.makeCylinder(md["d2"] / 2.0, md["h"])
         return anel.cut(Part.makeCylinder(md["d1"] / 2.0, md["h"] + 0.02, FreeCAD.Vector(0, 0, -0.01)))
+    return _forma_extra(tipo, md, d, comp)
+
+
+def _furo(d, altura, z0=-0.01):
+    import Part
+    return Part.makeCylinder(d / 2.0, altura + 0.02, FreeCAD.Vector(0, 0, z0))
+
+
+def _forma_extra(tipo, md, d, comp):
+    """Formas simplificadas (sem rosca) dos tipos adicionais. Cabeça acima de z = 0."""
+    import Part
+    V = FreeCAD.Vector
+    if comp <= 0 and tipo != "pem_porca":   # sem comprimento informado: o menor da série
+        comp = (_extra(tipo) or {}).get("comprimentos", {}).get("M%g" % d, [2 * d])[0]
+
+    def corpo(c):
+        return Part.makeCylinder(d / 2.0, c, V(0, 0, -c))
+    if tipo == "escareado_allen":
+        # cabeça cônica (90°) com o topo em z = 0, entra no escareado: corpo abaixo da cabeça
+        k = md["k"]
+        cab = Part.makeCone(d / 2.0, md["dk"] / 2.0, k, V(0, 0, -k))
+        cab = cab.cut(_hexagono(md["s"], md["t"] + 0.01, -md["t"]))
+        return cab.fuse(corpo(comp)).removeSplitter()
+    if tipo == "abaulado_allen":
+        k, r = md["k"], md["dk"] / 2.0
+        esfera = Part.makeSphere((r * r + k * k) / (2 * k), V(0, 0, k - (r * r + k * k) / (2 * k)))
+        cab = esfera.common(Part.makeCylinder(r, k))
+        cab = cab.cut(_hexagono(md["s"], md["t"] + 0.01, k - md["t"]))
+        return cab.fuse(corpo(comp)).removeSplitter()
+    if tipo == "panela_phillips":
+        k, r = md["k"], md["dk"] / 2.0
+        cab = Part.makeCylinder(r, k * 0.75).fuse(Part.makeCone(r, r * 0.8, k * 0.25, V(0, 0, k * 0.75)))
+        fenda = Part.makeBox(r * 1.2, d * 0.18, k, V(-r * 0.6, -d * 0.09, k * 0.4))
+        cruz = fenda.fuse(fenda.rotated(V(0, 0, 0), V(0, 0, 1), 90))
+        return cab.cut(cruz).fuse(corpo(comp)).removeSplitter()
+    if tipo == "sem_cabeca":
+        # topo em z = 0 (rente à peça); sextavado interno no topo; ponta copo embaixo
+        haste = Part.makeCylinder(d / 2.0, comp, V(0, 0, -comp))
+        haste = haste.cut(_hexagono(md["s"], md["t"] + 0.01, -md["t"]))
+        dz = min(md.get("dz", d * 0.5), d * 0.9)
+        copo = Part.makeCone(dz / 2.0, d / 2.0 + 0.01, (d - dz) / 2.0 + 0.01, V(0, 0, -comp - 0.005))
+        anel = Part.makeCylinder(d / 2.0 + 1, (d - dz) / 2.0, V(0, 0, -comp)).cut(copo)
+        return haste.cut(anel).removeSplitter()
+    if tipo in ("porca_baixa", "porca_trava"):
+        h = md.get("h", md["m"])
+        sx = _hexagono(md["s"], md["m"])
+        if h > md["m"]:  # anel de náilon acima do sextavado
+            sx = sx.fuse(Part.makeCylinder(md["s"] * 0.47, h - md["m"], V(0, 0, md["m"])))
+        return sx.cut(_furo(d, h)).removeSplitter()
+    if tipo == "porca_flange":
+        fl = Part.makeCone(md["dc"] / 2.0, md["s"] * 0.5, md["m"] * 0.3)
+        sx = _hexagono(md["s"], md["m"])
+        return sx.fuse(fl).cut(_furo(d, md["m"])).removeSplitter()
+    if tipo == "porca_cega":
+        # sextavado de altura m, cúpula até a altura total h; furo cego
+        sx = _hexagono(md["s"], md["m"])
+        r = md["dk"] / 2.0
+        cup = Part.makeCylinder(r, md["h"] - md["m"] - r, V(0, 0, md["m"])) if md["h"] - md["m"] > r else None
+        z_esf = md["h"] - r
+        esf = Part.makeSphere(r, V(0, 0, z_esf)).common(Part.makeCylinder(r, r, V(0, 0, z_esf)))
+        sol = sx.fuse(esf)
+        if cup is not None:
+            sol = sol.fuse(cup)
+        return sol.cut(Part.makeCylinder(d / 2.0, md["h"] * 0.75, V(0, 0, -0.01))).removeSplitter()
+    if tipo == "pem_porca":
+        # cabeça (diâmetro E, altura T) apoiada na chapa; haste (diâmetro C) entra na chapa
+        haste = comp or min(md.get("chapa", {"": 1.0}).values())
+        cab = Part.makeCylinder(md["E"] / 2.0, md["T"])
+        col = Part.makeCylinder(md["C"] / 2.0, haste, V(0, 0, -haste))
+        return cab.fuse(col).cut(_furo(d, md["T"] + haste, -haste - 0.01)).removeSplitter()
+    if tipo == "pem_pino":
+        cab = Part.makeCylinder(md["H"] / 2.0, md["S"] * 0.5)
+        return cab.fuse(corpo(comp)).removeSplitter()
     raise ValueError(tipo)
 
 
@@ -131,8 +233,16 @@ class Fixador:
             if ro:
                 obj.setEditorMode(nome, 1)
         add("App::PropertyEnumeration", "Tipo", "Fixador", "Tipo de fixador")
-        if not obj.Tipo:
+        dados()
+        try:
+            atuais = obj.getEnumerationsOfProperty("Tipo") or []
+        except Exception:
+            atuais = []
+        if set(atuais) != set(TIPOS):   # documento antigo: acrescenta os tipos novos, mantendo o escolhido
+            escolhido = obj.Tipo if atuais else None
             obj.Tipo = list(TIPOS.keys())
+            if escolhido in TIPOS:
+                obj.Tipo = escolhido
         add("App::PropertyString", "Diametro", "Fixador", "Diâmetro nominal (M6, M8...)")
         add("App::PropertyLength", "Comprimento", "Fixador", "Comprimento do corpo (parafusos)")
         add("App::PropertyString", "Norma", "Fixador", "Norma dimensional", True)
@@ -149,7 +259,7 @@ class Fixador:
         if m not in diametros(tipo):
             raise ValueError("diâmetro %s não existe para %s" % (m, TIPOS[tipo]))
         comp = obj.Comprimento.Value
-        if tipo in ("sextavado", "allen") and comp <= 0:
+        if tem_comprimento(tipo) and tipo != "pem_porca" and comp <= 0:
             raise ValueError("informe o comprimento do parafuso")
         pl = obj.Placement
         sh = forma(tipo, m, comp)
@@ -298,6 +408,7 @@ class PainelFixador(P.PainelTarefa):
                                  "sugerida pelo diâmetro.")
         s1 = f.secao("Fixador", "parafuso")
         self.tipo = QtWidgets.QComboBox()
+        dados()
         for k, v in TIPOS.items():
             self.tipo.addItem("%s (%s)" % (v, NORMA[k]), k)
         s1.linha("tipo", self.tipo, "Parafuso sextavado, allen, porca ou arruela, conforme a norma.", "Tipo")
@@ -373,9 +484,11 @@ class PainelFixador(P.PainelTarefa):
             return
         md = medidas(t, m)
         ok = md.get("status") == "confirmado"
-        self.aviso.setText("<span style='color:%s'>%s</span>" % (
-            "#2E8B6A" if ok else "#B5523F",
-            "Dimensões confirmadas em catálogo/norma." if ok else "Dimensões A CONFERIR (fonte secundária)."))
+        if _extra(t):
+            txt = "Medidas nominais A CHECAR contra a norma %s (forma simplificada, sem rosca)." % NORMA[t]
+        else:
+            txt = "Dimensões confirmadas em catálogo/norma." if ok else "Dimensões A CONFERIR (fonte secundária)."
+        self.aviso.setText("<span style='color:%s'>%s</span>" % ("#2E8B6A" if ok else "#B5523F", txt))
 
     def valores(self):
         t = self.tipo.currentData()
