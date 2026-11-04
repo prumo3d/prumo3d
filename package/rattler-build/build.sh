@@ -45,6 +45,8 @@ if [[ -f "${SRC_DIR}/prumo_ccache_dir.txt" ]]; then
     echo "ccache: ${CCACHE_DIR} (base ${CCACHE_BASEDIR})"
 fi
 
+# Prumo é metal-mecânica: BIM, CAM, Robot, OpenSCAD, Inspection, Points, ReverseEngineering, IDF, JtReader e
+# Cloud ficam fora da compilação (os -D BUILD_*=OFF abaixo). Comentário fora do comando: dentro dele quebra a linha.
 cmake \
     ${CMAKE_ARGS} \
     --preset ${CMAKE_PRESET} \
@@ -61,7 +63,6 @@ cmake \
     -D Python_EXECUTABLE:FILEPATH="$PYTHON" \
     -D Python3_EXECUTABLE:FILEPATH="$PYTHON" \
     -D BUILD_DYNAMIC_LINK_PYTHON:BOOL=OFF \
-    # Prumo é metal-mecânica: sem arquitetura/BIM, usinagem, robótica, nuvem de pontos, OpenSCAD e afins
     -D BUILD_BIM:BOOL=OFF \
     -D BUILD_CAM:BOOL=OFF \
     -D BUILD_ROBOT:BOOL=OFF \
