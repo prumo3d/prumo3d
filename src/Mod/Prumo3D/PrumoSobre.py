@@ -78,7 +78,7 @@ class SobreDialog(QtWidgets.QDialog):
         emp.setObjectName("SwSobreEmpresa")
         g.addWidget(emp, 0, 0, 1, 2)
         linhas = [
-            ("Para", "Modelagem 3D paramétrica, desenho técnico e simulação"),
+            ("Para", "Metal-mecânica: peças, chapa, estruturas, tubulação, vasos e desenho técnico"),
             ("Idioma", "Português do Brasil"),
             ("Projeto", URL_PROJETO),
             ("Base", base),

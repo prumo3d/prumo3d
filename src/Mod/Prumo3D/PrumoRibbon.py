@@ -355,24 +355,6 @@ TABS = [
             ("Spreadsheet_AlignVCenter", S, "Meio"), ("Spreadsheet_AlignBottom", S, "Base"),
         ]),
     ]},
-    {"id": "simulacao", "label": "Simulação", "wb": "FemWorkbench", "panels": [
-        # Na ordem em que a análise precisa ser montada
-        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação"),
-                        ("Prumo_AssistenteEstrutura", L, "Assistente de\nestruturas"),
-                        ("Prumo_AnaliseEstrutura", S, "Estrutura por barras")]),
-        ("1 · Estudo", [("FEM_Analysis", L, "Novo\nestudo"), ("FEM_SolverCalculiXCcxTools", L, "Solver\nCalculiX")]),
-        ("2 · Material", [("FEM_MaterialSolid", L, "Material\nsólido"), ("FEM_MaterialEditor", S, "Editor de materiais")]),
-        ("3 · Fixações", [("FEM_ConstraintFixed", L, "Fixação"), ("FEM_ConstraintDisplacement", S, "Deslocamento imposto"),
-                          ("FEM_ConstraintSpring", S, "Mola (apoio elástico)")]),
-        ("4 · Cargas", [("FEM_ConstraintForce", L, "Força"), ("FEM_ConstraintPressure", S, "Pressão"),
-                        ("FEM_ConstraintSelfWeight", S, "Peso próprio"), ("FEM_ConstraintCentrif", S, "Centrífuga")]),
-        ("5 · Malha", [("FEM_MeshGmshFromShape", L, "Gerar\nmalha"), ("FEM_MeshRegion", S, "Refino local"),
-                       ("FEM_MeshDisplayInfo", S, "Dados da malha"), ("FEM_MeshClear", S, "Limpar malha")]),
-        ("6 · Calcular", [("FEM_SolverRun", L, "Calcular"), ("FEM_SolverControl", S, "Controle do solver")]),
-        ("7 · Resultados", [("FEM_ResultShow", L, "Ver\nresultados"), ("FEM_PostFilterWarp", S, "Deformada"),
-                            ("FEM_PostFilterClipScalar", S, "Recorte por valor"), ("FEM_PostFilterDataAlongLine", S, "Gráfico ao longo de linha"),
-                            ("FEM_ResultsPurge", S, "Limpar resultados")]),
-    ]},
     {"id": "superficies", "label": "Superfícies", "wb": "SurfaceWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Superfície", [
             ("Surface_Filling", L, "Preencher"), ("Surface_GeomFillSurface", L, "Pelas\narestas"),
@@ -400,6 +382,31 @@ TABS = [
         ("Qualidade", [("Prumo_Testes", L, "Testes\nautomáticos")]),
     ]},
 ]
+
+
+# Abas que só aparecem enquanto a bancada delas está ativa (no lugar da aba temporária). A Simulação (FEM)
+# não é aba fixa: o Prumo é metal-mecânica e o FEM fica por baixo do Teste de pressão (Vasos) e do
+# Assistente de estruturas; quando um estudo abre, esta aba aparece com os passos em ordem.
+ABAS_TEMPORARIAS = {
+    "FemWorkbench": {"id": "simulacao", "label": "Simulação", "wb": "FemWorkbench", "panels": [
+        # Na ordem em que a análise precisa ser montada
+        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação"),
+                        ("Prumo_AssistenteEstrutura", L, "Assistente de\nestruturas"),
+                        ("Prumo_AnaliseEstrutura", S, "Estrutura por barras")]),
+        ("1 · Estudo", [("FEM_Analysis", L, "Novo\nestudo"), ("FEM_SolverCalculiXCcxTools", L, "Solver\nCalculiX")]),
+        ("2 · Material", [("FEM_MaterialSolid", L, "Material\nsólido"), ("FEM_MaterialEditor", S, "Editor de materiais")]),
+        ("3 · Fixações", [("FEM_ConstraintFixed", L, "Fixação"), ("FEM_ConstraintDisplacement", S, "Deslocamento imposto"),
+                          ("FEM_ConstraintSpring", S, "Mola (apoio elástico)")]),
+        ("4 · Cargas", [("FEM_ConstraintForce", L, "Força"), ("FEM_ConstraintPressure", S, "Pressão"),
+                        ("FEM_ConstraintSelfWeight", S, "Peso próprio"), ("FEM_ConstraintCentrif", S, "Centrífuga")]),
+        ("5 · Malha", [("FEM_MeshGmshFromShape", L, "Gerar\nmalha"), ("FEM_MeshRegion", S, "Refino local"),
+                       ("FEM_MeshDisplayInfo", S, "Dados da malha"), ("FEM_MeshClear", S, "Limpar malha")]),
+        ("6 · Calcular", [("FEM_SolverRun", L, "Calcular"), ("FEM_SolverControl", S, "Controle do solver")]),
+        ("7 · Resultados", [("FEM_ResultShow", L, "Ver\nresultados"), ("FEM_PostFilterWarp", S, "Deformada"),
+                            ("FEM_PostFilterClipScalar", S, "Recorte por valor"), ("FEM_PostFilterDataAlongLine", S, "Gráfico ao longo de linha"),
+                            ("FEM_ResultsPurge", S, "Limpar resultados")]),
+    ]},
+}
 
 STD_TOOLBARS = {"File", "Edit", "Clipboard", "Workbench", "Macro", "View", "Individual Views", "Structure", "Help"}
 
@@ -1596,9 +1603,13 @@ class PrumoRibbon(QtWidgets.QWidget):
         return novas
 
     def _make_dynamic(self, name):
-        wb, panels = self._paineis_da_bancada_ativa()
-        label = WB_NAMES.get(name) or getattr(wb, "MenuText", name)
-        tab = {"id": "dyn", "label": label, "wb": name, "panels": panels}
+        if name in ABAS_TEMPORARIAS:   # aba montada à mão (ex.: Simulação), só enquanto a bancada está ativa
+            tab = dict(ABAS_TEMPORARIAS[name], id="dyn", regras=ABAS_TEMPORARIAS[name]["id"])
+            label = tab["label"]
+        else:
+            wb, panels = self._paineis_da_bancada_ativa()
+            label = WB_NAMES.get(name) or getattr(wb, "MenuText", name)
+            tab = {"id": "dyn", "label": label, "wb": name, "panels": panels}
         self._building = True
         if self._dynamic is None:
             self._tabs.append(tab)
@@ -2019,14 +2030,14 @@ def como_mostrar(tab, cmd, sit, acts=()):
         return "sim" if nome in SEM_DOCUMENTO_SEMPRE or _ativo(nome, acts) else "nao"
     if nome in SO_SEM_DOCUMENTO:
         return "nao"
-    ini = INICIO_DA_ABA.get(tab.get("id"))
+    ini = INICIO_DA_ABA.get(tab.get("regras", tab.get("id")))
     if ini is not None and not _dentro(ini[0], sit):
         if nome not in ini[1]:
             return "nao"
         return "sim" if nome not in ABRIR_EXISTENTE or _ativo(nome, acts) else "nao"
     if nome in ABRIR_EXISTENTE:
         return "nao"          # já está dentro: "abrir" não serve
-    if cmd in RAROS.get(tab.get("id"), ()) or nome in RAROS.get(tab.get("id"), ()):
+    if cmd in RAROS.get(tab.get("regras", tab.get("id")), ()) or nome in RAROS.get(tab.get("regras", tab.get("id")), ()):
         return "raro"
     return "sim"
 
@@ -2035,7 +2046,7 @@ def dica_da_aba(tab, sit):
     """Primeiro passo da aba nesta situação (ou None)."""
     if not faixa_contextual() or not sit[0]:
         return None
-    ini = INICIO_DA_ABA.get(tab.get("id"))
+    ini = INICIO_DA_ABA.get(tab.get("regras", tab.get("id")))
     if ini is not None and not _dentro(ini[0], sit):
         return ini[2]
     return None

@@ -48,7 +48,7 @@ cat > AppDir/org.prumo3d.Prumo3D.desktop <<'DESKTOP'
 Type=Application
 Name=Prumo 3D
 GenericName=Modelagem 3D paramétrica
-Comment=Modelagem 3D paramétrica, desenho técnico e simulação, em português
+Comment=CAD 3D da metal-mecânica, em português: peças, chapa, estruturas, tubulação, vasos e desenho técnico
 Exec=AppRun %F
 Icon=org.prumo3d.Prumo3D
 Terminal=false

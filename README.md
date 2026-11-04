@@ -2,7 +2,7 @@
 
 # Prumo 3D
 
-### Modelagem 3D paramétrica em português
+### O CAD 3D da metal-mecânica, em português
 
 [![Versão](https://img.shields.io/github/v/release/prumo3d/prumo3d?include_prereleases&label=vers%C3%A3o&color=003A70)](https://github.com/prumo3d/prumo3d/releases)
 [![Downloads](https://img.shields.io/github/downloads/prumo3d/prumo3d/total?label=downloads&color=F7BE00)](https://github.com/prumo3d/prumo3d/releases)
@@ -13,11 +13,15 @@
 [Como contribuir](CONTRIBUTING.md) •
 [Documentação do FreeCAD](https://wiki.freecad.org)
 
-O Prumo 3D é um modelador 3D paramétrico livre e gratuito, em português, para projeto mecânico:
-peças, montagens, desenho técnico no padrão ABNT, estruturas metálicas calculadas pelas normas
-brasileiras, vasos de pressão e simulação por elementos finitos. É baseado no
-[FreeCAD](https://www.freecad.org) e mantém tudo o que ele oferece, com uma interface reorganizada e
-ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
+O Prumo 3D é um CAD 3D paramétrico livre e gratuito, em português, feito para a **metal-mecânica**:
+quem projeta, fabrica e inspeciona peças, máquinas, caldeiraria e estruturas de aço. Peças e montagens,
+chapa dobrada, estruturas soldadas, tubulação e dutos, vasos de pressão, parafusos e porcas pela norma e
+desenho técnico ABNT para a fabricação, com cálculo onde o ofício pede (estruturas metálicas pelas
+normas brasileiras, teste de pressão do vaso).
+
+É baseado no [FreeCAD](https://www.freecad.org), mas escolhe um lado: o que não é do ofício (arquitetura
+e BIM, usinagem CNC, robótica, nuvem de pontos) fica de fora, e cada ferramenta que fica já chega com a
+medida comercial, a norma e o jeito de trabalhar de quem faz metal-mecânica no Brasil.
 
 > [!NOTE]
 > O Prumo 3D não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.

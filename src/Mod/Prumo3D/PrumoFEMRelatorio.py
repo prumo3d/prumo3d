@@ -310,7 +310,7 @@ def _capa(p, W, H, k, est):
     p.setFont(_fonte(5.0 * k, QtGui.QFont.DemiBold))
     p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 24 * k, W, 10 * k), "PRUMO 3D")
     p.setFont(_fonte(3.6 * k))
-    p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 33 * k, W, 10 * k), "Modelagem 3D paramétrica · software livre")
+    p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 33 * k, W, 10 * k), "CAD 3D da metal-mecânica · software livre")
     p.setFont(_fonte(8.5 * k, QtGui.QFont.Bold))
     p.drawText(QtCore.QRectF(MARGEM_MM * k, 55 * k, W - 2 * MARGEM_MM * k, 30 * k),
                QtCore.Qt.TextWordWrap, tit)

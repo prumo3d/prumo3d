@@ -11651,17 +11651,15 @@ class T79InserirNoEsboco(unittest.TestCase):
         self.assertEqual(sol[0][:2], ("PartDesign_CompPrimitiveAdditive", "L"))
         self.assertTrue(all(s == "S" for _c, s, _r in sol[1:]), "só o Sólido fica grande")
 
-    def test_bim_funciona_sem_a_bancada_draft(self):
+    def test_draft_funciona_sem_a_bancada_draft(self):
+        # o Prumo não traz mais o BIM (metal-mecânica); o Draft continua por baixo (texto, DXF, matriz)
         import PrumoGui
         self.assertIn("DraftWorkbench", PrumoGui.BANCADAS_DESLIGADAS)
-        import Arch
         import Draft
         V = FreeCAD.Vector
         linha = Draft.make_line(V(0, 0, 0), V(3000, 0, 0))
-        parede = Arch.makeWall(linha, width=150, height=2800)
         self.doc.recompute()
-        self.assertTrue(parede.Shape.isValid())
-        self.assertAlmostEqual(parede.Shape.Volume, 3000 * 150 * 2800, delta=1.0)
+        self.assertAlmostEqual(linha.Shape.Length, 3000.0, delta=1e-6)
 
 
 class T80MontagemComoSolidWorks(unittest.TestCase):
@@ -12353,7 +12351,12 @@ class T83FaixaDoMomento(unittest.TestCase):
         self.assertTrue(all(len(m.acoes) > 1 for m in mais), "Mais com uma opção só")
         FreeCADGui.ActiveDocument.resetEdit()
         self._esp(0.3)
-        cmds, _m = self._aba("simulacao")
+        # Simulação não é aba fixa: aparece quando a bancada FEM fica ativa (estudo aberto)
+        self.assertNotIn("simulacao", [t["id"] for t in self.R.TABS])
+        FreeCADGui.activateWorkbench("FemWorkbench")
+        self._esp(0.8)
+        self.assertEqual(self.rb._dynamic and self.rb._dynamic.get("label"), "Simulação")
+        cmds, _m = self._aba("dyn")
         self.assertIn("Prumo_AssistenteFEM", cmds)
         self.assertIn("FEM_Analysis", cmds)
         self.assertNotIn("FEM_ConstraintFixed", cmds, "fixações só depois de criar o estudo")

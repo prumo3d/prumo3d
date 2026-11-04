@@ -61,6 +61,17 @@ cmake \
     -D Python_EXECUTABLE:FILEPATH="$PYTHON" \
     -D Python3_EXECUTABLE:FILEPATH="$PYTHON" \
     -D BUILD_DYNAMIC_LINK_PYTHON:BOOL=OFF \
+    # Prumo é metal-mecânica: sem arquitetura/BIM, usinagem, robótica, nuvem de pontos, OpenSCAD e afins
+    -D BUILD_BIM:BOOL=OFF \
+    -D BUILD_CAM:BOOL=OFF \
+    -D BUILD_ROBOT:BOOL=OFF \
+    -D BUILD_OPENSCAD:BOOL=OFF \
+    -D BUILD_INSPECTION:BOOL=OFF \
+    -D BUILD_POINTS:BOOL=OFF \
+    -D BUILD_REVERSEENGINEERING:BOOL=OFF \
+    -D BUILD_IDF:BOOL=OFF \
+    -D BUILD_JTREADER:BOOL=OFF \
+    -D BUILD_CLOUD:BOOL=OFF \
     -B build \
     -S .
 
