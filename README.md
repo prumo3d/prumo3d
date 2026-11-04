@@ -31,10 +31,12 @@ medida comercial, a norma e o jeito de trabalhar de quem faz metal-mecânica no 
 Novidades
 ---------
 
-**Versão atual: 1.2.9** (04/11/2026)
+**Versão atual: 1.3.0** (04/11/2026)
 
-- **Barra de varredura:** perfis sextavado, oval e quadrifólio; encontros sempre fechados.
-- **Faixa superior** com altura fixa; o ajuste fica nos divisores entre os grupos.
+- **O CAD 3D da metal-mecânica:** saíram arquitetura e BIM, usinagem CNC, robótica, OpenSCAD e nuvem de
+  pontos; ficam peças, chapa, estruturas, tubulação, vasos, simulação e desenho técnico.
+
+Na 1.2.9: barra de varredura sextavada, oval e quadrifólio; faixa com altura fixa.
 
 Na 1.2.8: Medir em português, arredondar qualquer face, Início e Peça mais enxutos.
 

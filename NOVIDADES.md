@@ -9,6 +9,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.3.0 — 04/11/2026
+
+### O CAD 3D da metal-mecânica
+
+O Prumo escolhe um lado: é para quem projeta, fabrica e inspeciona peças, máquinas, caldeiraria e
+estruturas de aço.
+
+- **Saíram do pacote** as bancadas que não são do ofício: arquitetura e BIM, usinagem CNC (CAM),
+  robótica, OpenSCAD, nuvem de pontos, engenharia reversa, inspeção por malha e os importadores IDF e JT.
+  Quem tem o Prumo instalado deixa de ter essas bancadas ao instalar esta versão.
+- **Ficam por baixo**, sem aba: Draft (texto no esboço, Importar DXF, matriz em caminho) e Malhas (STL).
+- **Simulação continua** com aba própria, junto com o Teste de pressão dos Vasos e o Assistente de
+  estruturas.
+- **Descrição nova** no Sobre, no relatório de simulação e no atalho do Linux.
+
 ## 1.2.9 — 04/11/2026
 
 ### Novidades

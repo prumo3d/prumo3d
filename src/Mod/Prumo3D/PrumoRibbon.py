@@ -355,6 +355,24 @@ TABS = [
             ("Spreadsheet_AlignVCenter", S, "Meio"), ("Spreadsheet_AlignBottom", S, "Base"),
         ]),
     ]},
+    {"id": "simulacao", "label": "Simulação", "wb": "FemWorkbench", "panels": [
+        # Na ordem em que a análise precisa ser montada
+        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação"),
+                        ("Prumo_AssistenteEstrutura", L, "Assistente de\nestruturas"),
+                        ("Prumo_AnaliseEstrutura", S, "Estrutura por barras")]),
+        ("1 · Estudo", [("FEM_Analysis", L, "Novo\nestudo"), ("FEM_SolverCalculiXCcxTools", L, "Solver\nCalculiX")]),
+        ("2 · Material", [("FEM_MaterialSolid", L, "Material\nsólido"), ("FEM_MaterialEditor", S, "Editor de materiais")]),
+        ("3 · Fixações", [("FEM_ConstraintFixed", L, "Fixação"), ("FEM_ConstraintDisplacement", S, "Deslocamento imposto"),
+                          ("FEM_ConstraintSpring", S, "Mola (apoio elástico)")]),
+        ("4 · Cargas", [("FEM_ConstraintForce", L, "Força"), ("FEM_ConstraintPressure", S, "Pressão"),
+                        ("FEM_ConstraintSelfWeight", S, "Peso próprio"), ("FEM_ConstraintCentrif", S, "Centrífuga")]),
+        ("5 · Malha", [("FEM_MeshGmshFromShape", L, "Gerar\nmalha"), ("FEM_MeshRegion", S, "Refino local"),
+                       ("FEM_MeshDisplayInfo", S, "Dados da malha"), ("FEM_MeshClear", S, "Limpar malha")]),
+        ("6 · Calcular", [("FEM_SolverRun", L, "Calcular"), ("FEM_SolverControl", S, "Controle do solver")]),
+        ("7 · Resultados", [("FEM_ResultShow", L, "Ver\nresultados"), ("FEM_PostFilterWarp", S, "Deformada"),
+                            ("FEM_PostFilterClipScalar", S, "Recorte por valor"), ("FEM_PostFilterDataAlongLine", S, "Gráfico ao longo de linha"),
+                            ("FEM_ResultsPurge", S, "Limpar resultados")]),
+    ]},
     {"id": "superficies", "label": "Superfícies", "wb": "SurfaceWorkbench", "wb_extra": ["PartWorkbench"], "panels": [
         ("Superfície", [
             ("Surface_Filling", L, "Preencher"), ("Surface_GeomFillSurface", L, "Pelas\narestas"),
@@ -384,29 +402,8 @@ TABS = [
 ]
 
 
-# Abas que só aparecem enquanto a bancada delas está ativa (no lugar da aba temporária). A Simulação (FEM)
-# não é aba fixa: o Prumo é metal-mecânica e o FEM fica por baixo do Teste de pressão (Vasos) e do
-# Assistente de estruturas; quando um estudo abre, esta aba aparece com os passos em ordem.
-ABAS_TEMPORARIAS = {
-    "FemWorkbench": {"id": "simulacao", "label": "Simulação", "wb": "FemWorkbench", "panels": [
-        # Na ordem em que a análise precisa ser montada
-        ("Assistente", [("Prumo_AssistenteFEM", L, "Assistente\nde simulação"),
-                        ("Prumo_AssistenteEstrutura", L, "Assistente de\nestruturas"),
-                        ("Prumo_AnaliseEstrutura", S, "Estrutura por barras")]),
-        ("1 · Estudo", [("FEM_Analysis", L, "Novo\nestudo"), ("FEM_SolverCalculiXCcxTools", L, "Solver\nCalculiX")]),
-        ("2 · Material", [("FEM_MaterialSolid", L, "Material\nsólido"), ("FEM_MaterialEditor", S, "Editor de materiais")]),
-        ("3 · Fixações", [("FEM_ConstraintFixed", L, "Fixação"), ("FEM_ConstraintDisplacement", S, "Deslocamento imposto"),
-                          ("FEM_ConstraintSpring", S, "Mola (apoio elástico)")]),
-        ("4 · Cargas", [("FEM_ConstraintForce", L, "Força"), ("FEM_ConstraintPressure", S, "Pressão"),
-                        ("FEM_ConstraintSelfWeight", S, "Peso próprio"), ("FEM_ConstraintCentrif", S, "Centrífuga")]),
-        ("5 · Malha", [("FEM_MeshGmshFromShape", L, "Gerar\nmalha"), ("FEM_MeshRegion", S, "Refino local"),
-                       ("FEM_MeshDisplayInfo", S, "Dados da malha"), ("FEM_MeshClear", S, "Limpar malha")]),
-        ("6 · Calcular", [("FEM_SolverRun", L, "Calcular"), ("FEM_SolverControl", S, "Controle do solver")]),
-        ("7 · Resultados", [("FEM_ResultShow", L, "Ver\nresultados"), ("FEM_PostFilterWarp", S, "Deformada"),
-                            ("FEM_PostFilterClipScalar", S, "Recorte por valor"), ("FEM_PostFilterDataAlongLine", S, "Gráfico ao longo de linha"),
-                            ("FEM_ResultsPurge", S, "Limpar resultados")]),
-    ]},
-}
+# Abas que só aparecem enquanto a bancada delas está ativa (no lugar da aba temporária): nenhuma por ora.
+ABAS_TEMPORARIAS = {}
 
 STD_TOOLBARS = {"File", "Edit", "Clipboard", "Workbench", "Macro", "View", "Individual Views", "Structure", "Help"}
 
