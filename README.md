@@ -27,11 +27,12 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.8** (04/11/2026)
+**Versão atual: 1.2.9** (04/11/2026)
 
-- **Medir em português**, sem escolher modo, com a distância desenhada na vista.
-- **Arredondar qualquer face**, mesmo com cantos para fora e para dentro.
-- **Início e Peça mais enxutos**; painel lateral só com Árvore e Propriedades.
+- **Barra de varredura:** perfis sextavado, oval e quadrifólio; encontros sempre fechados.
+- **Faixa superior** com altura fixa; o ajuste fica nos divisores entre os grupos.
+
+Na 1.2.8: Medir em português, arredondar qualquer face, Início e Peça mais enxutos.
 
 Na 1.2.7: botões Começar, dutos de ar-condicionado em Tubos e conexões, mais fixadores (medidas a checar).
 

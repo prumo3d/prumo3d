@@ -9,6 +9,20 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.2.9 — 04/11/2026
+
+### Novidades
+
+- **Barra de varredura com perfis novos:** sextavado (medida entre faces), oval (largura × altura) e
+  quadrifólio (quatro lóbulos), maciços ou tubo, além do redondo e do quadrado.
+- **Faixa superior com altura fixa:** a altura não se arrasta mais; o ajuste fica nos divisores entre os
+  grupos (mais largo mostra os nomes, mais estreito só os ícones).
+
+### Correções
+
+- Barra de varredura: encontros sempre fechados, mesmo com pontas que quase se tocam ou com uma ponta
+  encostada no meio de outra linha.
+
 ## 1.2.8 — 04/11/2026
 
 ### Novidades
