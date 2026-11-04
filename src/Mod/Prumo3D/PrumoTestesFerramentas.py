@@ -2893,24 +2893,20 @@ class T30Faixa(unittest.TestCase):
                     cortados.append("%s: %s" % (t["id"], b.text()))
         self.assertEqual(cortados, [])
 
-    def test_altura_arrastavel_muda_botoes_e_fica_salva(self):
+    def test_altura_travada(self):
+        # a altura não se arrasta mais (não fazia diferença): alça escondida e altura padrão mesmo com
+        # uma altura antiga gravada; os divisores entre grupos continuam
         self._abrir("peca")
-        h = self.rb.definir_altura(180)
-        FreeCADGui.updateGui()
-        self.assertEqual(self.rb.content.height(), 180)
-        self.assertEqual(self.p.GetInt("RibbonHeight"), 180)
-        grandes = [b for b in self.rb.findChildren(self.R.RibbonButton) if b.property("sw_size") == "L"
-                   and b.isVisible()]
-        self.assertTrue(grandes)
-        self.assertEqual(grandes[0].height(), self.R.medidas(h)["L"])
-        self.assertGreater(grandes[0].iconSize().width(), 32)
-        # o arraste pela alça usa a mesma função ao soltar
-        self.rb.grip._y0, self.rb.grip._h0 = 0, 180
-        self.rb.content.setFixedHeight(150)
-        self.rb.grip.mouseReleaseEvent(None)
-        self.assertEqual(self.p.GetInt("RibbonHeight"), 150)
-        self.rb.grip.mouseDoubleClickEvent(None)
-        self.assertEqual(self.rb.content.height(), self.R.ALTURA_PADRAO)
+        self.assertFalse(self.rb.grip.isVisible())
+        self.p.SetInt("RibbonHeight", 180)
+        try:
+            esperado = self.R.ALTURA_MIN if self.R.tela_pequena() else self.R.ALTURA_PADRAO
+            self.assertEqual(self.R.altura_salva(), esperado)
+        finally:
+            self.p.RemInt("RibbonHeight")
+        self.rb._toggle_collapse()
+        self.rb._toggle_collapse()
+        self.assertFalse(self.rb.grip.isVisible())
 
     def test_grupos_com_divisor_arrastavel_e_largura_salva(self):
         self._abrir("inicio")
@@ -15439,6 +15435,86 @@ class T109ArredondarMedirLayout(unittest.TestCase):
         import PrumoGuia
         self.assertIn("290", inspect.getsource(PrumoGuia))
 
+
+class T110BarraPerfisNovos(unittest.TestCase):
+    """Barra de varredura: perfis sextavado, oval e quadrifólio (maciços e tubos) e encontros tolerantes
+    (pontas quase encostadas e ponta no meio de outra linha ficam fechadas)."""
+
+    def _grade(self):
+        import Part
+        V = FreeCAD.Vector
+        xs, ys = [0, 30, 70, 100], [0, 30, 60]
+        ar = []
+        for y in ys:
+            for i in range(len(xs) - 1):
+                ar.append(Part.makeLine(V(xs[i], y, 0), V(xs[i + 1], y, 0)))
+        for x in xs:
+            for j in range(len(ys) - 1):
+                ar.append(Part.makeLine(V(x, ys[j], 0), V(x, ys[j + 1], 0)))
+        ar.append(Part.Edge(Part.Circle(V(50, 90, 0), V(0, 0, 1), 20)))  # curva também
+        return ar
+
+    def test_todos_os_perfis_maciço_e_tubo(self):
+        import PrumoBarraVarredura as B
+        V = FreeCAD.Vector
+        ar = self._grade()
+        for pf in B.PERFIS:
+            for parede in (0.0, 1.0):
+                interna = 3.0 if (pf == "Redondo" and parede) else parede
+                f, c = B.montar(ar, pf, 8.0, interna, True, V(0, 0, 1), 5.0 if pf == "Oval" else 0.0)
+                self.assertTrue(f.isValid(), (pf, parede))
+                self.assertEqual(len(f.Solids), 2, (pf, parede))   # grade + anel solto
+                self.assertGreater(f.Volume, 0)
+
+    def test_secoes(self):
+        import math
+        import PrumoBarraVarredura as B
+        sx = B.secao_local("Sextavado", 10.0)
+        self.assertAlmostEqual(sx.BoundBox.YLength, 10.0, places=6)          # entre faces
+        self.assertAlmostEqual(sx.Area, 10.0 ** 2 * math.sqrt(3) / 2, places=4)
+        ov = B.secao_local("Oval", 10.0, 4.0)
+        self.assertAlmostEqual(ov.BoundBox.XLength, 10.0, places=4)
+        self.assertAlmostEqual(ov.BoundBox.YLength, 4.0, places=4)
+        q = B.secao_local("Quadrifólio", 12.0)
+        self.assertEqual(len(q.Faces), 1)
+        self.assertAlmostEqual(q.BoundBox.XLength, 12.0, places=4)
+        self.assertGreater(q.Area, B.secao_local("Redondo", 12.0).Area * 0.5)
+        self.assertGreater(len(q.Edges), 3)
+
+    def test_pontas_quase_encostadas_ficam_fechadas(self):
+        import Part
+        import PrumoBarraVarredura as B
+        V = FreeCAD.Vector
+        # canto com folga de 0,05 mm e ponta que encosta no meio de outra linha
+        ar = [Part.makeLine(V(0, 0, 0), V(50, 0, 0)), Part.makeLine(V(50.05, 0, 0), V(50.05, 40, 0)),
+              Part.makeLine(V(25, 0, 0), V(25, -30, 0))]
+        g = B._graus(ar, 0.2)
+        self.assertEqual(g[B._chave(V(50, 0, 0))], 2)
+        self.assertEqual(g[B._chave(V(25, 0, 0))], 2)
+        f, _c = B.montar(ar, "Redondo", 4.0, 0.0, True, V(0, 0, 1))
+        self.assertTrue(f.isValid())
+        self.assertEqual(len(f.Solids), 1)
+        # a esfera fecha o canto: o ponto da quina por fora fica dentro do sólido
+        self.assertTrue(f.isInside(V(51.0, -1.0, 0), 1e-6, True))
+
+    def test_documento_antigo_ganha_perfis(self):
+        import Part
+        import PrumoBarraVarredura as B
+        doc = novo_doc("PrumoTesteBarraPerfis")
+        try:
+            sk = doc.addObject("Part::Feature", "Linhas")
+            sk.Shape = Part.makeCompound(self._grade()[:4])
+            o = B.criar(sk, "Oval", 8.0, 0.0, True, 0.0, doc, altura=4.0)
+            self.assertTrue(o.Shape.isValid())
+            self.assertEqual(o.Perfil, "Oval")
+            o.Perfil = ["Redondo", "Quadrado"]
+            o.Perfil = "Quadrado"
+            o.Proxy.onDocumentRestored(o)
+            self.assertEqual(o.Perfil, "Quadrado")
+            self.assertIn("Quadrifólio", o.getEnumerationsOfProperty("Perfil"))
+        finally:
+            fechar(doc)
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -15467,4 +15543,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos, T109ArredondarMedirLayout]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos, T109ArredondarMedirLayout, T110BarraPerfisNovos]

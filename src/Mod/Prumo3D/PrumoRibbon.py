@@ -775,10 +775,8 @@ def tela_pequena(limite=900):
 
 
 def altura_salva():
-    h = _params().GetInt("RibbonHeight", 0)
-    if h <= 0:
-        return ALTURA_MIN if tela_pequena() else ALTURA_PADRAO
-    return max(ALTURA_MIN, min(ALTURA_MAX, h))
+    # altura travada: mudar a altura não ajudava; o ajuste fica só na largura dos grupos (divisores)
+    return ALTURA_MIN if tela_pequena() else ALTURA_PADRAO
 
 
 def _quebra(texto):
@@ -1247,6 +1245,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         lay.addWidget(self.content)
         self.grip = AlcaAltura(self)
         lay.addWidget(self.grip)
+        self.grip.setVisible(False)   # altura travada (só os divisores entre grupos se movem)
         self.content.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.content.customContextMenuRequested.connect(self._menu_faixa)
         # tela estreita (notebook): a roda do mouse sobre a faixa rola para os lados
@@ -1467,7 +1466,6 @@ class PrumoRibbon(QtWidgets.QWidget):
     def _toggle_collapse(self, *args):
         vis = not self.content.isVisible()
         self.content.setVisible(vis)
-        self.grip.setVisible(vis)
         self._collapse_btn.setArrowType(QtCore.Qt.UpArrow if vis else QtCore.Qt.DownArrow)
 
     # ---- abas

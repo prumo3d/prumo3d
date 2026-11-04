@@ -5,8 +5,8 @@ Como a "Barra de varredura" do ZW3D: escolhe-se o esboço (comum ou Esboço 3D) 
 barras que se cruzam ou se encontram são unidas num sólido só (dá para fazer grade, xadrez, chapa expandida,
 gradil). Opções:
 
-- perfil redondo (diâmetro externo e interno; interno 0 = barra maciça) ou quadrado (lado e espessura da parede;
-  espessura 0 = barra maciça);
+- perfil redondo (diâmetro externo e interno; interno 0 = barra maciça), quadrado, sextavado (entre faces), oval
+  (largura e altura) ou quadrifólio (quatro lóbulos), com espessura de parede (0 = barra maciça);
 - unir as barras num sólido só (nos encontros, a redonda ganha uma esfera e a quadrada se prolonga meio lado, para
   o encontro ficar fechado);
 - raio nos cantos: os cantos das linhas retas viram curvas desse raio (como barra dobrada).
@@ -20,7 +20,7 @@ import FreeCAD
 
 import PrumoUtil
 
-PERFIS = ("Redondo", "Quadrado")
+PERFIS = ("Redondo", "Quadrado", "Sextavado", "Oval", "Quadrifólio")
 TOL = 1e-6
 TOL_NO = 1e-4
 
@@ -117,7 +117,7 @@ def arredondar_cantos(arestas, raio):
 
 
 def _referencia(d, normal):
-    """Direção 'para cima' da barra quadrada, perpendicular à direção d."""
+    """Direção 'para cima' da barra (perfil não redondo), perpendicular à direção d."""
     for cand in ([normal] if normal is not None else []) + [FreeCAD.Vector(0, 0, 1), FreeCAD.Vector(1, 0, 0)]:
         up = cand - d * cand.dot(d)
         if up.Length > 1e-6:
@@ -126,41 +126,87 @@ def _referencia(d, normal):
     return FreeCAD.Vector(0, 1, 0)
 
 
-def _barra_reta(a, b, perfil, medida, ext_a, ext_b, normal):
+def secao_local(perfil, medida, altura=0.0):
+    """Face da seção no plano XY local (x = lado, y = 'para cima'), centrada na origem.
+
+    Redondo: diâmetro; Quadrado: lado; Sextavado: distância entre faces (chave), com duas faces paralelas ao
+    plano do esboço; Oval: largura × altura (altura 0 = 60 % da largura); Quadrifólio: largura total (quatro
+    lóbulos)."""
     import Part
+    V = FreeCAD.Vector
+    if perfil == "Redondo":
+        return Part.Face(Part.Wire([Part.makeCircle(medida / 2.0)]))
+    if perfil == "Quadrado":
+        h = medida / 2.0
+        return Part.Face(Part.makePolygon([V(-h, -h, 0), V(h, -h, 0), V(h, h, 0), V(-h, h, 0), V(-h, -h, 0)]))
+    if perfil == "Sextavado":
+        r = medida / math.sqrt(3.0)          # raio do círculo pelos cantos; entre faces = medida
+        pts = [V(r * math.cos(math.radians(60 * k)), r * math.sin(math.radians(60 * k)), 0) for k in range(6)]
+        return Part.Face(Part.makePolygon(pts + [pts[0]]))
+    if perfil == "Oval":
+        a, b = medida / 2.0, (altura if altura > 0 else 0.6 * medida) / 2.0
+        if abs(a - b) < 1e-9:
+            return Part.Face(Part.Wire([Part.makeCircle(a)]))
+        el = Part.Ellipse(V(a, 0, 0), V(0, b, 0), V(0, 0, 0)) if a > b else Part.Ellipse(V(0, b, 0), V(a, 0, 0),
+                                                                                         V(0, 0, 0))
+        return Part.Face(Part.Wire([el.toShape()]))
+    if perfil == "Quadrifólio":
+        r = medida / 4.0
+        discos = [Part.Face(Part.Wire([Part.makeCircle(r, V(x, y, 0))])) for x, y in ((r, 0), (-r, 0), (0, r), (0, -r))]
+        miolo = Part.Face(Part.Wire([Part.makeCircle(r * 1.05)]))
+        u = miolo.fuse(discos).removeSplitter()
+        return Part.Face(u.Faces[0].OuterWire) if len(u.Faces) > 1 else u.Faces[0]
+    raise ValueError("Perfil desconhecido: %s" % perfil)
+
+
+def secao_interna(perfil, medida, altura, parede):
+    """Seção do vazio (tubo): a externa recuada da parede."""
+    face = secao_local(perfil, medida, altura)
+    junta = 2 if perfil in ("Quadrado", "Sextavado") else 0     # cantos vivos ficam vivos
+    of = face.makeOffset2D(-parede, junta)
+    f = of.Faces[0] if of.Faces else Part_face(of)
+    return f
+
+
+def Part_face(w):
+    import Part
+    return Part.Face(w if w.ShapeType == "Wire" else w.Wires[0])
+
+
+def _base(d, normal):
+    up = _referencia(d, normal)
+    lado = up.cross(d)                     # (lado, up, d) forma um sistema de mão direita
+    return lado, up
+
+
+def _no_lugar(face, origem, lado, up, d):
+    m = FreeCAD.Matrix(lado.x, up.x, d.x, 0, lado.y, up.y, d.y, 0, lado.z, up.z, d.z, 0, 0, 0, 0, 1)
+    f = face.copy()
+    f.Placement = FreeCAD.Placement(origem, FreeCAD.Rotation(m))
+    return f
+
+
+def _barra_reta(a, b, face, ext_a, ext_b, normal):
     d = b - a
     comp = d.Length
     d.normalize()
     ini = a - d * ext_a
     total = comp + ext_a + ext_b
-    if perfil == "Redondo":
-        return Part.makeCylinder(medida / 2.0, total, ini, d)
-    up = _referencia(d, normal)
-    lado = up.cross(d)                     # (lado, up, d) forma um sistema de mão direita
-    caixa = Part.makeBox(medida, medida, total)
-    m = FreeCAD.Matrix(lado.x, up.x, d.x, 0, lado.y, up.y, d.y, 0, lado.z, up.z, d.z, 0, 0, 0, 0, 1)
-    caixa.Placement = FreeCAD.Placement(ini - lado * (medida / 2.0) - up * (medida / 2.0),
-                                        FreeCAD.Rotation(m))
-    return caixa
+    lado, up = _base(d, normal)
+    return _no_lugar(face, ini, lado, up, d).extrude(d * total)
 
 
-def _barra_curva(e, perfil, medida, normal):
+def _barra_curva(e, face, redondo, normal):
     import Part
     t0 = e.tangentAt(e.FirstParameter)
     t0.normalize()
     p0 = e.valueAt(e.FirstParameter)
-    # numa curva plana (arco), a barra quadrada acompanha o plano do arco
+    # numa curva plana (arco), a barra acompanha o plano do arco
     binormal = FreeCAD.Vector(e.Curve.Axis) if hasattr(e.Curve, "Axis") else normal
-    if perfil == "Redondo":
-        perfil_w = Part.Wire([Part.makeCircle(medida / 2.0, p0, t0)])
-    else:
-        up = _referencia(t0, binormal)
-        lado = up.cross(t0)
-        h = medida / 2.0
-        cantos = [p0 + lado * sx * h + up * sy * h for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-        perfil_w = Part.makePolygon(cantos + [cantos[0]])
+    lado, up = _base(t0, binormal)
+    perfil_w = _no_lugar(face, p0, lado, up, t0).OuterWire
     ps = Part.BRepOffsetAPI.MakePipeShell(Part.Wire([e]))
-    if perfil != "Redondo":
+    if not redondo:
         try:
             ps.setBiNormalMode(binormal if binormal is not None else FreeCAD.Vector(0, 0, 1))
         except Exception:
@@ -171,57 +217,126 @@ def _barra_curva(e, perfil, medida, normal):
     return ps.shape()
 
 
-def montar(arestas, perfil="Redondo", medida=10.0, interna=0.0, unir=True, normal=None):
-    """Sólido da barra ao longo das arestas. medida: diâmetro (redondo) ou lado (quadrado); interna: diâmetro
-    interno ou lado interno (0 = maciça). Devolve (forma, comprimento total do caminho)."""
+def _no_revolvido(face, p, normal):
+    """Peça do encontro para perfis curvos (oval, quadrifólio): a seção girada em torno da normal do plano,
+    como a esfera da barra redonda. Cada barra que chega ao centro encosta nela pela própria seção."""
     import Part
+    n = FreeCAD.Vector(normal) if normal is not None else FreeCAD.Vector(0, 0, 1)
+    n.normalize()
+    d = n.cross(FreeCAD.Vector(1, 0, 0))
+    if d.Length < 1e-6:
+        d = n.cross(FreeCAD.Vector(0, 1, 0))
+    d.normalize()
+    lado, up = _base(d, n)
+    # 1 % maior que a seção: sem isso o encontro fica tangente à barra e o booleano falha ou demora
+    face = face.copy()
+    face.scale(1.01, FreeCAD.Vector(0, 0, 0))
+    bb = face.BoundBox
+    metade = face.common(Part.makeBox(bb.XMax + 1.0, bb.YLength + 2.0, 2.0, FreeCAD.Vector(0, bb.YMin - 1.0, -1.0)))
+    f = _no_lugar(metade.Faces[0], p, lado, up, d)
+    return f.revolve(p, up, 360)
+
+
+def _graus(arestas, tol):
+    """Quantas barras chegam em cada ponta (por proximidade: ponta encostada no meio de outra linha, ou pontas
+    que quase se tocam, contam como encontro)."""
+    import Part
+    graus = {}
+    for i, e in enumerate(arestas):
+        for p in (e.Vertexes[0].Point, e.Vertexes[-1].Point):
+            k = _chave(p)
+            if k in graus:
+                continue
+            v = Part.Vertex(p)
+            n = 0
+            for x in arestas:
+                try:
+                    if x.distToShape(v)[0] <= tol:
+                        n += 1
+                except Exception:
+                    pass
+            graus[k] = n
+    return graus
+
+
+def montar(arestas, perfil="Redondo", medida=10.0, interna=0.0, unir=True, normal=None, altura=0.0):
+    """Sólido da barra ao longo das arestas. medida: diâmetro (redondo), lado (quadrado), entre faces
+    (sextavado) ou largura (oval, quadrifólio); altura: só do oval; interna: diâmetro interno (redondo) ou
+    espessura da parede (demais); 0 = maciça. Devolve (forma, comprimento total do caminho)."""
+    import Part
+    if perfil not in PERFIS:
+        raise ValueError("Perfil desconhecido: %s" % perfil)
     if not arestas:
         raise ValueError("O caminho não tem linhas.")
     if medida <= 0:
         raise ValueError("A medida da barra tem de ser maior que zero.")
-    if interna >= medida:
+    redondo = perfil == "Redondo"
+    menor = min(medida, altura if (perfil == "Oval" and altura > 0) else medida)
+    if redondo and interna >= medida:
         raise ValueError("A medida interna tem de ser menor que a externa.")
-    grau = {}
-    for e in arestas:
-        for p in (e.Vertexes[0].Point, e.Vertexes[-1].Point):
-            grau[_chave(p)] = grau.get(_chave(p), 0) + 1
-    # pontos de passagem: encontro que não é ponta solta (cruzamento no meio de uma linha não precisa)
+    if not redondo and interna > 0 and 2 * interna >= menor:
+        raise ValueError("A parede é grossa demais para essa barra.")
+    tol = max(0.01, 0.05 * menor)
+    grau = _graus(arestas, tol)
+    maior = max(medida, altura if perfil == "Oval" else 0.0)
+    if perfil == "Sextavado":
+        maior = medida / math.sqrt(3.0) * 2.0
 
-    def solidos(m):
+    def solidos(face, ext, raio_esfera):
         r = []
-        ext = (m / 2.0) if (unir and perfil == "Quadrado") else 0.0
         for e in arestas:
             a, b = e.Vertexes[0].Point, e.Vertexes[-1].Point
             if _reta(e):
                 ea = ext if grau[_chave(a)] > 1 else 0.0
                 eb = ext if grau[_chave(b)] > 1 else 0.0
-                r.append(_barra_reta(a, b, perfil, m, ea, eb, normal))
+                r.append(_barra_reta(a, b, face, ea, eb, normal))
             else:
-                r.append(_barra_curva(e, perfil, m, normal))
-        if unir and perfil == "Redondo":
+                r.append(_barra_curva(e, face, redondo, normal))
+        if unir and (redondo or curvo):
             vistos = set()
             for e in arestas:
                 for p in (e.Vertexes[0].Point, e.Vertexes[-1].Point):
                     k = _chave(p)
                     if grau[k] > 1 and k not in vistos:
                         vistos.add(k)
-                        r.append(Part.makeSphere(m / 2.0, p))
+                        r.append(Part.makeSphere(raio_esfera, p) if redondo else _no_revolvido(face, p, normal))
         return r
 
-    ext = solidos(medida)
+    # perfis de lados curvos cruzando com a mesma altura se tocam tangentes (o booleano falha): no encontro
+    # eles ganham a seção girada (como a esfera da redonda) em vez de prolongar
+    curvo = perfil in ("Oval", "Quadrifólio")
+    face_ext = secao_local(perfil, medida, altura)
+    ext_ext = (maior / 2.0) if (unir and not redondo and not curvo) else 0.0
+    ext = solidos(face_ext, ext_ext, medida / 2.0)
+    vazio = None
+    if interna > 0:
+        if redondo:
+            face_int, ext_int, r_int = secao_local("Redondo", interna), 0.0, interna / 2.0
+        else:
+            face_int, ext_int, r_int = secao_interna(perfil, medida, altura, interna), max(0.0, ext_ext - interna), 0.0
+        vazio = solidos(face_int, ext_int, r_int)
+    def juntar(lista):
+        if len(lista) == 1:
+            return lista[0]
+        u = lista[0].fuse(lista[1:])
+        if not u.isValid():   # encontro tangente (perfis curvos): o booleano com tolerância fecha
+            u = lista[0].fuse(lista[1:], max(1e-5, 1e-5 * medida))
+        return u
+
     if unir:
-        forma = ext[0].fuse(ext[1:]) if len(ext) > 1 else ext[0]
-        if interna > 0:
-            inn = solidos(interna)
-            vazio = inn[0].fuse(inn[1:]) if len(inn) > 1 else inn[0]
-            forma = forma.cut(vazio)
+        forma = juntar(ext)
+        if vazio:
+            c = forma.cut(juntar(vazio))
+            if not c.isValid():
+                c = forma.cut([juntar(vazio)], max(1e-5, 1e-5 * medida))
+            forma = c
         try:
             forma = forma.removeSplitter()
         except Exception:
             pass
     else:
-        if interna > 0:
-            ext = [s.cut(i) for s, i in zip(ext, solidos(interna))]
+        if vazio:
+            ext = [s.cut(i) for s, i in zip(ext, vazio)]
         forma = Part.makeCompound(ext)
     return forma, sum(e.Length for e in arestas)
 
@@ -244,8 +359,17 @@ class BarraVarredura:
             obj.Perfil = "Redondo"
         add("App::PropertyLength", "Diametro", "Barra redonda: diâmetro externo", 10.0)
         add("App::PropertyLength", "DiametroInterno", "Barra redonda: diâmetro interno (0 = maciça)", 0.0)
-        add("App::PropertyLength", "Lado", "Barra quadrada: lado", 10.0)
-        add("App::PropertyLength", "Parede", "Barra quadrada: espessura da parede (0 = maciça)", 0.0)
+        add("App::PropertyLength", "Lado", "Barra não redonda: lado (quadrado), entre faces (sextavado), largura "
+            "(oval, quadrifólio)", 10.0)
+        add("App::PropertyLength", "Parede", "Barra não redonda: espessura da parede (0 = maciça)", 0.0)
+        add("App::PropertyLength", "Altura", "Barra oval: altura (0 = 60 % da largura)", 0.0)
+        try:   # documento antigo: a lista de perfis ganha os novos, mantendo o escolhido
+            if set(obj.getEnumerationsOfProperty("Perfil")) != set(PERFIS):
+                atual = obj.Perfil
+                obj.Perfil = list(PERFIS)
+                obj.Perfil = atual if atual in PERFIS else "Redondo"
+        except Exception:
+            pass
         add("App::PropertyBool", "Unir", "Une as barras num sólido só (encontros fechados)", True)
         add("App::PropertyLength", "RaioCantos", "Raio nos cantos das linhas retas (0 = canto vivo)", 0.0)
         add("App::PropertyLength", "Comprimento", "Comprimento total das barras (pelo eixo)", 0.0, "Resultado")
@@ -257,13 +381,13 @@ class BarraVarredura:
     def execute(self, obj):
         import Part
         arestas = arredondar_cantos(arestas_do_caminho(obj.Caminho), float(obj.RaioCantos))
-        if obj.Perfil == "Quadrado":
-            medida = float(obj.Lado)
-            interna = medida - 2.0 * float(obj.Parede) if float(obj.Parede) > 0 else 0.0
-        else:
+        if obj.Perfil == "Redondo":
             medida, interna = float(obj.Diametro), float(obj.DiametroInterno)
+        else:
+            medida, interna = float(obj.Lado), float(obj.Parede)
         try:
-            forma, comp = montar(arestas, obj.Perfil, medida, interna, bool(obj.Unir), _normal_do_plano(obj.Caminho))
+            forma, comp = montar(arestas, obj.Perfil, medida, interna, bool(obj.Unir), _normal_do_plano(obj.Caminho),
+                                 float(getattr(obj, "Altura", 0.0)))
         except ValueError as ex:
             FreeCAD.Console.PrintWarning("Prumo: barra de varredura: %s\n" % ex)
             obj.Shape = Part.Shape()
@@ -278,17 +402,18 @@ class BarraVarredura:
         return None
 
 
-def criar(caminho, perfil="Redondo", medida=10.0, interna_ou_parede=0.0, unir=True, raio=0.0, doc=None):
+def criar(caminho, perfil="Redondo", medida=10.0, interna_ou_parede=0.0, unir=True, raio=0.0, doc=None, altura=0.0):
     doc = doc or caminho.Document
     obj = doc.addObject("Part::FeaturePython", "BarraVarredura")
     BarraVarredura(obj)
     obj.Label = "Barra de varredura"
     obj.Caminho = caminho
     obj.Perfil = perfil
-    if perfil == "Quadrado":
-        obj.Lado, obj.Parede = medida, interna_ou_parede
-    else:
+    if perfil == "Redondo":
         obj.Diametro, obj.DiametroInterno = medida, interna_ou_parede
+    else:
+        obj.Lado, obj.Parede = medida, interna_ou_parede
+    obj.Altura = altura
     obj.Unir = unir
     obj.RaioCantos = raio
     if FreeCAD.GuiUp:
@@ -355,7 +480,7 @@ if P is not None:
     class PainelBarra(P.PainelTarefa):
         titulo = "Barra de varredura"
         ajuda = ("Escolha o esboço: cada linha vira uma barra, e as que se cruzam ou se encontram ficam unidas "
-                 "(grade, xadrez, chapa expandida). Perfil redondo ou quadrado, maciço ou tubo.")
+                 "(grade, xadrez, chapa expandida). Perfil redondo, quadrado, sextavado, oval ou quadrifólio, maciço ou tubo.")
 
         def montar(self):
             f = self.form
@@ -371,6 +496,9 @@ if P is not None:
             self.lb_medida = s1.linha("espessura", self.medida, "Diâmetro externo da barra.", "Diâmetro")
             self.interna = self._mm(0.0)
             s1.linha("espessura", self.interna, "Diâmetro interno (tubo); 0 = barra maciça.", "Interno")
+            self.altura = self._mm(0.0)
+            s1.linha("espessura", self.altura, "Altura do oval (0 = 60 % da largura).", "Altura")
+            self._s1 = s1
             s2 = f.secao("Opções", "info")
             self.unir = s2.linha("posicao", P.marcar("Unir as barras (encontros fechados)", True), "")
             self.raio = self._mm(0.0)
@@ -391,29 +519,42 @@ if P is not None:
                 pass
             return w
 
+        ROTULO_MEDIDA = {"Redondo": "Diâmetro", "Quadrado": "Lado", "Sextavado": "Entre faces", "Oval": "Largura",
+                         "Quadrifólio": "Largura"}
+        DICA_MEDIDA = {"Redondo": "Diâmetro externo da barra.", "Quadrado": "Lado da barra quadrada.",
+                       "Sextavado": "Distância entre faces (medida da chave).", "Oval": "Largura do oval.",
+                       "Quadrifólio": "Largura total dos quatro lóbulos."}
+
         def _perfil(self, *_a):
-            quadrado = self.perfil.currentData() == "Quadrado"
+            pf = self.perfil.currentData()
+            redondo = pf == "Redondo"
             try:
-                rotulos = self.form.findChildren(QtWidgets.QLabel)
-                for lb in rotulos:
-                    if lb.text() in ("Diâmetro", "Lado"):
-                        lb.setText("Lado" if quadrado else "Diâmetro")
+                for lb in self.form.findChildren(QtWidgets.QLabel):
+                    if lb.text() in set(self.ROTULO_MEDIDA.values()):
+                        lb.setText(self.ROTULO_MEDIDA[pf])
                     elif lb.text() in ("Interno", "Parede"):
-                        lb.setText("Parede" if quadrado else "Interno")
+                        lb.setText("Interno" if redondo else "Parede")
+                    elif lb.text() == "Altura":
+                        lb.setVisible(pf == "Oval")
             except Exception:
                 pass
-            self.medida.setToolTip("Lado da barra quadrada." if quadrado else "Diâmetro externo da barra.")
-            self.interna.setToolTip("Espessura da parede (tubo quadrado); 0 = barra maciça." if quadrado
-                                    else "Diâmetro interno (tubo); 0 = barra maciça.")
+            self.altura.setVisible(pf == "Oval")
+            self.medida.setToolTip(self.DICA_MEDIDA[pf])
+            self.interna.setToolTip("Diâmetro interno (tubo); 0 = barra maciça." if redondo
+                                    else "Espessura da parede (tubo); 0 = barra maciça.")
 
         def pendencia(self):
             if not self.caminho.valores():
                 return "Escolha o esboço com as linhas da barra."
             if self.medida.value() <= 0:
                 return "A medida da barra tem de ser maior que zero."
-            if self.perfil.currentData() == "Quadrado":
-                if self.interna.value() > 0 and 2 * self.interna.value() >= self.medida.value():
-                    return "A parede é grossa demais para esse lado."
+            pf = self.perfil.currentData()
+            if pf != "Redondo":
+                menor = self.medida.value()
+                if pf == "Oval" and self.altura.value() > 0:
+                    menor = min(menor, self.altura.value())
+                if self.interna.value() > 0 and 2 * self.interna.value() >= menor:
+                    return "A parede é grossa demais para essa barra."
             elif self.interna.value() >= self.medida.value():
                 return "O diâmetro interno tem de ser menor que o externo."
             return None
@@ -424,19 +565,20 @@ if P is not None:
         def carregar(self, obj):
             self.caminho.aceitar(obj.Caminho)
             self.perfil.setCurrentIndex(max(0, self.perfil.findData(obj.Perfil)))
-            if obj.Perfil == "Quadrado":
+            if obj.Perfil != "Redondo":
                 self.medida.setValue(float(obj.Lado))
                 self.interna.setValue(float(obj.Parede))
             else:
                 self.medida.setValue(float(obj.Diametro))
                 self.interna.setValue(float(obj.DiametroInterno))
+            self.altura.setValue(float(getattr(obj, "Altura", 0.0)))
             self.unir.setChecked(bool(obj.Unir))
             self.raio.setValue(float(obj.RaioCantos))
 
         def props_edicao(self):
-            q = self.perfil.currentData() == "Quadrado"
+            q = self.perfil.currentData() != "Redondo"
             d = {"Caminho": self.caminho.valores()[0], "Perfil": self.perfil.currentData(),
-                 "Unir": self.unir.isChecked(), "RaioCantos": self.raio.value()}
+                 "Unir": self.unir.isChecked(), "RaioCantos": self.raio.value(), "Altura": self.altura.value()}
             if q:
                 d.update({"Lado": self.medida.value(), "Parede": self.interna.value()})
             else:
@@ -445,14 +587,14 @@ if P is not None:
 
         def executar(self):
             obj = criar(self.caminho.valores()[0], self.perfil.currentData(), self.medida.value(),
-                        self.interna.value(), self.unir.isChecked(), self.raio.value())
+                        self.interna.value(), self.unir.isChecked(), self.raio.value(), altura=self.altura.value())
             return [obj]
 
     class CmdBarraVarredura:
         def GetResources(self):
             import PrumoUtil
             return {"Pixmap": PrumoUtil.icone("barra_varredura.svg"), "MenuText": "Barra de varredura",
-                    "ToolTip": "Barra redonda ou quadrada (maciça ou tubo) ao longo de todas as linhas de um esboço; "
+                    "ToolTip": "Barra redonda, quadrada, sextavada, oval ou quadrifólio (maciça ou tubo) ao longo de todas as linhas de um esboço; "
                                "as que se cruzam ficam unidas: grade, xadrez, chapa expandida, gradil."}
 
         def IsActive(self):
