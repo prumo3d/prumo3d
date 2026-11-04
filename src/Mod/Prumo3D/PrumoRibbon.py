@@ -257,6 +257,9 @@ TABS = [
             ("Prumo_Reforco", L, "Reforço"), ("Prumo_Tampa", L, "Tampa de\nextremidade"),
             ("Prumo_PlacaBase", L, "Placa de\nbase"),
         ]),
+        ("Pisos e fechamentos", [
+            ("Prumo_Piso", L, "Piso e\nfechamento"),
+        ]),
         ("Solda", [
             ("Prumo_Solda", L, "Cordão de\nsolda"), ("Prumo_ListaSoldas", S, "Lista de soldas"),
             ("Prumo_ListaDeCorte", S, "Lista de corte"),

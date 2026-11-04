@@ -15513,6 +15513,129 @@ class T110BarraPerfisNovos(unittest.TestCase):
         finally:
             fechar(doc)
 
+
+class T111PisoEFechamento(unittest.TestCase):
+    """Piso e fechamento: chapa expandida, perfurada (tela moeda) e xadrez num contorno fechado; área, área
+    aberta e peso; furos reais até o limite; lista de materiais; painel."""
+
+    def setUp(self):
+        import Part
+        V = FreeCAD.Vector
+        self.doc = novo_doc("PrumoTestePiso")
+        sk = self.doc.addObject("Sketcher::SketchObject", "Contorno")
+        pts = [V(0, 0, 0), V(600, 0, 0), V(600, 400, 0), V(0, 400, 0)]
+        for i in range(4):
+            sk.addGeometry(Part.LineSegment(pts[i], pts[(i + 1) % 4]))
+        sk.addGeometry(Part.Circle(V(150, 200, 0), V(0, 0, 1), 50))     # recorte
+        self.doc.recompute()
+        self.sk = sk
+        self.area = (600 * 400 - math.pi * 50 ** 2) * 1e-6
+
+    def tearDown(self):
+        fechar(self.doc)
+
+    def test_perfurada_area_aberta_e_peso(self):
+        import PrumoPiso as P
+        o = P.criar(self.sk, None, "Chapa perfurada", self.doc, DiametroFuro=20.0, Passo=25.0,
+                    EspessuraPerfurada=2.0, Material="Inox 304")
+        self.assertTrue(o.Shape.isValid())
+        self.assertAlmostEqual(o.AreaM2, round(self.area, 4), places=4)
+        aberta = math.pi / (2 * math.sqrt(3)) * (20 / 25.0) ** 2
+        self.assertAlmostEqual(o.AreaAberta, round(aberta * 100, 1), places=1)
+        self.assertAlmostEqual(o.Peso, round(self.area * (1 - aberta) * 2.0 * 1e-3 * 7930, 2), places=2)
+        self.assertGreater(o.Furos, 100)
+        self.assertIn("furos reais", o.Modelo)
+        # o volume real confere com a área aberta teórica (furos cortados na borda incluídos) dentro de 3 %
+        teorico = self.area * 1e6 * (1 - aberta) * 2.0
+        self.assertLess(abs(o.Shape.Volume - teorico) / teorico, 0.03)
+        self.assertEqual(o.SituacaoDados, "confirmado")
+        self.assertIn("Ø20", o.Denominacao)
+
+    def test_expandida_e_xadrez_pelo_catalogo(self):
+        import PrumoPiso as P
+        e = P.criar(self.sk, None, "Chapa expandida", self.doc, Malha="GME-3")
+        m = P.malha("GME-3")
+        self.assertAlmostEqual(e.Espessura, m["espessura"])
+        self.assertAlmostEqual(e.Peso, round(self.area * m["kg_m2"], 2), places=2)
+        self.assertEqual(e.SituacaoDados, "a checar")
+        self.assertTrue(e.Shape.isValid())
+        x = P.criar(self.sk, None, "Chapa xadrez", self.doc, Xadrez='1/4"', Material="Inox 316")
+        self.assertAlmostEqual(x.Peso, round(self.area * 54.0 * 7980 / 7850, 2), places=2)
+        self.assertAlmostEqual(x.Shape.Volume, self.area * 1e6 * 6.3, delta=1.0)
+        self.assertIn("checar", P.dados()["xadrez"]["status"])
+
+    def test_limite_de_furos_vira_textura(self):
+        import PrumoPiso as P
+        o = P.criar(self.sk, None, "Chapa perfurada", self.doc, DiametroFuro=4.0, Passo=6.0)
+        self.assertEqual(o.Furos, 0)
+        self.assertIn("textura", o.Modelo)
+        self.assertGreater(o.Peso, 0)
+        o.FurosReais = False
+        o.DiametroFuro = 20.0
+        o.Passo = 25.0
+        self.doc.recompute()
+        self.assertEqual(o.Furos, 0)
+        self.assertIn("desligados", o.Modelo)
+
+    def test_centralizar_divide_as_sobras(self):
+        import Part
+        import PrumoPiso as P
+        V = FreeCAD.Vector
+        f = Part.Face(Part.makePolygon([V(0, 0, 0), V(110, 0, 0), V(110, 50, 0), V(0, 50, 0), V(0, 0, 0)]))
+        ref = P.referencial(f, 0.0, None)
+        pts = P.centros(f, ref[0], ref[1], ref[2], 25.0, 25.0, False, True)
+        xs = sorted({round(p.x, 6) for p in pts if 0 <= p.x <= 110})
+        self.assertAlmostEqual(xs[0] - 0.0, 110.0 - xs[-1], places=6)
+
+    def test_face_plana_como_contorno_e_lista_de_materiais(self):
+        import PrumoBOM
+        import PrumoPiso as P
+        cx = self.doc.addObject("Part::Box", "Caixa")
+        cx.Length, cx.Width, cx.Height = 300, 200, 10
+        self.doc.recompute()
+        topo = [i for i, f in enumerate(cx.Shape.Faces, 1) if abs(f.normalAt(0, 0).z - 1) < 1e-6][0]
+        o = P.criar(cx, "Face%d" % topo, "Chapa xadrez", self.doc)
+        self.assertAlmostEqual(o.AreaM2, 0.06, places=4)
+        self.assertAlmostEqual(o.Shape.BoundBox.ZMin, 10.0, places=6)    # apoiada em cima da face
+        linhas = PrumoBOM.coletar([o])
+        self.assertEqual(len(linhas), 1)
+        self.assertAlmostEqual(linhas[0].massa, o.Peso, places=6)
+        self.assertIn("xadrez", linhas[0].denominacao.lower())
+        self.assertIn("checar", linhas[0].obs)
+
+    def test_painel_cria_e_faixa(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        import PrumoPiso as P
+        import PrumoRibbon as R
+        est = [t for t in R.TABS if t["id"] == "estruturas"][0]
+        grupos = [n for n, _i in est["panels"]]
+        self.assertEqual(grupos.index("Pisos e fechamentos"), grupos.index("Reforços e ligações") + 1)
+        self.assertIn("Prumo_Piso", FreeCADGui.listCommands())
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(self.doc.Name, self.sk.Name)
+        p = P.PainelPiso()
+        p.mostrar()
+        try:
+            p.tipo.definir("Chapa perfurada")
+            p._tipo()
+            self.assertTrue(p.s_perf.isVisibleTo(p.form) and not p.s_exp.isVisibleTo(p.form))
+            p.atualizar_previa()
+            fim = time.time() + 1.0
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertIn("Peso", p.resultado.text())
+            p.accept()
+        finally:
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+        pisos = [o for o in self.doc.Objects if P.e_piso(o)]
+        self.assertEqual(len(pisos), 1)
+        self.assertEqual(pisos[0].TipoPiso, "Chapa perfurada")
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -15541,4 +15664,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos, T109ArredondarMedirLayout, T110BarraPerfisNovos]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos, T109ArredondarMedirLayout, T110BarraPerfisNovos, T111PisoEFechamento]

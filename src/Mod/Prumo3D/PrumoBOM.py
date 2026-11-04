@@ -161,6 +161,15 @@ def coletar(objs, densidade_padrao=None):
                     ordem.append(chave)
                 linhas[chave].qtd += qtd
             continue
+        if "TipoPiso" in base.PropertiesList:
+            # piso/fechamento (chapa expandida, perfurada, xadrez): um item por chapa, com área e peso
+            chave = ("piso", base.Document.Name, base.Name)
+            linhas[chave] = Linha(chave, str(base.Denominacao or base.Label), str(base.Material),
+                                  _dimensoes(base, sh), float(base.Peso or 0.0), str(base.Observacao or ""),
+                                  str(_prop(base, "Codigo") or ""))
+            linhas[chave].qtd += 1
+            ordem.append(chave)
+            continue
         perfil = _prop(base, "Perfil")
         if perfil:
             comp = _prop(base, "ComprimentoCorte", "Comprimento")

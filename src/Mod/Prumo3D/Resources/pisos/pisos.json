@@ -1,0 +1,717 @@
+{
+ "descricao": "Catálogo dos pisos e fechamentos do Prumo 3D. Todos os valores de catálogo estão A CHECAR no catálogo do fabricante antes de uso em projeto.",
+ "materiais": {
+  "Aço carbono": {
+   "densidade": 7850
+  },
+  "Aço galvanizado": {
+   "densidade": 7850,
+   "nota": "sem a massa do zinco"
+  },
+  "Inox 304": {
+   "densidade": 7930
+  },
+  "Inox 316": {
+   "densidade": 7980
+  },
+  "Alumínio": {
+   "densidade": 2700
+  }
+ },
+ "expandida": {
+  "status": "a checar",
+  "fonte": "Tabela de Chapa Expandida EXP/GME, Fábrica do Projeto (fabricadoprojeto.com.br), atualizada em 29/04/2024; não nomeia o fabricante. kg/m² para aço carbono.",
+  "itens": [
+   {
+    "designacao": "EXP-2",
+    "malha_sd": 2.0,
+    "malha_ld": 4.0,
+    "abertura_a": 1.0,
+    "abertura_b": 2.0,
+    "cordao": 0.5,
+    "espessura": 0.45,
+    "area_aberta": 50.0,
+    "kg_m2": 1.9
+   },
+   {
+    "designacao": "EXP-3",
+    "malha_sd": 3.0,
+    "malha_ld": 6.0,
+    "abertura_a": 1.6,
+    "abertura_b": 3.4,
+    "cordao": 0.8,
+    "espessura": 0.6,
+    "area_aberta": 46.0,
+    "kg_m2": 2.8
+   },
+   {
+    "designacao": "EXP-4",
+    "malha_sd": 4.0,
+    "malha_ld": 8.0,
+    "abertura_a": 2.5,
+    "abertura_b": 5.0,
+    "cordao": 0.8,
+    "espessura": 0.6,
+    "area_aberta": 60.0,
+    "kg_m2": 2.0
+   },
+   {
+    "designacao": "EXP-5",
+    "malha_sd": 5.5,
+    "malha_ld": 10.0,
+    "abertura_a": 4.0,
+    "abertura_b": 8.0,
+    "cordao": 0.8,
+    "espessura": 0.6,
+    "area_aberta": 71.0,
+    "kg_m2": 1.5
+   },
+   {
+    "designacao": "EXP-5A",
+    "malha_sd": 5.5,
+    "malha_ld": 10.0,
+    "abertura_a": 4.0,
+    "abertura_b": 8.0,
+    "cordao": 0.8,
+    "espessura": 0.75,
+    "area_aberta": 71.0,
+    "kg_m2": 1.5
+   },
+   {
+    "designacao": "EXP-5B",
+    "malha_sd": 5.5,
+    "malha_ld": 10.0,
+    "abertura_a": 4.0,
+    "abertura_b": 8.0,
+    "cordao": 1.0,
+    "espessura": 0.9,
+    "area_aberta": 64.0,
+    "kg_m2": 28.0,
+    "nota": "peso da fonte (28 kg/m²) fora de linha com as vizinhas: provável erro de digitação"
+   },
+   {
+    "designacao": "EXP-6",
+    "malha_sd": 6.2,
+    "malha_ld": 13.0,
+    "abertura_a": 5.0,
+    "abertura_b": 10.0,
+    "cordao": 0.8,
+    "espessura": 0.75,
+    "area_aberta": 74.0,
+    "kg_m2": 1.65
+   },
+   {
+    "designacao": "EXP-9",
+    "malha_sd": 9.0,
+    "malha_ld": 20.0,
+    "abertura_a": 7.5,
+    "abertura_b": 15.0,
+    "cordao": 1.0,
+    "espessura": 0.9,
+    "area_aberta": 78.0,
+    "kg_m2": 1.72
+   },
+   {
+    "designacao": "EXP-9A",
+    "malha_sd": 9.0,
+    "malha_ld": 20.0,
+    "abertura_a": 7.5,
+    "abertura_b": 15.0,
+    "cordao": 1.5,
+    "espessura": 1.25,
+    "area_aberta": 66.0,
+    "kg_m2": 3.6
+   },
+   {
+    "designacao": "EXP-12",
+    "malha_sd": 12.0,
+    "malha_ld": 25.0,
+    "abertura_a": 10.0,
+    "abertura_b": 20.0,
+    "cordao": 1.0,
+    "espessura": 0.9,
+    "area_aberta": 83.0,
+    "kg_m2": 1.3
+   },
+   {
+    "designacao": "EXP-12A",
+    "malha_sd": 12.0,
+    "malha_ld": 25.0,
+    "abertura_a": 10.0,
+    "abertura_b": 20.0,
+    "cordao": 1.5,
+    "espessura": 1.25,
+    "area_aberta": 75.0,
+    "kg_m2": 2.7
+   },
+   {
+    "designacao": "EXP-12B",
+    "malha_sd": 12.0,
+    "malha_ld": 25.0,
+    "abertura_a": 10.0,
+    "abertura_b": 20.0,
+    "cordao": 1.8,
+    "espessura": 1.5,
+    "area_aberta": 70.0,
+    "kg_m2": 3.87
+   },
+   {
+    "designacao": "EXP-12C",
+    "malha_sd": 12.0,
+    "malha_ld": 25.0,
+    "abertura_a": 10.0,
+    "abertura_b": 20.0,
+    "cordao": 2.2,
+    "espessura": 1.5,
+    "area_aberta": 63.0,
+    "kg_m2": 4.75
+   },
+   {
+    "designacao": "EXP-12D",
+    "malha_sd": 12.0,
+    "malha_ld": 25.0,
+    "abertura_a": 10.0,
+    "abertura_b": 20.0,
+    "cordao": 2.5,
+    "espessura": 2.0,
+    "area_aberta": 58.0,
+    "kg_m2": 7.1
+   },
+   {
+    "designacao": "EXP-13",
+    "malha_sd": 13.5,
+    "malha_ld": 45.0,
+    "abertura_a": 10.0,
+    "abertura_b": 39.0,
+    "cordao": 1.8,
+    "espessura": 0.9,
+    "area_aberta": 73.0,
+    "kg_m2": 2.1
+   },
+   {
+    "designacao": "EXP-13A",
+    "malha_sd": 13.5,
+    "malha_ld": 45.0,
+    "abertura_a": 10.0,
+    "abertura_b": 39.0,
+    "cordao": 2.5,
+    "espessura": 1.25,
+    "area_aberta": 63.0,
+    "kg_m2": 4.0
+   },
+   {
+    "designacao": "EXP-13B",
+    "malha_sd": 13.5,
+    "malha_ld": 45.0,
+    "abertura_a": 10.0,
+    "abertura_b": 39.0,
+    "cordao": 2.0,
+    "espessura": 2.0,
+    "area_aberta": 60.0,
+    "kg_m2": 5.2
+   },
+   {
+    "designacao": "EXP-13C",
+    "malha_sd": 13.5,
+    "malha_ld": 45.0,
+    "abertura_a": 10.0,
+    "abertura_b": 39.0,
+    "cordao": 3.5,
+    "espessura": 2.65,
+    "area_aberta": 48.0,
+    "kg_m2": 12.2
+   },
+   {
+    "designacao": "EXP-14",
+    "malha_sd": 14.0,
+    "malha_ld": 32.0,
+    "abertura_a": 12.0,
+    "abertura_b": 25.0,
+    "cordao": 1.2,
+    "espessura": 0.75,
+    "area_aberta": 83.0,
+    "kg_m2": 1.0
+   },
+   {
+    "designacao": "EXP-14A",
+    "malha_sd": 14.0,
+    "malha_ld": 32.0,
+    "abertura_a": 12.0,
+    "abertura_b": 25.0,
+    "cordao": 1.5,
+    "espessura": 1.25,
+    "area_aberta": 78.0,
+    "kg_m2": 2.32
+   },
+   {
+    "designacao": "EXP-14B",
+    "malha_sd": 14.0,
+    "malha_ld": 32.0,
+    "abertura_a": 12.0,
+    "abertura_b": 25.0,
+    "cordao": 1.8,
+    "espessura": 1.5,
+    "area_aberta": 86.0,
+    "kg_m2": 3.3
+   },
+   {
+    "designacao": "EXP-20",
+    "malha_sd": 20.0,
+    "malha_ld": 50.0,
+    "abertura_a": 18.0,
+    "abertura_b": 38.0,
+    "cordao": 2.0,
+    "espessura": 1.5,
+    "area_aberta": 80.0,
+    "kg_m2": 2.32
+   },
+   {
+    "designacao": "EXP-20A",
+    "malha_sd": 20.0,
+    "malha_ld": 50.0,
+    "abertura_a": 18.0,
+    "abertura_b": 38.0,
+    "cordao": 2.5,
+    "espessura": 2.0,
+    "area_aberta": 73.0,
+    "kg_m2": 4.25
+   },
+   {
+    "designacao": "EXP-20B",
+    "malha_sd": 20.0,
+    "malha_ld": 50.0,
+    "abertura_a": 18.0,
+    "abertura_b": 38.0,
+    "cordao": 3.5,
+    "espessura": 3.0,
+    "area_aberta": 89.0,
+    "kg_m2": 9.2
+   },
+   {
+    "designacao": "EXP-29",
+    "malha_sd": 29.0,
+    "malha_ld": 54.0,
+    "abertura_a": 18.0,
+    "abertura_b": 36.0,
+    "cordao": 3.0,
+    "espessura": 2.0,
+    "area_aberta": 83.0,
+    "kg_m2": 3.6
+   },
+   {
+    "designacao": "EXP-38",
+    "malha_sd": 38.0,
+    "malha_ld": 75.0,
+    "abertura_a": 33.0,
+    "abertura_b": 66.0,
+    "cordao": 2.0,
+    "espessura": 1.5,
+    "area_aberta": 89.0,
+    "kg_m2": 1.35
+   },
+   {
+    "designacao": "EXP-38A",
+    "malha_sd": 38.0,
+    "malha_ld": 75.0,
+    "abertura_a": 33.0,
+    "abertura_b": 66.0,
+    "cordao": 2.5,
+    "espessura": 1.9,
+    "area_aberta": 86.0,
+    "kg_m2": 2.2
+   },
+   {
+    "designacao": "EXP-38B",
+    "malha_sd": 38.0,
+    "malha_ld": 75.0,
+    "abertura_a": 33.0,
+    "abertura_b": 66.0,
+    "cordao": 5.0,
+    "espessura": 3.0,
+    "area_aberta": 73.0,
+    "kg_m2": 10.7
+   },
+   {
+    "designacao": "EXP-38C",
+    "malha_sd": 38.0,
+    "malha_ld": 75.0,
+    "abertura_a": 33.0,
+    "abertura_b": 66.0,
+    "cordao": 5.0,
+    "espessura": 4.7,
+    "area_aberta": 73.0,
+    "kg_m2": 10.7
+   },
+   {
+    "designacao": "EXP-68",
+    "malha_sd": 68.0,
+    "malha_ld": 150.0,
+    "abertura_a": 64.0,
+    "abertura_b": 132.0,
+    "cordao": 3.5,
+    "espessura": 3.0,
+    "area_aberta": 89.0,
+    "kg_m2": 2.63
+   },
+   {
+    "designacao": "EXP-68A",
+    "malha_sd": 68.0,
+    "malha_ld": 150.0,
+    "abertura_a": 64.0,
+    "abertura_b": 132.0,
+    "cordao": 5.5,
+    "espessura": 4.7,
+    "area_aberta": 89.0,
+    "kg_m2": 6.7
+   },
+   {
+    "designacao": "GME-3",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 28.0,
+    "abertura_b": 87.6,
+    "cordao": 4.7,
+    "espessura": 4.75,
+    "area_aberta": 69.4,
+    "kg_m2": 10.3
+   },
+   {
+    "designacao": "GME-4",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 26.5,
+    "abertura_b": 87.6,
+    "cordao": 6.8,
+    "espessura": 4.75,
+    "area_aberta": 69.4,
+    "kg_m2": 14.9
+   },
+   {
+    "designacao": "GME-4E",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 28.0,
+    "abertura_b": 87.6,
+    "cordao": 4.8,
+    "espessura": 4.75,
+    "area_aberta": 70.9,
+    "kg_m2": 10.5
+   },
+   {
+    "designacao": "GME-5",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 24.2,
+    "abertura_b": 84.2,
+    "cordao": 7.6,
+    "espessura": 6.35,
+    "area_aberta": 69.8,
+    "kg_m2": 22.3
+   },
+   {
+    "designacao": "GME-5A",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 25.0,
+    "abertura_b": 84.2,
+    "cordao": 6.5,
+    "espessura": 6.35,
+    "area_aberta": 69.8,
+    "kg_m2": 19.0
+   },
+   {
+    "designacao": "GME-6",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 22.8,
+    "abertura_b": 84.2,
+    "cordao": 9.5,
+    "espessura": 6.35,
+    "area_aberta": 69.8,
+    "kg_m2": 27.9
+   },
+   {
+    "designacao": "GME-7",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 21.5,
+    "abertura_b": 81.0,
+    "cordao": 8.9,
+    "espessura": 8.0,
+    "area_aberta": 70.0,
+    "kg_m2": 32.9
+   },
+   {
+    "designacao": "GME-8",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 20.4,
+    "abertura_b": 81.0,
+    "cordao": 10.3,
+    "espessura": 8.0,
+    "area_aberta": 70.0,
+    "kg_m2": 38.0
+   },
+   {
+    "designacao": "GME-9",
+    "malha_sd": 34.0,
+    "malha_ld": 133.0,
+    "abertura_a": 19.4,
+    "abertura_b": 78.0,
+    "cordao": 9.5,
+    "espessura": 9.5,
+    "area_aberta": 71.0,
+    "kg_m2": 41.7
+   },
+   {
+    "designacao": "GME-1A",
+    "malha_sd": 40.0,
+    "malha_ld": 100.0,
+    "abertura_a": 31.4,
+    "abertura_b": 72.6,
+    "cordao": 6.5,
+    "espessura": 6.35,
+    "area_aberta": 64.3,
+    "kg_m2": 17.9
+   },
+   {
+    "designacao": "GME-3A",
+    "malha_sd": 40.0,
+    "malha_ld": 100.0,
+    "abertura_a": 34.0,
+    "abertura_b": 76.0,
+    "cordao": 4.8,
+    "espessura": 4.75,
+    "area_aberta": 59.0,
+    "kg_m2": 8.9
+   },
+   {
+    "designacao": "GME-4A",
+    "malha_sd": 40.0,
+    "malha_ld": 100.0,
+    "abertura_a": 33.3,
+    "abertura_b": 76.0,
+    "cordao": 6.5,
+    "espessura": 4.75,
+    "area_aberta": 59.0,
+    "kg_m2": 13.4
+   },
+   {
+    "designacao": "GME-6B",
+    "malha_sd": 40.0,
+    "malha_ld": 100.0,
+    "abertura_a": 31.4,
+    "abertura_b": 72.6,
+    "cordao": 9.5,
+    "espessura": 6.35,
+    "area_aberta": 54.5,
+    "kg_m2": 25.9
+   },
+   {
+    "designacao": "GME-3C",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 35.0,
+    "abertura_b": 92.0,
+    "cordao": 4.8,
+    "espessura": 4.75,
+    "area_aberta": 66.0,
+    "kg_m2": 8.7
+   },
+   {
+    "designacao": "GME-4C",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 34.0,
+    "abertura_b": 92.0,
+    "cordao": 6.5,
+    "espessura": 4.75,
+    "area_aberta": 66.0,
+    "kg_m2": 11.8
+   },
+   {
+    "designacao": "GME-4F",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 34.0,
+    "abertura_b": 92.0,
+    "cordao": 5.0,
+    "espessura": 4.75,
+    "area_aberta": 76.0,
+    "kg_m2": 9.8
+   },
+   {
+    "designacao": "GME-5B",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 32.5,
+    "abertura_b": 88.0,
+    "cordao": 6.5,
+    "espessura": 6.35,
+    "area_aberta": 67.0,
+    "kg_m2": 15.8
+   },
+   {
+    "designacao": "GME-6A",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 30.4,
+    "abertura_b": 88.0,
+    "cordao": 9.5,
+    "espessura": 6.35,
+    "area_aberta": 67.0,
+    "kg_m2": 23.1
+   },
+   {
+    "designacao": "GME-7A",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 29.0,
+    "abertura_b": 84.6,
+    "cordao": 8.9,
+    "espessura": 8.0,
+    "area_aberta": 67.0,
+    "kg_m2": 27.6
+   },
+   {
+    "designacao": "GME-8B",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 28.0,
+    "abertura_b": 84.6,
+    "cordao": 10.3,
+    "espessura": 8.0,
+    "area_aberta": 67.0,
+    "kg_m2": 31.6
+   },
+   {
+    "designacao": "GME-9A",
+    "malha_sd": 41.0,
+    "malha_ld": 133.0,
+    "abertura_a": 27.0,
+    "abertura_b": 82.0,
+    "cordao": 9.5,
+    "espessura": 9.5,
+    "area_aberta": 67.5,
+    "kg_m2": 34.6
+   },
+   {
+    "designacao": "GME-1B",
+    "malha_sd": 45.0,
+    "malha_ld": 100.0,
+    "abertura_a": 36.5,
+    "abertura_b": 73.5,
+    "cordao": 6.5,
+    "espessura": 6.35,
+    "area_aberta": 58.0,
+    "kg_m2": 14.4
+   },
+   {
+    "designacao": "GME-3B",
+    "malha_sd": 45.0,
+    "malha_ld": 100.0,
+    "abertura_a": 39.2,
+    "abertura_b": 76.5,
+    "cordao": 4.8,
+    "espessura": 4.75,
+    "area_aberta": 58.4,
+    "kg_m2": 7.9
+   },
+   {
+    "designacao": "GME-4B",
+    "malha_sd": 45.0,
+    "malha_ld": 100.0,
+    "abertura_a": 38.3,
+    "abertura_b": 76.5,
+    "cordao": 6.5,
+    "espessura": 4.75,
+    "area_aberta": 58.4,
+    "kg_m2": 10.8
+   },
+   {
+    "designacao": "GME-1C",
+    "malha_sd": 50.0,
+    "malha_ld": 100.0,
+    "abertura_a": 40.5,
+    "abertura_b": 81.0,
+    "cordao": 6.5,
+    "espessura": 6.35,
+    "area_aberta": 52.6,
+    "kg_m2": 12.9
+   },
+   {
+    "designacao": "GME-3D",
+    "malha_sd": 50.0,
+    "malha_ld": 100.0,
+    "abertura_a": 43.0,
+    "abertura_b": 84.0,
+    "cordao": 4.8,
+    "espessura": 4.75,
+    "area_aberta": 53.0,
+    "kg_m2": 7.2
+   },
+   {
+    "designacao": "GME-4D",
+    "malha_sd": 50.0,
+    "malha_ld": 100.0,
+    "abertura_a": 42.0,
+    "abertura_b": 84.2,
+    "cordao": 6.5,
+    "espessura": 4.75,
+    "area_aberta": 53.0,
+    "kg_m2": 9.7
+   },
+   {
+    "designacao": "GME-2",
+    "malha_sd": 51.0,
+    "malha_ld": 150.0,
+    "abertura_a": 43.0,
+    "abertura_b": 117.3,
+    "cordao": 7.8,
+    "espessura": 6.35,
+    "area_aberta": 56.7,
+    "kg_m2": 15.3
+   }
+  ]
+ },
+ "xadrez": {
+  "status": "a checar",
+  "fonte": "Espessuras: ArcelorMittal Distribuição, catálogo Chapas/Tiras/Blanks/Rolos (ago/2019), Chapa Piso CP. kg/m² com relevo: Fábrica do Projeto, tabela de chapa xadrez (29/04/2024). A ArcelorMittal traz o peso da chapa lisa (7,85 × espessura).",
+  "itens": [
+   {
+    "designacao": "1/8\"",
+    "espessura": 3.0,
+    "kg_m2": 27.0,
+    "kg_m2_liso": 24.0
+   },
+   {
+    "designacao": "3/16\"",
+    "espessura": 4.75,
+    "kg_m2": 41.0,
+    "kg_m2_liso": 38.0
+   },
+   {
+    "designacao": "1/4\"",
+    "espessura": 6.3,
+    "kg_m2": 54.0,
+    "kg_m2_liso": 50.4
+   },
+   {
+    "designacao": "5/16\"",
+    "espessura": 8.0,
+    "kg_m2": 68.0,
+    "kg_m2_liso": 64.0
+   },
+   {
+    "designacao": "3/8\"",
+    "espessura": 9.5,
+    "kg_m2": 81.0,
+    "kg_m2_liso": 76.0
+   }
+  ]
+ },
+ "perfurada": {
+  "status": "calculado",
+  "fonte": "Geometria: área aberta pelo arranjo (60°: 0,9069·(d/p)²; reto: 0,7854·(d/p)²) e peso pela densidade do material."
+ }
+}
