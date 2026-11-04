@@ -56,7 +56,7 @@ EQUIVALENCIAS = [
     ("Peça", "Combinar (subtrair/adicionar)", "Boolean / Combine", "Subtrair, Unir, Interseção", "peca",
      ["Part_Cut", "Part_Fuse", "Part_Common"], "Subtrair: primeiro a peça base, depois a ferramenta."),
     ("Avaliar", "Propriedades de massa", "Mass properties", "Propriedades de massa", "peca", ["Prumo_Massa"], ""),
-    ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Std_Measure"], ""),
+    ("Avaliar", "Medir", "Measure", "Medir", "inicio", ["Prumo_Medir"], ""),
     ("Tubulação", "Routing (tubulação)", "Piping / Pipe Routing", "Tubos e conexões", "tubulacao", ["Prumo_Tubulacao"],
      "Desenhe o traçado com o Esboço 3D (aba Tubulação → Esboço 3D); joelhos, tês e reduções saem do catálogo (PVC soldável Tigre)."),
     ("Estruturas", "Membro estrutural", "Frame generator / Structure", "Estrutura soldada", "estruturas",

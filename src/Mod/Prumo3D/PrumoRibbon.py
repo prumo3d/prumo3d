@@ -49,21 +49,16 @@ WB_NAMES = {
 # Abas. Cada item: (comando, tamanho, rótulo). "\n" quebra o rótulo grande.
 TABS = [
     {"id": "inicio", "label": "Início", "wb": None, "panels": [
-        # sem documento aberto: começar uma peça, um esboço ou uma montagem (somem depois de abrir)
-        ("Começar", [
-            ("Prumo_NovaPeca", L, "Peça"), ("Prumo_NovoEsbocoAvulso", L, "Esboço"),
-            ("Prumo_NovaMontagem", L, "Montagem"),
-        ]),
         ("Arquivo", [
             ("Std_New", L, "Novo"), ("Std_Open", L, "Abrir"), ("Std_Save", L, "Salvar"),
             ("Std_SaveAs", S, "Salvar como"), ("Std_Import", S, "Importar"), ("Std_Export", S, "Exportar"),
             ("Std_PrintPdf", S, "Exportar PDF"), ("Std_Print", S, "Imprimir"), ("Std_ProjectInfo", S, "Info. do projeto"),
-            ("Prumo_CopiarProjeto", S, "Copiar projeto"),
+            ("Prumo_CopiarProjeto", S, "Copiar projeto"), ("Std_Paste", L, "Colar"),
         ]),
-        ("Editar", [
-            ("Std_Undo", S, "Desfazer"), ("Std_Redo", S, "Refazer"),
-            ("Std_Cut", S, "Recortar"), ("Std_Copy", S, "Copiar"), ("Std_Paste", S, "Colar"),
-            ("Std_Delete", S, "Excluir"), ("Std_Placement", S, "Posicionamento"), ("Std_Edit", S, "Editar objeto"),
+        # sem documento aberto: começar uma peça, um esboço ou uma montagem (somem depois de abrir)
+        ("Começar", [
+            ("Prumo_NovaPeca", L, "Peça"), ("Prumo_NovoEsbocoAvulso", L, "Esboço"),
+            ("Prumo_NovaMontagem", L, "Montagem"),
         ]),
         # Vista: saiu daqui; as vistas ficam na barra flutuante embaixo da vista 3D (PrumoBarraVista)
         ("Ferramentas", [
@@ -130,9 +125,8 @@ TABS = [
             ("PartDesign_AdditiveLoft", L, "Loft"), ("PartDesign_AdditivePipe", S, "Varredura"),
             ("Prumo_BarraVarredura", S, "Barra de varredura"),
             ("PartDesign_AdditiveHelix", S, "Hélice"),
-        ]),
-        ("Modelagem direta", [
-            ("Prumo_ExtrudarFace", L, "Extrudar\nface"), ("Prumo_DesenharNaFace", S, "Desenhar na face"),
+            # da antiga Modelagem direta (Extrudar face saiu: a Extrusão já extruda uma face)
+            ("Prumo_DesenharNaFace", S, "Desenhar na face"),
             ("Prumo_LinhaGuia", S, "Linha guia"), ("Prumo_PecaPelasGuias", S, "Peça pelas guias"),
         ]),
         ("Remover material", [
@@ -1302,7 +1296,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         # Medir fica só aqui (vale em todas as abas) e nunca some, nem com a janela estreita
         for name, tip in (("Std_New", "Novo"), ("Std_Open", "Abrir"), ("Std_Save", "Salvar"),
                           ("Std_Undo", "Desfazer"), ("Std_Redo", "Refazer"), ("|", ""),
-                          ("Std_Measure", "Medir")):
+                          ("Prumo_Medir", "Medir")):
             if name == "|":
                 sep = QtWidgets.QFrame(box)
                 sep.setFrameShape(QtWidgets.QFrame.VLine)

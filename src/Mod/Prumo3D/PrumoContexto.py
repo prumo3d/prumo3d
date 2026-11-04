@@ -36,7 +36,7 @@ ACOES = {
                        "Esvazia a peça tirando as faces selecionadas", "PartDesign_Thickness"),
     "Prumo_CtxEditarEsboco": ("Sketcher_EditSketch", "SketcherWorkbench", "Editar esboço",
                               "Abre o esboço selecionado para edição", "Sketcher_EditSketch"),
-    "Prumo_CtxMedir": ("Std_Measure", None, "Medir", "Mede a seleção", "umf-measurement"),
+    "Prumo_CtxMedir": ("Prumo_Medir", None, "Medir", "Mede a seleção", "umf-measurement"),
 }
 
 ORDEM_VISTA_ANCORA = "Std_ViewFitAll"

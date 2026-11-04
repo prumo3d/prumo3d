@@ -748,6 +748,12 @@ class PainelAcabamentoArestas(_Base):
         self.campos = {}
         f = self.f
         arred = self.obj.TypeId == "PartDesign::Fillet"
+        if arred:   # face com cantos para fora e para dentro: o OK faz em duas etapas em vez de dar erro
+            try:
+                import PrumoArredondarEtapas
+                PrumoArredondarEtapas.ligar_ok(self.obj)
+            except Exception:
+                pass
 
         c = UI.Cartao("Arestas", "selecao")
         n = len(e["refs"])

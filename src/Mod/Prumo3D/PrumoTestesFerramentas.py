@@ -7947,7 +7947,7 @@ class T56PropriedadesEAparencia(unittest.TestCase):
             self.skipTest("sem interface")
         import PrumoPainelLateral as P
         P.organizar()
-        if P.inspetor() is None or P.aparencia() is None:
+        if P.inspetor() is None:
             self.skipTest("abas novas não instaladas nesta sessão")
         self.P = P
         self.doc = novo_doc("PrumoTesteInspetor")
@@ -8042,7 +8042,7 @@ class T56PropriedadesEAparencia(unittest.TestCase):
     def test_aparencia(self):
         import PrumoInspetor as I
         self._selecionar(self.pad)
-        ap = self.P.aparencia()
+        ap = I.Aparencia()   # saiu do painel lateral (fica na janela da barra de vistas)
         ap.montar([self.pad])
         vo = self.pad.ViewObject
         ap.controles["Transparency"].setValue(40)
@@ -13465,7 +13465,7 @@ class T89NovidadesDoZW3D(unittest.TestCase):
     def test_medir_so_no_acesso_rapido(self):
         import PrumoRibbon as R
         nas_abas = [t["id"] for t in R.TABS for _p, its in t["panels"] for c, *_r in its
-                    if "Std_Measure" in c.split("|")]
+                    if c.split("|")[0] in ("Std_Measure", "Prumo_Medir")]
         self.assertEqual(nas_abas, [])
         if FreeCAD.GuiUp:
             rb = R._state.get("ribbon")
@@ -13473,7 +13473,7 @@ class T89NovidadesDoZW3D(unittest.TestCase):
             if getattr(rb, "_quick_box", None) is not None:
                 from PySide import QtWidgets
                 medir = [b for b in rb._quick_box.findChildren(QtWidgets.QToolButton)
-                         if getattr(b, "_cmd", "") == "Std_Measure"]
+                         if getattr(b, "_cmd", "") == "Prumo_Medir"]
                 self.assertEqual(len(medir), 1)
                 self.assertFalse(medir[0].property("prumo_dispensavel"))
 
@@ -14318,7 +14318,7 @@ class T104ModelagemDireta(unittest.TestCase):
     def test_comandos_na_faixa(self):
         import PrumoRibbon as R
         todos = {n for t in R.TABS for _n, its in t["panels"] for c, *_r in its for n in c.split("|")}
-        for c in ("Prumo_ExtrudarFace", "Prumo_DesenharNaFace", "Prumo_LinhaGuia", "Prumo_PecaPelasGuias",
+        for c in ("Prumo_DesenharNaFace", "Prumo_LinhaGuia", "Prumo_PecaPelasGuias",
                   "Prumo_MatrizFuracao", "Prumo_Posicionar", "Prumo_MatrizLeve", "Prumo_MedirXYZ", "Prumo_Isolar",
                   "Prumo_Explosao"):
             self.assertIn(c, todos)
@@ -14483,14 +14483,17 @@ class T107LayoutEDutos(unittest.TestCase):
         import PrumoRibbon as R
         peca = [t for t in R.TABS if t["id"] == "peca"][0]
         grupos = [n for n, _i in peca["panels"]]
-        self.assertEqual(grupos.index("Modelagem direta"), grupos.index("Adicionar material") + 1)
+        self.assertNotIn("Modelagem direta", grupos)   # os 3 botões foram para Adicionar material
+        add_cmds = [c for c, _t, _r in dict(peca["panels"])["Adicionar material"]]
+        for c in ("Prumo_DesenharNaFace", "Prumo_LinhaGuia", "Prumo_PecaPelasGuias"):
+            self.assertIn(c, add_cmds)
         corpo = [c for c, _t, _r in dict(peca["panels"])["Corpo"]]
         self.assertEqual(corpo[2:5], ["PartDesign_ShapeBinder", "PartDesign_SubShapeBinder", "PartDesign_Clone"])
         for c in ("PartDesign_SubShapeBinder", "PartDesign_Clone"):
             self.assertNotIn(c, R.RAROS["peca"], "à vista, sem o Mais")
         add = {c: t for c, t, _r in dict(peca["panels"])["Adicionar material"]}
         self.assertEqual(add["PartDesign_AdditiveLoft"], R.L)
-        self.assertEqual(sum(1 for t in add.values() if t == R.S), 3, "Varredura, Barra e Hélice numa coluna")
+        self.assertEqual(sum(1 for t in add.values() if t == R.S), 6, "Varredura, Barra e Hélice + os 3 da antiga Modelagem direta")
         pad = [c for c, _t, _r in dict(peca["panels"])["Padrões"]]
         self.assertIn("PartDesign_MultiTransform|Prumo_MatrizFuracao", pad)
         self.assertEqual(R.ICONES_FAIXA.get("Std_Refresh"), "recalcular.svg")
@@ -15225,6 +15228,217 @@ class T108FixadoresNovos(unittest.TestCase):
         finally:
             fechar(doc)
 
+
+class T109ArredondarMedirLayout(unittest.TestCase):
+    """Arredondar face com cantos para fora e para dentro (duas etapas), Medir em português, Início com
+    Colar em Arquivo e Começar depois, Aparência fora do painel lateral, ilustrações menores."""
+
+    def _perfil(self, nome):
+        import Part
+        V = FreeCAD.Vector
+        doc = novo_doc(nome)
+        b = doc.addObject("PartDesign::Body", "Body")
+        sk = b.newObject("Sketcher::SketchObject", "S1")
+        sk.AttachmentSupport = [(b.Origin.OriginFeatures[3], "")]
+        sk.MapMode = "FlatFace"
+        pts = [V(0, 0, 0), V(80, 0, 0), V(80, 8, 0), V(8, 8, 0), V(8, 62, 0), V(80, 62, 0), V(80, 70, 0), V(0, 70, 0)]
+        for i in range(len(pts)):
+            sk.addGeometry(Part.LineSegment(pts[i], pts[(i + 1) % len(pts)]))
+        pad = b.newObject("PartDesign::Pad", "Pad")
+        pad.Profile = sk
+        pad.Length = 100
+        doc.recompute()
+        sk2 = b.newObject("Sketcher::SketchObject", "S2")
+        sk2.AttachmentSupport = [(b.Origin.OriginFeatures[4], "")]
+        sk2.MapMode = "FlatFace"
+        p = [V(-10, -10, 0), V(100, -10, 0), V(100, 20, 0), V(-10, 20, 0)]
+        for i in range(4):
+            sk2.addGeometry(Part.LineSegment(p[i], p[(i + 1) % 4]))
+        po = b.newObject("PartDesign::Pocket", "Pocket")
+        po.Profile = sk2
+        po.Type = "ThroughAll"
+        po.Midplane = True
+        po.Refine = False
+        doc.recompute()
+        return doc, b, po
+
+    def _faces_que_falham(self, po):
+        sh = po.Shape
+        out = []
+        for i, f in enumerate(sh.Faces, 1):
+            try:
+                sh.makeFillet(1.0, f.Edges)
+            except Exception:
+                out.append("Face%d" % i)
+        return out
+
+    def test_face_do_corte_arredonda_em_duas_etapas(self):
+        import PrumoArredondarEtapas as E
+        doc, b, po = self._perfil("PrumoTesteEtapas")
+        try:
+            ruins = self._faces_que_falham(po)
+            self.assertTrue(ruins, "o caso precisa reproduzir a falha do OpenCASCADE")
+            for face in ruins:
+                f = b.newObject("PartDesign::Fillet", "Fillet")
+                f.Base = (b.Tip if b.Tip != f else po, [face]) if False else (po, [face])
+                f.Radius = 1
+                doc.recompute()
+                self.assertFalse(f.isValid())
+                f2 = E.dividir(f)
+                self.assertIsNotNone(f2, face)
+                self.assertTrue(f.isValid() and f2.isValid(), face)
+                self.assertEqual(b.Tip, f2)
+                self.assertLess(f2.Shape.Volume, po.Shape.Volume)
+                for o in (f2, f):
+                    b.removeObject(o)
+                    doc.removeObject(o.Name)
+                b.Tip = po
+                doc.recompute()
+            # arredondamento que já fecha não é mexido
+            f = b.newObject("PartDesign::Fillet", "Fillet")
+            f.Base = (po, ["Edge1"])
+            f.Radius = 1
+            doc.recompute()
+            self.assertIsNone(E.dividir(f))
+        finally:
+            fechar(doc)
+
+    def test_ok_do_painel_nao_da_erro(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtCore, QtWidgets
+        import PrumoTrocarOperacao as T
+        doc, b, po = self._perfil("PrumoTesteEtapasPainel")
+        modais = []
+
+        def espia():
+            for w in QtWidgets.QApplication.topLevelWidgets():
+                if isinstance(w, QtWidgets.QMessageBox) and w.isVisible():
+                    modais.append(w.text())
+                    w.done(0)
+        try:
+            face = self._faces_que_falham(po)[0]
+            f = b.newObject("PartDesign::Fillet", "Fillet")
+            f.Base = (po, [face])
+            f.Radius = 1
+            doc.recompute()
+            gd = FreeCADGui.getDocument(doc.Name)
+            gd.setEdit(f.Name, 0)
+            fim = time.time() + 2
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            ok = T._botao_ok()
+            self.assertIsNotNone(ok)
+            for t in (1500, 3000):
+                QtCore.QTimer.singleShot(t, espia)
+            QtCore.QTimer.singleShot(0, ok.click)
+            fim = time.time() + 4
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertEqual(modais, [])
+            self.assertIsNone(gd.getInEdit())
+            self.assertEqual([o.TypeId for o in b.Group].count("PartDesign::Fillet"), 2)
+            self.assertTrue(b.Tip.isValid())
+        finally:
+            for t in (0,):
+                espia()
+            fechar(doc)
+
+    def test_medir_em_portugues(self):
+        import Part
+        import PrumoMedir as M
+        caixa = Part.makeBox(10, 20, 30)
+        e = caixa.Edges[0]
+        r, par = M.medir([M.Item("a", e)])
+        self.assertEqual(r[0][0], "Comprimento")
+        self.assertIn(",", r[0][1])
+        circ = Part.makeCircle(5)
+        r, _ = M.medir([M.Item("c", circ)])
+        d = dict(r)
+        self.assertEqual(d["Raio"], "5,00 mm")
+        self.assertEqual(d["Diâmetro"], "10,00 mm")
+        r, _ = M.medir([M.Item("p", caixa)])
+        d = dict(r)
+        self.assertEqual(d["Volume"], "6.000,00 mm³")
+        self.assertEqual(d["Tamanho (caixa)"], "10,00 × 20,00 × 30,00 mm")
+        # duas faces paralelas: distância, ângulo 0 e distância entre as faces
+        fz = [f for f in caixa.Faces if abs(f.normalAt(0, 0).z) > 0.9]
+        r, par = M.medir([M.Item("f1", fz[0]), M.Item("f2", fz[1])])
+        d = dict(r)
+        self.assertEqual(d["Distância mínima"], "30,00 mm")
+        self.assertEqual(d["Ângulo"], "0,00°")
+        self.assertEqual(d["Entre as faces"], "30,00 mm")
+        self.assertIsNotNone(par)
+        # duas arestas perpendiculares
+        l1, l2 = Part.makeLine((0, 0, 0), (10, 0, 0)), Part.makeLine((0, 0, 0), (0, 10, 0))
+        self.assertEqual(dict(M.medir([M.Item("1", l1), M.Item("2", l2)])[0])["Ângulo"], "90,00°")
+        # três pontos: ângulo no do meio
+        pts = [Part.Vertex(1, 0, 0), Part.Vertex(0, 0, 0), Part.Vertex(0, 1, 0)]
+        self.assertEqual(dict(M.medir([M.Item(str(i), p) for i, p in enumerate(pts)])[0])["Ângulo no 2º ponto"],
+                         "90,00°")
+        if FreeCAD.GuiUp:
+            self.assertIn("Prumo_Medir", FreeCADGui.listCommands())
+
+    def test_painel_medir_abre_e_segue_a_selecao(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import time
+        from PySide import QtWidgets
+        import PrumoMedir as M
+        doc = novo_doc("PrumoTesteMedir")
+        try:
+            cx = doc.addObject("Part::Box", "Caixa")
+            doc.recompute()
+            p = M.abrir()
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(doc.Name, "Caixa", "Edge1")
+            fim = time.time() + 0.6
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertEqual(p.linhas[0][0], "Comprimento")
+            FreeCADGui.Selection.addSelection(doc.Name, "Caixa", "Edge3")
+            fim = time.time() + 0.6
+            while time.time() < fim:
+                QtWidgets.QApplication.processEvents()
+                time.sleep(0.02)
+            self.assertIn("Distância mínima", dict(p.linhas))
+            self.assertIsNotNone(p.linha.no)
+            p.reject()
+            self.assertIsNone(p.linha.no)
+        finally:
+            FreeCADGui.Selection.clearSelection()
+            if FreeCADGui.Control.activeDialog():
+                FreeCADGui.Control.closeDialog()
+            fechar(doc)
+
+    def test_layout_inicio_e_peca(self):
+        import PrumoRibbon as R
+        ini = [t for t in R.TABS if t["id"] == "inicio"][0]
+        grupos = [n for n, _i in ini["panels"]]
+        self.assertNotIn("Editar", grupos)
+        self.assertEqual(grupos.index("Começar"), grupos.index("Arquivo") + 1)
+        arq = {c: t for c, t, _r in dict(ini["panels"])["Arquivo"]}
+        self.assertEqual(arq.get("Std_Paste"), R.L)
+        peca = [t for t in R.TABS if t["id"] == "peca"][0]
+        todos = [c for _n, its in peca["panels"] for c, *_r in its]
+        self.assertNotIn("Prumo_ExtrudarFace", todos)
+
+    def test_aparencia_fora_do_painel_lateral(self):
+        if not FreeCAD.GuiUp:
+            self.skipTest("sem interface")
+        import PrumoPainelLateral as P
+        P.organizar()
+        self.assertIsNone(P.docks().get(P.APARENCIA))
+
+    def test_ilustracao_menor(self):
+        import inspect
+        import PrumoGuia
+        self.assertIn("290", inspect.getsource(PrumoGuia))
+
 RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15FolhasABNT, T16Perfis,
            T17Estrutura, T18ChapaMetalica, T19VasoPressao, T20Fixadores, T21EnquadrarEsboco,
            T22EstruturaGrupos, T23EstruturaCantos, T24EstruturaExtras,
@@ -15253,4 +15467,4 @@ RAPIDOS = [T11CotasNaTela, T12Massa, T13MenuContexto, T14ListaMateriais, T15Folh
            T92BarraDeVarredura, T93MenusComAcento, T94Sombras, T95SemDependerDeBancada, T96BarraDeVistas, T97CatalogoDePerfis, T98CliqueSempreResponde,
            T99PlanosNoNovoEsboco, T100IdeiasDeOutrosCAD,
            T101AdicionarOuRemoverMaterial, T102Componentes, T103DutosHVAC, T104ModelagemDireta,
-           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos]
+           T105ExplosaoAnimada, T106RevisaoDaFaixa, T107LayoutEDutos, T108FixadoresNovos, T109ArredondarMedirLayout]

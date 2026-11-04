@@ -354,7 +354,7 @@ class GuiaFrame(QtWidgets.QFrame):
             pass
         par = self.parentWidget()
         avail = (par.width() if par is not None else self.width()) - 40
-        w = max(160, min(avail, 420))
+        w = max(140, min(int(avail * 0.7), 290))   # ilustração menor: deixa o painel para os campos
         h = int(w * I.H / I.W)
         dpr = self.devicePixelRatioF()
         # mudar a altura da imagem redimensiona o quadro, que chama _render de novo: só redesenha se a

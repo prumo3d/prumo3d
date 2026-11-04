@@ -614,7 +614,7 @@ def _instalar_abas_novas(mw, ds, no_inicio=False):
         novo = PrumoInspetor.Propriedades(avancado=original)
         prop.setWidget(novo)
         prop.visibilityChanged.connect(lambda vis: vis and atualizar(forcar=True))
-    if APARENCIA not in ds and not no_inicio:
+    if False and APARENCIA not in ds and not no_inicio:   # Aparência saiu do painel: fica na barra de vistas
         # com a tela inicial na frente os painéis estão escondidos: cria depois, para não reabri-los
         d = QtWidgets.QDockWidget(TITULOS[APARENCIA], mw)
         d.setObjectName(APARENCIA)
