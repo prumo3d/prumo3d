@@ -9,6 +9,19 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.3.1 — 04/11/2026
+
+### Novidades
+
+- **Piso e fechamento** (aba Estruturas, grupo Pisos e fechamentos): preenche um esboço fechado ou uma
+  face plana com **chapa expandida**, **chapa perfurada (tela moeda)** ou **chapa xadrez**, em aço
+  carbono, galvanizado, inox 304/316 ou alumínio.
+  - Tela moeda: furo, passo e arranjo (60° ou reto); área aberta e peso calculados pela geometria; furos
+    reais no modelo (até 1.000; acima disso, a textura do padrão).
+  - Chapa expandida (malhas EXP e GME) e chapa xadrez pelo catálogo, com a fonte de cada valor;
+    **medidas e pesos a checar** no catálogo do fabricante.
+  - Padrão corta onde cair, com opção de centralizar; área e peso na lista de materiais.
+
 ## 1.3.0 — 04/11/2026
 
 ### O CAD 3D da metal-mecânica

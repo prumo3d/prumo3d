@@ -31,10 +31,13 @@ medida comercial, a norma e o jeito de trabalhar de quem faz metal-mecânica no 
 Novidades
 ---------
 
-**Versão atual: 1.3.0** (04/11/2026)
+**Versão atual: 1.3.1** (04/11/2026)
 
-- **O CAD 3D da metal-mecânica:** saíram arquitetura e BIM, usinagem CNC, robótica, OpenSCAD e nuvem de
-  pontos; ficam peças, chapa, estruturas, tubulação, vasos, simulação e desenho técnico.
+- **Piso e fechamento:** chapa expandida, tela moeda (perfurada) e chapa xadrez num contorno fechado, com
+  área e peso na lista de materiais.
+
+Na 1.3.0: o CAD 3D da metal-mecânica — saíram arquitetura e BIM, usinagem CNC, robótica, OpenSCAD e nuvem de
+pontos.
 
 Na 1.2.9: barra de varredura sextavada, oval e quadrifólio; faixa com altura fixa.
 
