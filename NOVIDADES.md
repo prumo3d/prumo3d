@@ -9,6 +9,21 @@ O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para b
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
 
+## 1.2.8 — 04/11/2026
+
+### Novidades
+
+- **Medir em português:** painel novo que mede o que estiver selecionado, sem escolher modo — posição,
+  comprimento, raio e diâmetro, área, volume, centro de massa, distância mínima com ΔX/ΔY/ΔZ, distância
+  entre centros, ângulo e soma de comprimentos/áreas. A distância aparece numa linha amarela na vista.
+- **Arredondar qualquer face:** face com cantos para fora e para dentro (como a do lado de um corte) não dá
+  mais "BRep_API: command not done" — o Prumo faz em duas etapas, com o mesmo raio.
+- **Aba Início:** Colar grande em Arquivo; Começar logo depois; o grupo Editar saiu.
+- **Aba Peça:** a seção Modelagem direta saiu (Extrudar face saiu — a Extrusão faz o mesmo); Desenhar na
+  face, Linha guia e Peça pelas guias foram para Adicionar material.
+- **Painel lateral:** só Árvore e Propriedades; a Aparência fica no botão da barra de vistas.
+- Ilustrações de "Como funciona" menores.
+
 ## 1.2.7 — 04/11/2026
 
 ### Novidades

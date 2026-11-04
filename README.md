@@ -27,13 +27,13 @@ ferramentas que encurtam o caminho entre a ideia e o desenho ou a simulação.
 Novidades
 ---------
 
-**Versão atual: 1.2.7** (04/11/2026)
+**Versão atual: 1.2.8** (04/11/2026)
 
-- **Aba Início:** botões grandes Peça, Esboço e Montagem para começar.
-- **Dutos de ar-condicionado** dentro de Tubos e conexões, com as mesmas ferramentas da tubulação.
-- **Mais fixadores:** escareado, abaulado, sem cabeça, porcas baixa, autotravante, flangeada e cega, arruela
-  larga, Phillips e autocravantes (medidas a checar).
-- **Aba Peça reorganizada**, esboço novo centrado e Aparência na barra de vistas.
+- **Medir em português**, sem escolher modo, com a distância desenhada na vista.
+- **Arredondar qualquer face**, mesmo com cantos para fora e para dentro.
+- **Início e Peça mais enxutos**; painel lateral só com Árvore e Propriedades.
+
+Na 1.2.7: botões Começar, dutos de ar-condicionado em Tubos e conexões, mais fixadores (medidas a checar).
 
 Na 1.2.6: aba Componentes, dutos HVAC de Francisco Rosa, modelagem direta, explosão animada.
 Na 1.2.5: perfil como num catálogo, sombras, barra de vistas, tecla S, mouse do programa de origem,
