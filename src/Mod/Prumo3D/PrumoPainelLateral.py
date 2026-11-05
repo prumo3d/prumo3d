@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Painel lateral único do Prumo 3D.
+"""Painel lateral único do Usinix.
 
 Um painel só à esquerda, com as abas no alto:
 
@@ -29,7 +29,7 @@ PROPRIEDADES = "Property view"
 TAREFA = "Tasks"
 APARENCIA = "PrumoAparencia"
 ORDEM = (ARVORE, PROPRIEDADES, APARENCIA, TAREFA)
-# Painéis do Prumo que viram abas do painel lateral enquanto estão abertos (com × para fechar)
+# Painéis do Usinix que viram abas do painel lateral enquanto estão abertos (com × para fechar)
 EXTRAS = {
     "PrumoAssistenteEstrutura": ("Estrutura", "estrutura"),
     "PrumoAssistenteFEM": ("Simulação", "simulacao"),
@@ -179,12 +179,12 @@ def _cabecalhos_da_tarefa(dock):
             saida.append((str(t), w.windowIcon()))        # painel em cartões que dá o próprio nome
     for w in dock.findChildren(QtWidgets.QWidget, "PrumoPainel"):
         if w.isVisibleTo(dock) and w.windowTitle():
-            saida.append((w.windowTitle(), w.windowIcon()))       # painel Prumo: o título dele
+            saida.append((w.windowTitle(), w.windowIcon()))       # painel Usinix: o título dele
     escondidos = []
     for b in dock.findChildren(QtWidgets.QToolButton):
         if b.property("class") == "header" and b.text():
             (saida if b.isVisibleTo(dock) else escondidos).append((b.text(), b.icon()))
-    # quadro do FreeCAD escondido atrás dos cartões do Prumo: o título dele ainda nomeia o comando
+    # quadro do FreeCAD escondido atrás dos cartões do Usinix: o título dele ainda nomeia o comando
     return saida or escondidos
 
 
@@ -409,7 +409,7 @@ def conteudo(dock):
 
 
 def acomodar(dock):
-    """Painel do Prumo (assistente, tutorial, guia, histórico) vira aba do painel lateral, à frente."""
+    """Painel do Usinix (assistente, tutorial, guia, histórico) vira aba do painel lateral, à frente."""
     if not ligado() or dock is None:
         return False
     mw = FreeCADGui.getMainWindow()
@@ -546,7 +546,7 @@ def organizar(no_inicio=False):
         except Exception as exc:
             if not _estado.get("aviso_cartoes"):
                 _estado["aviso_cartoes"] = True
-                FreeCAD.Console.PrintWarning("Prumo: propriedades em cartões: {}\n".format(exc))
+                FreeCAD.Console.PrintWarning("Usinix: propriedades em cartões: {}\n".format(exc))
     _nomear(ds)
     arv = ds.get(ARVORE)
     juntos = set(mw.tabifiedDockWidgets(arv)) | {arv} if arv is not None else set()

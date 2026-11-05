@@ -262,7 +262,7 @@ def aplicar(obj, prop, valor, rotulo=None, recalcular=True):
     except Exception as exc:
         if doc is not None:
             doc.abortTransaction()
-        FreeCAD.Console.PrintWarning("Prumo: não foi possível mudar {}: {}\n".format(prop, exc))
+        FreeCAD.Console.PrintWarning("Usinix: não foi possível mudar {}: {}\n".format(prop, exc))
         return False
 
 
@@ -370,7 +370,7 @@ class Propriedades(QtWidgets.QWidget):
         try:
             FreeCADGui.ActiveDocument.setEdit(self.obj.Name, 0)
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: {} não abre para edição: {}\n".format(self.obj.Label, exc))
+            FreeCAD.Console.PrintWarning("Usinix: {} não abre para edição: {}\n".format(self.obj.Label, exc))
 
     # ---------------------------------------------------------------- montar
     def _limpar(self):
@@ -794,7 +794,7 @@ class Aparencia(QtWidgets.QWidget):
             try:
                 pintar(vo, rgb)
             except Exception as exc:
-                FreeCAD.Console.PrintWarning("Prumo: cor: {}\n".format(exc))
+                FreeCAD.Console.PrintWarning("Usinix: cor: {}\n".format(exc))
         if doc is not None:
             doc.commitTransaction()
         objs = list(self.objs)
@@ -817,7 +817,7 @@ class Aparencia(QtWidgets.QWidget):
                     if getattr(vo, prop) != valor:
                         setattr(vo, prop, valor)
                 except Exception as exc:
-                    FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(rotulo, exc))
+                    FreeCAD.Console.PrintWarning("Usinix: {}: {}\n".format(rotulo, exc))
         if doc is not None:
             doc.commitTransaction()
 
@@ -860,7 +860,7 @@ class Observador:
         try:
             self.ao_mudar()
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: painel de propriedades: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: painel de propriedades: {}\n".format(exc))
 
     # seleção
     def addSelection(self, *a):

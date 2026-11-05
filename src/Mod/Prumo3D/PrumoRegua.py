@@ -308,7 +308,7 @@ if FreeCAD.GuiUp:
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
                 nova = mover_regua(c, pos)
             except Exception as ex:
-                FreeCAD.Console.PrintError("Prumo: régua de histórico: %s\n" % ex)
+                FreeCAD.Console.PrintError("Usinix: régua de histórico: %s\n" % ex)
                 nova = None
             finally:
                 QtWidgets.QApplication.restoreOverrideCursor()
@@ -566,7 +566,7 @@ if FreeCAD.GuiUp:
             except RuntimeError:
                 self.faixa = self.sombra = None
             except Exception as ex:
-                FreeCAD.Console.PrintLog("Prumo: régua na árvore: %s\n" % ex)
+                FreeCAD.Console.PrintLog("Usinix: régua na árvore: %s\n" % ex)
 
         def _colocar(self, y, vs):
             """Só mexe nos widgets quando a posição muda (o timer passa a cada 350 ms; mexer sempre
@@ -620,7 +620,7 @@ if FreeCAD.GuiUp:
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
                 nova = mover_regua(c, pos)
             except Exception as ex:
-                FreeCAD.Console.PrintError("Prumo: régua de histórico: %s\n" % ex)
+                FreeCAD.Console.PrintError("Usinix: régua de histórico: %s\n" % ex)
                 nova = None
             finally:
                 QtWidgets.QApplication.restoreOverrideCursor()

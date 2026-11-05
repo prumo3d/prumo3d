@@ -321,7 +321,7 @@ class SecaoPersonalizada:
             p = PrumoSecao.propriedades(it)
         except Exception as ex:
             obj.Avisos = [str(ex)]
-            FreeCAD.Console.PrintWarning("Prumo: seção personalizada: %s\n" % ex)
+            FreeCAD.Console.PrintWarning("Usinix: seção personalizada: %s\n" % ex)
             return
         obj.Contorno = json.dumps(it)
         obj.Area = round(p["A"] / 100.0, 4)

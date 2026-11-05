@@ -720,7 +720,7 @@ class Assistente(QtWidgets.QWidget):
         try:
             r = avaliar(an, self.estrutura_escolhida())
         except Exception as ex:
-            FreeCAD.Console.PrintWarning("Prumo: assistente de estruturas: %s\n" % ex)
+            FreeCAD.Console.PrintWarning("Usinix: assistente de estruturas: %s\n" % ex)
             return
         for chave, e in self.etapas.items():
             nivel, resumo, msgs = r[chave]

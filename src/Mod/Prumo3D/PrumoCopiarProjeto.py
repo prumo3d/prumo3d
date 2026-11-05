@@ -238,7 +238,7 @@ def PainelCopiarProjeto(doc=None):
                 self.form.mensagem.mostrar(str(ex), "erro")
                 return False
             self._parar()
-            FreeCAD.Console.PrintMessage("Prumo: projeto copiado (%d arquivos).\n" % len(self.resultado))
+            FreeCAD.Console.PrintMessage("Usinix: projeto copiado (%d arquivos).\n" % len(self.resultado))
             return True
 
     return _Painel()

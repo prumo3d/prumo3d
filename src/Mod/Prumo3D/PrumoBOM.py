@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - lista de materiais automática (planilha + tabela na folha de desenho).
+# Usinix - lista de materiais automática (planilha + tabela na folha de desenho).
 """Lista de materiais (LM).
 
 Junta as peças da montagem (ou da seleção, ou do documento) contando as repetidas, com material,
@@ -276,7 +276,7 @@ def _desc_do_modelo(page):
 
 
 def margens_da_folha(page):
-    """(esquerda, direita, superior, inferior) em mm, lidas do modelo Prumo; padrão 20/10/10/10."""
+    """(esquerda, direita, superior, inferior) em mm, lidas do modelo Usinix; padrão 20/10/10/10."""
     import re
     m = re.search(r"esquerda ([\d.]+), direita ([\d.]+), superior ([\d.]+), inferior ([\d.]+)",
                   _desc_do_modelo(page))
@@ -284,7 +284,7 @@ def margens_da_folha(page):
 
 
 def altura_legenda(page):
-    """Altura da legenda (mm) do modelo Prumo, ou None se não for um modelo Prumo."""
+    """Altura da legenda (mm) do modelo Usinix, ou None se não for um modelo Usinix."""
     import re
     m = re.search(r"Legenda [\d.]+ × ([\d.]+) mm", _desc_do_modelo(page))
     return float(m.group(1)) if m else None
@@ -299,7 +299,7 @@ def tamanho_tabela(sheet, n_linhas, escala):
 
 def inserir_na_folha(page, sheet, n_linhas):
     """Coloca a planilha na folha como tabela: logo acima da legenda, alinhada à direita do quadro
-    (folhas Prumo), ou no canto superior direito do quadro (outros modelos).
+    (folhas Usinix), ou no canto superior direito do quadro (outros modelos).
 
     As larguras e alturas da planilha são em pixels; a vista é reduzida para que cada linha fique
     com ALTURA_LINHA_MM e o texto com TEXTO_MM na folha."""
@@ -338,7 +338,7 @@ def inserir_na_folha(page, sheet, n_linhas):
             vista.X = larg - d - 5.0 - w / 2.0
             vista.Y = alt - sup - 5.0 - h / 2.0
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: posição da lista na folha: %s\n" % exc)
+        FreeCAD.Console.PrintLog("Usinix: posição da lista na folha: %s\n" % exc)
     doc.recompute()
     return vista
 
@@ -389,5 +389,5 @@ class CmdListaMateriais:
         if page is not None:
             inserir_na_folha(page, sheet, len(linhas))
         doc.commitTransaction()
-        FreeCAD.Console.PrintMessage("Prumo: lista de materiais com %d itens em '%s'.\n"
+        FreeCAD.Console.PrintMessage("Usinix: lista de materiais com %d itens em '%s'.\n"
                                      % (len(linhas), sheet.Label))

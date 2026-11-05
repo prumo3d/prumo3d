@@ -1,7 +1,7 @@
 b192b90c4cddf9d4a1c7500b4b694f1c7cb4eba7 Sat Oct 3 07:31:38 2026 -0300
 
 Catálogos copiados da bancada Steel Structures para FreeCAD, de Marcos Roberto da Silva
-(https://github.com/marcos-rds/steel-structures), licença LGPL-2.1 (a mesma do Prumo 3D), pasta
+(https://github.com/marcos-rds/steel-structures), licença LGPL-2.1 (a mesma do Usinix), pasta
 freecad/SteelStructures/catalogs, no commit acima. Fontes originais registradas dentro de cada arquivo:
 - gerdau_construcao_metalica_2023_01.json: Gerdau, Construção Metálica, Tabela de Bitolas 01/23;
 - tuper_hollow_2024.json: ArcelorMittal Tuper, Tabela Técnica de Produtos 2024 (com as correções de leitura

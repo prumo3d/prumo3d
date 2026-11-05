@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: Adicionar / Remover material no próprio painel (como o "Juntar / Cortar" do Fusion e do Onshape).
+"""Usinix: Adicionar / Remover material no próprio painel (como o "Juntar / Cortar" do Fusion e do Onshape).
 
 Errou a escolha entre Extrusão e Cavidade? A chave no topo do painel troca a operação no lugar, sem apagar e
 refazer: a operação nova fica na mesma posição do corpo, com o mesmo esboço, as mesmas medidas e fórmulas,

@@ -140,10 +140,10 @@ def cartao(pasta, nome, norma, grau, tipo, sy, su, base, fonte):
                 "resistência vem do certificado. Serve para massa e lista de materiais.").format(nome)
     linhas = [
         "---",
-        "# Biblioteca de materiais do Prumo 3D",
+        "# Biblioteca de materiais do Usinix",
         "General:",
         '  UUID: "{}"'.format(u),
-        '  Author: "Prumo 3D"',
+        '  Author: "Usinix"',
         '  License: "CC-BY-4.0"',
         '  Name: "{}"'.format(nome),
         '  Description: "{}"'.format(desc.replace('"', "'")),

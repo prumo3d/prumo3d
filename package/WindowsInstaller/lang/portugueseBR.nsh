@@ -1,5 +1,5 @@
 ﻿/*
-Prumo 3D Installer Language File
+Usinix Installer Language File
 Language: Brazilian Portuguese
 */
 
@@ -59,3 +59,5 @@ ${LangFileString} DirNotEmptyWarning "A pasta '$INSTDIR' já tem arquivos (de um
                         Continuar?"
 ${LangFileString} RMInstDirFailed "Não foi possível apagar a pasta '$INSTDIR'.$\r$\n\
                         Feche o ${APP_NAME} (e qualquer arquivo aberto dessa pasta) e tente de novo."
+
+${LangFileString} RemoverPrumoAntigo "O Prumo 3D agora se chama Usinix e as suas configurações já foram trazidas.$\r$\n$\r$\nRemover a instalação antiga do Prumo 3D deste computador?"

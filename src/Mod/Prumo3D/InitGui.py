@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - carregado pelo FreeCAD ao iniciar a interface.
+# Usinix - carregado pelo FreeCAD ao iniciar a interface.
 
 import FreeCAD
 import FreeCADGui
@@ -12,7 +12,7 @@ try:
     import PrumoComplemento
     _prumo_outro = PrumoComplemento.ativar(_prumo_inspect.currentframe().f_code.co_filename)
 except Exception as _prumo_exc:
-    FreeCAD.Console.PrintWarning("Prumo: complemento atualizado: {}\n".format(_prumo_exc))
+    FreeCAD.Console.PrintWarning("Usinix: complemento atualizado: {}\n".format(_prumo_exc))
 
 if _prumo_outro:
     import os as _prumo_os
@@ -37,11 +37,11 @@ else:
                                   dict(globals()))
     else:
         if _prumo_erro is not None:
-            FreeCAD.Console.PrintError("Prumo: falha ao carregar o branding: {}\n".format(_prumo_erro))
+            FreeCAD.Console.PrintError("Usinix: falha ao carregar o branding: {}\n".format(_prumo_erro))
 
         class PrumoWorkbench(Workbench):  # noqa: F821  (Workbench é injetado pelo FreeCAD)
-            MenuText = "Prumo 3D"
-            ToolTip = "Ferramentas do Prumo 3D"
+            MenuText = "Usinix"
+            ToolTip = "Ferramentas do Usinix"
 
             def __init__(self):
                 import PrumoGui
@@ -51,8 +51,8 @@ else:
             def Initialize(self):
                 import PrumoGui
 
-                self.appendToolbar("Prumo", PrumoGui.COMMANDS)
-                self.appendMenu("Prumo", PrumoGui.COMMANDS + ["Separator"] + PrumoGui.MENU_EXTRA)
+                self.appendToolbar("Usinix", PrumoGui.COMMANDS)
+                self.appendMenu("Usinix", PrumoGui.COMMANDS + ["Separator"] + PrumoGui.MENU_EXTRA)
 
             def Activated(self):
                 pass

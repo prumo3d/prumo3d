@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Gera Prumo3D_<versão>-complemento.zip: só o complemento (src/Mod/Prumo3D), para atualizar sem baixar o
+"""Gera Usinix_<versão>-complemento.zip: só o complemento (src/Mod/Prumo3D), para atualizar sem baixar o
 pacote inteiro. Uso: pacote_complemento.py <tag ou versão> <pasta de saída>
 
 Dentro do .zip: Prumo3D/... (com PrumoVersaoCompilada.py da versão) e Prumo3D/complemento.json com a versão,
@@ -32,7 +32,7 @@ def base_minima():
 def gerar(versao, saida):
     versao = versao.lstrip("vV")
     os.makedirs(saida, exist_ok=True)
-    nome = "Prumo3D_%s-complemento.zip" % versao
+    nome = "Usinix_%s-complemento.zip" % versao
     destino = os.path.join(saida, nome)
     manifesto = {"versao": versao, "freecad": base_freecad(), "base_minima": base_minima()}
     with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -46,8 +46,8 @@ def gerar(versao, saida):
                 z.write(caminho, "Prumo3D/" + rel)
         z.writestr("Prumo3D/PrumoVersaoCompilada.py", 'VERSAO_COMPILADA = "%s"\n' % versao)
         z.writestr("Prumo3D/complemento.json", json.dumps(manifesto, ensure_ascii=False, indent=1) + "\n")
-    # o mesmo complemento.json ao lado, para o Prumo saber se o .zip serve antes de baixar
-    with open(os.path.join(saida, "Prumo3D_%s-complemento.json" % versao), "w", encoding="utf-8") as f:
+    # o mesmo complemento.json ao lado, para o Usinix saber se o .zip serve antes de baixar
+    with open(os.path.join(saida, "Usinix_%s-complemento.json" % versao), "w", encoding="utf-8") as f:
         f.write(json.dumps(manifesto, ensure_ascii=False, indent=1) + "\n")
     h = hashlib.sha256(open(destino, "rb").read()).hexdigest()
     with open(destino + "-SHA256.txt", "w", encoding="utf-8") as f:

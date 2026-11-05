@@ -126,7 +126,7 @@ def atualizar_legenda(page):
             return True
     except Exception as exc:
         if "deleted" not in str(exc):
-            FreeCAD.Console.PrintLog("Prumo: legenda automática: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: legenda automática: %s\n" % exc)
     return False
 
 
@@ -237,7 +237,7 @@ def _filtro_peca(obj, subs):
 
 
 def materiais_prumo():
-    """[(nome, uuid)] da biblioteca Prumo, em ordem alfabética."""
+    """[(nome, uuid)] da biblioteca Usinix, em ordem alfabética."""
     try:
         import Materials
         mm = Materials.MaterialManager()
@@ -285,7 +285,7 @@ def _painel():
             self.material.addItem("(manter)", "")
             for nome, uuid in materiais_prumo():
                 self.material.addItem(nome, uuid)
-            s2.linha("material", self.material, "Material da biblioteca Prumo (usado na massa, na lista de "
+            s2.linha("material", self.material, "Material da biblioteca Usinix (usado na massa, na lista de "
                      "materiais e na simulação).", "Material")
             self.lb_massa = s2.texto("")
             self.peca.mudou.connect(self._carregar)

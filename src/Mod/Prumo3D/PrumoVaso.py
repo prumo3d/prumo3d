@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - assistente de vaso de pressão (costado, tampos e bocais, com espessuras calculadas).
+# Usinix - assistente de vaso de pressão (costado, tampos e bocais, com espessuras calculadas).
 """Vaso de pressão horizontal: costado cilíndrico, dois tampos e bocais radiais.
 
 Espessuras mínimas pelas fórmulas do ASME BPVC Seção VIII, Divisão 1 (pressão interna):
@@ -17,7 +17,7 @@ P ≤ 1,25·S·E; hemisférico P ≤ 0,665·S·E e t ≤ 0,356·L; elíptico e t
 espessura adotada menos a corrosão.
 
 A tensão admissível S é informada pelo usuário (ASME Seção II, Parte D, para o material e a
-temperatura de projeto): o Prumo não sugere valores. Reforço de aberturas (UG-37), pressão
+temperatura de projeto): o Usinix não sugere valores. Reforço de aberturas (UG-37), pressão
 externa/vácuo (UG-28), cargas de vento/sismo e apoios NÃO são calculados. O resultado é um
 pré-dimensionamento: a edição vigente do código e o projeto final ficam com o responsável técnico.
 """
@@ -782,7 +782,7 @@ def memoria(v):
         c = v.Proxy.calculo(v)
     except (ValueError, ZeroDivisionError) as ex:
         return "Vaso de pressão — cálculo não realizado: %s" % ex
-    L = ["Vaso de pressão — memória de pré-dimensionamento (Prumo 3D)",
+    L = ["Vaso de pressão — memória de pré-dimensionamento (Usinix)",
          "Referência: ASME BPVC Seção VIII, Divisão 1 — UG-27 (costado) e UG-32 (tampos). "
          "Conferir a edição vigente.", ""]
     per = getattr(v, "PerimetroExterno", None)
@@ -1114,7 +1114,7 @@ def desenho(v, formato="A3", campos=None):
         ann.Y = 60.0 + 3.0 * len(linhas) / 2.0 + 18.0
         _cotas(doc, page, v)
     except Exception as ex:
-        FreeCAD.Console.PrintWarning("Prumo: tabela do vaso: %s\n" % ex)
+        FreeCAD.Console.PrintWarning("Usinix: tabela do vaso: %s\n" % ex)
     doc.recompute()
     return page
 
@@ -1250,7 +1250,7 @@ class PainelVaso(P.PainelTarefa):
                              "memória e o desenho).", "Temperatura")
         self.temp.setPlaceholderText("ex.: 150 °C")
         self.material = s2.linha("material", QtWidgets.QComboBox(), "Chapa do costado e dos tampos. Sy e Su "
-                                 "vêm da biblioteca de materiais do Prumo.", "Material")
+                                 "vêm da biblioteca de materiais do Usinix.", "Material")
         self._mats = _materiais_vaso()
         for nome, sy, su, _v in self._mats:
             self.material.addItem("%s — Sy %s / Su %s MPa" % (nome, fmt(sy, 0), fmt(su, 0)), nome)

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - folhas de desenho ABNT (A0 a A4) e criação de folha com vistas e legenda preenchida.
+# Usinix - folhas de desenho ABNT (A0 a A4) e criação de folha com vistas e legenda preenchida.
 """Folhas de desenho no padrão brasileiro.
 
 Modelos em Resources/folhas, gerados por prumo-build/ferramentas/gerar_folhas_abnt.py:
@@ -141,7 +141,7 @@ def nova_folha(doc, formato=FORMATO_PADRAO, norma=NORMA_PADRAO, retrato=None, ca
             import PrumoPropriedades
             PrumoPropriedades.vincular_folha(page, objs[0])
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: folha ligada à peça: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: folha ligada à peça: %s\n" % exc)
     if objs:
         _vistas(doc, page, objs, escala, arranjo)
         valores["escala"] = _texto_escala(page.Scale)

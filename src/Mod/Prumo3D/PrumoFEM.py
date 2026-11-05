@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Assistente de simulação Prumo (FEM) — passo a passo com verificação de pendências.
+"""Assistente de simulação Usinix (FEM) — passo a passo com verificação de pendências.
 
 Etapas, na ordem que a análise exige:
   1 Estudo e peça · 2 Material · 3 Fixações · 4 Cargas · 5 Malha · 6 Verificar e calcular
@@ -98,7 +98,7 @@ def _migrar_propriedades(obj):
                 setattr(obj, nova, getattr(obj, velha))
             obj.removeProperty(velha)
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: não migrou {}.{}: {}\n".format(obj.Name, velha, exc))
+            FreeCAD.Console.PrintWarning("Usinix: não migrou {}.{}: {}\n".format(obj.Name, velha, exc))
 
 
 def _faces_validas(obj, subs):
@@ -262,16 +262,16 @@ class Estudo:
 # =========================================================================== materiais
 _CACHE_MAT = {}
 
-# Biblioteca Prumo (aços do mercado brasileiro) aparece primeiro
-PASTAS_PRUMO = [("Acos para vasos de pressao", "Prumo · Aços para vasos de pressão"),
-                 ("Acos estruturais", "Prumo · Aços estruturais"),
-                 ("Tubos e forjados", "Prumo · Tubos e forjados"),
-                 ("Acos inoxidaveis", "Prumo · Aços inoxidáveis"),
-                 ("Acos para construcao mecanica", "Prumo · Construção mecânica"),
-                 ("Chapas de uso geral", "Prumo · Chapas de uso geral"),
-                 ("Ferro fundido", "Prumo · Ferro fundido"),
-                 ("Aluminio", "Prumo · Alumínio"),
-                 ("Cobre e latao", "Prumo · Cobre e latão")]
+# Biblioteca Usinix (aços do mercado brasileiro) aparece primeiro
+PASTAS_PRUMO = [("Acos para vasos de pressao", "Usinix · Aços para vasos de pressão"),
+                 ("Acos estruturais", "Usinix · Aços estruturais"),
+                 ("Tubos e forjados", "Usinix · Tubos e forjados"),
+                 ("Acos inoxidaveis", "Usinix · Aços inoxidáveis"),
+                 ("Acos para construcao mecanica", "Usinix · Construção mecânica"),
+                 ("Chapas de uso geral", "Usinix · Chapas de uso geral"),
+                 ("Ferro fundido", "Usinix · Ferro fundido"),
+                 ("Aluminio", "Usinix · Alumínio"),
+                 ("Cobre e latao", "Usinix · Cobre e latão")]
 GRUPOS_MAT = [("Steel", "Aços e ferros fundidos"), ("Aluminum", "Alumínio"), ("Iron", "Ferro"),
               ("Copper", "Cobre e latão"), ("Titanium", "Titânio"), ("Alloys", "Ligas"),
               ("Metal", "Outros metais"), ("", "Outros")]
@@ -309,7 +309,7 @@ def materiais():
                           "biblioteca": m.LibraryName, "props": dict(p),
                           "descricao": getattr(m, "Description", "") or ""})
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: biblioteca de materiais indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: biblioteca de materiais indisponível: {}\n".format(exc))
     ordem = {nome: i for i, (_c, nome) in enumerate(PASTAS_PRUMO + GRUPOS_MAT)}
     lista.sort(key=lambda d: (ordem.get(d["grupo"], 99), d["nome"].lower()))
     _CACHE_MAT["lista"] = lista
@@ -674,7 +674,7 @@ def mostrar_campo(est, campo):
         for c in est.fixacoes + est.cargas:
             c.ViewObject.Visibility = not vis
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: não foi possível mostrar o resultado: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: não foi possível mostrar o resultado: {}\n".format(exc))
 
 
 # =========================================================================== operações (sem interface)
@@ -756,7 +756,7 @@ def calcular(est, modos=None):
         return False, "O CalculiX (ccx) não foi encontrado. Confira em Preferências › FEM › CalculiX.", 0.0
     msg = fea.check_prerequisites()
     if msg:
-        return False, "O Prumo 3D apontou pré-requisitos faltando:\n" + msg, 0.0
+        return False, "O Usinix apontou pré-requisitos faltando:\n" + msg, 0.0
     fea.write_inp_file()
     ret = fea.ccx_run()
     if ret != 0:
@@ -1086,7 +1086,7 @@ class Assistente(QtWidgets.QWidget):
             return out
         except Exception as exc:
             doc.abortTransaction()
-            FreeCAD.Console.PrintError("Prumo FEM: {}\n".format(exc))
+            FreeCAD.Console.PrintError("Usinix FEM: {}\n".format(exc))
             self._erro("Não foi possível concluir: {}".format(exc))
             return None
         finally:
@@ -1583,7 +1583,7 @@ class Assistente(QtWidgets.QWidget):
                 est.malha.ViewObject.Visibility = True
         except Exception as exc:
             est.doc.abortTransaction()
-            FreeCAD.Console.PrintError("Prumo FEM: malha: {}\n".format(exc))
+            FreeCAD.Console.PrintError("Usinix FEM: malha: {}\n".format(exc))
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
         if ok:
@@ -1649,13 +1649,13 @@ class Assistente(QtWidgets.QWidget):
             self.abrir_etapa(r["_bloqueios"][0][0])
             return
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        self.lb_calc.setText("Calculando… o Prumo 3D fica ocupado até o fim.")
+        self.lb_calc.setText("Calculando… o Usinix fica ocupado até o fim.")
         QtWidgets.QApplication.processEvents()
         try:
             ok, erro, dt = calcular(est, self.sp_modos.value())
         except Exception as exc:
             import traceback
-            FreeCAD.Console.PrintError("Prumo FEM: cálculo:\n" + traceback.format_exc())
+            FreeCAD.Console.PrintError("Usinix FEM: cálculo:\n" + traceback.format_exc())
             ok, erro, dt = False, "Falha inesperada: {}".format(exc), 0.0
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -1904,7 +1904,7 @@ class Assistente(QtWidgets.QWidget):
             est.put("PrumoRelatorioPDF", caminho)
         except Exception as exc:
             QtWidgets.QApplication.restoreOverrideCursor()
-            FreeCAD.Console.PrintError("Prumo FEM: relatório: {}\n".format(exc))
+            FreeCAD.Console.PrintError("Usinix FEM: relatório: {}\n".format(exc))
             import traceback
             FreeCAD.Console.PrintError(traceback.format_exc())
             self._erro("Não foi possível gerar o relatório: {}".format(exc))
@@ -1921,7 +1921,7 @@ class Assistente(QtWidgets.QWidget):
         try:
             r = avaliar(est)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo FEM: avaliação: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix FEM: avaliação: {}\n".format(exc))
             return
         for chave, e in self.etapas.items():
             nivel, resumo, msgs = r[chave]

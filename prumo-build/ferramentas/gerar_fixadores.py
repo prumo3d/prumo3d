@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Gera Resources/fixadores/fixadores.json (Prumo 3D) a partir de dados/fixadores.json
+"""Gera Resources/fixadores/fixadores.json (Usinix) a partir de dados/fixadores.json
 (levantamento com fonte e situação de cada valor: ISO 4017/4014, ISO 4762, ISO 4032, ISO 7089).
 
 Comprimentos de parafuso: lista levantada (M3 a M10) ou, para os demais diâmetros, a série de
@@ -15,7 +15,7 @@ SAIDA = os.path.join(AQUI, "..", "..", "src", "Mod", "Prumo3D", "Resources", "fi
 
 def main(saida=SAIDA):
     d = json.load(open(DADOS, encoding="utf-8"))
-    out = {"descricao": "Fixadores métricos do Prumo 3D. Gerado por gerar_fixadores.py.",
+    out = {"descricao": "Fixadores métricos do Usinix. Gerado por gerar_fixadores.py.",
            "unidades": "mm", "fontes": d["fontes"], "passo": d["passo"]}
     for chave in ("iso4017", "iso4762", "iso4032", "iso7089"):
         out[chave] = d[chave]

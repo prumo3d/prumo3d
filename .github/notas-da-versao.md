@@ -2,10 +2,10 @@
 
 | Sistema | Arquivo | Como usar |
 |---|---|---|
-| Windows 10/11 (64 bits) | `Prumo3D_…-installer.exe` | Rode o instalador. Instala ao lado de um FreeCAD já existente, sem substituí-lo. |
-| Windows (portátil) | `Prumo3D_…-Windows-….7z` | Descompacte e abra `bin\Prumo3D.exe`. Não precisa instalar. |
-| Linux (64 bits) | `Prumo3D_…-Linux-….AppImage` | Marque como executável (`chmod +x`) e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
-| Já tem o Prumo 3D 1.1 ou mais novo | `Prumo3D_…-complemento.zip` | Não precisa baixar à mão: em **Ajuda → Sobre → Verificar atualizações**, o Prumo baixa só este arquivo (poucos MB) e a versão nova vale ao abrir de novo. |
+| Windows 10/11 (64 bits) | `Usinix_…-installer.exe` | Rode o instalador. Instala ao lado de um FreeCAD já existente, sem substituí-lo. |
+| Windows (portátil) | `Usinix_…-Windows-….7z` | Descompacte e abra `bin\Usinix.exe`. Não precisa instalar. |
+| Linux (64 bits) | `Usinix_…-Linux-….AppImage` | Marque como executável (`chmod +x`) e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
+| Já tem o Usinix 1.1 ou mais novo | `Usinix_…-complemento.zip` | Não precisa baixar à mão: em **Ajuda → Sobre → Verificar atualizações**, o Prumo baixa só este arquivo (poucos MB) e a versão nova vale ao abrir de novo. |
 
 Cada arquivo tem um `-SHA256.txt` com o código de verificação.
 
@@ -14,7 +14,7 @@ Clique em **Mais informações → Executar assim mesmo**. Confira o arquivo pel
 
 ### Primeiros passos (15 minutos)
 
-1. Abra o Prumo 3D e confira a tela de abertura e a tela inicial. Se o painel da árvore (à esquerda)
+1. Abra o Usinix e confira a tela de abertura e a tela inicial. Se o painel da árvore (à esquerda)
    sumir, use **Início → Árvore do modelo**.
 2. Em **Exemplos**, abra os três arquivos e explore a árvore à esquerda.
 3. **Peça:** faça um esboço com um círculo e uma linha (veja os pontos-ímã), extrude e dê duplo
@@ -48,5 +48,5 @@ com a descrição do problema (o que fez, o que esperava, o que aconteceu) e, se
 
 ---
 
-O Prumo 3D é software livre (LGPL-2.1-or-later), baseado no [FreeCAD](https://www.freecad.org). Não é
+O Usinix é software livre (LGPL-2.1-or-later), baseado no [FreeCAD](https://www.freecad.org). Não é
 um projeto oficial do FreeCAD.

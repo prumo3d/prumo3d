@@ -1,4 +1,4 @@
-# Prumo 3D: gera os pacotes para Windows e Linux e publica na página de versões.
+# Usinix: gera os pacotes para Windows e Linux e publica na página de versões.
 #
 # - Ao enviar uma tag "v*" (ex.: v0.1.0-beta): compila Windows e Linux nas máquinas do GitHub
 #   (gratuitas em repositório público), empacota e cria a versão na página de versões. Tag com
@@ -18,7 +18,7 @@
 # Formatos:
 #   Windows: instalador (.exe) e versão portátil (.7z)
 #   Linux:   AppImage (arquivo único, roda sem instalar)
-#   Todos:   só o complemento (Prumo3D_<versão>-complemento.zip), para a atualização sem o pacote inteiro
+#   Todos:   só o complemento (Usinix_<versão>-complemento.zip), para a atualização sem o pacote inteiro
 #
 # Assinatura do instalador do Windows (SignPath Foundation, grátis para código aberto):
 #   - liga sozinha quando a variável do repositório SIGNPATH_ORGANIZATION_ID existe (Settings → Secrets
@@ -234,9 +234,9 @@ jobs:
           destino="${PRUMO_PACOTES:-$HOME/Prumo3D-pacotes}/${BUILD_TAG}"
           mkdir -p "$destino"
           # só os arquivos (instalador, .7z, AppImage, somas); a pasta montada fica no runner
-          find package/rattler-build/${{ matrix.pasta }} -maxdepth 1 -type f -name 'Prumo3D_*' \
+          find package/rattler-build/${{ matrix.pasta }} -maxdepth 1 -type f -name 'Usinix_*' \
             -exec cp -v {} "$destino"/ \;
-          ls "$destino"/Prumo3D_* >/dev/null 2>&1 || { echo "nenhum pacote gerado"; exit 1; }
+          ls "$destino"/Usinix_* >/dev/null 2>&1 || { echo "nenhum pacote gerado"; exit 1; }
           echo "Pacotes em: $destino"
           echo "### Pacotes em \`$destino\`" >> "$GITHUB_STEP_SUMMARY"
           ls -la "$destino" >> "$GITHUB_STEP_SUMMARY"
@@ -251,10 +251,10 @@ jobs:
           # na página de versões, então os artefatos da execução expiram logo
           retention-days: 3
           path: |
-            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.exe
-            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.7z
-            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*.AppImage
-            package/rattler-build/${{ matrix.pasta }}/Prumo3D_*-SHA256.txt
+            package/rattler-build/${{ matrix.pasta }}/Usinix_*.exe
+            package/rattler-build/${{ matrix.pasta }}/Usinix_*.7z
+            package/rattler-build/${{ matrix.pasta }}/Usinix_*.AppImage
+            package/rattler-build/${{ matrix.pasta }}/Usinix_*-SHA256.txt
 
       - name: Instalador para assinar (SignPath)
         id: instalador
@@ -264,7 +264,7 @@ jobs:
           name: instalador-sem-assinatura
           if-no-files-found: error
           retention-days: 3
-          path: package/rattler-build/${{ matrix.pasta }}/Prumo3D_*-installer.exe
+          path: package/rattler-build/${{ matrix.pasta }}/Usinix_*-installer.exe
 
   assinar:
     name: Assinar o instalador (SignPath)
@@ -296,7 +296,7 @@ jobs:
           sudo apt-get install -y -qq osslsigncode >/dev/null
           cd assinado
           ls -la
-          for f in Prumo3D_*-installer.exe; do
+          for f in Usinix_*-installer.exe; do
             # sem assinatura nenhuma: para (o pedido devolveu o arquivo errado)
             osslsigncode extract-signature -in "$f" -out /tmp/assinatura.der >/dev/null \
               || { echo "o instalador $f voltou sem assinatura"; exit 1; }
@@ -310,7 +310,7 @@ jobs:
           name: instalador-assinado
           if-no-files-found: error
           retention-days: 3
-          path: assinado/Prumo3D_*
+          path: assinado/Usinix_*
 
   publicar:
     name: Publicar na página de versões
@@ -352,7 +352,7 @@ jobs:
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then tag="${GITHUB_REF_NAME}"; else tag="v${VERSAO#v}"; fi
           # o selo da tela de abertura com a versão também vai no complemento: quem atualiza só o
-          # complemento vê a versão nova ao abrir (o Prumo põe essa splash nos dados do usuário)
+          # complemento vê a versão nova ao abrir (o Usinix põe essa splash nos dados do usuário)
           python3 -m pip install --quiet --user pillow
           python3 prumo-build/ferramentas/selo_versao_splash.py "${tag#v}"
           # networkx (Python puro) junto do complemento: quem atualiza só o complemento numa instalação antiga,
@@ -386,6 +386,6 @@ jobs:
             extra+=(--prerelease)          # v0.1.0-beta, v1.0.0-rc1...
           fi
           gh release create "${tag}" arquivos/* \
-            --title "Prumo 3D ${tag#v}" \
+            --title "Usinix ${tag#v}" \
             --notes-file "${notas}" \
             "${extra[@]}"

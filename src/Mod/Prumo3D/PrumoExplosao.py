@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: explosão animada da montagem (ideia da bancada Exploded Assembly; código escrito do zero).
+"""Usinix: explosão animada da montagem (ideia da bancada Exploded Assembly; código escrito do zero).
 
 Uma "Explosão" guarda passos: em cada passo, peças que saem numa direção por uma distância. Parafusos,
-porcas e arruelas do Prumo giram enquanto saem (uma volta por passo de rosca). A barra de 0 a 100 % mostra a
+porcas e arruelas do Usinix giram enquanto saem (uma volta por passo de rosca). A barra de 0 a 100 % mostra a
 montagem se abrindo passo a passo; Tocar anima, Montada volta tudo ao lugar exato de antes, e as
 trajetórias mostram para onde cada peça vai.
 
@@ -25,7 +25,7 @@ def _lista_para_pl(v):
 
 
 def passo_rosca(obj):
-    """Passo da rosca (mm) de um fixador do Prumo, ou None."""
+    """Passo da rosca (mm) de um fixador do Usinix, ou None."""
     if getattr(getattr(obj, "Proxy", None), "__class__", None).__name__ != "Fixador":
         return None
     try:

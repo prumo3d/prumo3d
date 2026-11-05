@@ -18,7 +18,7 @@ Section -ProgramFiles SecProgramFiles
   StrCpy $PastaAntiga ""
   ${If} $RemoveInstDir == "true"
     ${DetailPrintToBoth} "Cleaning install folder '$INSTDIR'"
-    # Prumo 3D: a pasta antiga NUNCA é apagada aos pedaços (arquivo preso no meio deixava meia instalação).
+    # Usinix: a pasta antiga NUNCA é apagada aos pedaços (arquivo preso no meio deixava meia instalação).
     # 1) espera o Prumo e qualquer programa rodando de dentro dela; 2) renomeia a pasta inteira de uma vez:
     # se algo estiver preso a renomeação falha sem mexer em nada e a instalação antiga segue funcionando;
     # 3) a versão nova entra na pasta limpa e a antiga é apagada no fim (ou na próxima reinicialização).
@@ -131,3 +131,33 @@ Function .onInstFailed
     Rename "$PastaAntiga" "$INSTDIR"
   ${EndIf}
 FunctionEnd
+
+#--------------------------------
+# Usinix: vindo do Prumo 3D (até a 1.3.1)
+# 1) configurações: %APPDATA%\Prumo3D vira a base de %APPDATA%\Usinix (só se o Usinix ainda não tem
+#    configurações); o complemento antigo na pasta do usuário (Mod\Prumo3D) não vem: passaria por cima do
+#    programa novo. 2) oferece remover a instalação do Prumo 3D (a desinstalação silenciosa não apaga as
+#    configurações dele).
+Section -MigrarPrumo SecMigrarPrumo
+  SetShellVarContext current
+  ${IfNot} ${FileExists} "$APPDATA\${APP_DIR_USERDATA}\*.*"
+  ${AndIf} ${FileExists} "$APPDATA\${APP_ID_ANTIGO}\*.*"
+    CreateDirectory "$APPDATA\${APP_DIR_USERDATA}"
+    CopyFiles /SILENT "$APPDATA\${APP_ID_ANTIGO}\*.*" "$APPDATA\${APP_DIR_USERDATA}"
+    RMDir /r "$APPDATA\${APP_DIR_USERDATA}\v1-1\Mod\Prumo3D"
+  ${EndIf}
+  ${If} $MultiUser.InstallMode == "AllUsers"
+    SetShellVarContext all
+  ${EndIf}
+
+  StrCpy $0 ""
+  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID_ANTIGO}${APP_SERIES_KEY}" "QuietUninstallString"
+  ${If} $0 == ""
+    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID_ANTIGO}${APP_SERIES_KEY}" "QuietUninstallString"
+  ${EndIf}
+  ${If} $0 != ""
+    MessageBox MB_YESNO|MB_ICONQUESTION "$(RemoverPrumoAntigo)" /SD IDNO IDNO migrar_fim
+    ExecWait '$0'
+  ${EndIf}
+  migrar_fim:
+SectionEnd

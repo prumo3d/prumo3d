@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Preferências do Prumo 3D: as opções que importam no dia a dia, em cartões, sem precisar abrir a janela
+"""Preferências do Usinix: as opções que importam no dia a dia, em cartões, sem precisar abrir a janela
 completa de preferências do FreeCAD (que continua a um clique).
 
 Cada interruptor grava na hora. O que só vale ao reabrir o programa diz isso ao lado.
@@ -50,7 +50,7 @@ class JanelaPreferencias(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent or FreeCADGui.getMainWindow())
         self.setObjectName("PrumoUI")
-        self.setWindowTitle("Preferências do Prumo 3D")
+        self.setWindowTitle("Preferências do Usinix")
         self.setStyleSheet(UI.qss())
         self.setMinimumWidth(520)
         self.resize(560, 720)
@@ -146,7 +146,7 @@ class JanelaPreferencias(QtWidgets.QDialog):
         seg = UI.Segmentado([("claro", "Claro", "olho"), ("escuro", "Escuro", "olho")], atual, colunas=2)
         seg.mudou.connect(self._trocar_tema)
         c.widget(seg)
-        nota = QtWidgets.QLabel("Trocar o tema fecha e abre o Prumo de novo (ele pergunta antes).")
+        nota = QtWidgets.QLabel("Trocar o tema fecha e abre o Usinix de novo (ele pergunta antes).")
         nota.setObjectName("PrumoSub")
         nota.setWordWrap(True)
         c.widget(nota)
@@ -244,7 +244,7 @@ def abrir():
 class CmdPreferencias:
     def GetResources(self):
         return {"Pixmap": "preferences-general", "MenuText": "Preferências",
-                "ToolTip": "As opções do Prumo 3D em cartões (tema, painel lateral, esboço, unidades, atualizações)"}
+                "ToolTip": "As opções do Usinix em cartões (tema, painel lateral, esboço, unidades, atualizações)"}
 
     def IsActive(self):
         return True

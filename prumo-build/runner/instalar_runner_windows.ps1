@@ -1,4 +1,4 @@
-# Prumo 3D: registra este computador como "runner" próprio do GitHub Actions (repositório prumo3d/prumo3d),
+# Usinix: registra este computador como "runner" próprio do GitHub Actions (repositório usinix/usinix),
 # para gerar os pacotes sem gastar minutos do GitHub.
 #
 # ATENÇÃO: o runner próprio foi removido em 21/10/2026, quando o repositório ficou público (runner
@@ -6,7 +6,7 @@
 # Não registre de novo sem restringir quem pode disparar workflows.
 #
 # Uso (PowerShell comum, não precisa ser administrador):
-#   1. No GitHub: prumo3d/prumo3d -> Settings -> Actions -> Runners -> New self-hosted runner -> Windows.
+#   1. No GitHub: usinix/usinix -> Settings -> Actions -> Runners -> New self-hosted runner -> Windows.
 #      Copie só o código que aparece depois de "--token" (vale por cerca de 1 hora).
 #   2. powershell -ExecutionPolicy Bypass -File C:\dev\prumo3d-scripts\instalar_runner_windows.ps1
 #   3. Cole o código quando pedir.
@@ -18,9 +18,9 @@
 $ErrorActionPreference = "Stop"
 $Pasta = "C:\ar"
 $Pacotes = "C:\dev\Prumo3D-pacotes"
-$Repo = "https://github.com/prumo3d/prumo3d"
+$Repo = "https://github.com/usinix/usinix"
 
-Write-Host "== Prumo 3D: runner próprio ==" -ForegroundColor Cyan
+Write-Host "== Usinix: runner próprio ==" -ForegroundColor Cyan
 
 # Git Bash: os passos do fluxo usam "bash"; o bash.exe do System32 é o do WSL e não serve
 $GitBash = "C:\Program Files\Git\bin"

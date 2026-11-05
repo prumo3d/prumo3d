@@ -1,4 +1,4 @@
-﻿# Prumo 3D - prepara e compila o Prumo 3D no Windows.
+﻿# Usinix - prepara e compila o Usinix no Windows.
 # Baseado no roteiro oficial (FreeCAD Developers Handbook - Getting Started, Windows/pixi)
 # e nos presets do repositório (conda-windows-*, gerador Ninja + MSVC).
 #
@@ -24,7 +24,7 @@ function Aviso($m) { Write-Host "  [atenção] $m" -ForegroundColor Yellow }
 function Falha($m) { Write-Host "  [falta] $m" -ForegroundColor Red; $script:falhas++ }
 
 Write-Host ""
-Write-Host "Prumo 3D - verificação do ambiente" -ForegroundColor Cyan
+Write-Host "Usinix - verificação do ambiente" -ForegroundColor Cyan
 Write-Host "Pasta do código: $repo"
 Write-Host ""
 
@@ -143,4 +143,4 @@ if ($LASTEXITCODE -ne 0) {
 # build\debug\Mod\Prumo3D e build\debug\bin, e para o ambiente com "pixi run install".
 
 Write-Host ""
-Write-Host "Compilado. Para abrir o Prumo 3D compilado:  pixi run freecad" -ForegroundColor Green
+Write-Host "Compilado. Para abrir o Usinix compilado:  pixi run freecad" -ForegroundColor Green

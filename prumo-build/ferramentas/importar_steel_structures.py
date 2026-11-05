@@ -307,7 +307,7 @@ def main(saida=SAIDA):
         familias.append({"id": "IU_ANT", "nome": "Perfis I e U (tabela antiga)", "antiga": True,
                          "norma": "tabela anterior do Prumo (mesa estimada pela massa)",
                          "fonte": antigas["U"]["fonte"], "itens": antigos_iu})
-    out = {"descricao": "Biblioteca de perfis do Prumo 3D. Gerada por gerar_perfis.py e "
+    out = {"descricao": "Biblioteca de perfis do Usinix. Gerada por gerar_perfis.py e "
                         "importar_steel_structures.py (catálogos " + CREDITO + ").",
            "unidades": "mm, kg/m", "fontes": fontes, "familias": familias}
     with open(saida, "w", encoding="utf-8", newline="\n") as fh:

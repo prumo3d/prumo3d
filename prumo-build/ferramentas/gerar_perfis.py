@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Gera a biblioteca de perfis do Prumo 3D (Resources/perfis/perfis.json) a partir da pesquisa
+"""Gera a biblioteca de perfis do Usinix (Resources/perfis/perfis.json) a partir da pesquisa
 de catálogos em dados/pesquisa_normas.json (fonte e situação de cada valor).
 
 Cada perfil leva "status": "confirmado" (catálogo oficial do fabricante) ou "a checar" (fonte
@@ -151,7 +151,7 @@ def main(saida=SAIDA):
     familias.append({"id": "TQ", "nome": "Tubo quadrado (metalon)", "norma": "a checar (NBR 6591)",
                      "fonte": fonte("F_FAPRO_TQ"), "itens": itens})
 
-    saida_dados = {"descricao": "Biblioteca de perfis do Prumo 3D. Gerada por gerar_perfis.py.",
+    saida_dados = {"descricao": "Biblioteca de perfis do Usinix. Gerada por gerar_perfis.py.",
                    "unidades": "mm, kg/m", "fontes": {k: fonte(k) for k in fontes}, "familias": familias}
     os.makedirs(os.path.dirname(saida), exist_ok=True)
     with open(saida, "w", encoding="utf-8", newline="\n") as fh:

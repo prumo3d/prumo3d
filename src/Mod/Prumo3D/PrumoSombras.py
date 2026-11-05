@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: sombras na vista 3D (marca e desmarca na aba Início › Vista; vem desmarcado).
+"""Usinix: sombras na vista 3D (marca e desmarca na aba Início › Vista; vem desmarcado).
 
 Usa o ShadowGroup do Coin3D (o pivy não traz a classe, então o nó é lido de um texto Inventor, como faz o
 BIM em OfflineRenderingUtils.embedLight). A raiz dos objetos da vista (a mesma em que o FreeCAD põe e
@@ -96,7 +96,7 @@ def _pai(view, no):
 
 
 def _grupo_sombra(view):
-    """O ShadowGroup do Prumo, se a vista estiver com sombras."""
+    """O ShadowGroup do Usinix, se a vista estiver com sombras."""
     pai, _i = _pai(view, _no_da_vista(view))
     if pai is not None and pai.getName().getString() == NOME_GRUPO:
         return pai
@@ -241,7 +241,7 @@ def aplicar(ligar=None):
             else:
                 desligar_na_vista(v)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: sombras: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: sombras: %s\n" % exc)
     return n
 
 

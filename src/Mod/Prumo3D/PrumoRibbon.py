@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - faixa de ferramentas (ribbon) em português para o FreeCAD.
+# Usinix - faixa de ferramentas (ribbon) em português para o FreeCAD.
 """Substitui as barras de ferramentas clássicas por uma faixa com abas e grupos.
 
 Os botões reaproveitam as ações (QAction) dos próprios comandos do FreeCAD,
 então habilitar/desabilitar, marcar e executar continuam sendo do FreeCAD.
-Os rótulos são do Prumo 3D, em português, independentes da tradução instalada.
+Os rótulos são do Usinix, em português, independentes da tradução instalada.
 """
 
 import FreeCAD
@@ -387,7 +387,7 @@ TABS = [
             ("Part_Builder", L, "Sólido das\nfaces"), ("Part_CheckGeometry", S, "Verificar geometria"),
         ]),
     ]},
-    {"id": "prumo", "label": "Prumo", "wb": None, "panels": [
+    {"id": "prumo", "label": "Usinix", "wb": None, "panels": [
         ("Prumo", [
             ("Prumo_Inicio", L, "Tela\ninicial"), ("Prumo_AplicarTema", L, "Aplicar\ntema"),
             ("Prumo_TemaEscuro", L, "Tema\nescuro"), ("Prumo_Preferencias", L, "Preferências"),
@@ -433,7 +433,7 @@ def _classes_workbench(pasta):
 
 def bancadas_externas():
     """[(nome da bancada, rótulo)] das bancadas instaladas pelo usuário (complementos na pasta Mod dos dados do
-    usuário), ligadas e sem aba própria do Prumo. Cada uma ganha uma aba na faixa, sem precisar ativar nada."""
+    usuário), ligadas e sem aba própria do Usinix. Cada uma ganha uma aba na faixa, sem precisar ativar nada."""
     import os
     try:
         mod = os.path.join(FreeCAD.getUserAppDataDir(), "Mod")
@@ -597,7 +597,7 @@ _OWN_ACTIONS = {}
 def _own_action(name, cmd):
     """O FreeCAD só cria a QAction de um comando Python quando alguma barra/menu o usa.
 
-    Os comandos Prumo só entram em barras da bancada Prumo 3D, então antes de ela ser
+    Os comandos Usinix só entram em barras da bancada Usinix, então antes de ela ser
     ativada eles não têm ação. Criamos uma ação própria que executa o comando.
     """
     if name in _OWN_ACTIONS:
@@ -684,7 +684,7 @@ def _disabled_pixmap(pm):
 
 
 def _with_disabled(icon, size):
-    """Mesmo ícone, com o modo Desabilitado desenhado pelo Prumo 3D."""
+    """Mesmo ícone, com o modo Desabilitado desenhado pelo Usinix."""
     if icon.isNull():
         return icon
     key = (icon.cacheKey(), size)
@@ -947,7 +947,7 @@ class RibbonButton(QtWidgets.QToolButton):
 
 
 def _selecao_depois(nome):
-    """Comando que exige seleção antes mas que, no Prumo, também aceita a seleção depois."""
+    """Comando que exige seleção antes mas que, no Usinix, também aceita a seleção depois."""
     try:
         import PrumoSelecao
         return nome in PrumoSelecao.SELECAO_PRIMEIRO and FreeCAD.ActiveDocument is not None
@@ -963,11 +963,11 @@ def _pedir_selecao(nome):
             PrumoSelecao.pedir_para_comando(nome)
             return True
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: seleção para {}: {}\n".format(nome, exc))
+        FreeCAD.Console.PrintWarning("Usinix: seleção para {}: {}\n".format(nome, exc))
     return False
 
 
-# ícones do Prumo no lugar do ícone do FreeCAD (o do Recalcular é miúdo perto dos outros)
+# ícones do Usinix no lugar do ícone do FreeCAD (o do Recalcular é miúdo perto dos outros)
 ICONES_FAIXA = {"Std_Refresh": "recalcular.svg"}
 _CACHE_ICONES = {}
 
@@ -1201,12 +1201,12 @@ class PrumoRibbon(QtWidgets.QWidget):
             _pm = QtGui.QIcon(_ic).pixmap(40, 40)
             _pm.setDevicePixelRatio(2.0)
             brand.setText("<table cellspacing='0' cellpadding='0'><tr><td valign='middle'><img src='{}' width='20' height='20'></td>"
-                          "<td valign='middle' style='padding-left:6px'>Prumo 3D</td></tr></table>".format(_ic.replace("\\", "/")))
+                          "<td valign='middle' style='padding-left:6px'>Usinix</td></tr></table>".format(_ic.replace("\\", "/")))
         else:
-            brand.setText("Prumo 3D")
+            brand.setText("Usinix")
         brand.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
         rl.addWidget(brand)
-        # sem seletor de bancadas: tudo fica nas abas (as bancadas sem aba saem de vista no Prumo)
+        # sem seletor de bancadas: tudo fica nas abas (as bancadas sem aba saem de vista no Usinix)
         rl.addSpacing(4)
         self.tabbar = QtWidgets.QTabBar()
         self.tabbar.setDrawBase(False)
@@ -1279,7 +1279,7 @@ class PrumoRibbon(QtWidgets.QWidget):
             if 0 <= idx < len(self._tabs):
                 self.build(self._tabs[idx])
 
-    # ---- (sem seletor de bancadas na faixa: cada bancada usada no Prumo tem sua aba)
+    # ---- (sem seletor de bancadas na faixa: cada bancada usada no Usinix tem sua aba)
     def _rotulo_bancada(self, name):
         b = getattr(self, "_wb_btn", None)
         if b is None:
@@ -1370,7 +1370,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         for a in mw.findChildren(QAction):
             try:
                 if any(k == seq for k in a.shortcuts()):
-                    FreeCAD.Console.PrintLog("Prumo: Ctrl+K já é de '%s'; Procurar comando fica só na lupa\n"
+                    FreeCAD.Console.PrintLog("Usinix: Ctrl+K já é de '%s'; Procurar comando fica só na lupa\n"
                                              % a.text())
                     self._busca_btn.setToolTip("Procurar comando: digite parte do nome e tecle Enter")
                     return None
@@ -1382,7 +1382,7 @@ class PrumoRibbon(QtWidgets.QWidget):
             atalho.activated.connect(self.procurar_comando)
             self._atalho_busca = atalho
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: atalho da busca: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: atalho da busca: %s\n" % exc)
         return self._atalho_busca
 
     def procurar_comando(self):
@@ -1402,9 +1402,9 @@ class PrumoRibbon(QtWidgets.QWidget):
         row = self._row
         row.setProperty("compacto", str(n))
         if n >= 2:
-            self._brand.setText(self._brand_html.replace("Prumo 3D</td>", "</td>")
+            self._brand.setText(self._brand_html.replace("Usinix</td>", "</td>")
                                 if "<img" in self._brand_html else "")
-            self._brand.setToolTip("Prumo 3D")
+            self._brand.setToolTip("Usinix")
         else:
             self._brand.setText(self._brand_html)
         for b in self._quick_box.findChildren(QtWidgets.QToolButton):
@@ -1501,7 +1501,7 @@ class PrumoRibbon(QtWidgets.QWidget):
                     FreeCADGui.activateWorkbench(wb)  # dispara sync_workbench
                     return
             except Exception as exc:
-                FreeCAD.Console.PrintWarning("Prumo: {}\n".format(exc))
+                FreeCAD.Console.PrintWarning("Usinix: {}\n".format(exc))
         self.build(tab)
 
     _user_click = True
@@ -1674,7 +1674,7 @@ class PrumoRibbon(QtWidgets.QWidget):
                     FreeCADGui.activateWorkbench(wb)
                     feitas.append(wb)
                 except Exception as exc:
-                    FreeCAD.Console.PrintLog("Prumo: bancada %s não carregou: %s\n" % (wb, exc))
+                    FreeCAD.Console.PrintLog("Usinix: bancada %s não carregou: %s\n" % (wb, exc))
             if atual:
                 try:
                     FreeCADGui.activateWorkbench(atual)
@@ -1685,7 +1685,7 @@ class PrumoRibbon(QtWidgets.QWidget):
         for t in TABS:
             self._precarregadas[t.get("id")] = True
         try:
-            import PrumoI18n        # as bancadas carregadas instalaram tradutores por cima do Prumo
+            import PrumoI18n        # as bancadas carregadas instalaram tradutores por cima do Usinix
             PrumoI18n.raise_priority()
         except Exception:
             pass
@@ -2186,7 +2186,7 @@ def _hide_native_toolbars():
 
 
 def _force_light_scheme():
-    """Fixa o esquema de cores do Qt no tema Prumo (claro ou escuro), independente do Windows."""
+    """Fixa o esquema de cores do Qt no tema Usinix (claro ou escuro), independente do Windows."""
     try:
         hints = QtGui.QGuiApplication.styleHints()
         alvo = QtCore.Qt.ColorScheme.Dark if _escuro() else QtCore.Qt.ColorScheme.Light
@@ -2227,7 +2227,7 @@ def _apply_global_qss():
         if PrumoEstilo.enabled():
             extra = PrumoEstilo.qss()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: estilo das janelas não aplicado: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: estilo das janelas não aplicado: {}\n".format(exc))
     app.setStyleSheet(css + "\n" + _t(GLOBAL_QSS).replace("/*PRUMO-END*/", extra + "\n/*PRUMO-END*/"))
 
 
@@ -2251,7 +2251,7 @@ def install():
     if _state["ribbon"] is not None:
         return _state["ribbon"]
     mw = FreeCADGui.getMainWindow()
-    bar = QtWidgets.QToolBar("Faixa Prumo", mw)
+    bar = QtWidgets.QToolBar("Faixa Usinix", mw)
     bar.setObjectName("PrumoRibbonBar")
     bar.setMovable(False)
     bar.setFloatable(False)
@@ -2266,7 +2266,7 @@ def install():
     try:
         mw.workbenchActivated.connect(_on_workbench)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: sinal workbenchActivated indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: sinal workbenchActivated indisponível: {}\n".format(exc))
     timer = QtCore.QTimer(mw)
     timer.setInterval(400)
     timer.timeout.connect(_tick)

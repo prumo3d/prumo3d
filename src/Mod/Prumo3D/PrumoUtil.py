@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - funções comuns às ferramentas (números no formato brasileiro, materiais, peças).
-"""Utilidades compartilhadas pelas ferramentas do Prumo 3D."""
+# Usinix - funções comuns às ferramentas (números no formato brasileiro, materiais, peças).
+"""Utilidades compartilhadas pelas ferramentas do Usinix."""
 
 import os
 
@@ -44,7 +44,7 @@ def material(obj):
     """(nome, densidade em kg/m³, definido) do material da peça.
 
     definido = False quando a peça usa o material "Default" do FreeCAD (sem material escolhido);
-    aí a densidade retornada é a padrão do Prumo (aço, 7.850 kg/m³, ajustável)."""
+    aí a densidade retornada é a padrão do Usinix (aço, 7.850 kg/m³, ajustável)."""
     alvo = obj
     try:
         if obj.TypeId == "App::Link" and obj.LinkedObject is not None:

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: tecla S abre a caixa de ferramentas no cursor (como a barra S do SolidWorks e a do Fusion/Onshape).
+"""Usinix: tecla S abre a caixa de ferramentas no cursor (como a barra S do SolidWorks e a do Fusion/Onshape).
 
 Com o mouse na vista 3D, S abre, onde está o cursor, as ferramentas principais da aba atual e uma linha de
 busca no topo (digitar procura em todas as ferramentas, como o Ctrl+K). Enter ou clique roda.
 
 Não vale dentro de um esboço ou de outra edição (lá o S é a relação Simétrica do esboço) nem na aba
-Simulação (atalhos "S, ..." das simulações). Pode ser desligada em Preferências do Prumo.
+Simulação (atalhos "S, ..." das simulações). Pode ser desligada em Preferências do Usinix.
 """
 import FreeCAD
 import FreeCADGui

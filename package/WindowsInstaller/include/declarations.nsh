@@ -12,14 +12,17 @@ Configuration and variables of FreeCAD installer
 #--------------------------------
 # Names and version
 
-# Prumo 3D: nome próprio para pasta, registro, atalhos e desinstalador, para instalar
-# lado a lado com o FreeCAD original sem sobrescrever nada dele. O executável é Prumo3D.exe
+# Usinix (antes Prumo 3D): nome próprio para pasta, registro, atalhos e desinstalador, para instalar
+# lado a lado com o FreeCAD original sem sobrescrever nada dele. O executável é Usinix.exe
 # (ExeName vem do bin\branding.xml, lido pelo write_version_nsh.py).
 !define APP_EXE_NAME "${APP_NAME}"
 !undef APP_NAME
-!define APP_NAME "Prumo 3D"
+!define APP_NAME "Usinix"
 # identificador sem espaços para chaves de registro, desinstalador e macros
-!define APP_ID "Prumo3D"
+!define APP_ID "Usinix"
+# nome do produto até a 1.3.1: o instalador copia as configurações e oferece remover a instalação antiga
+!define APP_ID_ANTIGO "Prumo3D"
+!define APP_NAME_ANTIGO "Prumo 3D"
 
 !define APP_VERSION_NUMBER "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}.${APP_VERSION_BUILD}"
 # For the proposed install folder we use the scheme "FreeCAD x.x"
@@ -31,14 +34,14 @@ Configuration and variables of FreeCAD installer
 !define APP_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${APP_ID}.exe"
 !define APP_DIR "${APP_NAME} ${APP_SERIES_NAME}"
 # Fixme: FC should use different preferences folder for every release
-# preferências ficam em %APPDATA%\Prumo3D (ExeName do branding.xml), separadas do FreeCAD original
+# preferências ficam em %APPDATA%\Usinix (ExeName do branding.xml), separadas do FreeCAD original
 !define APP_DIR_USERDATA "${APP_ID}"
 #!define APP_DIR_USERDATA "${APP_NAME}${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}"
-!define APP_SHORTCUT_INFO "${APP_NAME} - modelagem 3D paramétrica"
+!define APP_SHORTCUT_INFO "${APP_NAME} - CAD 3D da metal-mecânica"
 !define APP_INFO "Install/Uninstall ${APP_NAME}"
-!define APP_WEBPAGE "https://github.com/prumo3d/prumo3d"
+!define APP_WEBPAGE "https://github.com/usinix/usinix"
 !define APP_WEBPAGE_INFO "${APP_NAME} Website"
-!define APP_WIKI "https://wiki.freecad.org/Main_Page" # documentação do FreeCAD, base do Prumo 3D
+!define APP_WIKI "https://wiki.freecad.org/Main_Page" # documentação do FreeCAD, base do Usinix
 !define APP_WIKI_INFO "${APP_NAME} Wiki"
 !define APP_COPYRIGHT "${APP_NAME}, baseado no FreeCAD: Copyright © 2001-${COPYRIGHT_YEAR} FreeCAD Team"
 

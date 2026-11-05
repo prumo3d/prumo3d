@@ -1,4 +1,4 @@
-"""Prumo 3D: desenha o selo da versão (ex.: "0.1 BETA") sobre a tela de abertura.
+"""Usinix: desenha o selo da versão (ex.: "0.1 BETA") sobre a tela de abertura.
 
 Base: prumo-build/ferramentas/splash/splash_base.png (sem selo).
 Saída: src/Mod/Prumo3D/Resources/splash_image.png.
@@ -35,14 +35,14 @@ def versao(rotulo=None):
 def main(rotulo=None):
     im = Image.open(os.path.join(AQUI, "splash", "splash_base.png")).convert("RGB")
     d = ImageDraw.Draw(im)
-    fonte = ImageFont.truetype(os.path.join(MOD, "Resources", "fonts", "Poppins-SemiBold.ttf"), 15)
+    fonte = ImageFont.truetype(os.path.join(AQUI, "splash", "fontes", "Sora-600.ttf"), 14)
     texto = versao(rotulo)
     l, t, r, b = d.textbbox((0, 0), texto, font=fonte)
     pad_x, pad_y = 12, 5
-    x0, y0 = 472, 228   # à direita do traço amarelo sob o nome
+    x0, y0 = 470, 252   # à direita do traço âmbar sob o nome
     w, h = (r - l) + 2 * pad_x, (b - t) + 2 * pad_y
-    d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=h // 2, fill="#F7BE00")
-    d.text((x0 + pad_x - l, y0 + pad_y - t), texto, font=fonte, fill="#003A70")
+    d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=h // 2, fill="#F2A900")
+    d.text((x0 + pad_x - l, y0 + pad_y - t), texto, font=fonte, fill="#0F2A4A")
     saida = os.path.join(MOD, "Resources", "splash_image.png")
     im.save(saida, optimize=True)
     print("selo", texto, "->", saida)

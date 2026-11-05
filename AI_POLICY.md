@@ -3,9 +3,9 @@ SPDX-License-Identifier: CC-BY-4.0
 Adaptado da política de IA do projeto FreeCAD (SPDX-FileCopyrightText: 2026 FreeCAD Developers, CC-BY-4.0).
 -->
 
-# Política de IA do Prumo 3D
+# Política de IA do Usinix
 
-O Prumo 3D usa ferramentas de inteligência artificial como **assistentes** no desenvolvimento: para
+O Usinix usa ferramentas de inteligência artificial como **assistentes** no desenvolvimento: para
 escrever e revisar código, traduzir textos e rodar testes. Esta política define as regras para que isso aconteça
 com responsabilidade e transparência, sempre com **pessoas no comando**.
 

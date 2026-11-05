@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Janela "Sobre o Prumo 3D" no padrão visual Prumo."""
+"""Janela "Sobre o Usinix" no padrão visual Usinix."""
 import os
 
 from PySide import QtCore, QtGui, QtWidgets
@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ICON_SVG = os.path.join(HERE, "Resources", "icons", "prumo.svg")
 ICON_PNG = os.path.join(HERE, "Resources", "icons", "prumo.png")
 # endereço público do projeto (ajustar se o repositório mudar de lugar)
-URL_PROJETO = "github.com/prumo3d/prumo3d"
+URL_PROJETO = "github.com/usinix/usinix"
 
 QSS = """
 #SwSobre { background: #F4F7FB; }
@@ -40,7 +40,7 @@ class SobreDialog(QtWidgets.QDialog):
     def __init__(self, versao, base, parent=None):
         super().__init__(parent)
         self.setObjectName("SwSobre")
-        self.setWindowTitle("Sobre o Prumo 3D")
+        self.setWindowTitle("Sobre o Usinix")
         self.setStyleSheet(PrumoEstilo.tema(QSS))
         self.setMinimumWidth(520)
         v = QtWidgets.QVBoxLayout(self)
@@ -57,7 +57,7 @@ class SobreDialog(QtWidgets.QDialog):
         th.addWidget(ic)
         tc = QtWidgets.QVBoxLayout()
         tc.setSpacing(2)
-        n = QtWidgets.QLabel("Prumo 3D")
+        n = QtWidgets.QLabel("Usinix")
         n.setObjectName("SwSobreNome")
         ver = QtWidgets.QLabel("Versão " + versao)
         ver.setObjectName("SwSobreVersao")
@@ -133,7 +133,7 @@ class SobreDialog(QtWidgets.QDialog):
 
         legal = QtWidgets.QLabel(
             "Software livre sob licença LGPL-2.1-or-later, baseado no FreeCAD (freecad.org). "
-            "O Prumo 3D não é um projeto oficial do FreeCAD.")
+            "O Usinix não é um projeto oficial do FreeCAD.")
         legal.setObjectName("SwSobreLegal")
         legal.setWordWrap(True)
         lw = QtWidgets.QHBoxLayout()

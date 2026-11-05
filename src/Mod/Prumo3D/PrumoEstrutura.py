@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - estruturas soldadas: barras de perfil sobre um esqueleto de linhas.
+# Usinix - estruturas soldadas: barras de perfil sobre um esqueleto de linhas.
 """Estruturas soldadas (bases de máquina, plataformas, suportes, pórticos).
 
-Desenhe o esqueleto em linhas (esboço ou arame), escolha o perfil e o Prumo cria uma barra por
+Desenhe o esqueleto em linhas (esboço ou arame), escolha o perfil e o Usinix cria uma barra por
 linha, com meia-esquadria nos cantos de duas barras e recorte pela peça nas ligações em "T".
 A lista de corte sai em planilha: perfil, comprimento, quantidade, ângulos de corte e massa
 (massa linear do catálogo × comprimento).
@@ -284,7 +284,7 @@ def ligacoes(eds, i):
                 encontros.append((j, _dir(o, True)))
             elif (pb - p).Length < 1e-4:
                 encontros.append((j, _dir(o, False)))
-        # Prumo: ponta que cai no meio de outra barra encosta nela mesmo quando outras barras também chegam
+        # Usinix: ponta que cai no meio de outra barra encosta nela mesmo quando outras barras também chegam
         # ali (diagonais de treliça em K / N): a que passa manda; as que chegam juntas se recortam entre si
         passa = [j for j, o in enumerate(eds) if j != i and o is not None and _ponto_interior(p, o)]
         if passa and encontros:
@@ -746,7 +746,7 @@ class Barra:
             return
         eds = arestas(est.Esqueleto)
         if obj.Indice >= len(eds):
-            FreeCAD.Console.PrintWarning("Prumo: %s não tem mais linha no esqueleto.\n" % obj.Label)
+            FreeCAD.Console.PrintWarning("Usinix: %s não tem mais linha no esqueleto.\n" % obj.Label)
             return
         if obj.Indice in sem_barra(est):
             return   # a sincronização apaga esta barra
@@ -1531,7 +1531,7 @@ class EtiquetasNaTela:
 
     Nada é gravado no arquivo. destacar(i) pinta o número da linha escolhida na tabela."""
 
-    COR = (0.0, 0.227, 0.439)      # azul Prumo #003A70
+    COR = (0.0, 0.227, 0.439)      # azul Usinix #003A70
     COR_DESTAQUE = (0.86, 0.33, 0.0)
 
     def __init__(self, doc, pontos, textos=None):
@@ -1666,7 +1666,7 @@ class DialogoEstrutura(QtWidgets.QDialog):
         try:
             self.etiquetas = EtiquetasNaTela(esqueleto.Document, [_meio(e) for e in self.eds])
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: números das linhas na tela: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: números das linhas na tela: %s\n" % exc)
         self._observando = False
         try:
             FreeCADGui.Selection.addObserver(self)
@@ -2686,7 +2686,7 @@ class DialogoCantos(QtWidgets.QDialog):
                 self.etiquetas = EtiquetasNaTela(self.est.Document, pontos, textos)
                 self.etiquetas.destacar(dest)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: marcas dos cantos: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: marcas dos cantos: %s\n" % exc)
 
     def _escolhas(self):
         for grupo, cb in zip(self.linhas, self.combos):
@@ -2876,6 +2876,6 @@ class CmdAtualizarEstrutura:
                 atualizar(est)
         except Exception as ex:
             doc.abortTransaction()
-            FreeCAD.Console.PrintError("Prumo: não foi possível atualizar a estrutura: %s\n" % ex)
+            FreeCAD.Console.PrintError("Usinix: não foi possível atualizar a estrutura: %s\n" % ex)
             return
         doc.commitTransaction()

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Kit visual do Prumo 3D (padrão desde a 0.6): o que os quadros do painel lateral mostram.
+"""Kit visual do Usinix (padrão desde a 0.6): o que os quadros do painel lateral mostram.
 
 Toda tela nova ou alterada usa estas peças, para o sistema inteiro falar a mesma língua:
 

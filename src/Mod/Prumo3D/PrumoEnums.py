@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Tradução dos valores de listas (enumerações) do editor de propriedades.
 
-O Prumo 3D compilado (fork) pede a tradução de cada valor com o contexto
+O Usinix compilado (fork) pede a tradução de cada valor com o contexto
 "App::PropertyEnumeration"; o valor gravado no arquivo continua o original em inglês,
 então os projetos abrem normalmente em qualquer FreeCAD.
 """

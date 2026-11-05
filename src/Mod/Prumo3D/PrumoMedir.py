@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Medir (Prumo): painel em português que mede o que estiver selecionado, sem escolher modo.
+"""Medir (Usinix): painel em português que mede o que estiver selecionado, sem escolher modo.
 
 Um ponto dá a posição; uma aresta, o comprimento (e raio/diâmetro se for círculo); uma face, a área (e o
 raio se for cilíndrica); uma peça inteira, volume, área, centro de massa e caixa. Dois itens dão a distância
@@ -262,7 +262,7 @@ class _Linha:
         estilo.lineWidth = 3
         estilo.pointSize = 9
         cor = coin.SoBaseColor()
-        cor.rgb.setValue(0.969, 0.745, 0.0)       # amarelo Prumo
+        cor.rgb.setValue(0.969, 0.745, 0.0)       # amarelo Usinix
         caixa = coin.SoAnnotation()               # por cima do modelo
         coords = coin.SoCoordinate3()
         coords.point.setValues(0, 2, [(pa.x, pa.y, pa.z), (pb.x, pb.y, pb.z)])

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - complementos da estrutura soldada: reforços, tampas, placas de base e cordões de solda.
+# Usinix - complementos da estrutura soldada: reforços, tampas, placas de base e cordões de solda.
 """Complementos paramétricos das barras da estrutura soldada.
 
 - Reforço (mão-francesa / gusset): chapa triangular ou poligonal no canto entre duas barras,
@@ -138,7 +138,7 @@ class _Base:
             sh, den = self.forma(obj)
         except (ValueError, ZeroDivisionError) as ex:
             obj.Avisos = [str(ex)]
-            FreeCAD.Console.PrintWarning("Prumo: %s: %s\n" % (obj.Label, ex))
+            FreeCAD.Console.PrintWarning("Usinix: %s: %s\n" % (obj.Label, ex))
             return
         obj.Shape = sh
         obj.Avisos = []
@@ -1049,7 +1049,7 @@ def _relatar(objs):
         P.EM_PREVIA["avisos"] += ["%s: %s" % (o.Label, "; ".join(o.Avisos)) for o in ruins]
         return
     if ruins:
-        _aviso("Prumo 3D", "\n".join("%s: %s" % (o.Label, "; ".join(o.Avisos)) for o in ruins))
+        _aviso("Usinix", "\n".join("%s: %s" % (o.Label, "; ".join(o.Avisos)) for o in ruins))
 
 
 class CmdReforco:

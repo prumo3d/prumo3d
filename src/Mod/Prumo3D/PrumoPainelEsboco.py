@@ -354,7 +354,7 @@ def _escolher_retirada(sk, base_restricoes, base_geometria, geo_antes=None):
         tamanho = 1.0
     melhor = None
     for cand in candidatos:
-        doc.openTransaction("Prumo: teste de restrição")
+        doc.openTransaction("Usinix: teste de restrição")
         try:
             if geo_antes is not None:
                 sk.Geometry = [g.copy() for g in geo_antes]
@@ -392,7 +392,7 @@ def retirar_automaticas_em_conflito(sk, base_restricoes, base_geometria, geo_ant
     try:
         escolha = _escolher_retirada(sk, base_restricoes, base_geometria, geo_antes)
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: escolha da restrição: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: escolha da restrição: {}\n".format(exc))
     if escolha:
         doc = sk.Document
         textos = [texto_restricao(sk, sk.Constraints[i]) for i in sorted(escolha)]
@@ -575,7 +575,7 @@ class PainelEsboco(QtWidgets.QWidget):
         try:
             FreeCADGui.runCommand(cmd, 0)
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(cmd, exc))
+            FreeCAD.Console.PrintWarning("Usinix: {}: {}\n".format(cmd, exc))
         QtCore.QTimer.singleShot(50, lambda: self.atualizar(True))
 
     def _relacionar(self, cmd, chave):
@@ -589,7 +589,7 @@ class PainelEsboco(QtWidgets.QWidget):
             sk.Document.commitTransaction()
         except Exception as exc:
             sk.Document.abortTransaction()
-            FreeCAD.Console.PrintWarning("Prumo: não apagou a restrição: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: não apagou a restrição: {}\n".format(exc))
         sk.Document.recompute()
         self.atualizar(True)
 
@@ -760,7 +760,7 @@ class Encaixe:
         try:
             self._passo()
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: painel do esboço: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: painel do esboço: {}\n".format(exc))
 
     def _passo(self):
         sk = esboco_em_edicao() if ligado() else None

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: nenhum clique fica sem resposta.
+"""Usinix: nenhum clique fica sem resposta.
 
 Quando uma ferramenta não pode rodar (sem projeto aberto, sem a seleção que ela pede, em edição de esboço,
 fora da bancada certa) ou roda e dá erro, aparece um aviso curto embaixo da janela dizendo o que houve e o
@@ -126,7 +126,7 @@ def mostrar(texto, tipo="aviso"):
     """Mostra o aviso (e grava no relatório, para quem estiver com ele aberto)."""
     _ESTADO["ultimo"] = texto
     try:
-        FreeCAD.Console.PrintWarning("Prumo: %s\n" % texto)
+        FreeCAD.Console.PrintWarning("Usinix: %s\n" % texto)
     except Exception:
         pass
     if QtWidgets is None or not FreeCAD.GuiUp:
@@ -175,7 +175,7 @@ def _erros_novos(rel, inicio):
     ruins = []
     for l in linhas:
         baixo = l.lower()
-        if l.startswith("Prumo: "):
+        if l.startswith("Usinix: "):
             if "falh" in baixo or "erro" in baixo or "não foi possível" in baixo:
                 ruins.append(l)
         elif any(p in baixo for p in PALAVRAS_ERRO):
@@ -212,7 +212,7 @@ def executar(nome, fn, rotulo=None):
             if erros:
                 ult = [e for e in erros if not e.lower().startswith("traceback")]
                 msg = (ult or erros)[-1]
-                msg = re.sub(r"^(Prumo: )", "", msg)
+                msg = re.sub(r"^(Usinix: )", "", msg)
                 mostrar("%s não foi concluída: %s" % (_rotulo(nome, rotulo), _traduzir(msg)), "erro")
         QtCore.QTimer.singleShot(400, conferir)
     return True

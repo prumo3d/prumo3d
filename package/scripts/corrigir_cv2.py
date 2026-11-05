@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: deixa o OpenCV (cv2) do pacote independente do lugar onde foi montado.
+"""Usinix: deixa o OpenCV (cv2) do pacote independente do lugar onde foi montado.
 
 O conda grava nos arquivos de configuração do cv2 (cv2/config.py e cv2/config-3.X.py) o caminho absoluto do
 ambiente em que foi instalado (ex.: /home/runner/work/.../.pixi/envs/default). No computador de quem instala o

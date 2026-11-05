@@ -1,5 +1,5 @@
 {
- "descricao": "Fixadores adicionais do Prumo 3D (medidas nominais, a checar).",
+ "descricao": "Fixadores adicionais do Usinix (medidas nominais, a checar).",
  "fonte": "Medidas nominais da norma, levantadas da tabela pública do projeto FreeCAD Fasteners (FsData). A checar contra a norma (ABNT/ISO/DIN) antes de uso em projeto.",
  "tipos": {
   "escareado_allen": {

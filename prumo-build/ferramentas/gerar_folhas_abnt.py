@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Gera as folhas de desenho ABNT do Prumo 3D (SVG para o Desenho técnico / TechDraw).
+"""Gera as folhas de desenho ABNT do Usinix (SVG para o Desenho técnico / TechDraw).
 
 Uso:
     python gerar_folhas_abnt.py [pasta_de_saida]
@@ -207,7 +207,7 @@ def gerar(formato, norma, retrato=False):
     leg = n["legenda"][formato]
     x0, y0, x1, y1 = m["esq"], m["sup"], larg - m["dir"], alt - m["inf"]
     orient = "Retrato" if retrato else "Paisagem"
-    titulo = "Prumo 3D — Folha %s %s — %s" % (formato, orient.lower(), n["titulo"])
+    titulo = "Usinix — Folha %s %s — %s" % (formato, orient.lower(), n["titulo"])
     leg_svg, h_leg = _legenda(x1, y1, leg, formato)
     out = ['<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
            '<svg width="%smm" height="%smm" viewBox="0 0 %s %s" version="1.1" id="svg"' % (larg, alt, larg, alt),
@@ -240,7 +240,7 @@ def gerar(formato, norma, retrato=False):
         out.append('</g>')
     out.extend(_grade(larg, alt, m, esp))
     out.extend(leg_svg)
-    out.append(_texto(x1 - leg, y1 - h_leg - 1.0, "Prumo 3D", 1.8, idt="marca"))
+    out.append(_texto(x1 - leg, y1 - h_leg - 1.0, "Usinix", 1.8, idt="marca"))
     out.append('</svg>')
     return "\n".join(out) + "\n"
 

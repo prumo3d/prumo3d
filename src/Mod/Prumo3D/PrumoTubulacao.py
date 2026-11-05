@@ -10,7 +10,7 @@ Em cada nó do traçado a conexão sai do catálogo da linha escolhida:
 - 4 linhas em cruz → cruzeta;
 - ponta solta → cap, se pedido.
 
-Ângulo ou combinação que não existe no catálogo vira aviso: o Prumo não inventa conexão. O tubo de cada
+Ângulo ou combinação que não existe no catálogo vira aviso: o Usinix não inventa conexão. O tubo de cada
 trecho é cortado descontando o avanço das conexões (centro até a face menos a bolsa), e a lista de corte
 aproveita as barras (com emenda pela bolsa da barra quando o trecho passa do comprimento da barra).
 """
@@ -1709,9 +1709,9 @@ def criar(caminho, dn=25, lid=CAT.PADRAO, tampar=False, doc=None, ajustar=True):
         try:
             mud = ajustar_tracado(obj)
             if mud:
-                FreeCAD.Console.PrintMessage("Prumo: traçado ajustado às conexões em %d ponto(s).\n" % len(mud))
+                FreeCAD.Console.PrintMessage("Usinix: traçado ajustado às conexões em %d ponto(s).\n" % len(mud))
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: ajuste do traçado: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: ajuste do traçado: %s\n" % exc)
     if FreeCAD.GuiUp:
         VPTubulacao(obj.ViewObject)
         try:

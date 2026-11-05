@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - identidade visual para o FreeCAD.
-"""Branding Prumo: título e ícone da janela, splash e aplicação do tema."""
+# Usinix - identidade visual para o FreeCAD.
+"""Branding Usinix: título e ícone da janela, splash e aplicação do tema."""
 
 import filecmp
 import os
@@ -15,20 +15,20 @@ try:
 except ImportError:  # pragma: no cover
     from PySide2 import QtCore, QtGui, QtWidgets
 
-APP_NAME = "Prumo 3D"
+APP_NAME = "Usinix"
 PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
 ADDON_DIR = os.path.dirname(os.path.abspath(__file__))
 RES_DIR = os.path.join(ADDON_DIR, "Resources")
 ICON_PATH = os.path.join(RES_DIR, "icons", "prumo.png")
 SPLASH_SRC = os.path.join(RES_DIR, "splash_image.png")
-# Tema "Prumo Claro": pacote de preferências embutido (share/Gui/PreferencePacks);
+# Tema "Usinix Claro": pacote de preferências embutido (share/Gui/PreferencePacks);
 # a cópia ao lado do módulo é aceita para quem roda o módulo solto, fora do programa compilado.
 PACK_CFG = next(
     (c for c in (
-        os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Prumo Claro", "Prumo Claro.cfg"),
-        os.path.join(ADDON_DIR, "Prumo Claro", "Prumo Claro.cfg"),
+        os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Usinix Claro", "Usinix Claro.cfg"),
+        os.path.join(ADDON_DIR, "Usinix Claro", "Usinix Claro.cfg"),
     ) if os.path.isfile(c)),
-    os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Prumo Claro", "Prumo Claro.cfg"),
+    os.path.join(FreeCAD.getResourceDir(), "Gui", "PreferencePacks", "Usinix Claro", "Usinix Claro.cfg"),
 )
 
 
@@ -62,7 +62,7 @@ def apply_window_branding():
     if app is None:
         return
     # O MainWindow do FreeCAD monta o título a partir do applicationName,
-    # então os títulos gerados depois (troca de documento) já saem "Prumo 3D".
+    # então os títulos gerados depois (troca de documento) já saem "Usinix".
     app.setApplicationName(APP_NAME)
     if os.path.isfile(ICON_PATH):
         app.setWindowIcon(QtGui.QIcon(ICON_PATH))
@@ -77,7 +77,7 @@ def apply_window_branding():
         mw.setWindowTitle("[*] {} - {}".format(doc.Label, base) if doc else base)
 
 
-# Versões anteriores da splash Prumo (podem ser substituídas sem perguntar)
+# Versões anteriores da splash Usinix (podem ser substituídas sem perguntar)
 OLD_SPLASH_MD5 = {"abaffad5496ffefc6199d1d0254842e1", "61d0f7d3152991b3dac6b8989051b9f8"}
 
 
@@ -90,7 +90,7 @@ def _is_old_prumo_splash(path):
 
 
 def _rodando_do_complemento():
-    """O módulo carregado é o do complemento (atualização só do Prumo, em <dados do usuário>/Mod), e não o
+    """O módulo carregado é o do complemento (atualização só do Usinix, em <dados do usuário>/Mod), e não o
     da instalação. Aí a splash da instalação é a da versão antiga: a do complemento vai para os dados do
     usuário, que o FreeCAD lê antes."""
     try:
@@ -111,14 +111,14 @@ def install_splash():
     dest_dir = os.path.join(FreeCAD.getUserAppDataDir(), "Gui", "images")
     dest = os.path.join(dest_dir, "splash_image.png")
     if "Prumo3D" in (FreeCAD.ConfigGet("SplashScreen") or "") and not _rodando_do_complemento():
-        # programa do Prumo (branding.xml): a splash já vem da instalação. Uma cópia nos dados do
+        # programa do Usinix (branding.xml): a splash já vem da instalação. Uma cópia nos dados do
         # usuário teria prioridade e ficaria velha a cada versão — então tira a cópia nossa.
         try:
             if os.path.isfile(dest) and (_params().GetBool("SplashIsOurs", False) or _is_old_prumo_splash(dest)):
                 os.remove(dest)
                 _params().SetBool("SplashIsOurs", False)
         except OSError as exc:
-            FreeCAD.Console.PrintLog("Prumo: splash antiga não removida: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: splash antiga não removida: {}\n".format(exc))
         return
     try:
         if os.path.isfile(dest) and filecmp.cmp(SPLASH_SRC, dest, shallow=False):
@@ -126,15 +126,15 @@ def install_splash():
         if os.path.isfile(dest) and not _params().GetBool("SplashIsOurs", False) and not _is_old_prumo_splash(dest):
             # Já existe uma splash personalizada que não é nossa: não sobrescrever.
             FreeCAD.Console.PrintWarning(
-                "Prumo: já existe {} — splash Prumo não instalada.\n".format(dest)
+                "Usinix: já existe {} — splash Usinix não instalada.\n".format(dest)
             )
             return
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copyfile(SPLASH_SRC, dest)
         _params().SetBool("SplashIsOurs", True)
-        FreeCAD.Console.PrintMessage("Prumo: splash instalada (vale na próxima abertura).\n")
+        FreeCAD.Console.PrintMessage("Usinix: splash instalada (vale na próxima abertura).\n")
     except OSError as exc:
-        FreeCAD.Console.PrintWarning("Prumo: não foi possível instalar a splash: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: não foi possível instalar a splash: {}\n".format(exc))
 
 
 def remove_splash():
@@ -157,7 +157,7 @@ def _icon_dir():
 
 
 def install_icon_theme():
-    """Descompacta o tema "Prumo Sóbrio" e o registra antes dos ícones embutidos.
+    """Descompacta o tema "Usinix Sóbrio" e o registra antes dos ícones embutidos.
 
     O FreeCAD lê os caminhos de ícones ao iniciar, então a troca aparece na
     próxima abertura do programa.
@@ -186,7 +186,7 @@ def install_icon_theme():
             if bitmaps.GetString(ICON_PATH_KEY, "") != esc:
                 bitmaps.SetString(ICON_PATH_KEY, esc)
         except OSError as exc:
-            FreeCAD.Console.PrintWarning("Prumo: ícones do tema escuro não gerados: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: ícones do tema escuro não gerados: {}\n".format(exc))
         return
 
     dest = _icon_dir()
@@ -199,17 +199,17 @@ def install_icon_theme():
             with zipfile.ZipFile(ICON_ZIP) as z:
                 z.extractall(dest)
             _params().SetString("IconThemeStamp", stamp)
-            FreeCAD.Console.PrintMessage("Prumo: tema de ícones instalado (vale na próxima abertura).\n")
+            FreeCAD.Console.PrintMessage("Usinix: tema de ícones instalado (vale na próxima abertura).\n")
         try:
             import PrumoEstilo
             if PrumoEstilo.escuro():
                 dest = _icon_dir_escuro(dest, stamp)
         except Exception as exc:  # pragma: no cover
-            FreeCAD.Console.PrintWarning("Prumo: ícones do tema escuro não gerados: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: ícones do tema escuro não gerados: {}\n".format(exc))
         if bitmaps.GetString(ICON_PATH_KEY, "") != dest:
             bitmaps.SetString(ICON_PATH_KEY, dest)
     except (OSError, zipfile.BadZipFile) as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tema de ícones não instalado: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tema de ícones não instalado: {}\n".format(exc))
 
 
 # Contornos azul-marinho/grafite somem no fundo escuro: viram claros nos ícones.
@@ -245,7 +245,7 @@ class CmdTemaEscuro:
         return {
             "Pixmap": os.path.join(ADDON_DIR, "Resources", "icons", "tema_escuro.svg"),
             "MenuText": "Tema escuro",
-            "ToolTip": "Alterna entre o tema claro e o tema escuro (reabre o Prumo 3D)",
+            "ToolTip": "Alterna entre o tema claro e o tema escuro (reabre o Usinix)",
         }
 
     def IsActive(self):
@@ -255,7 +255,7 @@ class CmdTemaEscuro:
         import PrumoEstilo
         novo = not PrumoEstilo.escuro()
         mw = FreeCADGui.getMainWindow()
-        texto = ("Mudar para o tema {}?\n\nO Prumo 3D será fechado e aberto de novo para aplicar cores e ícones. "
+        texto = ("Mudar para o tema {}?\n\nO Usinix será fechado e aberto de novo para aplicar cores e ícones. "
                  "Se houver documentos com alterações, ele pergunta se quer salvar.").format(
                      "escuro" if novo else "claro")
         r = QtWidgets.QMessageBox.question(mw, APP_NAME, texto,
@@ -283,7 +283,7 @@ def salvar_parametros():
         FreeCAD.saveParameter()
         return True
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: não foi possível gravar as preferências: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: não foi possível gravar as preferências: {}\n".format(exc))
         return False
 
 
@@ -310,7 +310,7 @@ def reabrir_freecad():
         salvar_parametros()
         if not mw.close():          # usuário cancelou ao ser perguntado sobre salvar
             QtWidgets.QMessageBox.information(
-                mw, APP_NAME, "Tema gravado. Ele será aplicado na próxima vez que o Prumo 3D abrir.")
+                mw, APP_NAME, "Tema gravado. Ele será aplicado na próxima vez que o Usinix abrir.")
             return
         prog, args = comando_reabrir(QtCore.QCoreApplication.applicationPid(),
                                      QtCore.QCoreApplication.applicationFilePath())
@@ -323,8 +323,8 @@ class CmdTemaIcones:
     def GetResources(self):
         return {
             "Pixmap": ICON_PATH,
-            "MenuText": "Alternar tema de ícones Prumo",
-            "ToolTip": "Liga ou desliga o tema de ícones Prumo Sóbrio (vale ao reabrir o Prumo 3D)",
+            "MenuText": "Alternar tema de ícones Usinix",
+            "ToolTip": "Liga ou desliga o tema de ícones Usinix Sóbrio (vale ao reabrir o Usinix)",
         }
 
     def Activated(self):
@@ -333,7 +333,7 @@ class CmdTemaIcones:
         install_icon_theme()
         QtWidgets.QMessageBox.information(
             FreeCADGui.getMainWindow(), APP_NAME,
-            "Tema de ícones Prumo {}.\nFeche e abra o Prumo 3D para ver a mudança.".format(
+            "Tema de ícones Usinix {}.\nFeche e abra o Usinix para ver a mudança.".format(
                 "ligado" if on else "desligado"))
 
     def IsActive(self):
@@ -429,8 +429,8 @@ class CmdAplicarTema:
     def GetResources(self):
         return {
             "Pixmap": ICON_PATH,
-            "MenuText": "Aplicar tema Prumo",
-            "ToolTip": "Aplica as cores Prumo na interface e na vista 3D",
+            "MenuText": "Aplicar tema Usinix",
+            "ToolTip": "Aplica as cores Usinix na interface e na vista 3D",
         }
 
     def Activated(self):
@@ -438,7 +438,7 @@ class CmdAplicarTema:
         QtWidgets.QMessageBox.information(
             FreeCADGui.getMainWindow(),
             APP_NAME,
-            "Tema Prumo aplicado.\nFeche e abra o Prumo 3D para ver todas as cores.",
+            "Tema Usinix aplicado.\nFeche e abra o Usinix para ver todas as cores.",
         )
 
     def IsActive(self):
@@ -498,7 +498,7 @@ class CmdSobre:
     def GetResources(self):
         return {
             "Pixmap": ICON_PATH,
-            "MenuText": "Sobre o Prumo 3D",
+            "MenuText": "Sobre o Usinix",
             "ToolTip": "Informações sobre esta distribuição",
         }
 
@@ -540,7 +540,7 @@ def apply_document_prefs():
 
 
 def apply_template_prefs():
-    """Folhas ABNT do Prumo 3D (Resources/folhas) como padrão do Desenho técnico.
+    """Folhas ABNT do Usinix (Resources/folhas) como padrão do Desenho técnico.
 
     Versões anteriores apontavam para modelos que foram removidos: se a preferência aponta para
     um arquivo que não existe mais, passa a usar a folha ABNT A3. Depois da primeira vez, a
@@ -557,7 +557,7 @@ def apply_template_prefs():
 
 
 class _FolhaObserver:
-    """Ao criar uma folha com modelo Prumo, grava a data em dd/mm/aaaa.
+    """Ao criar uma folha com modelo Usinix, grava a data em dd/mm/aaaa.
 
     O preenchimento automático do FreeCAD usa o formato do sistema em inglês ("17 Oct 2026").
     """
@@ -583,7 +583,7 @@ class _FolhaObserver:
             pass
 
 
-# Planos e eixos da origem no azul Prumo; ao passar o mouse ficam no amarelo de destaque
+# Planos e eixos da origem no azul Usinix; ao passar o mouse ficam no amarelo de destaque
 # (HighlightColor, definido no tema). O padrão do FreeCAD é vermelho/verde/azul por eixo.
 ORIGEM_PAPEIS = ("XY_Plane", "XZ_Plane", "YZ_Plane", "X_Axis", "Y_Axis", "Z_Axis")
 
@@ -594,11 +594,11 @@ def cor_origem():
 
 
 def pintar_origem(doc_name, obj_name):
-    """Pinta um plano/eixo da origem no azul Prumo.
+    """Pinta um plano/eixo da origem no azul Usinix.
 
     O FreeCAD 1.1 fixa a cor dos planos da origem ao criar a vista, a partir das cores
     dos eixos X/Y/Z (vermelho, verde, azul), e ignora mudanças em ShapeColor. Trocar as
-    cores dos eixos mudaria também o indicador de eixos do canto. Por isso a Prumo pinta
+    cores dos eixos mudaria também o indicador de eixos do canto. Por isso a Usinix pinta
     o material do próprio plano na cena 3D (nada é gravado no arquivo). O destaque ao
     passar o mouse continua no amarelo de HighlightColor.
     """
@@ -625,7 +625,7 @@ def pintar_origem(doc_name, obj_name):
             n += 1
         return n > 0
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: cor da origem: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: cor da origem: {}\n".format(exc))
         return False
 
 
@@ -666,7 +666,7 @@ def _fix_folha_date(obj):
     except Exception as exc:
         if "deleted" in str(exc):
             return  # a folha (ou o documento) foi fechada antes do ajuste adiado
-        FreeCAD.Console.PrintWarning("Prumo: data da folha: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: data da folha: {}\n".format(exc))
 
 
 _folha_obs = {"obj": None}
@@ -760,7 +760,7 @@ DEV_DOCKS = ("Python console", "Report view")
 def apply_modo_distribuicao(on=None):
     """Esconde (ou mostra) console Python e Relatório, que o usuário final não usa.
 
-    Sem escolha do usuário (menu Prumo → Modo distribuição, ou Preferências → "Mostrar Relatório e
+    Sem escolha do usuário (menu Usinix → Modo distribuição, ou Preferências → "Mostrar Relatório e
     console Python"): os dois começam fechados. Com o modo distribuição desligado de propósito, os dois
     aparecem (uso de quem programa)."""
     mw = FreeCADGui.getMainWindow()
@@ -797,12 +797,12 @@ class CmdRemoverSplash:
         return {
             "Pixmap": ICON_PATH,
             "MenuText": "Voltar à splash original",
-            "ToolTip": "Remove a splash Prumo e restaura a do FreeCAD",
+            "ToolTip": "Remove a splash Usinix e restaura a do FreeCAD",
         }
 
     def Activated(self):
         remove_splash()
-        FreeCAD.Console.PrintMessage("Prumo: splash original restaurada.\n")
+        FreeCAD.Console.PrintMessage("Usinix: splash original restaurada.\n")
 
     def IsActive(self):
         return True
@@ -812,8 +812,8 @@ class CmdBarrasClassicas:
     def GetResources(self):
         return {
             "Pixmap": ICON_PATH,
-            "MenuText": "Alternar faixa Prumo / barras clássicas",
-            "ToolTip": "Liga ou desliga a faixa de ferramentas Prumo",
+            "MenuText": "Alternar faixa Usinix / barras clássicas",
+            "ToolTip": "Liga ou desliga a faixa de ferramentas Usinix",
         }
 
     def Activated(self):
@@ -841,7 +841,7 @@ def register_commands():
         import PrumoPreferencias
         PrumoPreferencias.registrar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: preferências: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: preferências: {}\n".format(exc))
     FreeCADGui.addCommand("Prumo_Arvore", CmdArvore())
     FreeCADGui.addCommand("Prumo_RemoverSplash", CmdRemoverSplash())
     FreeCADGui.addCommand("Prumo_BarrasClassicas", CmdBarrasClassicas())
@@ -853,7 +853,7 @@ def register_commands():
         FreeCADGui.addCommand("Prumo_Inicio", PrumoInicio.CmdInicio())
         PrumoInicio.registrar_comecar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tela inicial indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tela inicial indisponível: {}\n".format(exc))
     for modulo, registro in (("PrumoCotas", lambda m: FreeCADGui.addCommand("Prumo_Cotas", m.CmdCotas())),
                              ("PrumoMassa", lambda m: FreeCADGui.addCommand("Prumo_Massa", m.CmdMassa())),
                              ("PrumoModelos", lambda m: FreeCADGui.addCommand("Prumo_Modelo", m.CmdModelo())),
@@ -924,7 +924,7 @@ def register_commands():
         try:
             registro(__import__(modulo))
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: {} indisponível: {}\n".format(modulo, exc))
+            FreeCAD.Console.PrintWarning("Usinix: {} indisponível: {}\n".format(modulo, exc))
     try:
         import PrumoFEM
         FreeCADGui.addCommand("Prumo_AssistenteFEM", PrumoFEM.CmdAssistenteFEM())
@@ -936,11 +936,11 @@ def register_commands():
         import PrumoGuiaMigracao
         FreeCADGui.addCommand("Prumo_GuiaMigracao", PrumoGuiaMigracao.CmdGuiaMigracao())
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: assistente de simulação indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: assistente de simulação indisponível: {}\n".format(exc))
 
 
 def install_translations():
-    """Tradução pt-BR Prumo com prioridade sobre a oficial (ver PrumoI18n)."""
+    """Tradução pt-BR Usinix com prioridade sobre a oficial (ver PrumoI18n)."""
     try:
         import PrumoI18n
 
@@ -949,19 +949,19 @@ def install_translations():
             import PrumoErros
             PrumoErros.instalar()       # erros das operações (texto cru do FreeCAD) em português
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: tradução dos erros não aplicada: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: tradução dos erros não aplicada: {}\n".format(exc))
         mw = FreeCADGui.getMainWindow()
         if mw is not None:
             mw.workbenchActivated.connect(PrumoI18n.on_workbench)
             mw.workbenchActivated.connect(proteger_plano_de_trabalho)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tradução não aplicada: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tradução não aplicada: {}\n".format(exc))
 
 
 def proteger_plano_de_trabalho(_nome=None):
     """A bancada BIM liga o observador do plano de trabalho do Draft, que atualiza a grade quando a vista
     ativa muda. Fechando um documento, essa atualização pode pegar a vista que está sendo destruída e
-    derrubar o programa (getCameraNode numa vista morta). No Prumo o BIM é uma aba e continua ativo nas
+    derrubar o programa (getCameraNode numa vista morta). No Usinix o BIM é uma aba e continua ativo nas
     abas sem bancada própria: a atualização passa a esperar o fechamento terminar e só roda se a vista
     ativa ainda for de um documento aberto."""
     import sys
@@ -1001,25 +1001,25 @@ def _start_ribbon():
 
         PrumoRibbon.install()
     except Exception as exc:
-        FreeCAD.Console.PrintError("Prumo: falha ao montar a faixa: {}\n".format(exc))
+        FreeCAD.Console.PrintError("Usinix: falha ao montar a faixa: {}\n".format(exc))
     try:
         import PrumoBarraVista
 
         PrumoBarraVista.instalar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: barra de vistas: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: barra de vistas: {}\n".format(exc))
     try:
         import PrumoNovoEsboco
 
         PrumoNovoEsboco.instalar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: planos do novo esboço: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: planos do novo esboço: {}\n".format(exc))
     try:
         import PrumoCaixaS
 
         PrumoCaixaS.instalar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: caixa da tecla S: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: caixa da tecla S: {}\n".format(exc))
 
 
 def _start_ferramentas():
@@ -1028,18 +1028,18 @@ def _start_ferramentas():
         try:
             __import__(modulo).install()
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(modulo, exc))
+            FreeCAD.Console.PrintWarning("Usinix: {}: {}\n".format(modulo, exc))
     instalar_ajuste_ao_sair_do_esboco()
     instalar_menu_sobre()
     try:
         aplicar_bancadas_padrao()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: bancadas padrão: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: bancadas padrão: {}\n".format(exc))
 
 
 class _ManipuladorMenu:
-    """Ajuda → Sobre abre o Sobre do Prumo (o do FreeCAD, com créditos e licenças, fica no botão
-    "Licenças e bibliotecas" do Sobre do Prumo)."""
+    """Ajuda → Sobre abre o Sobre do Usinix (o do FreeCAD, com créditos e licenças, fica no botão
+    "Licenças e bibliotecas" do Sobre do Usinix)."""
 
     def modifyMenuBar(self):
         # Vista: editor de materiais (a bancada Materiais fica desligada) e o botão da árvore
@@ -1049,11 +1049,11 @@ class _ManipuladorMenu:
                 {"append": "Prumo_ReguaHistorico", "menuItem": "Std_DockViewMenu"}]
 
 
-# Bancadas que não vêm ligadas no Prumo (o usuário religa em Preferências → Geral → Bancadas).
+# Bancadas que não vêm ligadas no Usinix (o usuário religa em Preferências → Geral → Bancadas).
 # O padrão do FreeCAD já desliga Test, Inspection, Robot e OpenSCAD.
-# Draft, Malhas, Usinagem e Engenharia reversa saem de vista: no Prumo tudo fica nas abas da faixa (o código do
+# Draft, Malhas, Usinagem e Engenharia reversa saem de vista: no Usinix tudo fica nas abas da faixa (o código do
 # Draft continua instalado: texto, DXF e matriz em caminho do Esboço usam ele por baixo).
-# BIM (arquitetura) também sai: o Prumo é para engenharia mecânica.
+# BIM (arquitetura) também sai: o Usinix é para engenharia mecânica.
 BANCADAS_DESLIGADAS = ("MaterialWorkbench", "PointsWorkbench", "RobotWorkbench", "DraftWorkbench", "MeshWorkbench",
                        "CAMWorkbench", "ReverseEngineeringWorkbench", "BIMWorkbench")
 DESLIGADAS_FREECAD = "NoneWorkbench,TestWorkbench,InspectionWorkbench,RobotWorkbench,OpenSCADWorkbench"
@@ -1120,7 +1120,7 @@ class _ObservadorEdicao:
             PrumoGuardaEsboco.instalar()
             PrumoGuardaEsboco.ao_editar(obj)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: guarda do esboço: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: guarda do esboço: {}\n".format(exc))
         QtCore.QTimer.singleShot(120, lambda: _referencias_ao_entrar(doc, nome))
 
     def slotResetEdit(self, vp):
@@ -1134,12 +1134,12 @@ class _ObservadorEdicao:
             import PrumoReferencias
             PrumoReferencias.ao_sair(obj)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: referências do esboço: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: referências do esboço: {}\n".format(exc))
         try:   # conferência do esboço (perfil aberto, pontas quase encostadas...)
             import PrumoValidarEsboco
             PrumoValidarEsboco.ao_sair_do_esboco(obj)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: conferir esboço: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: conferir esboço: {}\n".format(exc))
         if not FreeCAD.ParamGet(PARAM_PATH).GetBool("EnquadrarAoSairDoEsboco", True):
             return
         # depois que o Esboço restaura a câmera
@@ -1153,7 +1153,7 @@ def _referencias_ao_entrar(doc, nome):
         if o is not None:
             PrumoReferencias.ao_entrar(o)
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: referências automáticas: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: referências automáticas: {}\n".format(exc))
 
 
 def _enquadrar_vista():
@@ -1162,7 +1162,7 @@ def _enquadrar_vista():
         if gd is not None and gd.getInEdit() is None:
             gd.ActiveView.fitAll()
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: enquadrar vista: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: enquadrar vista: {}\n".format(exc))
 
 
 _observador_edicao = {"obj": None}
@@ -1180,19 +1180,19 @@ def _start_guia():
 
         PrumoGuia.install()
     except Exception as exc:
-        FreeCAD.Console.PrintError("Prumo: falha no guia ilustrado: {}\n".format(exc))
+        FreeCAD.Console.PrintError("Usinix: falha no guia ilustrado: {}\n".format(exc))
     try:
         import PrumoPainelEsboco
 
         PrumoPainelEsboco.instalar()
     except Exception as exc:
-        FreeCAD.Console.PrintError("Prumo: falha no painel do esboço: {}\n".format(exc))
+        FreeCAD.Console.PrintError("Usinix: falha no painel do esboço: {}\n".format(exc))
     try:
         import PrumoPainelComando
 
         PrumoPainelComando.instalar()
     except Exception as exc:
-        FreeCAD.Console.PrintError("Prumo: falha no painel de comando: {}\n".format(exc))
+        FreeCAD.Console.PrintError("Usinix: falha no painel de comando: {}\n".format(exc))
 
 
 def _verificar_atualizacao():
@@ -1201,7 +1201,7 @@ def _verificar_atualizacao():
         import PrumoAtualizar
         PrumoAtualizar.verificar_ao_abrir()
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: verificação de atualização: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: verificação de atualização: {}\n".format(exc))
 
 
 def _start_inicio():
@@ -1209,7 +1209,7 @@ def _start_inicio():
         import PrumoInicio
         PrumoInicio.startup()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tela inicial não aberta: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tela inicial não aberta: {}\n".format(exc))
 
 
 MATERIAIS_DIR = os.path.join(ADDON_DIR, "Resources", "MateriaisPrumo")
@@ -1259,12 +1259,12 @@ def pasta_compatibilidade():
         with open(marca, "w", encoding="utf-8") as f:
             f.write(assinatura)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: biblioteca de compatibilidade de materiais: %s\n" % exc)
+        FreeCAD.Console.PrintWarning("Usinix: biblioteca de compatibilidade de materiais: %s\n" % exc)
     return destino
 
 
 def install_materials():
-    """Bibliotecas de materiais do Prumo.
+    """Bibliotecas de materiais do Usinix.
 
     - "Prumo": materiais usados no Brasil (aços estruturais, de vaso de pressão, inox, construção
       mecânica, ferro fundido, alumínio, latão), com norma e fonte em cada cartão;
@@ -1310,19 +1310,19 @@ def startup():
     try:
         hold_splash()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: splash: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: splash: {}\n".format(exc))
     try:
         import PrumoInicio
         PrumoInicio.prepare()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tela inicial: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tela inicial: {}\n".format(exc))
     register_commands()
     for fn in (aplicar_bancadas_padrao, instalar_nomes, install_materials, apply_document_prefs, apply_template_prefs,
                install_folha_observer, garantir_overlay_qss):
         try:
             fn()
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: {}: {}\n".format(fn.__name__, exc))
+            FreeCAD.Console.PrintWarning("Usinix: {}: {}\n".format(fn.__name__, exc))
     install_splash()
     install_translations()
     install_icon_theme()
@@ -1330,7 +1330,7 @@ def startup():
         import PrumoEstilo
         PrumoEstilo.install()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: estilo não instalado: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: estilo não instalado: {}\n".format(exc))
     QtCore.QTimer.singleShot(600, _start_ribbon)
     QtCore.QTimer.singleShot(700, _start_ferramentas)
     QtCore.QTimer.singleShot(900, _start_guia)
@@ -1348,4 +1348,4 @@ def startup():
         if _params().GetBool("ApplyThemeOnFirstRun", True):
             apply_theme()
             FreeCAD.Console.PrintMessage(
-                "Prumo: tema aplicado na primeira execução — reabra o FreeCAD.\n")
+                "Usinix: tema aplicado na primeira execução — reabra o FreeCAD.\n")

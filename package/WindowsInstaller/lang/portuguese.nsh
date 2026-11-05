@@ -70,3 +70,5 @@ ${LangFileString} DirNotEmptyWarning "The selected folder '$INSTDIR' is not empt
                         The installer will remove all its content before installing. Continue?"
 ${LangFileString} RMInstDirFailed "Failed to remove '$INSTDIR'.$\r$\n\
                         Make sure you have sufficient permissions and that no files are in use."
+
+${LangFileString} RemoverPrumoAntigo "O Prumo 3D agora chama-se Usinix e as suas configurações já foram trazidas.$\r$\n$\r$\nRemover a instalação antiga do Prumo 3D deste computador?"

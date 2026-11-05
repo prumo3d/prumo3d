@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Prumo 3D: módulo de interface embutido no programa (faixa de ferramentas, tradução pt-BR,
+# Usinix: módulo de interface embutido no programa (faixa de ferramentas, tradução pt-BR,
 # tela inicial, assistentes, tema e ícones) e identidade do aplicativo (branding.xml).
 
 file(GLOB Prumo3D_SRCS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "*.py")
@@ -49,7 +49,7 @@ INSTALL(
         Mod/Prumo3D/Resources
 )
 
-# Nome "Prumo 3D", tela de abertura e pasta de dados do usuário própria (%APPDATA%\Prumo3D,
+# Nome "Usinix", tela de abertura e pasta de dados do usuário própria (%APPDATA%\Usinix,
 # ~/.local/share/Prumo3D). O FreeCAD procura o branding.xml na pasta bin do programa.
 INSTALL(
     FILES

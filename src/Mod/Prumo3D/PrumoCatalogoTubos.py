@@ -629,7 +629,7 @@ def _linha_duto(ret):
                   "te": "Derivação de duto {dn}", "te_reducao": "Derivação de duto {D} × {d}",
                   "luva_reducao": "Redução de duto {D} × {d}", "cap": "Tampa de duto {dn}",
                   "tubo": "Duto %s {dn}" % ("retangular" if ret else "redondo")},
-        "fonte": "Medidas representativas do Prumo para leiaute (a checar no projeto de ar-condicionado)",
+        "fonte": "Medidas representativas do Usinix para leiaute (a checar no projeto de ar-condicionado)",
         "norma": "ABNT NBR 16401 e SMACNA (espessura da chapa por faixa de medida, a checar)",
         "pressao": "Baixa pressão (a checar no projeto)",
         "temperatura_max": "—",

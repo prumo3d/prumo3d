@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Tela inicial Prumo: cartões de "Novo projeto" e arquivos recentes com miniatura."""
+"""Tela inicial Usinix: cartões de "Novo projeto" e arquivos recentes com miniatura."""
 import os
 import zipfile
 
@@ -42,7 +42,7 @@ NOVOS = [
 
 # Ajuda: os três caminhos para aprender (abaixo de Novo projeto)
 AJUDA = [
-    ("ajuda_peca.svg", "Tutorial da primeira peça", "Primeira vez no Prumo 3D? Esboço, extrusão, furo e folha em "
+    ("ajuda_peca.svg", "Tutorial da primeira peça", "Primeira vez no Usinix? Esboço, extrusão, furo e folha em "
                                                      "10 passos.", lambda: _abrir_tutorial("peca")),
     ("ajuda_estrutura.svg", "Tutorial da estrutura soldada", "Perfis, cantos, reforços e placas de base em 9 "
                                                              "passos.", lambda: _abrir_tutorial("estrutura")),
@@ -101,7 +101,7 @@ def _abrir_guia_migracao():
         import PrumoGuiaMigracao
         PrumoGuiaMigracao.mostrar()
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: guia de migração indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: guia de migração indisponível: {}\n".format(exc))
 
 
 def _abrir_tutorial(chave="peca"):
@@ -109,7 +109,7 @@ def _abrir_tutorial(chave="peca"):
         import PrumoTutorial
         PrumoTutorial.mostrar(chave)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tutorial indisponível: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tutorial indisponível: {}\n".format(exc))
 
 
 def novo_documento():
@@ -173,7 +173,7 @@ def abrir_exemplo(nome):
     import shutil
     origem = os.path.join(EXEMPLOS_DIR, nome)
     if not os.path.isfile(origem):
-        FreeCAD.Console.PrintWarning("Prumo: exemplo não encontrado: {}\n".format(origem))
+        FreeCAD.Console.PrintWarning("Usinix: exemplo não encontrado: {}\n".format(origem))
         return None
     destino_dir = pasta_exemplos_usuario()
     os.makedirs(destino_dir, exist_ok=True)
@@ -189,7 +189,7 @@ def _run(cmd):
     try:
         FreeCADGui.runCommand(cmd)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: {} indisponível: {}\n".format(cmd, exc))
+        FreeCAD.Console.PrintWarning("Usinix: {} indisponível: {}\n".format(cmd, exc))
 
 
 def _open(path):
@@ -301,7 +301,7 @@ class InicioPrumo(QtWidgets.QWidget):
             head.addWidget(lg, 0, QtCore.Qt.AlignTop)
         tc = QtWidgets.QVBoxLayout()
         tc.setSpacing(0)
-        t = QtWidgets.QLabel("Prumo 3D")
+        t = QtWidgets.QLabel("Usinix")
         t.setObjectName("SwTitulo")
         s = QtWidgets.QLabel("Projetos mecânicos — escolha por onde começar.")
         s.setObjectName("SwSub")
@@ -318,7 +318,7 @@ class InicioPrumo(QtWidgets.QWidget):
                 self.faixa_origem = PrumoOrigemCAD.FaixaOrigem()
                 self.v.addWidget(self.faixa_origem)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: faixa de origem: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: faixa de origem: {}\n".format(exc))
 
         # novo projeto
         self._section("Novo projeto")
@@ -386,7 +386,7 @@ class InicioPrumo(QtWidgets.QWidget):
 
         self.v.addStretch(1)
         foot = QtWidgets.QHBoxLayout()
-        cb = QtWidgets.QCheckBox("Mostrar esta tela ao abrir o Prumo 3D")
+        cb = QtWidgets.QCheckBox("Mostrar esta tela ao abrir o Usinix")
         cb.setChecked(_params().GetBool("TelaInicial", True))
         cb.toggled.connect(_toggle_tela)
         foot.addWidget(cb)
@@ -508,7 +508,7 @@ def _set_hidden_names(names):
 def _on_subwindow(sub):
     """Esconde Modelo/Tarefas enquanto a tela inicial está na frente; devolve ao sair.
 
-    O que a Prumo escondeu fica gravado nas preferências: o FreeCAD salva o layout
+    O que a Usinix escondeu fica gravado nas preferências: o FreeCAD salva o layout
     ao fechar, e a barra voltaria escondida na próxima abertura.
     """
     if not _params().GetBool("OcultarLateralNoInicio", True):
@@ -561,7 +561,7 @@ def _poll_side():
     except Exception as exc:
         if not _side.get("aviso_painel"):
             _side["aviso_painel"] = True
-            FreeCAD.Console.PrintWarning("Prumo: painel lateral: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: painel lateral: {}\n".format(exc))
     _organizar_lateral()
 
 
@@ -648,11 +648,11 @@ def _safe(fn, *a):
     try:
         fn(*a)
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: tela inicial: {}\n".format(exc))
+        FreeCAD.Console.PrintWarning("Usinix: tela inicial: {}\n".format(exc))
 
 
 def startup():
-    """Na abertura: mostra a tela inicial Prumo quando não há documento aberto."""
+    """Na abertura: mostra a tela inicial Usinix quando não há documento aberto."""
     _connect_side()
     _safe(esconder_laterais_na_abertura)
     if not _params().GetBool("TelaInicial", True):
@@ -683,13 +683,13 @@ def _faixa_no_inicio():
                 return
             rb.select_tab("inicio")
     except Exception as exc:
-        FreeCAD.Console.PrintLog("Prumo: faixa no Início: {}\n".format(exc))
+        FreeCAD.Console.PrintLog("Usinix: faixa no Início: {}\n".format(exc))
 
 
 class CmdInicio:
     def GetResources(self):
         return {"Pixmap": os.path.join(HERE, "Resources", "icons", "prumo.png"),
-                "MenuText": "Tela inicial", "ToolTip": "Abre a tela inicial Prumo"}
+                "MenuText": "Tela inicial", "ToolTip": "Abre a tela inicial Usinix"}
 
     def Activated(self):
         show()

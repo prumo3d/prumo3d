@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Ajuste furo/eixo pelo sistema ISO 286 (ABNT NBR 6158), em português e em cartões.
 
-Escolhe-se o ajuste (furo-base ou eixo-base, dos ajustes preferenciais) e a cota; o Prumo põe a classe e os
+Escolhe-se o ajuste (furo-base ou eixo-base, dos ajustes preferenciais) e a cota; o Usinix põe a classe e os
 afastamentos na cota e mostra a folga ou a interferência máxima e mínima.
 
 Tabelas (µm, faixas de dimensão nominal até 500 mm):
@@ -216,7 +216,7 @@ def _filtro_cota(obj, subs):
 if P is not None:
     class PainelAjuste(P.PainelTarefa):
         titulo = "Ajuste furo/eixo"
-        ajuda = ("Escolha a cota do diâmetro (ou digite o diâmetro) e o ajuste. O Prumo põe a classe e os "
+        ajuda = ("Escolha a cota do diâmetro (ou digite o diâmetro) e o ajuste. O Usinix põe a classe e os "
                  "afastamentos na cota e mostra a folga ou a interferência.")
 
         def montar(self):

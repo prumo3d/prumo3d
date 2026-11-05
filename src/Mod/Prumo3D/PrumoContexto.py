@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - menu de contexto pela seleção (botão direito na vista 3D e na árvore).
+# Usinix - menu de contexto pela seleção (botão direito na vista 3D e na árvore).
 """Menu de contexto que muda conforme o que está selecionado.
 
 Face plana: "Esboço nesta face", "Extrudar", "Cavidade". Arestas: "Arredondar", "Chanfro".
 Esboço: "Extrudar", "Cavidade", "Revolução", "Editar esboço". Operação: "Cotas da operação".
 Sempre que houver peça: "Medir" e "Propriedades de massa".
 
-Os itens do Prumo chamam os comandos do FreeCAD (Peça / PartDesign); a bancada é carregada na
+Os itens do Usinix chamam os comandos do FreeCAD (Peça / PartDesign); a bancada é carregada na
 hora se ainda não estiver. É feito com o "manipulador de bancada" do FreeCAD, então vale em
 qualquer bancada.
 """
@@ -16,7 +16,7 @@ import FreeCADGui
 
 import PrumoUtil
 
-# comando Prumo -> (comando do FreeCAD, bancada que o registra, rótulo, dica, ícone)
+# comando Usinix -> (comando do FreeCAD, bancada que o registra, rótulo, dica, ícone)
 ACOES = {
     "Prumo_CtxEsbocoNaFace": ("PartDesign_NewSketch", "PartDesignWorkbench", "Esboço nesta face",
                               "Cria um esboço apoiado na face selecionada", "Sketcher_NewSketch"),
@@ -72,7 +72,7 @@ class CmdAcao:
 
     def Activated(self):
         if not _garantir_comando(self.cmd, self.bancada):
-            FreeCAD.Console.PrintWarning("Prumo: comando %s indisponível\n" % self.cmd)
+            FreeCAD.Console.PrintWarning("Usinix: comando %s indisponível\n" % self.cmd)
             return
         FreeCADGui.runCommand(self.cmd, 0)
 
@@ -154,7 +154,7 @@ def _selecao_atual():
 
 
 class Manipulador:
-    """Acrescenta os itens do Prumo no começo do menu de contexto."""
+    """Acrescenta os itens do Usinix no começo do menu de contexto."""
 
     def modifyContextMenu(self, recipient):
         try:
@@ -171,7 +171,7 @@ class Manipulador:
             ops.append({"insert": "Separator", "menuItem": ancora})
             return ops
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo menu de contexto: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix menu de contexto: %s\n" % exc)
             return []
 
 

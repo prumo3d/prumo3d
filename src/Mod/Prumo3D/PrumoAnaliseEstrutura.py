@@ -522,7 +522,7 @@ def calcular(est, casos, apoios, fy=250.0, fu=400.0, nome_material="", limite_fl
                                "(elástico com 80 %% da rigidez) não basta. Enrijeça a estrutura (travamentos, "
                                "perfis) ou faça a análise avançada." % a)
     calc.membros = membros(m, mapa)
-    # verificação por linha (barra do Prumo), pior combinação ELU
+    # verificação por linha (barra do Usinix), pior combinação ELU
     for i, trechos in mapa["barras"].items():
         prop = mapa["secoes"][i]
         _ls, Lm, balanco = calc.membros[i]

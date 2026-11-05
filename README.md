@@ -1,19 +1,19 @@
-<img src="/src/Mod/Prumo3D/Resources/icons/prumo.svg" height="100px" width="100px" alt="Prumo 3D">
+<img src="/src/Mod/Prumo3D/Resources/icons/prumo.svg" height="100px" width="100px" alt="Usinix">
 
-# Prumo 3D
+# Usinix
 
 ### O CAD 3D da metal-mecânica, em português
 
-[![Versão](https://img.shields.io/github/v/release/prumo3d/prumo3d?include_prereleases&label=vers%C3%A3o&color=003A70)](https://github.com/prumo3d/prumo3d/releases)
-[![Downloads](https://img.shields.io/github/downloads/prumo3d/prumo3d/total?label=downloads&color=F7BE00)](https://github.com/prumo3d/prumo3d/releases)
+[![Versão](https://img.shields.io/github/v/release/usinix/usinix?include_prereleases&label=vers%C3%A3o&color=003A70)](https://github.com/usinix/usinix/releases)
+[![Downloads](https://img.shields.io/github/downloads/usinix/usinix/total?label=downloads&color=F7BE00)](https://github.com/usinix/usinix/releases)
 
-[Baixar](https://github.com/prumo3d/prumo3d/releases/latest) •
+[Baixar](https://github.com/usinix/usinix/releases/latest) •
 [Novidades](NOVIDADES.md) •
-[Problemas e sugestões](https://github.com/prumo3d/prumo3d/issues) •
+[Problemas e sugestões](https://github.com/usinix/usinix/issues) •
 [Como contribuir](CONTRIBUTING.md) •
 [Documentação do FreeCAD](https://wiki.freecad.org)
 
-O Prumo 3D é um CAD 3D paramétrico livre e gratuito, em português, feito para a **metal-mecânica**:
+O Usinix é um CAD 3D paramétrico livre e gratuito, em português, feito para a **metal-mecânica**:
 quem projeta, fabrica e inspeciona peças, máquinas, caldeiraria e estruturas de aço. Peças e montagens,
 chapa dobrada, estruturas soldadas, tubulação e dutos, vasos de pressão, parafusos e porcas pela norma e
 desenho técnico ABNT para a fabricação, com cálculo onde o ofício pede (estruturas metálicas pelas
@@ -24,9 +24,13 @@ e BIM, usinagem CNC, robótica, nuvem de pontos) fica de fora, e cada ferramenta
 medida comercial, a norma e o jeito de trabalhar de quem faz metal-mecânica no Brasil.
 
 > [!NOTE]
-> O Prumo 3D não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.
+> O Usinix não é um projeto oficial do FreeCAD nem é mantido pela comunidade do FreeCAD.
 
-![Tela inicial do Prumo 3D](.github/images/prumo/tela-inicial.png)
+> [!TIP]
+> Até a versão 1.3.1 o Usinix se chamava **Prumo 3D**. Ao instalar a 1.4.0, as configurações do Prumo 3D
+> vêm junto e os arquivos feitos nele abrem normalmente.
+
+![Tela inicial do Usinix](.github/images/prumo/tela-inicial.png)
 
 Novidades
 ---------
@@ -68,17 +72,17 @@ Na 0.9.10: esboço sempre no modo normal, cruzeta e avisos na tubulação, treli
 uso automáticos.
 Na 0.9.9: tê no ramal que chega no meio da linha principal.
 Na 0.9.8: linha ligada a pontos-ímã do esboço sai definida e a janela cabe em notebook com escala alta.
-Na 0.9.7: atualização automática segura (o instalador espera o Prumo fechar).
+Na 0.9.7: atualização automática segura (o instalador espera o Usinix fechar).
 Na 0.9.6: peças com mais volume na vista 3D e medidas da Tubulação conferidas com as fichas da Tigre.
 Na 0.9.5: atualização automática pelo Windows e mensagens de erro em português.
 Na 0.9.4: aba Tubulação com água fria, água quente e esgoto Tigre, torneiras e caixas.
-Na 0.9.2: comandos em cartões em todas as abas, Preferências do Prumo e atualização com barra de progresso.
+Na 0.9.2: comandos em cartões em todas as abas, Preferências do Usinix e atualização com barra de progresso.
 Na 0.7 e na 0.6: painel lateral único (Árvore, Propriedades e a aba do comando) e propriedades em cartões.
 Na 0.5.0: Esboço 3D com restrições. Na 0.3.0: **Tubulação** de PVC soldável.
 
-[Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/prumo3d/prumo3d/releases/latest)
+[Todas as novidades, versão por versão](NOVIDADES.md) • [Baixar a versão atual](https://github.com/usinix/usinix/releases/latest)
 
-O que o Prumo 3D tem de diferente
+O que o Usinix tem de diferente
 ---------------------------------
 
 ### Fluxo de trabalho que se explica
@@ -102,13 +106,13 @@ referência em vez de deixar tudo vermelho, e os avisos já trazem o botão que 
 Mais de 50 comandos do FreeCAD abrem num painel lateral único, em cartões: botões com ícone no lugar de
 listas, chaves liga/desliga, campos com unidade (mm, N, MPa, N/mm, m/s²) e o que foi escolhido na vista
 sempre à mostra. Vale para Peça, Montagem, Desenho e Simulação; o formulário original continua a
-um clique. As **Preferências do Prumo** reúnem numa janela o que importa: tema claro ou escuro, painel
+um clique. As **Preferências do Usinix** reúnem numa janela o que importa: tema claro ou escuro, painel
 lateral, esboço, unidades em português e atualizações.
 
-**Atualização automática:** ao abrir (no máximo uma vez por dia), o Prumo procura versão nova na página
+**Atualização automática:** ao abrir (no máximo uma vez por dia), o Usinix procura versão nova na página
 de versões. Se houver, mostra as novidades e, com um clique em "Atualizar agora", baixa o instalador com
 barra de progresso, velocidade e tempo que falta, confere o arquivo pelo código SHA-256, fecha o programa
-(perguntando se quer salvar) e abre a instalação. Também dá para procurar na hora em Ajuda → Sobre o Prumo 3D → "Verificar atualizações"
+(perguntando se quer salvar) e abre a instalação. Também dá para procurar na hora em Ajuda → Sobre o Usinix → "Verificar atualizações"
 ou desligar a procura nas Preferências.
 
 ### Estruturas metálicas calculadas pelas normas brasileiras
@@ -173,7 +177,7 @@ Cada área tem a sua aba na faixa de ferramentas: não há menu de bancadas para
 
 ### Em resumo
 
-| | Prumo 3D |
+| | Usinix |
 |---|---|
 | Idioma | Tudo em português, inclusive propriedades e listas |
 | Interface | Faixa de ferramentas por abas, comandos em cartões no painel lateral, tela inicial, tutoriais e guia para quem vem do SolidWorks ou ZW3D |
@@ -197,7 +201,7 @@ Todos os recursos
   que a tradução oficial do FreeCAD ainda não cobre.
 
 * **Faixa de ferramentas** Os comandos principais organizados em abas (Início, Esboço, Peça, Montagem,
-  Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação, Superfícies e Prumo), com ícones
+  Desenho, Estruturas, Tubulação, Vasos, Chapa, Planilha, Simulação, Superfícies e Usinix), com ícones
   grandes e rótulos claros, sem menu de bancadas. A aba Esboço aparece sozinha ao editar um esboço, e em
   tela de notebook a linha das abas se compacta para mostrar os nomes inteiros.
 
@@ -236,7 +240,7 @@ Todos os recursos
   no alto. A peça ou operação selecionada aparece em cartões, com o nome editável e as medidas que
   importam.
 
-* **Comandos em cartões** Mais de 50 comandos do FreeCAD ganharam painel no padrão Prumo: extrusão,
+* **Comandos em cartões** Mais de 50 comandos do FreeCAD ganharam painel no padrão Usinix: extrusão,
   cavidade, furo, revolução, arredondar, chanfro, padrões e multitransformação, hélice, loft, varredura,
   primitivas e booleana (Peça); extrusão, revolução, espelhar, escala, arestas, deslocamento, espessura,
   transição, varredura e verificar geometria (grupo Sólidos da Peça); juntas e inserir componente (Montagem); vistas, corte, detalhe, cota,
@@ -244,7 +248,7 @@ Todos os recursos
   mola, peso próprio e malha (Simulação). O formulário original continua a um clique.
 
 * **Painéis visuais e seleção nos dois sentidos** Caixas de seleção que aceitam selecionar antes ou depois
-  de chamar o comando; booleanas e comandos do Prumo pedem a seleção quando chamados sem ela.
+  de chamar o comando; booleanas e comandos do Usinix pedem a seleção quando chamados sem ela.
 
 * **Propriedades da peça, variantes e modelos com regras** Código/denominação/revisão/material na lista
   de materiais e na legenda (que acompanha a peça); tabela de variantes P/M/G ligada às cotas; placa
@@ -273,10 +277,10 @@ Todos os recursos
   operações entram no ponto da régua. Duplo clique volta ao modelo completo.
 
 * **Relações automáticas que não cabem** Ao cotar, se uma relação posta sozinha pelo esboço (vertical,
-  horizontal, tangente) entra em conflito, o Prumo retira a que menos mexe no desenho, avisa qual foi e
+  horizontal, tangente) entra em conflito, o Usinix retira a que menos mexe no desenho, avisa qual foi e
   deixa desfazer. Conflito posto à mão aparece destacado para você decidir.
 
-* **Conferência do esboço** Ao concluir um esboço, o Prumo avisa de pontas quase encostadas, pontas soltas
+* **Conferência do esboço** Ao concluir um esboço, o Usinix avisa de pontas quase encostadas, pontas soltas
   num perfil e elementos de tamanho zero, e corrige com um clique (o problema do "esboço aberto").
 
 * **Cotas na tela** Duplo clique numa face mostra as cotas da operação que a criou (comprimento da extrusão,
@@ -302,14 +306,14 @@ Todos os recursos
 
 * **Peças padronizadas** Parafusos, porcas e arruelas métricas para inserir no modelo.
 
-* **Visual próprio** Temas claro e escuro, ícones redesenhados e tela de abertura do Prumo 3D.
+* **Visual próprio** Temas claro e escuro, ícones redesenhados e tela de abertura do Usinix.
 
-* **Preferências do Prumo** Uma janela em cartões com o que importa (tema, aparência, painel lateral,
+* **Preferências do Usinix** Uma janela em cartões com o que importa (tema, aparência, painel lateral,
   esboço, unidades em português e atualizações), cada opção gravando na hora.
 
 * **Atualização automática** Procura versão nova ao abrir (no máximo uma vez por dia, pode desligar nas
-  Preferências) ou na hora, em Ajuda → Sobre o Prumo 3D → "Verificar atualizações". "Atualizar agora" baixa com barra de progresso, velocidade
-  e tempo que falta, confere o arquivo (SHA-256), fecha o Prumo perguntando se quer salvar e abre o
+  Preferências) ou na hora, em Ajuda → Sobre o Usinix → "Verificar atualizações". "Atualizar agora" baixa com barra de progresso, velocidade
+  e tempo que falta, confere o arquivo (SHA-256), fecha o Usinix perguntando se quer salvar e abre o
   instalador. No Linux, baixa o AppImage novo e indica onde ficou.
 
 * **Testes automatizados** Mais de 500 testes conferem, a cada versão, tradução, aparência, os painéis
@@ -321,23 +325,23 @@ Todos os recursos
 Instalação
 ----------
 
-Baixe a versão mais recente na [página de versões](https://github.com/prumo3d/prumo3d/releases/latest):
+Baixe a versão mais recente na [página de versões](https://github.com/usinix/usinix/releases/latest):
 
 | Sistema | Arquivo | Como usar |
 |---|---|---|
-| Windows 10/11 (64 bits) | `Prumo3D_…-installer.exe` | Rode o instalador. |
-| Windows (portátil) | `Prumo3D_…-Windows-….7z` | Descompacte e abra `bin\Prumo3D.exe`. |
-| Linux (64 bits) | `Prumo3D_…-Linux-….AppImage` | Marque como executável e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
+| Windows 10/11 (64 bits) | `Usinix_…-installer.exe` | Rode o instalador. |
+| Windows (portátil) | `Usinix_…-Windows-….7z` | Descompacte e abra `bin\Usinix.exe`. |
+| Linux (64 bits) | `Usinix_…-Linux-….AppImage` | Marque como executável e abra. Em algumas distribuições é preciso instalar o pacote `libfuse2`. |
 
-O Prumo 3D tem pasta de configurações própria e pode ser instalado ao lado do FreeCAD, sem interferir nele.
+O Usinix tem pasta de configurações própria e pode ser instalado ao lado do FreeCAD, sem interferir nele.
 
 Código
 ------
 
 | Pasta | Conteúdo |
 |---|---|
-| [`src/Mod/Prumo3D/`](src/Mod/Prumo3D/) | Módulo da interface do Prumo 3D, parte do programa: faixa, tradução, tela inicial, assistentes, tema, ícones e identidade (`extras/branding.xml`) |
-| [`src/Gui/PreferencePacks/Prumo Claro/`](src/Gui/PreferencePacks/) | Tema Prumo Claro, embutido como pacote de preferências |
+| [`src/Mod/Prumo3D/`](src/Mod/Prumo3D/) | Módulo da interface do Usinix, parte do programa: faixa, tradução, tela inicial, assistentes, tema, ícones e identidade (`extras/branding.xml`) |
+| [`src/Gui/PreferencePacks/Usinix Claro/`](src/Gui/PreferencePacks/) | Tema Usinix Claro, embutido como pacote de preferências |
 | [`src/Mod/SheetMetal/`](src/Mod/SheetMetal/) | Bancada de chapa metálica (SheetMetal, LGPL), embutida |
 | [`prumo-build/`](prumo-build/) | Roteiro de compilação no Windows e ferramentas que geram ícones, tema de ícones e materiais |
 | [`prumo-patches/`](prumo-patches/) | Correções aplicadas ao código do FreeCAD |
@@ -371,7 +375,7 @@ geral, veja o [Manual do Desenvolvedor do FreeCAD](https://freecad.github.io/Dev
 Como relatar problemas
 ----------------------
 
-- Procure nos [problemas já abertos](https://github.com/prumo3d/prumo3d/issues) para não repetir um relato;
+- Procure nos [problemas já abertos](https://github.com/usinix/usinix/issues) para não repetir um relato;
 - Informe a versão em `Ajuda > Sobre` (botão de copiar para a área de transferência);
 - Descreva passo a passo como reproduzir o problema;
 - Se puder, anexe um arquivo de exemplo (o `.FCStd` compactado em ZIP);
@@ -381,7 +385,7 @@ Como relatar problemas
 Uso e ajuda
 -----------
 
-Por ser baseado no FreeCAD, a documentação dele vale para o Prumo 3D (wiki em inglês; muitas páginas têm
+Por ser baseado no FreeCAD, a documentação dele vale para o Usinix (wiki em inglês; muitas páginas têm
 versão em português pelo seletor de idioma):
 
 - [Primeiros passos](https://wiki.freecad.org/Getting_started)
@@ -396,7 +400,7 @@ Assinatura digital e privacidade
 - **Assinatura:** os instaladores ainda não têm assinatura digital; o Windows mostra o aviso de "editor
   desconhecido" (clique em **Mais informações → Executar assim mesmo**). Cada arquivo tem o código
   SHA-256 ao lado, para conferir que veio daqui.
-- **Privacidade:** o Prumo 3D não envia informação sobre você nem sobre seus arquivos. A única conexão
+- **Privacidade:** o Usinix não envia informação sobre você nem sobre seus arquivos. A única conexão
   automática é a procura de versão nova (uma vez por dia, na página pública de versões no GitHub), que
   pode ser desligada em Preferências.
 
@@ -405,13 +409,13 @@ Detalhes: [assinatura e privacidade](docs/assinatura-de-codigo.md).
 Licença
 -------
 
-O Prumo 3D é distribuído sob a mesma licença do FreeCAD, a
+O Usinix é distribuído sob a mesma licença do FreeCAD, a
 [GNU LGPL versão 2.1 ou posterior](LICENSE). O texto da licença é mantido no original em inglês, que é a
 versão com validade jurídica.
 
 Créditos
 --------
 
-O Prumo 3D existe graças ao trabalho de milhares de pessoas da comunidade do
+O Usinix existe graças ao trabalho de milhares de pessoas da comunidade do
 [FreeCAD](https://www.freecad.org), que desenvolvem e mantêm o programa. Se o FreeCAD é útil para
 você, considere [apoiar o projeto original](https://wiki.freecad.org/Donate).

@@ -5,7 +5,7 @@ O motor de arredondamento do OpenCASCADE falha ("BRep_API: command not done") qu
 há arestas com canto para fora (convexas) e para dentro (côncavas) que se encontram num vértice, como na
 face interna de um perfil depois de um corte. Cada aresta sozinha arredonda; todas juntas, não.
 
-Aqui o Prumo testa o arredondamento; se falhar, separa as arestas em dois grupos (para fora / para dentro),
+Aqui o Usinix testa o arredondamento; se falhar, separa as arestas em dois grupos (para fora / para dentro),
 deixa o arredondamento atual só com o primeiro grupo e cria logo depois, no mesmo corpo, um segundo
 arredondamento com o outro grupo, com o mesmo raio. Se nem em duas etapas fechar, não muda nada.
 """

@@ -28,7 +28,15 @@ export GIT_SSL_CAINFO=$HERE/usr/ssl/cacert.pem
 if [ ! -z "$1" ] && [ -e "$HERE/usr/bin/$1" ] ; then
     MAIN="$HERE/usr/bin/$1" ; shift
 else
-    MAIN="$HERE/usr/bin/prumo3d"
+    MAIN="$HERE/usr/bin/usinix"
 fi
+
+# Usinix (antes Prumo 3D): na primeira abertura, as configurações do Prumo viram a base das do Usinix.
+# O complemento antigo na pasta do usuário (Mod/Prumo3D) não vem: passaria por cima do programa novo.
+for base in "${XDG_DATA_HOME:-$HOME/.local/share}" "${XDG_CONFIG_HOME:-$HOME/.config}"; do
+    if [ -d "$base/Prumo3D" ] && [ ! -e "$base/Usinix" ]; then
+        cp -a "$base/Prumo3D" "$base/Usinix" 2>/dev/null && rm -rf "$base/Usinix"/*/Mod/Prumo3D
+    fi
+done
 
 "${MAIN}" "$@"

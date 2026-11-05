@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - peças padronizadas: parafusos, porcas e arruelas métricas.
+# Usinix - peças padronizadas: parafusos, porcas e arruelas métricas.
 """Fixadores métricos (rosca grossa) para inserir no modelo.
 
 - Parafuso cabeça sextavada (ISO 4017, rosca total; ISO 4014, rosca parcial)

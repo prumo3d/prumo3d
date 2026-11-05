@@ -38,7 +38,7 @@ def _externas(sk):
 def _marcar(sk):
     if "ReferenciasAuto" not in sk.PropertiesList:
         sk.addProperty("App::PropertyStringList", "ReferenciasAuto", "Prumo",
-                       "Geometria externa que o Prumo pôs sozinho (sai ao concluir se não for usada)")
+                       "Geometria externa que o Usinix pôs sozinho (sai ao concluir se não for usada)")
         sk.setEditorMode("ReferenciasAuto", 2)
 
 
@@ -118,7 +118,7 @@ def ao_entrar(sk):
     try:
         cand = candidatas(sk)
     except Exception as ex:
-        FreeCAD.Console.PrintLog("Prumo: referências automáticas: %s\n" % ex)
+        FreeCAD.Console.PrintLog("Usinix: referências automáticas: %s\n" % ex)
         return 0
     if not cand or len(cand) > MAX_ARESTAS:
         return 0
@@ -162,7 +162,7 @@ def ao_sair(sk):
         try:
             sk.delExternal(k)
         except Exception as ex:
-            FreeCAD.Console.PrintLog("Prumo: tirar referência %d: %s\n" % (k, ex))
+            FreeCAD.Console.PrintLog("Usinix: tirar referência %d: %s\n" % (k, ex))
     ficam = {"%s.%s" % (o.Name, s) for o, s in _externas(sk)}
     sk.ReferenciasAuto = [x for x in sk.ReferenciasAuto if x in ficam]
     if remover:

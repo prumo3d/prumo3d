@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Obrigado por ajudar a melhorar a qualidade do código do Prumo 3D!
+        Obrigado por ajudar a melhorar a qualidade do código do Usinix!
 
         > [!NOTE]
         > Este formulário é **somente para problemas de qualidade de código**, como:
@@ -16,8 +16,8 @@ body:
         >
         > Se o problema afeta o comportamento visível, o fluxo de trabalho ou a interface, use o formulário **Relatar um problema**.
 
-        [Procure nas issues existentes](https://github.com/prumo3d/prumo3d/issues) antes de enviar.
-        Ao enviar, você concorda em seguir nosso [Código de Conduta](https://github.com/prumo3d/prumo3d/blob/main/CODE_OF_CONDUCT.md).
+        [Procure nas issues existentes](https://github.com/usinix/usinix/issues) antes de enviar.
+        Ao enviar, você concorda em seguir nosso [Código de Conduta](https://github.com/usinix/usinix/blob/main/CODE_OF_CONDUCT.md).
 
   - type: dropdown
     id: wb

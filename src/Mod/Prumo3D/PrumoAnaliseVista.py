@@ -2,7 +2,7 @@
 """Interface da simulação de estruturas por barras: desenho na tela (apoios, cargas, taxa de uso,
 diagramas, deformada), painel ao vivo e comando.
 
-O painel funciona como o resto do Prumo: tudo o que muda aparece na tela na hora; OK grava,
+O painel funciona como o resto do Usinix: tudo o que muda aparece na tela na hora; OK grava,
 Cancelar desfaz. O clique na tela põe apoios e escolhe as barras e os nós das cargas.
 """
 
@@ -99,7 +99,7 @@ class VPAnalise:
         try:
             self._redesenhar()
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: desenho da análise: %s\n" % exc)
+            FreeCAD.Console.PrintLog("Usinix: desenho da análise: %s\n" % exc)
 
     def _redesenhar(self):
         from pivy import coin
@@ -476,7 +476,7 @@ class PainelAnalise(P.PainelTarefa):
         self._carregando = True
         # ---- material e critérios
         s0 = f.secao("Material e critérios", "material")
-        self.material = s0.linha("material", QtWidgets.QComboBox(), "Aço das barras (fy e fu vêm da biblioteca Prumo).",
+        self.material = s0.linha("material", QtWidgets.QComboBox(), "Aço das barras (fy e fu vêm da biblioteca Usinix).",
                                  "Aço")
         import PrumoFEM
         self.material.addItem("(o da estrutura)", "")
@@ -572,7 +572,7 @@ class PainelAnalise(P.PainelTarefa):
         # ---- detalhe por elementos finitos
         s5 = f.secao("Detalhe da ligação (elementos finitos)", "info", aberta=False)
         self.sec_detalhe = s5
-        self.det_no = s5.texto("Escolha <b>Detalhar nó</b> no clique e clique numa ligação ou apoio. O Prumo "
+        self.det_no = s5.texto("Escolha <b>Detalhar nó</b> no clique e clique numa ligação ou apoio. O Usinix "
                                "recorta o nó, aplica os esforços desta análise nos cortes e calcula as "
                                "tensões no sólido (CalculiX).")
         self.det_comb = s5.linha("tipo", QtWidgets.QComboBox(), "Combinação última usada no detalhe (a que governa "

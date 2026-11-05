@@ -1,13 +1,34 @@
-# Novidades do Prumo 3D
+# Novidades do Usinix
 
 O que mudou em cada versão, da mais nova para a mais antiga. Os arquivos para baixar ficam na
-[página de versões](https://github.com/prumo3d/prumo3d/releases).
+[página de versões](https://github.com/usinix/usinix/releases).
 
 **Como as versões são numeradas** (a 1.0 é a primeira versão final; as anteriores eram beta):
 
 - `X.Y.0`: entrou ferramenta nova ou mudou o jeito de usar alguma coisa (ex.: 1.1.0).
 - `X.Y.Z`: correções e ajustes pequenos, sem ferramenta nova (ex.: 1.0.1).
 - `-beta` no fim: versão de teste antes da final; guarde cópia dos seus arquivos.
+
+## 1.4.0 — 05/11/2026
+
+### O Prumo 3D agora se chama Usinix
+
+- **Nome e marca novos:** Usinix, com logotipo novo (cubo isométrico com o canto chanfrado), ícone,
+  tela de abertura e Sobre renovados. O programa passa a ser `Usinix.exe` (Linux: `usinix`).
+- **Suas configurações vêm junto:** na primeira abertura, preferências, macros, materiais e bibliotecas
+  do Prumo 3D são copiados para a pasta do Usinix. A pasta antiga não é apagada.
+- **Desinstalar o Prumo 3D:** o instalador do Usinix encontra a instalação antiga e pergunta se quer
+  removê-la (as configurações já foram copiadas antes).
+- **Arquivos antigos abrem normalmente:** peças, estruturas, pisos e folhas feitos no Prumo 3D continuam
+  abrindo e recalculando no Usinix.
+- **Endereço novo:** o projeto está em github.com/usinix/usinix (o endereço antigo redireciona).
+
+### Atenção
+
+- Quem vem do Prumo 3D precisa do **instalador completo** desta versão; a atualização só do complemento
+  vale a partir da 1.4.0.
+- Na versão portátil (.7z) as configurações não são copiadas sozinhas no Windows: copie
+  `%APPDATA%\Prumo3D` para `%APPDATA%\Usinix`, se quiser mantê-las.
 
 ## 1.3.1 — 04/11/2026
 

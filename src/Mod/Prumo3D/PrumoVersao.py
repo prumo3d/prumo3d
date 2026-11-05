@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Versão do Prumo 3D (fonte única: tela de abertura, Sobre, informações do sistema)."""
+"""Versão do Usinix (fonte única: tela de abertura, Sobre, informações do sistema)."""
 
 # Na compilação do GitHub, o fluxo de publicação grava PrumoVersaoCompilada.py com o rótulo da versão
 # (ex.: "0.3.0-beta"), e é ele que vale: tela de abertura, título da janela e Sobre acompanham cada
 # versão sem editar este arquivo. Sem ele (compilação local), valem os valores abaixo.
-VERSAO = "1.3.1"
+VERSAO = "1.4.0"
 CANAL = ""   # "beta" nas versões de teste
 
 
@@ -73,7 +73,7 @@ def info_sistema():
     import sys
 
     import FreeCAD
-    linhas = ["Prumo 3D %s" % texto(),
+    linhas = ["Usinix %s" % texto(),
               "Base: FreeCAD %s" % base_freecad()]
     try:
         import PrumoComplemento as PC

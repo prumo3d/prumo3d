@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - guia ilustrado no painel de tarefas.
+# Usinix - guia ilustrado no painel de tarefas.
 """Mostra, acima dos parâmetros do recurso em edição, um desenho que explica o que
 a função faz no modo escolhido, com uma instrução curta. O desenho acompanha as
 mudanças de modo em tempo real (lê as propriedades do objeto em edição).
@@ -428,7 +428,7 @@ class Guia:
         try:
             self._tick()
         except Exception as exc:  # nunca derrubar a interface
-            FreeCAD.Console.PrintLog("Prumo guia: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix guia: {}\n".format(exc))
 
     def _tick(self):
         if not FreeCAD.ParamGet(PARAM_PATH).GetBool("GuiaIlustrado", True):

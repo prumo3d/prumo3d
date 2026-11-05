@@ -3,7 +3,7 @@
 set -e
 set -x
 
-# Prumo 3D: PRUMO_CONDA_ENV aponta para um ambiente já compilado e instalado (pixi da raiz)
+# Usinix: PRUMO_CONDA_ENV aponta para um ambiente já compilado e instalado (pixi da raiz)
 conda_env="${PRUMO_CONDA_ENV:-$(pwd)/../.pixi/envs/default/}"
 
 copy_dir="FreeCAD_Windows"
@@ -21,7 +21,7 @@ cp -a ${conda_env}/Library/bin/ccx.exe ${copy_dir}/bin || echo "aviso: ccx.exe a
 cp -a ${conda_env}/Library/bin/gmsh.exe ${copy_dir}/bin || echo "aviso: gmsh.exe ausente"
 cp -a ${conda_env}/Library/bin/dot.exe ${copy_dir}/bin || echo "aviso: dot.exe ausente"
 cp -a ${conda_env}/Library/bin/unflatten.exe ${copy_dir}/bin || echo "aviso: unflatten.exe ausente"
-# Prumo 3D: ffmpeg para o vídeo do comportamento sair em MP4 (sem ele, o Prumo grava GIF)
+# Usinix: ffmpeg para o vídeo do comportamento sair em MP4 (sem ele, o Usinix grava GIF)
 cp -a ${conda_env}/Library/bin/ffmpeg.exe ${copy_dir}/bin || echo "aviso: ffmpeg.exe ausente"
 cp -a ${conda_env}/Library/mingw-w64/bin/* ${copy_dir}/bin || echo "aviso: mingw-w64 ausente"
 # copy resources -- perhaps needs reduction
@@ -29,24 +29,24 @@ cp -a ${conda_env}/Library/share ${copy_dir}/share
 # get all the dependency .dlls
 cp -a ${conda_env}/Library/bin/*.dll ${copy_dir}/bin
 # Copy FreeCAD build
-cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin 2>/dev/null || true  # Prumo 3D: na compilação local os nomes são FreeCAD*
+cp -a ${conda_env}/Library/bin/freecad* ${copy_dir}/bin 2>/dev/null || true  # Usinix: na compilação local os nomes são FreeCAD*
 cp -a ${conda_env}/Library/bin/FreeCAD* ${copy_dir}/bin
 cp -a ${conda_env}/Library/data ${copy_dir}/data
 cp -a ${conda_env}/Library/Ext ${copy_dir}/Ext
 cp -a ${conda_env}/Library/lib ${copy_dir}/lib
 cp -a ${conda_env}/Library/Mod ${copy_dir}/Mod
-# Prumo 3D: o módulo Prumo3D já vem em Library/Mod (instalado pelo CMake, como os outros módulos);
+# Usinix: o módulo Prumo3D já vem em Library/Mod (instalado pelo CMake, como os outros módulos);
 # o branding.xml (nome, pasta de dados do usuário, splash) é instalado em Library/bin
 test -f ${copy_dir}/Mod/Prumo3D/InitGui.py || { echo "erro: módulo Prumo3D ausente em Library/Mod"; exit 1; }
 cp -a ${conda_env}/Library/bin/branding.xml ${copy_dir}/bin/branding.xml
-# Prumo 3D: executáveis com o nome do produto
-mv ${copy_dir}/bin/FreeCAD.exe ${copy_dir}/bin/Prumo3D.exe
-mv ${copy_dir}/bin/FreeCADCmd.exe ${copy_dir}/bin/Prumo3DCmd.exe
+# Usinix: executáveis com o nome do produto
+mv ${copy_dir}/bin/FreeCAD.exe ${copy_dir}/bin/Usinix.exe
+mv ${copy_dir}/bin/FreeCADCmd.exe ${copy_dir}/bin/UsinixCmd.exe
 mkdir -p ${copy_dir}/doc
 cp -a ${conda_env}/Library/doc/{ThirdPartyLibraries.html,LICENSE.html} ${copy_dir}/doc
 
 # delete unnecessary stuff
-# Prumo 3D: restos de compilação de depuração (arquivo *_d.* com par sem _d) e .pdb
+# Usinix: restos de compilação de depuração (arquivo *_d.* com par sem _d) e .pdb
 find ${copy_dir} \( -name '*_d.dll' -o -name '*_d.pyd' -o -name '*_d.exe' \) | while read -r f; do b="${f%_d.*}.${f##*.}"; if [ -e "$b" ]; then rm -f "$f"; fi; done
 find ${copy_dir} -name \*.pdb -delete
 find ${copy_dir} -name \*.a -delete
@@ -66,16 +66,16 @@ echo 'Prefix = ../lib/qt6' >> ${copy_dir}/bin/qt6.conf
 # convenient shortcuts to run the binaries
 if [ -x /c/ProgramData/chocolatey/tools/shimgen.exe ]; then
     pushd ${copy_dir}
-    /c/ProgramData/chocolatey/tools/shimgen.exe -p bin/Prumo3DCmd.exe -i "$(pwd)/../../../WindowsInstaller/icons/FreeCAD.ico" -o "$(pwd)/Prumo3DCmd.exe"
-    /c/ProgramData/chocolatey/tools/shimgen.exe --gui -p bin/Prumo3D.exe -i "$(pwd)/../../../WindowsInstaller/icons/FreeCAD.ico" -o "$(pwd)/Prumo3D.exe"
+    /c/ProgramData/chocolatey/tools/shimgen.exe -p bin/UsinixCmd.exe -i "$(pwd)/../../../WindowsInstaller/icons/FreeCAD.ico" -o "$(pwd)/UsinixCmd.exe"
+    /c/ProgramData/chocolatey/tools/shimgen.exe --gui -p bin/Usinix.exe -i "$(pwd)/../../../WindowsInstaller/icons/FreeCAD.ico" -o "$(pwd)/Usinix.exe"
     popd
 fi
 
-# Prumo 3D: o cv2 vem com o caminho absoluto do ambiente de montagem gravado; vira relativo à pasta dele
+# Usinix: o cv2 vem com o caminho absoluto do ambiente de montagem gravado; vira relativo à pasta dele
 "${copy_dir}"/bin/python.exe ../../scripts/corrigir_cv2.py "${copy_dir}"
 
 python_version=$("${copy_dir}"/bin/python.exe -c 'import platform; print("py" + platform.python_version_tuple()[0] + platform.python_version_tuple()[1])')
-version_name="Prumo3D_${BUILD_TAG}-Windows-$(uname -m)-${python_version}"
+version_name="Usinix_${BUILD_TAG}-Windows-$(uname -m)-${python_version}"
 
 echo -e "################"
 echo -e "version_name:  ${version_name}"
@@ -134,7 +134,7 @@ if [[ "${WINDOWS_SIGN_RELEASE:-0}" == "1" ]]; then
     done
 
     # Manually check the important one!
-    signtool verify -pa "$SIGN_DIR/bin/Prumo3D.exe"
+    signtool verify -pa "$SIGN_DIR/bin/Usinix.exe"
 
     echo "Signing completed."
   else
@@ -144,18 +144,18 @@ else
   echo "Not logged into Azure -- skipping signing."
 fi
 
-echo "Running Prumo 3D command-line smoke test..."
-if ! "$SIGN_DIR/bin/Prumo3DCmd.exe" --safe-mode --version; then
-  echo "Prumo 3D command-line smoke test failed; the Windows bundle cannot start."
+echo "Running Usinix command-line smoke test..."
+if ! "$SIGN_DIR/bin/UsinixCmd.exe" --safe-mode --version; then
+  echo "Usinix command-line smoke test failed; the Windows bundle cannot start."
   exit 1
 fi
-# Prumo 3D: o OpenCV (cv2) precisa importar no Python do pacote
+# Usinix: o OpenCV (cv2) precisa importar no Python do pacote
 if ! "$SIGN_DIR/bin/python.exe" -c "import cv2, numpy, networkx; print('cv2', cv2.__version__, 'numpy', numpy.__version__, 'networkx', networkx.__version__)"; then
   echo "erro: o cv2 (OpenCV) não importa no pacote Windows"
   exit 1
 fi
 
-# Prumo 3D: PRUMO_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
+# Usinix: PRUMO_SEM_7Z=1 pula o arquivo .7z (o 7-Zip do ambiente pixi falha no Windows)
 if [ "${PRUMO_SEM_7Z:-0}" != "1" ]; then
 7z a -t7z -mx9 -mmt=${NUMBER_OF_PROCESSORS} ${version_name}.7z ${version_name} -bb
 # create hash

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Testes automáticos do Prumo 3D.
+"""Testes automáticos do Usinix.
 
-Rodam dentro do FreeCAD (comando "Testes automáticos" na aba Prumo, ou
+Rodam dentro do FreeCAD (comando "Testes automáticos" na aba Usinix, ou
 ``import PrumoTestes; PrumoTestes.rodar()`` no console).
 
 - Rápidos: formatação, tema claro/escuro, glossário, materiais, comandos e módulos.
@@ -109,7 +109,7 @@ class T01Modulos(unittest.TestCase):
         import PrumoRibbon
         faltando = [c for t in PrumoRibbon.TABS for _p, itens in t["panels"] for c, _s, _l in itens
                     if c.startswith("Prumo_") and c not in todos]
-        self.assertEqual(faltando, [], "comandos Prumo sem registro: %s" % faltando)
+        self.assertEqual(faltando, [], "comandos Usinix sem registro: %s" % faltando)
 
 
 class T02Formatacao(unittest.TestCase):
@@ -248,10 +248,10 @@ class T04Glossario(unittest.TestCase):
         self.assertEqual(tr.translate("PartDesignGui::TaskPadPocketParameters", "Through all"), E.ENUMS["ThroughAll"])
 
     def test_tradutor_prumo_ativo(self):
-        """Pega perfil novo sem idioma definido (a tradução Prumo não carregava)."""
+        """Pega perfil novo sem idioma definido (a tradução Usinix não carregava)."""
         from PySide import QtCore
         got = QtCore.QCoreApplication.translate("App::PropertyEnumeration", "ThroughAll")
-        self.assertEqual(got, "Através de tudo", "tradução Prumo não está instalada (idioma do FreeCAD?)")
+        self.assertEqual(got, "Através de tudo", "tradução Usinix não está instalada (idioma do FreeCAD?)")
 
     def test_idioma_escolhido_nao_e_sobrescrito(self):
         import PrumoI18n as I
@@ -354,7 +354,7 @@ class T05Materiais(unittest.TestCase):
 
 
 class T05bMateriaisPrumo(unittest.TestCase):
-    """Biblioteca Prumo: mínimos de especificação conferidos (ver tools/gerar_materiais.py)."""
+    """Biblioteca Usinix: mínimos de especificação conferidos (ver tools/gerar_materiais.py)."""
     ESPERADO = {  # nome: (Sy, Su, E)
         "ASTM A36": (250, 400, 203000), "NBR 7007 MR250": (250, 400, 203000),
         "NBR 7007 AR350": (350, 450, 203000), "ASTM A572 Gr 50": (345, 450, 203000),
@@ -376,7 +376,7 @@ class T05bMateriaisPrumo(unittest.TestCase):
         import PrumoFEM as F
         sew = {d["nome"]: d for d in F.materiais() if d["biblioteca"] == "Prumo"}
         if not sew:
-            self.skipTest("biblioteca Prumo ainda não carregada (reabra o FreeCAD)")
+            self.skipTest("biblioteca Usinix ainda não carregada (reabra o FreeCAD)")
         for nome, (sy, su, e) in self.ESPERADO.items():
             self.assertIn(nome, sew, "material ausente: " + nome)
             p = F.props_mat(sew[nome]["props"])
@@ -390,7 +390,7 @@ class T05bMateriaisPrumo(unittest.TestCase):
         import PrumoFEM as F
         sew = {d["nome"]: d for d in F.materiais() if d["biblioteca"] == "Prumo"}
         if not sew:
-            self.skipTest("biblioteca Prumo ainda não carregada")
+            self.skipTest("biblioteca Usinix ainda não carregada")
         for nome in ("SAE 1020", "SAE 1045", "SAE 4140", "SAE 4340", "SAE 8620",
                      "Latão C36000 (usinagem)",
                      "Ferro fundido nodular FE 50007", "Chapa SAE 1020 (fina a quente)"):
@@ -421,7 +421,7 @@ class T05bMateriaisPrumo(unittest.TestCase):
         import PrumoFEM as F
         lst = F.materiais()
         if not any(d["biblioteca"] == "Prumo" for d in lst):
-            self.skipTest("biblioteca Prumo ainda não carregada")
+            self.skipTest("biblioteca Usinix ainda não carregada")
         self.assertEqual(lst[0]["biblioteca"], "Prumo")
 
 
@@ -722,7 +722,7 @@ class T09Interface(unittest.TestCase):
         import PrumoRibbon
         rb = PrumoRibbon._state.get("ribbon")
         if rb is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         return rb
 
     def test_novo_documento_da_tela_inicial_mostra_os_planos(self):
@@ -744,7 +744,7 @@ class T09Interface(unittest.TestCase):
             FreeCAD.closeDocument(novos[0])
 
     def test_data_da_folha_em_dd_mm_aaaa(self):
-        """A folha Prumo criada no Desenho técnico recebe a data no formato brasileiro."""
+        """A folha Usinix criada no Desenho técnico recebe a data no formato brasileiro."""
         import PrumoGui
 
         class Folha:
@@ -762,7 +762,7 @@ class T09Interface(unittest.TestCase):
 
         o = Outra()
         PrumoGui._fix_folha_date(o)
-        self.assertEqual(o.EditableTexts["data"], "18 Oct 2026", "folha que não é Prumo não deve mudar")
+        self.assertEqual(o.EditableTexts["data"], "18 Oct 2026", "folha que não é Usinix não deve mudar")
 
     def test_modulos_sem_nomes_indefinidos(self):
         """Pega função apagada que ainda é chamada (o NameError só apareceria na hora do uso)."""
@@ -812,7 +812,7 @@ class T09Interface(unittest.TestCase):
                 self.assertAlmostEqual(g, esperado.greenF(), delta=0.02, msg=p.Role)
                 self.assertAlmostEqual(b, esperado.blueF(), delta=0.02, msg=p.Role)
             hl = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View").GetUnsigned("HighlightColor", 0)
-            self.assertEqual(hl >> 8, 0xF7BE00, "destaque ao passar o mouse deve ser o amarelo Prumo")
+            self.assertEqual(hl >> 8, 0xF7BE00, "destaque ao passar o mouse deve ser o amarelo Usinix")
         finally:
             FreeCAD.closeDocument(doc.Name)
 
@@ -838,7 +838,7 @@ class T09Interface(unittest.TestCase):
         self.assertTrue(any("Simulação" in t or "FEM" in t for t in textos), textos)
 
     def test_aplicar_material_prumo_pelo_assistente(self):
-        """Regressão: aplicar um material Prumo pelo painel mantém o limite de escoamento."""
+        """Regressão: aplicar um material Usinix pelo painel mantém o limite de escoamento."""
         import Part
         import PrumoFEM as F
         doc = _doc_teste("PrumoTesteAplicar")
@@ -930,7 +930,7 @@ class T10Tutorial(unittest.TestCase):
         import PrumoRibbon
         import PrumoTutorial as T
         if PrumoRibbon._state.get("ribbon") is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         for i in (0, 9):     # Novo e Salvar ficam na barra rápida
             _t, _x, aba, cmds, _k = T.PASSOS[i]
             self.assertTrue(T.destacar(aba, cmds), "botão do passo %d não encontrado" % (i + 1))
@@ -950,7 +950,7 @@ try:  # ferramentas: cotas, menu de contexto, massa, listas, folhas ABNT, estrut
     import PrumoTestesFerramentas as _TF
     RAPIDOS = RAPIDOS + list(_TF.RAPIDOS)
 except Exception as _exc:  # nunca impedir os testes antigos de rodarem
-    FreeCAD.Console.PrintWarning("Prumo: testes das ferramentas indisponíveis: %s\n" % _exc)
+    FreeCAD.Console.PrintWarning("Usinix: testes das ferramentas indisponíveis: %s\n" % _exc)
 COMPLETOS = RAPIDOS + [T07Validacao, T08Relatorio]
 
 
@@ -1010,7 +1010,7 @@ def _abrir_andamento():
     try:
         f = open(ANDAMENTO, "w", encoding="utf-8", buffering=1)
         _AND["f"] = f
-        f.write("Prumo 3D — andamento dos testes — %s\n" % time.strftime("%d/%m/%Y %H:%M:%S"))
+        f.write("Usinix — andamento dos testes — %s\n" % time.strftime("%d/%m/%Y %H:%M:%S"))
         import faulthandler
         faulthandler.enable(file=f, all_threads=True)
     except Exception:
@@ -1058,7 +1058,7 @@ def _executar(completo):
         _fechar_andamento()
     total = res.testsRun
     aprov = total - len(res.failures) - len(res.errors) - len(res.skipped)
-    linhas = ["Prumo 3D — testes automáticos — %s" % time.strftime("%d/%m/%Y %H:%M"),
+    linhas = ["Usinix — testes automáticos — %s" % time.strftime("%d/%m/%Y %H:%M"),
               "%d de %d aprovados em %.1f s" % (aprov, total, time.time() - t0), ""]
     if NUMEROS:
         linhas.append("Validação numérica (FEM × analítico):")
@@ -1116,7 +1116,7 @@ class CmdTestes:
         import PrumoFEM
         return {"Pixmap": os.path.join(os.path.dirname(PrumoFEM.ICON), "testes.svg"),
                 "MenuText": "Testes automáticos",
-                "ToolTip": "Confere o Prumo 3D de ponta a ponta: todas as ferramentas da faixa, roteiros de uso "
+                "ToolTip": "Confere o Usinix de ponta a ponta: todas as ferramentas da faixa, roteiros de uso "
                            "com o mouse, cálculos e validação do CalculiX contra soluções analíticas. Leva perto "
                            "de uma hora e o programa fica ocupado: salve e feche seus projetos antes"}
 
@@ -1128,7 +1128,7 @@ class CmdTestes:
         import FreeCADGui
         abertos = len(FreeCAD.listDocuments())
         msg = ("Os testes automáticos abrem e fecham documentos, mexem no mouse dentro da vista 3D e levam perto "
-               "de uma hora; durante esse tempo o Prumo fica ocupado.")
+               "de uma hora; durante esse tempo o Usinix fica ocupado.")
         if abertos:
             msg += "\n\nHá %d documento(s) aberto(s): salve e feche antes de começar." % abertos
         msg += "\n\nNo fim aparece o resumo; o relatório completo fica em:\n%s\n\nComeçar agora?" % LOG

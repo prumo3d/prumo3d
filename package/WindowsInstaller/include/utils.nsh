@@ -312,7 +312,7 @@ FunctionEnd
 !macroend
 !define FindProc `!insertmacro _FindProc`
 
-# Espera o Prumo fechar (a atualização automática abre o instalador logo depois que o usuário aceita
+# Espera o Usinix (ou o Prumo 3D antigo) fechar (a atualização automática abre o instalador logo depois que o usuário aceita
 # fechar o programa, e o processo ainda leva alguns segundos para sair e soltar os arquivos da pasta).
 # Até 60 s; se ainda estiver aberto, pergunta Tentar de novo / Cancelar. Cancelar encerra o instalador
 # sem mexer em nada.
@@ -327,7 +327,11 @@ FunctionEnd
     ${FindProc} $R1 ${BIN_FREECADCMD}
     ${if} $R0 != "0"
     ${andif} $R1 != "0"
-      Goto esperar_fim_${ID}
+      # o Prumo 3D (nome até a 1.3.1) também: a atualização automática dele abre este instalador
+      ${FindProc} $R0 "${APP_ID_ANTIGO}.exe"
+      ${if} $R0 != "0"
+        Goto esperar_fim_${ID}
+      ${endif}
     ${endif}
     Sleep 1000
     IntOp $R2 $R2 + 1

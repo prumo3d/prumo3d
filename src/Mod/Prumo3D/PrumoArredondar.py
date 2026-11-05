@@ -176,7 +176,7 @@ def _filtro_peca(obj, subs):
 if P is not None:
     class PainelArredondar(P.PainelTarefa):
         titulo = "Arredondamento automático"
-        ajuda = ("Escolha a peça, quais arestas entram e o raio: o Prumo arredonda todas de uma vez. As arestas "
+        ajuda = ("Escolha a peça, quais arestas entram e o raio: o Usinix arredonda todas de uma vez. As arestas "
                  "escolhidas ficam em destaque na peça.")
 
         def montar(self):
@@ -259,7 +259,7 @@ if P is not None:
             obj = self.peca.valores()[0]
             f, n = criar(obj, self.raio.value(), self.tipo.currentData(), self.direcao.currentData(),
                          self.retas.isChecked())
-            FreeCAD.Console.PrintMessage("Prumo: %d aresta(s) arredondada(s) com R%s mm.\n"
+            FreeCAD.Console.PrintMessage("Usinix: %d aresta(s) arredondada(s) com R%s mm.\n"
                                          % (n, PrumoUtil.fmt(self.raio.value(), 2)))
             return [f]
 

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: aba Componentes — modelos prontos que completam o projeto (motor, compressor, válvula, caldeira,
+"""Usinix: aba Componentes — modelos prontos que completam o projeto (motor, compressor, válvula, caldeira,
 trole, ar comprimido, pessoas, secador e outros).
 
-Não são peças para editar: cada componente é desenhado pelo Prumo a partir do modelo e do tamanho escolhidos
+Não são peças para editar: cada componente é desenhado pelo Usinix a partir do modelo e do tamanho escolhidos
 (propriedades Modelo e Tamanho; trocar o tamanho redesenha). Servem para ocupação de espaço, leiaute,
 interferência e apresentação.
 

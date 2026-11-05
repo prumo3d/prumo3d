@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Painéis de tarefa visuais do Prumo 3D (no estilo do PropertyManager do SolidWorks).
+"""Painéis de tarefa visuais do Usinix (no estilo do PropertyManager do SolidWorks).
 
 Peças do kit:
 - Mensagem: caixa amarela no topo com a instrução do momento (ou erro/ok);
@@ -10,7 +10,7 @@ Peças do kit:
 - Opcoes: botões com ícone, um ligado por vez (ex.: Empurra / Puxa);
 - PainelTarefa: base para os comandos (accept/reject do painel de tarefas do FreeCAD).
 
-Ícones dos campos (ICONES): desenhos simples em SVG, no azul Prumo.
+Ícones dos campos (ICONES): desenhos simples em SVG, no azul Usinix.
 """
 
 import FreeCAD
@@ -349,7 +349,7 @@ class Opcoes(QtWidgets.QWidget):
             self.botoes[chave] = b
             b.toggled.connect(lambda on, k=chave: on and self.mudou.emit(k))
         self.definir(atual or opcoes[0][0])
-        # estilo próprio (destaque do botão marcado), para valer também fora dos painéis do Prumo,
+        # estilo próprio (destaque do botão marcado), para valer também fora dos painéis do Usinix,
         # como no Assistente de simulação
         self.setStyleSheet(qss())
 
@@ -493,7 +493,7 @@ def agrupar_selecao(raiz, subs):
     return grupos
 
 
-_ATIVO = {"painel": None}   # painel do Prumo aberto no painel de tarefas
+_ATIVO = {"painel": None}   # painel do Usinix aberto no painel de tarefas
 EM_PREVIA = {"ativa": False, "avisos": []}   # durante a prévia: avisos vão para o painel, sem janela
 
 
@@ -663,7 +663,7 @@ class Formulario(QtWidgets.QWidget):
 
 
 def integrar_no_quadro(form):
-    """O FreeCAD põe cada painel num quadro com título; o painel Prumo já tem cartões e a aba já diz
+    """O FreeCAD põe cada painel num quadro com título; o painel Usinix já tem cartões e a aba já diz
     o nome do comando: o quadro fica sem moldura e sem cabeçalho."""
     w = form.parentWidget()
     while w is not None:
@@ -692,7 +692,7 @@ class _AoMostrar(QtCore.QObject):
 
 
 def adotar(form):
-    """Painel montado à mão (sem Formulario): ganha o estilo dos painéis Prumo e perde o quadro repetido."""
+    """Painel montado à mão (sem Formulario): ganha o estilo dos painéis Usinix e perde o quadro repetido."""
     form.setObjectName("PrumoPainel")
     form.setStyleSheet(qss())
     filtro = _AoMostrar(form)
@@ -707,13 +707,13 @@ def adotar(form):
 
 # ----------------------------------------------------------------------------------- painel
 class PainelTarefa:
-    """Base dos painéis de tarefa do Prumo.
+    """Base dos painéis de tarefa do Usinix.
 
     Subclasses montam self.form (Formulario) em montar(), dizem o que falta em pendencia() e
     fazem o trabalho em executar() (dentro de uma transação: Desfazer desfaz tudo de uma vez).
     """
 
-    titulo = "Prumo 3D"
+    titulo = "Usinix"
     ajuda = ""
     icone_cmd = None
     texto_ok = "OK"
@@ -1032,7 +1032,7 @@ class PainelTarefa:
         return self._mostrar()
 
     def _mostrar(self):
-        """Abre no painel de tarefas. Outro painel do Prumo aberto é cancelado; uma tarefa do
+        """Abre no painel de tarefas. Outro painel do Usinix aberto é cancelado; uma tarefa do
         FreeCAD em andamento (edição de esboço, extrusão...) não é fechada à força: avisa e não abre."""
         if FreeCADGui.Control.activeDialog():
             anterior = _ATIVO.get("painel")
@@ -1046,7 +1046,7 @@ class PainelTarefa:
                 self.aberto = False
                 msg = ("Há uma tarefa aberta no painel de tarefas. Termine (OK) ou cancele essa tarefa "
                        "antes de abrir \"%s\"." % self.titulo)
-                FreeCAD.Console.PrintWarning("Prumo: %s\n" % msg)
+                FreeCAD.Console.PrintWarning("Usinix: %s\n" % msg)
                 try:   # não modal: não trava quem chamou
                     caixa = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Information, self.titulo, msg,
                                                   QtWidgets.QMessageBox.Ok, FreeCADGui.getMainWindow())

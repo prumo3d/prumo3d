@@ -1,4 +1,4 @@
-# Compilar o Prumo 3D no Windows
+# Compilar o Usinix no Windows
 
 Roteiro oficial do FreeCAD (Developers Handbook → Getting Started → Windows com pixi),
 automatizado pelo `compilar.ps1`.
@@ -41,14 +41,14 @@ powershell -ExecutionPolicy Bypass -File .\prumo-build\compilar.ps1
   ~2.000 arquivos: espere algumas horas. As próximas são incrementais (minutos).
 - Se faltar memória: `...\compilar.ps1 -Nucleos 4`.
 
-## 4. Abrir o Prumo 3D compilado
+## 4. Abrir o Usinix compilado
 
 ```powershell
 pixi run freecad
 ```
 
 O módulo de interface (`src/Mod/Prumo3D`) e o `branding.xml` fazem parte da compilação, como os outros
-módulos: o programa compilado já abre como Prumo 3D, com dados em `%APPDATA%\Prumo3D`.
+módulos: o programa compilado já abre como Usinix, com dados em `%APPDATA%\Prumo3D`.
 Para desligar o módulo numa compilação de teste: `-DBUILD_PRUMO3D=OFF` na configuração do CMake.
 
 ## 5. Testar as correções
@@ -63,6 +63,6 @@ Para desligar o módulo numa compilação de teste: `-DBUILD_PRUMO3D=OFF` na con
 
 | Arquivo | Para quê |
 |---|---|
-| `icones/gerar_icones.py` | Desenha os ícones próprios do Prumo 3D |
+| `icones/gerar_icones.py` | Desenha os ícones próprios do Usinix |
 | `gerar_tema_icones.py` | Recolore os ícones do FreeCAD; o resultado, compactado, vira `src/Mod/Prumo3D/Resources/tema-icones-prumo.zip` |
 | `gerar_materiais.py` | Gera a biblioteca `src/Mod/Prumo3D/Resources/MateriaisPrumo` |

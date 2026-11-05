@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Padrão visual único Prumo para todas as janelas do FreeCAD.
+"""Padrão visual único Usinix para todas as janelas do FreeCAD.
 
 - Fonte Poppins (embutida em Resources/fonts, licença OFL).
 - Folha de estilo global: cartões com cantos de 8 px, controles com 6 px,
@@ -7,7 +7,7 @@
 - Painel de tarefas (QSint) redesenhado: cabeçalho branco com filete amarelo.
 - Fundo da vista 3D em cor única cinza-claro.
 - Ícones de botões do painel que vêm de recursos internos (:/icons/...) trocados
-  pelos ícones Prumo.
+  pelos ícones Usinix.
 """
 import os
 
@@ -119,7 +119,7 @@ def tema(texto):
 
     def decl(m):
         prop, sep, val = m.group(1), m.group(2), m.group(3)
-        if "gradient" in val.lower():      # faixas de marca (azul Prumo) ficam como estão
+        if "gradient" in val.lower():      # faixas de marca (azul Usinix) ficam como estão
             return m.group(0)
         p = prop.lower()
         papel = "texto" if p in TEXTO_PROPS or p.endswith("textcolor") else "fundo"
@@ -250,7 +250,7 @@ def install_font():
             if fid >= 0:
                 fams += QtGui.QFontDatabase.applicationFontFamilies(fid)
     if "Poppins" not in fams:
-        FreeCAD.Console.PrintWarning("Prumo: fonte Poppins não carregada.\n")
+        FreeCAD.Console.PrintWarning("Usinix: fonte Poppins não carregada.\n")
         return None
     app = QtWidgets.QApplication.instance()
     font = QtGui.QFont(app.font())
@@ -408,7 +408,7 @@ def texto_console():
 
     Sem esse valor o FreeCAD copia a cor do texto da janela no momento em que o console
     nasce. Com o Windows em modo escuro, o Qt 6 começa com texto branco e só depois o
-    tema claro do Prumo 3D entra: o texto digitado ficava branco sobre branco. Roda a cada
+    tema claro do Usinix entra: o texto digitado ficava branco sobre branco. Roda a cada
     abertura e só corrige quando a cor gravada não combina com o tema atual.
     """
     ed = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Editor")
@@ -423,7 +423,7 @@ def texto_console():
 
 
 def apply_view_colors(force=False):
-    """Cubo de navegação, seleção, eixos e esboço nas cores Prumo (uma vez por versão)."""
+    """Cubo de navegação, seleção, eixos e esboço nas cores Usinix (uma vez por versão)."""
     p = _params()
     esc = escuro()
     nome_tema = "escuro" if esc else "claro"
@@ -530,7 +530,7 @@ def qss():
 def _qss_claro():
     u = _url
     return """
-/* ===== Prumo: padrão único de janelas ===== */
+/* ===== Usinix: padrão único de janelas ===== */
 QMainWindow, QDialog, QMessageBox, QWizard {{ background: {APP_BG}; }}
 QMainWindow::separator {{ background: {APP_BG}; width: 5px; height: 5px; }}
 QSplitter::handle {{ background: {APP_BG}; }}
@@ -696,7 +696,7 @@ QSint--ActionGroup QToolButton::menu-button {{ border: none; border-left: 1px so
 QSint--ActionGroup QFrame[class="content"] > QWidget > QPushButton {{ padding: 4px 10px; border-radius: {R_CTRL}px; }}
 Gui--TaskView--TaskView QPushButton {{ padding: 5px 16px; }}
 QSint--ActionGroup QGroupBox {{ background: #FAFBFD; }}
-/* quadro que só embrulha um painel Prumo: sem moldura nem cabeçalho (os cartões do painel bastam) */
+/* quadro que só embrulha um painel Usinix: sem moldura nem cabeçalho (os cartões do painel bastam) */
 QSint--ActionGroup[prumo="true"] QFrame[class="content"] {{ background: transparent; border: none; }}
 """.format(
         APP_BG=APP_BG, SURFACE=SURFACE, BORDER=BORDER, BORDER_INPUT=BORDER_INPUT, NAVY=NAVY, NAVY_HOVER=NAVY_HOVER,

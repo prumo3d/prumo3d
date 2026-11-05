@@ -1,27 +1,27 @@
-# Como contribuir com o Prumo 3D
+# Como contribuir com o Usinix
 
-Obrigado pelo interesse em melhorar o Prumo 3D. Este documento explica como relatar problemas, propor
+Obrigado pelo interesse em melhorar o Usinix. Este documento explica como relatar problemas, propor
 mudanças e onde cada tipo de contribuição deve ser feito.
 
 ## 1. Onde contribuir
 
-O Prumo 3D é formado por duas partes, e cada contribuição tem o seu lugar:
+O Usinix é formado por duas partes, e cada contribuição tem o seu lugar:
 
 | O que você quer mudar | Onde contribuir |
 |---|---|
-| Módulo de interface do Prumo 3D (`src/Mod/Prumo3D/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones | Aqui, neste repositório |
+| Módulo de interface do Usinix (`src/Mod/Prumo3D/`): faixa de ferramentas, tradução, tela inicial, assistente de simulação, tutorial, tema, ícones | Aqui, neste repositório |
 | Roteiros de compilação e instalador (`prumo-build/`, `package/`) | Aqui, neste repositório |
 | Correção ou recurso no núcleo do FreeCAD que serve para todos os usuários do FreeCAD | No [repositório do FreeCAD](https://github.com/FreeCAD/FreeCAD), seguindo o [processo de contribuição do FreeCAD](https://github.com/FreeCAD/FreeCAD/blob/main/CONTRIBUTING.md) |
 
 Correções que valem para todo o FreeCAD devem ir primeiro para o projeto original. Assim todos se beneficiam e
-o Prumo 3D recebe a correção quando atualizar a base.
+o Usinix recebe a correção quando atualizar a base.
 
 ## 2. Fundamentos
 
 1. O projeto usa o Git e fica hospedado no GitHub, em
-   [prumo3d/prumo3d](https://github.com/prumo3d/prumo3d).
+   [usinix/usinix](https://github.com/usinix/usinix).
 2. Problemas e sugestões são registrados como
-   [issues](https://github.com/prumo3d/prumo3d/issues).
+   [issues](https://github.com/usinix/usinix/issues).
 3. Mudanças no código são propostas por *pull request* (PR).
 4. Cada PR deve resolver um único problema bem definido.
 
@@ -32,7 +32,7 @@ Abra seus PRs contra o `main`.
 
 ## 4. Licença, autoria e créditos
 
-1. O Prumo 3D é distribuído sob a GNU LGPL versão 2.1 ou posterior, a mesma do FreeCAD. Os detalhes estão
+1. O Usinix é distribuído sob a GNU LGPL versão 2.1 ou posterior, a mesma do FreeCAD. Os detalhes estão
    no arquivo [LICENSE](LICENSE).
 2. Toda contribuição deve usar uma licença compatível.
 3. As contribuições pertencem a seus autores, a menos que sejam cedidas a outra pessoa.
@@ -73,7 +73,7 @@ Abra seus PRs contra o `main`.
 
 Versões são marcadas com uma *tag* `v…` no ramo `main` (ex.: `v1.1.4`); o GitHub Actions gera os
 instaladores e publica tudo na
-[página de versões](https://github.com/prumo3d/prumo3d/releases).
+[página de versões](https://github.com/usinix/usinix/releases).
 
 ---
 

@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Atualização só do complemento Prumo 3D (sem baixar o pacote inteiro).
+"""Atualização só do complemento Usinix (sem baixar o pacote inteiro).
 
 O pacote completo (instalador, .7z, AppImage) traz o FreeCAD de base e o complemento Prumo3D em
 <programa>/Mod/Prumo3D. Quando uma versão nova muda só o complemento, a página de versões publica também
-Prumo3D_<versão>-complemento.zip (poucos MB). A atualização grava esse complemento em
+Usinix_<versão>-complemento.zip (poucos MB). A atualização grava esse complemento em
 
     <dados do usuário>/Mod/Prumo3D
 
@@ -31,7 +31,9 @@ TENTATIVAS_MAX = 2
 
 # a partir de qual pacote completo um complemento pode ser aplicado (muda quando a base de FreeCAD ou as
 # bibliotecas do pacote mudam: aí só o pacote completo serve)
-BASE_MINIMA = "1.1.0"
+# 1.4.0: o programa passou a se chamar Usinix (outro executável e outra pasta de configurações): quem vem
+# do Prumo 3D precisa do instalador completo
+BASE_MINIMA = "1.4.0"
 
 _estado = {"aqui": None, "usuario": False, "delegou": None, "motivo": ""}
 
@@ -163,7 +165,7 @@ def ativar(origem):
                 _estado["delegou"] = pasta_programa()
                 _estado["motivo"] = motivo
                 _usar(pasta_programa(), aqui)
-                FreeCAD.Console.PrintLog("Prumo: usando o complemento do programa (%s)\n" % motivo)
+                FreeCAD.Console.PrintLog("Usinix: usando o complemento do programa (%s)\n" % motivo)
             else:
                 _contar(aqui)
     if _norm(aqui) == _norm(_estado["delegou"]):
@@ -218,7 +220,7 @@ def falhou(exc):
     _estado["delegou"] = pasta_programa()
     _estado["motivo"] = "erro ao carregar: %s" % exc
     _usar(pasta_programa(), aqui or "")
-    FreeCAD.Console.PrintError("Prumo: o complemento atualizado falhou (%s); usando o instalado.\n" % exc)
+    FreeCAD.Console.PrintError("Usinix: o complemento atualizado falhou (%s); usando o instalado.\n" % exc)
     return pasta_programa()
 
 
@@ -237,7 +239,7 @@ def estado():
 # ----------------------------------------------------------------------------------- instalar um .zip
 def instalar_zip(arquivo, versao_programa_=None):
     """Confere o complemento baixado (.zip) e instala em <dados do usuário>/Mod/Prumo3D. Vale ao abrir o
-    Prumo de novo. Devolve a versão. Lança ValueError com o motivo se o arquivo não serve."""
+    Usinix de novo. Devolve a versão. Lança ValueError com o motivo se o arquivo não serve."""
     import shutil
     import zipfile
     dest = pasta_usuario()
@@ -253,7 +255,7 @@ def instalar_zip(arquivo, versao_programa_=None):
                 raise ValueError("arquivo com caminho inválido: %s" % n)
         for obrig in ("Init.py", "InitGui.py", "PrumoVersao.py", MANIFESTO):
             if "Prumo3D/" + obrig not in nomes:
-                raise ValueError("o arquivo não é um complemento do Prumo 3D (falta %s)" % obrig)
+                raise ValueError("o arquivo não é um complemento do Usinix (falta %s)" % obrig)
         manifesto = json.loads(z.read("Prumo3D/" + MANIFESTO).decode("utf-8"))
         versao = manifesto.get("versao", "")
         prog = versao_programa_ if versao_programa_ is not None else versao_programa()

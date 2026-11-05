@@ -119,7 +119,7 @@ class Barra:
         self.secao = secao
         self.eixo_z = np.array(eixo_z, dtype=float)
         self.nome = nome
-        self.origem = origem            # (índice da barra do Prumo, x inicial ao longo dela em mm)
+        self.origem = origem            # (índice da barra do Usinix, x inicial ao longo dela em mm)
 
 
 class Caso:

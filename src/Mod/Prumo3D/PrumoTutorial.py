@@ -208,7 +208,7 @@ PASSOS_ESTRUTURA = [
      "estruturas", ["Prumo_Reforco"], lambda: _proxy_e("Reforco")),
     ("Soldar as juntas",
      "Selecione a estrutura na árvore e clique em Cordão de solda. Com a estrutura inteira selecionada, "
-     "o Prumo cria um cordão em cada junta. Informe a perna (ex.: 5 mm) e o processo.",
+     "o Usinix cria um cordão em cada junta. Informe a perna (ex.: 5 mm) e o processo.",
      "estruturas", ["Prumo_Solda"], _tem_solda),
     ("Gerar a lista de corte",
      "Clique em Lista de corte. A planilha traz cada barra com perfil, comprimento, ângulos de corte e massa.",

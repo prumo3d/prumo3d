@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Guia "vindo do SolidWorks / ZW3D": onde fica, no Prumo, cada comando que você já conhece.
+"""Guia "vindo do SolidWorks / ZW3D": onde fica, no Usinix, cada comando que você já conhece.
 
 Tabela pesquisável (nome no SolidWorks, nome em outros CAD — ZW3D, Inventor, Fusion — e o
-comando no Prumo), com "Mostrar onde" (pisca o botão na faixa) e as diferenças de conceito que
+comando no Usinix), com "Mostrar onde" (pisca o botão na faixa) e as diferenças de conceito que
 mais confundem quem migra.
 """
 
@@ -14,7 +14,7 @@ try:
 except ImportError:  # pragma: no cover
     from PySide2 import QtCore, QtGui, QtWidgets
 
-# (área, SolidWorks, outros CAD (ZW3D / Inventor / Fusion), no Prumo, aba, [comandos], observação)
+# (área, SolidWorks, outros CAD (ZW3D / Inventor / Fusion), no Usinix, aba, [comandos], observação)
 EQUIVALENCIAS = [
     ("Peça", "Esboço", "Sketch", "Esboço", "peca", ["PartDesign_CompSketches", "PartDesign_NewSketch"],
      "Prefira apoiar o esboço nos planos da origem: esboço em face gerada pode quebrar se o modelo mudar."),
@@ -140,9 +140,9 @@ CONCEITOS = [
                     "Definir ponta, para inserir operações no meio do histórico."),
     ("Esboço em face", "Esboço em face gerada pode quebrar quando uma operação anterior muda (problema de nomes "
                        "de face). Prefira os planos da origem ou planos de referência."),
-    ("Função antes ou peça antes", "Os dois jeitos funcionam no Prumo: sem seleção, o comando abre um painel que "
+    ("Função antes ou peça antes", "Os dois jeitos funcionam no Usinix: sem seleção, o comando abre um painel que "
                                    "diz o que selecionar."),
-    ("Bancadas", "O FreeCAD organiza os comandos em bancadas (Peça, Sólidos, Chapa...). No Prumo a faixa troca de "
+    ("Bancadas", "O FreeCAD organiza os comandos em bancadas (Peça, Sólidos, Chapa...). No Usinix a faixa troca de "
                  "bancada sozinha conforme a aba."),
 ]
 
@@ -166,7 +166,7 @@ class GuiaMigracao(QtWidgets.QWidget):
         raiz.setSpacing(10)
         card1, lay = P.bloco("Onde fica cada comando", "selecao")
         raiz.addWidget(card1, 3)
-        dica = QtWidgets.QLabel("Dica: no Prumo, <b>Ctrl+K</b> (ou a lupa no alto da faixa) procura qualquer "
+        dica = QtWidgets.QLabel("Dica: no Usinix, <b>Ctrl+K</b> (ou a lupa no alto da faixa) procura qualquer "
                                 "comando pelo nome e roda na hora.")
         dica.setWordWrap(True)
         dica.setObjectName("PrumoSub")
@@ -177,7 +177,7 @@ class GuiaMigracao(QtWidgets.QWidget):
         lay.addWidget(self.busca)
         self.tabela = QtWidgets.QTableWidget(0, 5)
         self.tabela.setHorizontalHeaderLabels(["Área", "SolidWorks", "Outros CAD (ZW3D, Inventor, Fusion)",
-                                               "No Prumo", "Observação"])
+                                               "No Usinix", "Observação"])
         self.tabela.horizontalHeader().setStretchLastSection(True)
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
@@ -257,7 +257,7 @@ class CmdGuiaMigracao:
     def GetResources(self):
         import PrumoTutorial
         return {"Pixmap": PrumoTutorial.ICON, "MenuText": "Vindo do SolidWorks / ZW3D",
-                "ToolTip": "Onde fica, no Prumo, cada comando que você já conhece de outro CAD, e as diferenças "
+                "ToolTip": "Onde fica, no Usinix, cada comando que você já conhece de outro CAD, e as diferenças "
                            "de conceito que mais confundem."}
 
     def IsActive(self):

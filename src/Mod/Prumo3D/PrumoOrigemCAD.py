@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: "você vem de qual programa?" — o mouse da vista 3D igual ao do CAD que a pessoa já usa.
+"""Usinix: "você vem de qual programa?" — o mouse da vista 3D igual ao do CAD que a pessoa já usa.
 
 Girar, arrastar e aproximar a vista é o que mais trava quem chega de outro programa, e o ajuste fica escondido
 nas preferências do FreeCAD com nomes que ninguém reconhece ("Revit", "TinkerCAD"). Aqui a escolha é pelo
-nome do programa de origem: na tela inicial (até a primeira escolha) e sempre em Preferências do Prumo.
+nome do programa de origem: na tela inicial (até a primeira escolha) e sempre em Preferências do Usinix.
 
 Os estilos são os do próprio FreeCAD; a descrição de cada um vem dos botões que o estilo usa
 (src/Gui/Navigation/*NavigationStyle.cpp).
@@ -25,7 +25,7 @@ PROGRAMAS = [
      "botão do meio", "botão do meio + direito"),
     ("blender", "Blender", "Gui::BlenderNavigationStyle",
      "botão do meio", "Shift + botão do meio"),
-    ("prumo", "Padrão do Prumo", "Gui::CADNavigationStyle",
+    ("prumo", "Padrão do Usinix", "Gui::CADNavigationStyle",
      "botão do meio + esquerdo (ou + direito)", "botão do meio"),
 ]
 POR_ID = {p[0]: p for p in PROGRAMAS}
@@ -125,7 +125,7 @@ if FreeCAD.GuiUp:
             agora_nao.clicked.connect(self._pular)
             linha.addWidget(agora_nao)
             v.addLayout(linha)
-            self.nota = QtWidgets.QLabel("Dá para trocar depois em Preferências do Prumo (cartão Mouse).")
+            self.nota = QtWidgets.QLabel("Dá para trocar depois em Preferências do Usinix (cartão Mouse).")
             self.nota.setStyleSheet("color: #5B6B7B;")
             self.nota.setWordWrap(True)
             v.addWidget(self.nota)
@@ -134,7 +134,7 @@ if FreeCAD.GuiUp:
             aplicar(pid)
             for b in self.botoes.values():
                 b.setEnabled(False)
-            self.nota.setText("Pronto: mouse como no %s. %s Trocar: Preferências do Prumo, cartão Mouse."
+            self.nota.setText("Pronto: mouse como no %s. %s Trocar: Preferências do Usinix, cartão Mouse."
                               % (POR_ID[pid][1], descricao(pid)))
             self.escolhido.emit(pid)
             QtCore.QTimer.singleShot(6000, self.hide)
@@ -144,7 +144,7 @@ if FreeCAD.GuiUp:
             self.hide()
 
     def cartao_preferencias(UI):
-        """Cartão "Mouse" para a janela de Preferências do Prumo."""
+        """Cartão "Mouse" para a janela de Preferências do Usinix."""
         c = UI.Cartao("Mouse da vista 3D", "olho")
         combo = QtWidgets.QComboBox()
         for pid, nome, *_r in PROGRAMAS:

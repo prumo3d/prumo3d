@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Atualização do Prumo 3D pela página de versões do GitHub (nunca obrigatória).
+"""Atualização do Usinix pela página de versões do GitHub (nunca obrigatória).
 
 - Ajuda → Sobre: botão "Verificar atualizações" e a chave "Verificar ao abrir".
 - Ao abrir (no máximo uma vez por dia, desligável): se houver versão mais nova, aparece um aviso com
   "Atualizar agora", "Agora não" e "Pular esta versão". Nada acontece sem o usuário concordar.
 - Atualizar agora:
-  - quando a versão nova publica o complemento sozinho (Prumo3D_<versão>-complemento.zip) e ele serve nesta
+  - quando a versão nova publica o complemento sozinho (Usinix_<versão>-complemento.zip) e ele serve nesta
     instalação (mesma base de FreeCAD, pacote completo a partir da versão mínima): baixa só ele (poucos MB),
-    confere o SHA-256, instala na pasta do usuário e oferece reabrir o Prumo (ver PrumoComplemento);
-  - Windows instalado: baixa o instalador, confere o SHA-256 publicado, pede para fechar o Prumo
+    confere o SHA-256, instala na pasta do usuário e oferece reabrir o Usinix (ver PrumoComplemento);
+  - Windows instalado: baixa o instalador, confere o SHA-256 publicado, pede para fechar o Usinix
     (o FreeCAD pergunta se quer salvar o que estiver aberto) e abre o instalador;
   - Linux (AppImage): baixa o AppImage novo na mesma pasta do atual e diz onde ficou;
   - outros casos (pasta portátil, compilação própria): abre a página da versão no navegador.
@@ -26,7 +26,7 @@ import time
 
 import FreeCAD
 
-REPO = "prumo3d/prumo3d"
+REPO = "usinix/usinix"
 API = "https://api.github.com/repos/{}/releases?per_page=10".format(REPO)
 PAGINA = "https://github.com/{}/releases".format(REPO)
 PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/Prumo3D"
@@ -104,7 +104,7 @@ def escolher(releases, aceitar_beta=True):
 
 def _abrir_url(url, timeout, aceitar="application/vnd.github+json"):
     import urllib.request
-    req = urllib.request.Request(url, headers={"User-Agent": "Prumo3D/" + versao_atual(),
+    req = urllib.request.Request(url, headers={"User-Agent": "Usinix/" + versao_atual(),
                                                "Accept": aceitar})
     try:
         return urllib.request.urlopen(req, timeout=timeout)
@@ -258,7 +258,7 @@ def janela_principal():
 
 
 class AvisoAtualizacao:
-    """Janela "Prumo 3D X disponível". Nunca atualiza sem o clique em "Atualizar agora"."""
+    """Janela "Usinix X disponível". Nunca atualiza sem o clique em "Atualizar agora"."""
 
     def __init__(self, info, automatico=False, parent=None):
         QtCore, QtGui, QtWidgets = _qt()
@@ -267,13 +267,13 @@ class AvisoAtualizacao:
         self.d = QtWidgets.QDialog(parent or janela_principal())
         d = self.d
         d.setObjectName("PrumoUI")
-        d.setWindowTitle("Atualização do Prumo 3D")
+        d.setWindowTitle("Atualização do Usinix")
         d.setStyleSheet(UI.qss())
         d.setMinimumWidth(460)
         v = QtWidgets.QVBoxLayout(d)
         v.setContentsMargins(18, 16, 18, 14)
         v.setSpacing(10)
-        t = QtWidgets.QLabel("Prumo 3D {} disponível".format(info["texto"]))
+        t = QtWidgets.QLabel("Usinix {} disponível".format(info["texto"]))
         t.setStyleSheet(UI.tema("color: #003A70; font-size: 13pt; font-weight: 700;"))
         v.addWidget(t)
         sub = QtWidgets.QLabel("Você está usando a versão {}. A atualização é opcional.".format(
@@ -292,13 +292,13 @@ class AvisoAtualizacao:
             completo = ativo_completo(info, self.modo)
             self.modo, self.ativo = "complemento", comp
         explica = {
-            "complemento": "Ao atualizar, o Prumo baixa só o complemento ({}" + (
+            "complemento": "Ao atualizar, o Usinix baixa só o complemento ({}" + (
                 ", em vez dos {:.0f} MB do pacote completo".format(completo / 1e6)
-                if comp is not None and completo else "") + "). A versão nova vale quando o Prumo for aberto "
+                if comp is not None and completo else "") + "). A versão nova vale quando o Usinix for aberto "
                 "de novo; os seus arquivos e preferências não mudam.",
-            "instalador": "Ao atualizar, o Prumo baixa o instalador ({}), fecha (perguntando se quer salvar o "
+            "instalador": "Ao atualizar, o Usinix baixa o instalador ({}), fecha (perguntando se quer salvar o "
                           "que estiver aberto) e abre o instalador.",
-            "appimage": "Ao atualizar, o Prumo baixa o arquivo novo ({}) para a mesma pasta do atual.",
+            "appimage": "Ao atualizar, o Usinix baixa o arquivo novo ({}) para a mesma pasta do atual.",
         }.get(self.modo, "Esta instalação não se atualiza sozinha: \"Atualizar agora\" abre a página da versão "
                          "para baixar.")
         tam = "{:.0f} MB".format(self.ativo["tamanho"] / 1e6) if self.ativo else ""
@@ -349,7 +349,7 @@ def atualizar(info, modo=None, ativo=None, parent=None):
     if modo == "manual" or ativo is None:
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(info["pagina"]))
         QtWidgets.QMessageBox.information(
-            parent or _pai_para_janela(), "Atualização do Prumo 3D",
+            parent or _pai_para_janela(), "Atualização do Usinix",
             "Esta instalação não se atualiza sozinha. A página da versão {} foi aberta no navegador: baixe "
             "o arquivo do seu sistema por lá.".format(info["texto"]))
         return "pagina"
@@ -383,7 +383,7 @@ def _tempo(seg):
 
 
 class JanelaDownload:
-    """Janela de atualização no padrão do Prumo: barra de progresso, MB, velocidade, tempo que falta e
+    """Janela de atualização no padrão do Usinix: barra de progresso, MB, velocidade, tempo que falta e
     Cancelar; no fim, o próximo passo (instalar agora ou onde ficou o arquivo) ou o erro, na mesma janela."""
 
     def __init__(self, ativo, destino, modo, texto_versao="", parent=None):
@@ -395,7 +395,7 @@ class JanelaDownload:
         self.d = QtWidgets.QDialog(parent or _pai_para_janela())
         d = self.d
         d.setObjectName("PrumoUI")
-        d.setWindowTitle("Atualização do Prumo 3D")
+        d.setWindowTitle("Atualização do Usinix")
         d.setStyleSheet(UI.qss() + UI.tema(
             "QProgressBar { border: 1px solid #DCE4EC; border-radius: 6px; background: #EEF2F6; height: 14px;"
             " text-align: center; color: transparent; }"
@@ -407,7 +407,7 @@ class JanelaDownload:
         v.setContentsMargins(18, 16, 18, 14)
         v.setSpacing(10)
         self.texto_versao = texto_versao
-        self.titulo = QtWidgets.QLabel("Baixando o Prumo 3D {}".format(texto_versao).strip())
+        self.titulo = QtWidgets.QLabel("Baixando o Usinix {}".format(texto_versao).strip())
         self.titulo.setStyleSheet(UI.tema("color: #003A70; font-size: 13pt; font-weight: 700;"))
         v.addWidget(self.titulo)
         self.situacao = QtWidgets.QLabel("Preparando o download…")
@@ -517,9 +517,9 @@ class JanelaDownload:
         self.situacao.style().polish(self.situacao)
         if self.modo == "complemento":
             self.situacao.setText("Pronto: a atualização foi baixada, conferida e instalada.")
-            self.titulo.setText("Prumo 3D {} instalado".format(self.texto_versao).replace("  ", " "))
-            self.detalhe.setText("A versão nova vale quando o Prumo for aberto de novo. Reabrir agora fecha o "
-                                 "Prumo (ele pergunta se quer salvar o que estiver aberto) e abre de novo.")
+            self.titulo.setText("Usinix {} instalado".format(self.texto_versao).replace("  ", " "))
+            self.detalhe.setText("A versão nova vale quando o Usinix for aberto de novo. Reabrir agora fecha o "
+                                 "Usinix (ele pergunta se quer salvar o que estiver aberto) e abre de novo.")
             self.acao = "reabrir"
             self.principal.setText("Reabrir agora")
             self.principal.setVisible(True)
@@ -532,8 +532,8 @@ class JanelaDownload:
             except OSError:
                 pass
             self.situacao.setText("Pronto: a versão nova foi baixada e conferida.")
-            self.titulo.setText("Prumo 3D {} baixado".format(self.texto_versao).replace("  ", " "))
-            self.detalhe.setText("Arquivo: {}\nPasta: {}\n\nFeche o Prumo e abra esse arquivo. O arquivo antigo "
+            self.titulo.setText("Usinix {} baixado".format(self.texto_versao).replace("  ", " "))
+            self.detalhe.setText("Arquivo: {}\nPasta: {}\n\nFeche o Usinix e abra esse arquivo. O arquivo antigo "
                                  "pode ser apagado depois.".format(os.path.basename(self.destino),
                                                                    os.path.dirname(self.destino)))
             self.acao = None
@@ -542,12 +542,12 @@ class JanelaDownload:
             self._ajustar()
             return
         self.situacao.setText("Pronto: o instalador foi baixado e conferido.")
-        self.titulo.setText("Prumo 3D {} pronto para instalar".format(self.texto_versao).replace("  ", " "))
-        self.detalhe.setText("Para instalar, o Prumo precisa fechar (ele pergunta se quer salvar o que estiver "
+        self.titulo.setText("Usinix {} pronto para instalar".format(self.texto_versao).replace("  ", " "))
+        self.detalhe.setText("Para instalar, o Usinix precisa fechar (ele pergunta se quer salvar o que estiver "
                              "aberto).\n\nSe preferir depois, o instalador fica na pasta:\n{}".format(
                                  os.path.dirname(self.destino)))
         self.acao = "instalar"
-        self.principal.setText("Fechar o Prumo e instalar")
+        self.principal.setText("Fechar o Usinix e instalar")
         self.principal.setVisible(True)
         self.secundario.setText("Depois")
         self._ajustar()
@@ -606,10 +606,10 @@ _vivos = []
 
 
 def comando_instalar_depois(caminho, pid):
-    """Comando que espera o Prumo (pid) terminar de fechar e então abre o instalador.
+    """Comando que espera o Usinix (pid) terminar de fechar e então abre o instalador.
 
     No Windows o instalador pede administrador: subprocess.Popen direto falha (WinError 740, "requer
-    elevação") e o Prumo fechava sem instalar nada. Start-Process usa o ShellExecute, que mostra o pedido
+    elevação") e o Usinix fechava sem instalar nada. Start-Process usa o ShellExecute, que mostra o pedido
     de permissão do Windows (UAC) normalmente."""
     if sys.platform.startswith("win"):
         alvo = caminho.replace("'", "''")
@@ -635,12 +635,12 @@ def _registrar(msg):
 
 def _disparar(caminho, popen=None, abrir=None):
     """Abre o instalador. No Windows, pelo ShellExecute (os.startfile), que mostra o pedido de permissão do
-    Windows; o Prumo já aceitou fechar e termina logo em seguida, antes de o instalador copiar os arquivos.
-    Se o ShellExecute falhar, tenta pelo PowerShell esperando o Prumo fechar."""
+    Windows; o Usinix já aceitou fechar e termina logo em seguida, antes de o instalador copiar os arquivos.
+    Se o ShellExecute falhar, tenta pelo PowerShell esperando o Usinix fechar."""
     import subprocess
     _registrar("abrir instalador: %s (existe=%s)" % (caminho, os.path.isfile(caminho)))
     if sys.platform.startswith("win"):
-        # o instalador herda a pasta de trabalho do Prumo (o atalho abre em ...\bin): sai dela antes, senão o
+        # o instalador herda a pasta de trabalho do Usinix (o atalho abre em ...\bin): sai dela antes, senão o
         # Windows não deixa o instalador trocar a pasta da versão antiga
         try:
             os.chdir(os.path.dirname(caminho) or pasta_download())
@@ -665,16 +665,16 @@ def _disparar(caminho, popen=None, abrir=None):
         return True
     except Exception as exc:
         _registrar("processo de espera falhou: %r" % (exc,))
-        FreeCAD.Console.PrintError("Prumo: não abriu o instalador: {}\n".format(exc))
+        FreeCAD.Console.PrintError("Usinix: não abriu o instalador: {}\n".format(exc))
         return False
 
 
 def executavel():
-    """O programa a abrir de novo: o AppImage, o Prumo3D.exe ou o executável do FreeCAD da instalação."""
+    """O programa a abrir de novo: o AppImage, o Usinix.exe ou o executável do FreeCAD da instalação."""
     if os.environ.get("APPIMAGE"):
         return os.environ["APPIMAGE"]
     casa = FreeCAD.getHomePath()
-    for nome in ("Prumo3D.exe", "FreeCAD.exe", "prumo3d", "FreeCAD", "freecad"):
+    for nome in ("Usinix.exe", "Prumo3D.exe", "FreeCAD.exe", "usinix", "prumo3d", "FreeCAD", "freecad"):
         p = os.path.join(casa, "bin", nome)
         if os.path.isfile(p):
             return p
@@ -682,7 +682,7 @@ def executavel():
 
 
 def reabrir(popen=None, fechar=True):
-    """Fecha o Prumo (ele pergunta se quer salvar) e, se fechou, abre de novo assim que o processo terminar."""
+    """Fecha o Usinix (ele pergunta se quer salvar) e, se fechou, abre de novo assim que o processo terminar."""
     import subprocess
     mw = janela_principal() if fechar else None
     if mw is not None and not mw.close():
@@ -704,7 +704,7 @@ def reabrir(popen=None, fechar=True):
 
 
 def instalar_ao_fechar(caminho, popen=None, abrir=None):
-    """Fecha o Prumo (ele pergunta se quer salvar) e, se fechou, abre o instalador logo depois.
+    """Fecha o Usinix (ele pergunta se quer salvar) e, se fechou, abre o instalador logo depois.
     Se o usuário desistir de fechar, nada acontece."""
     mw = janela_principal()
     if mw is not None and not mw.close():
@@ -747,14 +747,14 @@ class Verificacao:
         try:
             self.ao_terminar(self.res["info"], self.res["erro"])
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: atualização: {}\n".format(exc))
+            FreeCAD.Console.PrintWarning("Usinix: atualização: {}\n".format(exc))
 
 
 def verificar_agora(parent=None):
     """Botão "Verificar atualizações" (Sobre): sempre mostra o resultado (e "Procurando…" enquanto isso)."""
     QtCore, QtGui, QtWidgets = _qt()
     espera = QtWidgets.QProgressDialog("Procurando atualizações…", None, 0, 0, parent or _pai_para_janela())
-    espera.setWindowTitle("Atualização do Prumo 3D")
+    espera.setWindowTitle("Atualização do Usinix")
     espera.setMinimumDuration(0)
     espera.setCancelButton(None)
     espera.show()
@@ -764,14 +764,14 @@ def verificar_agora(parent=None):
         _params().SetFloat("UltimaVerificacao", time.time())
         if erro is not None:
             QtWidgets.QMessageBox.information(
-                parent or janela_principal(), "Atualização do Prumo 3D",
+                parent or janela_principal(), "Atualização do Usinix",
                 "Não foi possível consultar a página de versões (sem internet ou bloqueado pela rede).\n\n"
                 "Endereço: {}".format(PAGINA))
             return
         if tem_novidade(info):
             AvisoAtualizacao(info, automatico=False, parent=parent).mostrar()
         else:
-            QtWidgets.QMessageBox.information(parent or janela_principal(), "Atualização do Prumo 3D",
+            QtWidgets.QMessageBox.information(parent or janela_principal(), "Atualização do Usinix",
                                               "Você já está com a versão mais nova ({}).".format(
                                                   versao_atual().replace("-", " ")))
 

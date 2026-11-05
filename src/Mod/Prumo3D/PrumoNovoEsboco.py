@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: ao criar um esboço, mostrar os planos com os eixos X, Y e Z.
+"""Usinix: ao criar um esboço, mostrar os planos com os eixos X, Y e Z.
 
 - Janela "Escolher orientação" (Novo esboço da aba Esboço): o cubo pequeno dá lugar a um desenho dos três
   planos (XY, XZ, YZ) com os eixos e a origem; o plano escolhido fica em destaque.
@@ -202,7 +202,7 @@ def mostrar_eixos():
 
 
 def _vigiar_fechamento():
-    """Quando o painel fecha, esconde de novo os eixos que a Prumo mostrou (se ainda estiverem à vista)."""
+    """Quando o painel fecha, esconde de novo os eixos que a Usinix mostrou (se ainda estiverem à vista)."""
     if _ESTADO.get("vigia") is not None:
         return
     t = QtCore.QTimer(QtWidgets.QApplication.instance())

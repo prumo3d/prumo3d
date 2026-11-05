@@ -189,7 +189,7 @@ def _trocar_e_gravar(task, chave, original):
     except Exception:
         pass
     ok = original()
-    FreeCAD.Console.PrintLog("Prumo: troca para %s gravada: %s\n" % (rotulo, ok))
+    FreeCAD.Console.PrintLog("Usinix: troca para %s gravada: %s\n" % (rotulo, ok))
     if ok:
         # fecha depois que o clique do botão (que está dentro do painel) terminar
         from PySide import QtCore
@@ -200,7 +200,7 @@ def _trocar_e_gravar(task, chave, original):
 
 def _avisar(task, msg, conserto=None, tipo="erro"):
     """Mensagem no alto do painel da junta; com conserto=(texto, função), um botão que resolve na hora."""
-    FreeCAD.Console.PrintWarning("Prumo: %s\n" % msg)
+    FreeCAD.Console.PrintWarning("Usinix: %s\n" % msg)
     try:
         from PySide import QtWidgets
         lb = getattr(task, "_prumo_aviso", None)
@@ -231,7 +231,7 @@ def _avisar(task, msg, conserto=None, tipo="erro"):
 
 
 # ----------------------------------------------------------------------------------- junta inteligente
-# Como no SolidWorks: escolhidas duas faces/arestas/pontos de peças diferentes, o Prumo entende a forma de cada
+# Como no SolidWorks: escolhidas duas faces/arestas/pontos de peças diferentes, o Usinix entende a forma de cada
 # uma e escolhe a junta (eixo + furo = concêntrica; duas faces planas = coincidente; cilindro + plano =
 # tangente...). O painel da junta abre com a peça já no lugar; dá para trocar o tipo antes do OK.
 def descrever(el):
@@ -279,7 +279,7 @@ def descrever(el):
     return "outra", {}
 
 
-# (tipo da junta do FreeCAD, restrição do Prumo para as juntas de distância zero, nome, por quê)
+# (tipo da junta do FreeCAD, restrição do Usinix para as juntas de distância zero, nome, por quê)
 REGRAS_JUNTA = {
     ("cilindro", "cilindro"): ("Cylindrical", None, "Concêntrica", "duas faces cilíndricas: mesmo eixo"),
     ("cilindro", "circulo"): ("Cylindrical", None, "Concêntrica", "face cilíndrica e borda redonda: mesmo eixo"),
@@ -1463,7 +1463,7 @@ if FreeCAD.GuiUp:
             self._timer.setSingleShot(True)
             self._timer.timeout.connect(self.parar)
             self._timer.start(int(segundos * 1000))
-            FreeCAD.Console.PrintMessage("Prumo: junta inteligente — clique em duas faces, arestas ou pontos de "
+            FreeCAD.Console.PrintMessage("Usinix: junta inteligente — clique em duas faces, arestas ou pontos de "
                                          "peças diferentes.\n")
             try:
                 FreeCADGui.getMainWindow().statusBar().showMessage(
@@ -1516,7 +1516,7 @@ if FreeCAD.GuiUp:
         task, d = junta_inteligente()
         _ESTADO_INTELIGENTE["ultimo"] = (task, d)
         if task is None:
-            FreeCAD.Console.PrintWarning("Prumo: %s\n" % d)
+            FreeCAD.Console.PrintWarning("Usinix: %s\n" % d)
             try:
                 FreeCADGui.getMainWindow().statusBar().showMessage(d, 10000)
             except Exception:
@@ -1527,7 +1527,7 @@ if FreeCAD.GuiUp:
         def GetResources(self):
             import PrumoUtil
             return {"Pixmap": PrumoUtil.icone("junta_coincidente.svg"), "MenuText": "Junta inteligente",
-                    "ToolTip": "Escolha duas faces, arestas ou pontos (um em cada peça): o Prumo entende a forma e "
+                    "ToolTip": "Escolha duas faces, arestas ou pontos (um em cada peça): o Usinix entende a forma e "
                                "põe a junta certa — eixo e furo viram concêntrica, faces planas coincidente, cilindro "
                                "na face tangente — com a peça já no lugar."}
 

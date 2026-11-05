@@ -1,12 +1,12 @@
-# Política de Privacidade do Prumo 3D
+# Política de Privacidade do Usinix
 
-O Prumo 3D não coleta, transmite, compartilha nem usa dados pessoais.
+O Usinix não coleta, transmite, compartilha nem usa dados pessoais.
 
 O programa não contém propagandas nem rastreadores.
 
 ## Ressalvas
 
-O Prumo 3D consegue abrir e salvar arquivos em servidores remotos (em alguns protocolos e plataformas).
+O Usinix consegue abrir e salvar arquivos em servidores remotos (em alguns protocolos e plataformas).
 Se você abrir ou salvar um arquivo remoto, seu endereço IP ou outros dados podem ser compartilhados como parte
 normal da conexão daquele protocolo. Isso foge do nosso controle, e cabe a você decidir se confia no servidor
 remoto.
@@ -15,12 +15,12 @@ O ecossistema do FreeCAD inclui bancadas de trabalho (complementos) desenvolvida
 instaladas e atualizadas pelo Gerenciador de Complementos. Ele baixa os complementos de servidores na internet.
 Os complementos não passam por verificação de conteúdo malicioso; cabe a você decidir se confia em cada um.
 
-O Prumo 3D trabalha com arquivos CAD, que podem conter metadados. É sua responsabilidade conferir os
+O Usinix trabalha com arquivos CAD, que podem conter metadados. É sua responsabilidade conferir os
 metadados dos seus arquivos antes de compartilhá-los. Eles podem conter caminhos de pastas do seu computador
 que revelam seu nome de usuário quando ele faz parte do caminho, como em
 "C:\Users\Maria\Documentos\meuArquivo.FCStd".
 
-O Prumo 3D também permite criar e executar macros. Macros são programas em Python que podem fazer
+O Usinix também permite criar e executar macros. Macros são programas em Python que podem fazer
 qualquer coisa que o usuário pode fazer no computador. Ao executar uma macro de outra origem, é sua
 responsabilidade garantir que confia em quem a escreveu.
 
@@ -31,10 +31,10 @@ dados ficam apenas no armazenamento local.
 Ao consultar a versão on-line do manual do usuário de dentro do programa, o conteúdo é obtido por conexões
 HTTPS.
 
-O Prumo 3D é software livre e, por isso, pode ser empacotado por outras pessoas, que podem incluir outros
+O Usinix é software livre e, por isso, pode ser empacotado por outras pessoas, que podem incluir outros
 programas ou modificar o código-fonte. Não respondemos por esses pacotes de terceiros e não temos como informar
 o que eles contêm nem o que fazem com a sua privacidade. Os pacotes oficiais são apenas os publicados na
-[página de versões](https://github.com/prumo3d/prumo3d/releases) deste repositório.
+[página de versões](https://github.com/usinix/usinix/releases) deste repositório.
 
 
 *Esta política é uma tradução adaptada da

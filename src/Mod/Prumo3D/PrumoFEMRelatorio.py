@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Relatório PDF da simulação no padrão visual Prumo.
+"""Relatório PDF da simulação no padrão visual Usinix.
 
 Poppins, azul #003A70, amarelo #F7BE00, escala 34/24/18/16/14 px. Capa desenhada à mão,
 corpo em QTextDocument paginado com cabeçalho e rodapé em todas as páginas.
@@ -73,7 +73,7 @@ def _captura(est, modo, pasta):
         v.saveImage(caminho, 1800, 1150, "White")
         return caminho if os.path.isfile(caminho) else None
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: captura '{}' falhou: {}\n".format(modo, exc))
+        FreeCAD.Console.PrintWarning("Usinix: captura '{}' falhou: {}\n".format(modo, exc))
         return None
 
 
@@ -155,7 +155,7 @@ def _corpo(est, doc, imgs, largura):
         if pm.get("norma"):
             lin.append(_par("Referência na biblioteca", ("%s %s" % (pm["norma"], pm.get("numero", ""))).strip()))
         h.append(_tab(lin, larguras=["40%", "60%"]))
-        h.append("<p class='nota'>Propriedades da biblioteca de materiais do Prumo 3D, modelo linear "
+        h.append("<p class='nota'>Propriedades da biblioteca de materiais do Usinix, modelo linear "
                  "elástico isotrópico. Devem ser confirmadas com o certificado do material empregado.</p>")
 
     h.append("<h1>4. Condições de contorno</h1>")
@@ -356,7 +356,7 @@ def _rodape(p, W, H, k, pagina, total):
     p.setPen(QtGui.QColor(INK2))
     p.setFont(_fonte(2.9 * k))
     p.drawText(QtCore.QRectF(MARGEM_MM * k, H - 11.5 * k, 120 * k, 6 * k), QtCore.Qt.AlignVCenter,
-               "Gerado no Prumo 3D")
+               "Gerado no Usinix")
     if pagina:
         p.drawText(QtCore.QRectF(W - (MARGEM_MM + 50) * k, H - 11.5 * k, 50 * k, 6 * k),
                    QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter, "Página %d de %d" % (pagina, total))
@@ -386,7 +386,7 @@ def gerar(est, caminho):
     w.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0))
     w.setResolution(DPI)
     w.setTitle("Relatório de simulação — " + (est.peca.Label if est.peca else ""))
-    w.setCreator("Prumo 3D")
+    w.setCreator("Usinix")
     k = DPI / 25.4                       # pixels do dispositivo por mm
     W, H = w.width(), w.height()
     escala = DPI / 96.0                  # px do documento → dispositivo

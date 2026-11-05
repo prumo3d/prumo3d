@@ -2,7 +2,7 @@
 
 ## Situação da assinatura
 
-Os instaladores do Prumo 3D **ainda não são assinados digitalmente**. O pedido ao programa gratuito da
+Os instaladores do Usinix **ainda não são assinados digitalmente**. O pedido ao programa gratuito da
 SignPath Foundation (25/10/2026) não foi aprovado por enquanto: o programa exige um projeto com mais
 visibilidade pública (estrelas, contribuidores, citações externas). Até haver assinatura, o Windows mostra
 o aviso de "editor desconhecido"; cada arquivo da página de versões tem o código SHA-256 ao lado.
@@ -12,10 +12,10 @@ um serviço de assinatura seja configurado.
 
 ## Privacidade (privacy policy)
 
-O Prumo 3D não envia nenhuma informação sobre você, seu computador ou seus arquivos.
+O Usinix não envia nenhuma informação sobre você, seu computador ou seus arquivos.
 
 A única conexão que ele faz sozinho é a procura de versão nova: no máximo uma vez por dia, ao abrir,
-consulta a página pública de versões do projeto no GitHub (`api.github.com/repos/prumo3d/prumo3d/releases`).
+consulta a página pública de versões do projeto no GitHub (`api.github.com/repos/usinix/usinix/releases`).
 Essa consulta não leva dado do usuário além do que qualquer acesso a um site leva (endereço IP, sujeito à
 [política de privacidade do GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)).
 Ela pode ser desligada em **Preferências → Atualizações → "Procurar versão nova ao abrir"**.
@@ -42,7 +42,7 @@ Se a assinatura pela SignPath for contratada (ou o projeto for aprovado no progr
    <?xml version="1.0" encoding="utf-8"?>
    <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
      <zip-file>
-       <pe-file path="Prumo3D_*-installer.exe" max-matches="1">
+       <pe-file path="Usinix_*-installer.exe" max-matches="1">
          <authenticode-sign/>
        </pe-file>
      </zip-file>

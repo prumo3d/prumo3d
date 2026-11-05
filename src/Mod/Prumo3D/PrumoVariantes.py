@@ -48,7 +48,7 @@ def criar(doc, parametros=(), variantes=("Padrão",)):
     if sh is None:
         sh = doc.addObject("Spreadsheet::Sheet", NOME_PLANILHA)
         sh.Label = "Variantes da peça"
-        sh.addProperty("App::PropertyBool", "PrumoVariantes", "Prumo", "Planilha de variantes do Prumo")
+        sh.addProperty("App::PropertyBool", "PrumoVariantes", "Prumo", "Planilha de variantes do Usinix")
         sh.PrumoVariantes = True
         for c, t in (("A1", "Parâmetro"), ("B1", "Valor ativo"), ("C1", "Unidade")):
             sh.set(c, t)
@@ -219,7 +219,7 @@ class Seletor:
                 self.aplicando = True
                 aplicar(doc, v)
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: variante: %s\n" % exc)
+            FreeCAD.Console.PrintWarning("Usinix: variante: %s\n" % exc)
         finally:
             self.aplicando = False
 

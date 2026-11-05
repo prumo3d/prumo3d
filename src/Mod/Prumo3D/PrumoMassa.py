@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - propriedades de massa (massa, centro de gravidade e momentos de inércia).
+# Usinix - propriedades de massa (massa, centro de gravidade e momentos de inércia).
 """Propriedades de massa num clique.
 
 Usa o material de cada peça (propriedade "Material da forma"); peça sem material entra como aço
@@ -115,7 +115,7 @@ def calcular(objs, densidade_padrao=None):
 
 def texto(r):
     """Relatório em texto (para copiar)."""
-    linhas = ["Propriedades de massa — Prumo 3D", ""]
+    linhas = ["Propriedades de massa — Usinix", ""]
     linhas.append("Massa: %s" % fmt(r.massa, 3, "kg"))
     linhas.append("Volume: %s (%s)" % (fmt(r.volume / 1000.0, 2, "cm³"), fmt(r.volume, 0, "mm³")))
     linhas.append("Área de superfície: %s" % fmt(r.area, 1, "mm²"))

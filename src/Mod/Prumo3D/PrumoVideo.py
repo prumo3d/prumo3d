@@ -2,7 +2,7 @@
 """Vídeo do comportamento da estrutura (análise por barras) e do detalhe por elementos finitos.
 
 Cada quadro é uma captura da vista 3D com uma faixa de título e uma legenda desenhadas por cima
-(Pillow). O vídeo sai em MP4 quando o ffmpeg está disponível (vem no pacote do Prumo) e em GIF
+(Pillow). O vídeo sai em MP4 quando o ffmpeg está disponível (vem no pacote do Usinix) e em GIF
 animado como alternativa.
 """
 import math
@@ -25,7 +25,7 @@ CORES_TAXA = [((38, 166, 77), "até 0,70"), ((242, 204, 26), "0,70 a 0,90"), ((2
 
 # ------------------------------------------------------------------ utilidades
 def ffmpeg():
-    """Caminho do ffmpeg (o do Prumo, o do sistema) ou None."""
+    """Caminho do ffmpeg (o do Usinix, o do sistema) ou None."""
     home = FreeCAD.getHomePath()
     for pasta in (os.path.join(home, "bin"), os.path.join(home, "Library", "bin"), home):
         for nome in ("ffmpeg.exe", "ffmpeg"):
@@ -117,7 +117,7 @@ class Gravador:
                 y += int(lado * 1.4)
         if self.rodape:
             d.text((int(w * 0.025), h - int(h * 0.045)), self.rodape, font=fl_de(self.rodape), fill=CINZA)
-        marca = "Prumo 3D"
+        marca = "Usinix"
         d.text((w - int(w * 0.12), h - int(h * 0.045)), marca, font=fl, fill=AZUL)
         return img
 
@@ -138,7 +138,7 @@ class Gravador:
                 self.limpar()
                 return saida
             except Exception as ex:
-                FreeCAD.Console.PrintWarning("Prumo: ffmpeg falhou (%s); gravando GIF.\n" % ex)
+                FreeCAD.Console.PrintWarning("Usinix: ffmpeg falhou (%s); gravando GIF.\n" % ex)
         saida = base + ".gif"
         self._gif(saida)
         self.limpar()
@@ -423,7 +423,7 @@ def escolher_e_gravar(fn, alvo, sugestao):
     if not caminho:
         return None
     dlg = QtWidgets.QProgressDialog("Gravando o vídeo…", None, 0, 0, mw)
-    dlg.setWindowTitle("Prumo 3D")
+    dlg.setWindowTitle("Usinix")
     dlg.setWindowModality(QtCore.Qt.WindowModal)
     dlg.show()
 

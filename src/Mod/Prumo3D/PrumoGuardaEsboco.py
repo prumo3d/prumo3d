@@ -243,7 +243,7 @@ if FreeCAD.GuiUp:
                 conferir_agora(sk, antes)
         except Exception as ex:
             esperando.pop(chave, None)
-            FreeCAD.Console.PrintLog("Prumo: guarda do esboço: %s\n" % ex)
+            FreeCAD.Console.PrintLog("Usinix: guarda do esboço: %s\n" % ex)
 
     def _ferramenta_ativa():
         """Botão do mouse apertado (arrastando uma cota, por exemplo): ainda não terminou."""

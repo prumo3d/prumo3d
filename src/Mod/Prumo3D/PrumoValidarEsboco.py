@@ -37,7 +37,7 @@ def _consumidores_fechados(sk):
         if o.TypeId in PRECISA_FECHADO:
             res.append(o)
         elif "Contorno" in o.PropertiesList and getattr(o, "Esboco", None) is sk:
-            res.append(o)       # seção personalizada do Prumo: o contorno precisa ser fechado
+            res.append(o)       # seção personalizada do Usinix: o contorno precisa ser fechado
     return res
 
 
@@ -230,7 +230,7 @@ if FreeCAD.GuiUp:
                 FreeCADGui.Selection.addSelection(sk)
                 FreeCADGui.runCommand("Sketcher_ValidateSketch", 0)
             except Exception as ex:
-                FreeCAD.Console.PrintWarning("Prumo: validar esboço: %s\n" % ex)
+                FreeCAD.Console.PrintWarning("Usinix: validar esboço: %s\n" % ex)
 
         def fechar(self):
             self.hide()
@@ -245,7 +245,7 @@ if FreeCAD.GuiUp:
         try:
             r = conferir(sk)
         except Exception as ex:
-            FreeCAD.Console.PrintLog("Prumo: conferir esboço: %s\n" % ex)
+            FreeCAD.Console.PrintLog("Usinix: conferir esboço: %s\n" % ex)
             return None
         velho = _estado["aviso"]
         if velho is not None:

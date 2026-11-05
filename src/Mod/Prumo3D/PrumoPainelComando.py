@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Painel de comando no padrão Prumo para Extrusão e Cavidade (quadro "Comando ativo" da proposta).
+"""Painel de comando no padrão Usinix para Extrusão e Cavidade (quadro "Comando ativo" da proposta).
 
 Enquanto uma Extrusão (Pad) ou Cavidade (Pocket) está aberta para edição, o topo da aba do comando
 mostra cartões: Lados, Direção 1 (até onde vai, medida, afastamento, ângulo de saída, inverter),
@@ -2389,7 +2389,7 @@ class EncaixeFixacao:
         try:
             self._passo()
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: fixação: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: fixação: {}\n".format(exc))
 
     def _passo(self):
         panel = _painel_de_tarefas() if ligado() else None
@@ -3138,7 +3138,7 @@ class PainelJunta(_Base):
                 "isolar": f.indice("isolateType"), "aviso": self._aviso_da_tarefa()[0]}
 
     def _aviso_da_tarefa(self):
-        """(texto, tipo, botão de conserto ou None) do aviso do Prumo na tarefa da junta (junta inteligente,
+        """(texto, tipo, botão de conserto ou None) do aviso do Usinix na tarefa da junta (junta inteligente,
         conferência da tangente...): ele fica no formulário do FreeCAD, que está escondido atrás dos cartões."""
         try:
             import JointObject
@@ -3188,7 +3188,7 @@ class PainelJunta(_Base):
                 self.campos["conserto"] = bt
             self.lay.addWidget(c)
         if restricao:
-            # Tangente / Coincidente do Prumo: por baixo é a junta Distância; mostra o nome pedido, não a grade
+            # Tangente / Coincidente do Usinix: por baixo é a junta Distância; mostra o nome pedido, não a grade
             import PrumoMontagem
             nome, dica = PrumoMontagem.JUNTAS[restricao]
             c = UI.Cartao(nome, "vinculo")
@@ -3941,13 +3941,13 @@ class Encaixe:
             lay = panel.layout()
             lay.insertWidget(lay.indexOf(self.painel), self.operacao)
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: cartão de operação: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: cartão de operação: {}\n".format(exc))
 
     def _tick(self):
         try:
             self._passo()
         except Exception as exc:
-            FreeCAD.Console.PrintLog("Prumo: painel de comando: {}\n".format(exc))
+            FreeCAD.Console.PrintLog("Usinix: painel de comando: {}\n".format(exc))
 
     def _avulso(self, panel):
         """(marca, quadro) de um formulário avulso (ex.: vistas do Desenho) no painel de tarefas."""

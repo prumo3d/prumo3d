@@ -51,8 +51,8 @@ def montar(versao, raiz=RAIZ):
         aviso = ("> **Versão de teste (%s):** guarde cópia dos seus arquivos e não use ainda em projeto com "
                  "prazo. Relatos de problema são muito bem-vindos (veja \"Como relatar um problema\").\n\n"
                  % versao.strip().lstrip("vV").split("-", 1)[1])
-    return ("## Prumo 3D %s\n\n%s### Novidades desta versão\n\n%s\n\n"
-            "Histórico completo: [NOVIDADES.md](https://github.com/prumo3d/prumo3d/blob/main/NOVIDADES.md)\n\n"
+    return ("## Usinix %s\n\n%s### Novidades desta versão\n\n%s\n\n"
+            "Histórico completo: [NOVIDADES.md](https://github.com/usinix/usinix/blob/main/NOVIDADES.md)\n\n"
             "%s\n" % (titulo, aviso, corpo or "Correções e ajustes.", fixa))
 
 

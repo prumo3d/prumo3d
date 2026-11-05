@@ -1,6 +1,6 @@
 {
  "meta": {
-  "titulo": "Pesquisa de dados tecnicos - Prumo 3D (normas de desenho, perfis, tubos, chapas, simbolos)",
+  "titulo": "Pesquisa de dados tecnicos - Usinix (normas de desenho, perfis, tubos, chapas, simbolos)",
   "data": "2026-10-19",
   "criterio_status": "'confirmado' = valor lido em documento oficial (fabricante, ficha de norma) ou em texto da norma reproduzido por universidade, sem divergencia. 'a checar' = fonte so secundaria/nao oficial, divergencia entre fontes, extracao duvidosa, ou valor derivado/calculado.",
   "metodo": "WebSearch + WebFetch (leitura automatica de PDF por modelo auxiliar). Tabelas extraidas por esse meio podem ter erros de transcricao; campos verif_* sao checagens geometricas independentes.",

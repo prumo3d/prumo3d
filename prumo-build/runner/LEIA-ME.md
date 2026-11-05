@@ -6,7 +6,7 @@ registrado como *runner*, sem custo.
 
 ## Windows (uma vez)
 
-1. GitHub → `prumo3d/prumo3d` → **Settings → Actions → Runners → New self-hosted runner** → Windows.
+1. GitHub → `usinix/usinix` → **Settings → Actions → Runners → New self-hosted runner** → Windows.
    Copie só o código que vem depois de `--token` (vale por cerca de 1 hora).
 2. No PowerShell:
 

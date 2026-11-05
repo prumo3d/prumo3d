@@ -1,8 +1,8 @@
-# Código de Conduta do Prumo 3D
+# Código de Conduta do Usinix
 
 ## Princípio
 
-Quem usa e contribui com o Prumo 3D vem de lugares, formações e funções diferentes. Essa diversidade é
+Quem usa e contribui com o Usinix vem de lugares, formações e funções diferentes. Essa diversidade é
 uma força do projeto, mas também pode gerar problemas de comunicação e, com eles, desconforto. Para que a
 convivência seja boa para todos, espera-se que todas as pessoas envolvidas (usuários, colaboradores e
 mantenedores) sigam este código de conduta. Resumindo em uma frase: *"tratem-se da melhor forma possível"*.

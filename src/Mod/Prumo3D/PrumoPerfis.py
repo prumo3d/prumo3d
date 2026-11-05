@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - biblioteca de perfis estruturais brasileiros (W, HP, U, I, cantoneiras, tubos).
+# Usinix - biblioteca de perfis estruturais brasileiros (W, HP, U, I, cantoneiras, tubos).
 """Perfis de aço laminado e tubos, com dados de catálogo de fabricantes que produzem no Brasil.
 
 Dados em Resources/perfis/perfis.json (gerado por prumo-build/ferramentas/gerar_perfis.py).
 Cada perfil tem "status": "confirmado" (catálogo oficial) ou "a checar" (fonte secundária,
-divergência ou valor derivado); o Prumo mostra o aviso na escolha do perfil.
+divergência ou valor derivado); o Usinix mostra o aviso na escolha do perfil.
 
 A seção é desenhada sem os raios de concordância; a massa da barra usa a massa linear do
 catálogo (kg/m), que já considera os raios.
@@ -241,7 +241,7 @@ def descricao_status(it):
     if derivados_relevantes(it):
         partes.append("Valores derivados: " + ", ".join(nomes_der.get(d, d) for d in derivados_relevantes(it)) + ".")
     if it.get("substituto"):
-        partes.append("Tabela antiga do Prumo: o equivalente atual é %s (Gerdau 01/23)." % it["substituto"])
+        partes.append("Tabela antiga do Usinix: o equivalente atual é %s (Gerdau 01/23)." % it["substituto"])
     return " ".join(partes)
 
 

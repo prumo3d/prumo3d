@@ -156,9 +156,9 @@ requirements:
     - occt>=7.8,<7.9
     - olefile
     - opencamlib
-    # Prumo 3D: cv2 para as bancadas que gravam e leem vídeo (ex.: Movie); não vinha no pacote
+    # Usinix: cv2 para as bancadas que gravam e leem vídeo (ex.: Movie); não vinha no pacote
     - opencv
-    # Prumo 3D: networkx para o planificador novo da Chapa (SheetMetal); sem ele aparecia aviso ao abrir
+    # Usinix: networkx para o planificador novo da Chapa (SheetMetal); sem ele aparecia aviso ao abrir
     - networkx
     - pandas
     - pip

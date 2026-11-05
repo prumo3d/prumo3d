@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - tradução pt-BR com prioridade sobre a tradução oficial.
-"""Instala as traduções Prumo por cima das oficiais.
+# Usinix - tradução pt-BR com prioridade sobre a tradução oficial.
+"""Instala as traduções Usinix por cima das oficiais.
 
 1. ``translations/prumo_ptbr.qm``: compilada da tradução pt-BR mais recente
    do repositório do FreeCAD (mais completa que a da versão instalada).
@@ -415,11 +415,11 @@ EXTRA.update({
     "Calculator Filter": "Filtro calculadora", "FEM Examples": "Exemplos de simulação",
 })
 
-# Glossário Prumo por contexto: corrige termos da tradução oficial que
+# Glossário Usinix por contexto: corrige termos da tradução oficial que
 # confundem o usuário brasileiro ("Preencher" para Pad, "Perfuração" para
 # Pocket, "Filete" para Fillet...). Chave: (contexto do Qt, texto de origem).
 GLOSSARIO = {
-    # Montagem: avisos ao inserir peças (src/Mod/Assembly, textos passados para translate no Prumo)
+    # Montagem: avisos ao inserir peças (src/Mod/Assembly, textos passados para translate no Usinix)
     ("Assembly", "Ground Part?"): "Fixar a peça?",
     ("Assembly", "Do you want to ground the first inserted part automatically?\nYou need at least one grounded "
                  "part in your assembly."):
@@ -607,10 +607,10 @@ def _language_is_ptbr():
 
 
 def idioma_padrao_ptbr():
-    """Perfil novo (idioma nunca escolhido): usa pt-BR, o idioma do Prumo 3D.
+    """Perfil novo (idioma nunca escolhido): usa pt-BR, o idioma do Usinix.
 
     Sem isso o FreeCAD segue o sistema: cai no português de Portugal ("Ficheiro") ou no inglês,
-    e a tradução Prumo não é instalada. Não mexe se o usuário já escolheu um idioma
+    e a tradução Usinix não é instalada. Não mexe se o usuário já escolheu um idioma
     (Editar > Preferências > Geral > Idioma). Retorna True se definiu o idioma agora.
     """
     grp = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/General")
@@ -626,7 +626,7 @@ def idioma_padrao_ptbr():
 
 
 def raise_priority():
-    """(Re)instala o tradutor Prumo no topo da pilha do Qt."""
+    """(Re)instala o tradutor Usinix no topo da pilha do Qt."""
     tr = _state["tr"]
     if tr is None:
         return
@@ -677,8 +677,8 @@ def uninstall():
 
 
 class _VigiaIdioma(QtCore.QObject):
-    """Qualquer tradutor novo (bancada carregada, módulo que chama updateLocale) entra por cima do Prumo e
-    volta o texto original do FreeCAD ("Sempre" em vez de "Sempre fixar"). A cada troca de tradutores o Prumo
+    """Qualquer tradutor novo (bancada carregada, módulo que chama updateLocale) entra por cima do Usinix e
+    volta o texto original do FreeCAD ("Sempre" em vez de "Sempre fixar"). A cada troca de tradutores o Usinix
     volta para o topo (com um intervalo, porque a própria volta também avisa troca)."""
 
     def eventFilter(self, obj, ev):

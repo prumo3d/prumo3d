@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - ilustrações isométricas para o painel de tarefas.
-"""Gera SVGs explicativos (estilo isométrico, paleta Prumo) para cada recurso e modo.
+# Usinix - ilustrações isométricas para o painel de tarefas.
+"""Gera SVGs explicativos (estilo isométrico, paleta Usinix) para cada recurso e modo.
 
 Cada função recebe parâmetros simples e devolve o texto SVG. Nada aqui depende do
 FreeCAD, então dá para gerar e conferir os desenhos fora do programa.

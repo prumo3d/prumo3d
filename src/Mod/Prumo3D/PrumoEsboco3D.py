@@ -2210,10 +2210,10 @@ if FreeCAD.GuiUp:
                 import PrumoTubulacao
                 mud = PrumoTubulacao.ajustar_dependentes(self.obj)
                 if mud:
-                    FreeCAD.Console.PrintMessage("Prumo: traçado ajustado às conexões da tubulação em %d "
+                    FreeCAD.Console.PrintMessage("Usinix: traçado ajustado às conexões da tubulação em %d "
                                                  "ponto(s).\n" % len(mud))
             except Exception as exc:
-                FreeCAD.Console.PrintLog("Prumo: ajuste às conexões: %s\n" % exc)
+                FreeCAD.Console.PrintLog("Usinix: ajuste às conexões: %s\n" % exc)
             self.doc.commitTransaction()
             FreeCADGui.Control.closeDialog()
             self.doc.recompute()

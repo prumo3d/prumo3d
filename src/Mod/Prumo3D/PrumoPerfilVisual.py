@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: desenho da seção dos perfis (miniatura da lista, prévia com cotas e vista técnica).
+"""Usinix: desenho da seção dos perfis (miniatura da lista, prévia com cotas e vista técnica).
 
 Usa o contorno do catálogo (PrumoPerfis.contorno) e as medidas do catálogo (PrumoPerfis.cotas).
 """
@@ -290,7 +290,7 @@ def tabela_html(it, completa=False):
                      ("Zx", pr.get("Zx", 0) / 1e3, "cm³"), ("Zy", pr.get("Zy", 0) / 1e3, "cm³"),
                      ("rx", pr.get("rx", 0) / 10, "cm"), ("ry", pr.get("ry", 0) / 10, "cm"),
                      ("J", pr.get("J", 0) / 1e4, "cm⁴")]
-            html.append("<tr><td colspan='2' style='padding-top:8px;color:#003A70'><b>PROPRIEDADES DA SEÇÃO</b> <span style='color:#5B6876'>(calculadas pelo Prumo)</span><b>"
+            html.append("<tr><td colspan='2' style='padding-top:8px;color:#003A70'><b>PROPRIEDADES DA SEÇÃO</b> <span style='color:#5B6876'>(calculadas pelo Usinix)</span><b>"
                         "</b></td></tr>")
             for n, v, u in props:
                 if v:

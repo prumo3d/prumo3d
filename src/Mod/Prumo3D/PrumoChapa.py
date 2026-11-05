@@ -330,7 +330,7 @@ def PainelChapaDXF():
                 criar_tabela_k(obj.Document, mat)
             caminho = self.caminho.text().strip() or None
             arq, _plana, info = exportar_dxf(obj, caminho, mat, face)
-            FreeCAD.Console.PrintMessage("Prumo: planificação de %s gravada em %s (%s × %s mm, %d dobras).\n"
+            FreeCAD.Console.PrintMessage("Usinix: planificação de %s gravada em %s (%s × %s mm, %d dobras).\n"
                                          % (obj.Label, arq, _f(info["largura"]), _f(info["altura"]),
                                             info["dobras"]))
             self.arquivo = arq
@@ -379,7 +379,7 @@ class CmdTabelaK:
                 criar_tabela_k(doc, m)
         except Exception as exc:
             doc.abortTransaction()
-            FreeCAD.Console.PrintError("Prumo: tabelas de fator K: %s\n" % exc)
+            FreeCAD.Console.PrintError("Usinix: tabelas de fator K: %s\n" % exc)
             return
         doc.commitTransaction()
-        FreeCAD.Console.PrintMessage("Prumo: tabelas de fator K criadas (escolha no Planificar do SheetMetal).\n")
+        FreeCAD.Console.PrintMessage("Usinix: tabelas de fator K criadas (escolha no Planificar do SheetMetal).\n")

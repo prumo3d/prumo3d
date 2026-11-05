@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Memória de cálculo (PDF) da simulação de estruturas por barras, no padrão visual Prumo.
+"""Memória de cálculo (PDF) da simulação de estruturas por barras, no padrão visual Usinix.
 
 Mesmo estilo do relatório da simulação por elementos finitos (PrumoFEMRelatorio): capa, cabeçalho
 e rodapé em todas as páginas, Poppins, azul #003A70 e amarelo #F7BE00.
@@ -41,7 +41,7 @@ def _captura(analise, modo, pasta):
         v.saveImage(caminho, 1800, 1150, "White")
         return caminho if os.path.isfile(caminho) else None
     except Exception as exc:
-        FreeCAD.Console.PrintWarning("Prumo: captura '%s' falhou: %s\n" % (modo, exc))
+        FreeCAD.Console.PrintWarning("Usinix: captura '%s' falhou: %s\n" % (modo, exc))
         return None
 
 
@@ -218,7 +218,7 @@ def gerar_pdf(analise, caminho):
     w.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0))
     w.setResolution(R.DPI)
     w.setTitle("Memória de cálculo — " + analise.Estrutura.Label)
-    w.setCreator("Prumo 3D")
+    w.setCreator("Usinix")
     k = R.DPI / 25.4
     W, H = w.width(), w.height()
     escala = R.DPI / 96.0

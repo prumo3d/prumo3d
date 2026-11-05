@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - nomes de propriedades e grupos do painel de propriedades em pt-BR.
+# Usinix - nomes de propriedades e grupos do painel de propriedades em pt-BR.
 # Chave = nome como o FreeCAD exibe (CamelCase separado por espaço). Vale só no contexto
 # "App::Property" (ver PrumoI18n). Valores de listas (ex.: ThroughAll) não passam por aqui:
 # são identificadores gravados no arquivo.

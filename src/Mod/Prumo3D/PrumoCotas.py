@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - edição rápida das cotas de uma operação, direto na vista 3D.
+# Usinix - edição rápida das cotas de uma operação, direto na vista 3D.
 """Cotas da operação na tela.
 
 Duplo clique numa face do modelo (ou o comando "Cotas da operação") abre, junto do cursor, um
@@ -405,7 +405,7 @@ class PainelCotas(QtWidgets.QFrame):
         self.campos = []
         import PrumoUI as UI
         self.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-        # padrão visual Prumo (cartão branco, título azul, campos com unidade sem setas)
+        # padrão visual Usinix (cartão branco, título azul, campos com unidade sem setas)
         self.setStyleSheet(UI.qss() + UI.tema("""
             #PrumoPainelCotas { background: #FFFFFF; border: 1px solid #DCE4EC; border-radius: 10px; }
             #PrumoPainelCotas QLabel { background: transparent; color: #1F2A36; }
@@ -568,7 +568,7 @@ class _FiltroDuploClique(QtCore.QObject):
                         sub = pre.SubElementNames[0]
                         QtCore.QTimer.singleShot(0, lambda: _abrir_por_duplo_clique(obj, sub, pos))
             except Exception as exc:
-                FreeCAD.Console.PrintLog("Prumo cotas: %s\n" % exc)
+                FreeCAD.Console.PrintLog("Usinix cotas: %s\n" % exc)
         return False
 
 

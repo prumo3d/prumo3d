@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: dutos de ar-condicionado (HVAC) na aba Tubulação.
+"""Usinix: dutos de ar-condicionado (HVAC) na aba Tubulação.
 
 As peças são as da FreeCAD Parts Library (pasta HVAC/Ducts), de Francisco Rosa, CC-BY 3.0
 (Resources/hvac/CREDITOS.md). Cada peça é paramétrica: um conjunto de variáveis (VarSet) comanda bocas,
 comprimento ou ângulo, chapa, flanges e isolamento, e uma planilha da própria peça calcula as áreas.
 
-O Prumo copia a peça escolhida para o projeto (sem as folhas de desenho que vêm no arquivo), dá a ela um
+O Usinix copia a peça escolhida para o projeto (sem as folhas de desenho que vêm no arquivo), dá a ela um
 nome em português e mostra as variáveis num painel em português. Para mudar depois: selecione a peça e
 use "Editar duto" (ou mude as variáveis na propriedade do VarSet).
 """
@@ -366,7 +366,7 @@ if FreeCAD.GuiUp:
             vs = varset_da_selecao()
             if vs is None:
                 import PrumoAvisoClique as AV
-                AV.mostrar("Editar duto: selecione uma peça de duto inserida pelo Prumo.")
+                AV.mostrar("Editar duto: selecione uma peça de duto inserida pelo Usinix.")
                 return
             j = JanelaDutos(vs)
             _J["j"] = j

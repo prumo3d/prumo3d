@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Detalhe de ligação por elementos finitos (submodelo).
 
-A análise por barras dá os esforços; aqui o Prumo recorta a região de um nó (as barras que chegam
+A análise por barras dá os esforços; aqui o Usinix recorta a região de um nó (as barras que chegam
 nele, cortadas a uma distância do nó, mais as chapas que ficam dentro: placa de base, reforços,
 tampas), funde tudo num sólido só (ligação soldada contínua) e monta um estudo do CalculiX:
 
@@ -629,7 +629,7 @@ def detalhar(analise, ponto, combinacao=None, distancia=0.0, tamanho=None, calcu
             import json
             est.put("PrumoConferencia", json.dumps(conferencia(analise, det, est)))
         except Exception as ex:
-            FreeCAD.Console.PrintWarning("Prumo: conferência do detalhe: %s\n" % ex)
+            FreeCAD.Console.PrintWarning("Usinix: conferência do detalhe: %s\n" % ex)
     return est, det, ("" if ok else erro)
 
 

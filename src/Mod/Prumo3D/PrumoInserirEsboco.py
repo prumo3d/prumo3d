@@ -27,7 +27,7 @@ UNIDADES_DXF = (("milímetros (mm)", 1.0), ("centímetros (cm)", 10.0), ("metros
 
 # ----------------------------------------------------------------------------------- fontes
 def fontes():
-    """{nome: arquivo}: as Poppins que vêm com o Prumo primeiro, depois as fontes do sistema."""
+    """{nome: arquivo}: as Poppins que vêm com o Usinix primeiro, depois as fontes do sistema."""
     res = {}
     for f in sorted(glob.glob(os.path.join(FONTES_DIR, "*.ttf"))):
         res[os.path.splitext(os.path.basename(f))[0].replace("-", " ")] = f
@@ -413,7 +413,7 @@ if FreeCAD.GuiUp:
         def montar(self):
             f = self.form
             s = f.secao("Texto", "texto")
-            self.texto = QtWidgets.QPlainTextEdit("Prumo 3D")
+            self.texto = QtWidgets.QPlainTextEdit("Usinix")
             self.texto.setMaximumHeight(70)
             s.linha("texto", self.texto, "Uma ou mais linhas.", "Texto")
             self.fonte = QtWidgets.QComboBox()
@@ -429,7 +429,7 @@ if FreeCAD.GuiUp:
                 self.fonte.setCurrentIndex(self.fonte.count() - 2)
             self._fonte_anterior = self.fonte.currentIndex()
             self.fonte.currentIndexChanged.connect(self._escolher_fonte)
-            s.linha("tipo", self.fonte, "Poppins vem com o Prumo; as fontes instaladas no computador também "
+            s.linha("tipo", self.fonte, "Poppins vem com o Usinix; as fontes instaladas no computador também "
                                        "aparecem.", "Fonte")
             s2 = f.secao("Tamanho e posição", "escala")
             self.altura = s2.linha("altura", P.numero(10.0, 0.1, 10000.0), "Altura da letra maiúscula.",
@@ -508,7 +508,7 @@ if FreeCAD.GuiUp:
             self.unidade = QtWidgets.QComboBox()
             for nome, fator in UNIDADES_DXF:
                 self.unidade.addItem(nome, fator)
-            s2.linha("escala", self.unidade, "Em que unidade o desenho foi feito: o Prumo trabalha em mm.",
+            s2.linha("escala", self.unidade, "Em que unidade o desenho foi feito: o Usinix trabalha em mm.",
                      "O desenho está em")
             self.escala = s2.linha("escala", P.numero(1.0, 0.0001, 100000.0, "", 4), "Fator extra (1 = "
                                    "tamanho real; 2 = o dobro).", "Escala")

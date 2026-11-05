@@ -3,7 +3,7 @@
 
 - Solda (símbolos da ISO 2553 / AWS A2.4 no desenho): escolha a aresta da vista onde vai a seta, o tipo
   (filete, V, meio-V, topo reto, U, J, cordão, tampão), o lado (da seta, oposto ou ambos), a garganta "a" e o
-  comprimento, solda em todo o contorno e solda de campo. O Prumo cria a linha de chamada e o símbolo.
+  comprimento, solda em todo o contorno e solda de campo. O Usinix cria a linha de chamada e o símbolo.
 - Rugosidade (ISO 1302, a ABNT NBR 8404 é a correspondente antiga): processo (qualquer, com remoção de
   material, sem remoção), Ra, método de fabricação, direção das estrias e "todas as superfícies".
 
@@ -241,7 +241,7 @@ def _onde(valor):
 if P is not None:
     class PainelSolda(P.PainelTarefa):
         titulo = "Solda"
-        ajuda = ("Clique na aresta da vista onde vai a seta e escolha a solda. O Prumo cria a linha de chamada e "
+        ajuda = ("Clique na aresta da vista onde vai a seta e escolha a solda. O Usinix cria a linha de chamada e "
                  "o símbolo (ISO 2553).")
 
         def montar(self):

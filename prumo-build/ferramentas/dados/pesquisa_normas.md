@@ -1,4 +1,4 @@
-# Pesquisa de dados técnicos para o Prumo 3D
+# Pesquisa de dados técnicos para o Usinix
 
 Data: 19/10/2026. Os dados completos, com fonte e status de cada valor, estão em `pesquisa_normas.json`, no mesmo diretório.
 

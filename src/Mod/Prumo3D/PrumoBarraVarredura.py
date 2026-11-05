@@ -389,7 +389,7 @@ class BarraVarredura:
             forma, comp = montar(arestas, obj.Perfil, medida, interna, bool(obj.Unir), _normal_do_plano(obj.Caminho),
                                  float(getattr(obj, "Altura", 0.0)))
         except ValueError as ex:
-            FreeCAD.Console.PrintWarning("Prumo: barra de varredura: %s\n" % ex)
+            FreeCAD.Console.PrintWarning("Usinix: barra de varredura: %s\n" % ex)
             obj.Shape = Part.Shape()
             return
         obj.Shape = forma

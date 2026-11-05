@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Testes das ferramentas do Prumo 3D (cotas na tela, menu de contexto, massa, lista de materiais,
+"""Testes das ferramentas do Usinix (cotas na tela, menu de contexto, massa, lista de materiais,
 pranchas ABNT, perfis e estruturas, chapa metálica, fixadores e vaso de pressão).
 
 Entram no conjunto do comando "Testes automáticos" (PrumoTestes).
@@ -2472,7 +2472,7 @@ class T26Versao(unittest.TestCase):
     def test_informacoes_do_sistema(self):
         import PrumoVersao
         txt = PrumoVersao.info_sistema()
-        for chave in ("Prumo 3D " + PrumoVersao.texto(), "Base: FreeCAD", "Sistema:", "Python:", "Pasta de dados:"):
+        for chave in ("Usinix " + PrumoVersao.texto(), "Base: FreeCAD", "Sistema:", "Python:", "Pasta de dados:"):
             self.assertIn(chave, txt)
 
     def test_sobre_copia_para_a_area_de_transferencia(self):
@@ -2516,7 +2516,7 @@ class T26Versao(unittest.TestCase):
         import shutil
         import PrumoGui
         if "Prumo3D" not in (FreeCAD.ConfigGet("SplashScreen") or ""):
-            self.skipTest("sem branding.xml do Prumo")
+            self.skipTest("sem branding.xml do Usinix")
         dest_dir = os.path.join(FreeCAD.getUserAppDataDir(), "Gui", "images")
         dest = os.path.join(dest_dir, "splash_image.png")
         os.makedirs(dest_dir, exist_ok=True)
@@ -2597,7 +2597,7 @@ class T28TraducaoEArvore(unittest.TestCase):
     def test_textos_da_varredura_traduzidos(self):
         import PrumoI18n
         if PrumoI18n._state["tr"] is None:
-            self.skipTest("tradução Prumo desligada")
+            self.skipTest("tradução Usinix desligada")
         from PySide import QtCore
         tr = QtCore.QCoreApplication.translate
         casos = [("StdCmdNew", "&New Document", "&Novo documento"),
@@ -2617,7 +2617,7 @@ class T28TraducaoEArvore(unittest.TestCase):
             self.skipTest("sem interface")
         import PrumoI18n
         if PrumoI18n._state["tr"] is None:
-            self.skipTest("tradução Prumo desligada")
+            self.skipTest("tradução Usinix desligada")
         ativa = FreeCADGui.activeWorkbench().name()
         try:
             FreeCADGui.activateWorkbench("SMWorkbench")
@@ -2735,7 +2735,7 @@ class T29GuiaEstrutura(unittest.TestCase):
         import PrumoRibbon
         import PrumoTutorial as T
         if PrumoRibbon._state.get("ribbon") is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         for i in (2, 3, 4, 5, 6, 7):
             _t, _x, aba, cmds, _k = T.PASSOS_ESTRUTURA[i]
             self.assertTrue(T.destacar(aba, cmds), "botão do passo %d não encontrado" % (i + 1))
@@ -2790,7 +2790,7 @@ class T30Faixa(unittest.TestCase):
         self.R = PrumoRibbon
         self.rb = PrumoRibbon._state.get("ribbon")
         if self.rb is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         self.p = FreeCAD.ParamGet(PrumoRibbon.PARAM_PATH)
         self.altura0 = self.rb.content.height()
         self.doc = novo_doc("PrumoTesteFaixa")
@@ -3010,7 +3010,7 @@ class T31Bancadas(unittest.TestCase):
         import PrumoRibbon
         rb = PrumoRibbon._state.get("ribbon")
         if rb is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         self.pp.RemInt("BancadasPadrao")
         self.G.aplicar_bancadas_padrao()
         m = QtWidgets.QMenu()
@@ -3080,7 +3080,7 @@ class T32Arvore(unittest.TestCase):
             self.assertEqual(pad2.Label, "Extrusão001")
             self.assertEqual(pad.Name, "Pad", "o nome interno não muda")
             papeis = {f.Role: f.Label for f in body.Origin.OriginFeatures}
-            # o FreeCAD 1.1 já traduz a origem ("Plano-XY"); o Prumo só cobre se vier em inglês
+            # o FreeCAD 1.1 já traduz a origem ("Plano-XY"); o Usinix só cobre se vier em inglês
             self.assertNotIn(papeis.get("XY_Plane"), ("XY_Plane", None))
             self.assertNotIn(papeis.get("Z_Axis"), ("Z_Axis", None))
         finally:
@@ -3677,7 +3677,7 @@ class T34FluxoDeSelecao(unittest.TestCase):
             self.assertTrue(S.precisa_de_painel(cmd), cmd + " sem seleção deveria pedir o painel")
 
     def test_nao_fecha_tarefa_do_freecad_em_andamento(self):
-        """Com um esboço em edição, abrir um painel do Prumo avisa e não fecha a edição."""
+        """Com um esboço em edição, abrir um painel do Usinix avisa e não fecha a edição."""
         import PrumoPainel as P
         import PrumoPropriedades as PP
         body = self.doc.addObject("PartDesign::Body", "Corpo")
@@ -3696,7 +3696,7 @@ class T34FluxoDeSelecao(unittest.TestCase):
             aviso.close()
         FreeCADGui.getDocument(self.doc.Name).resetEdit()
         self._esperar()
-        # painel do Prumo aberto: o novo substitui o anterior
+        # painel do Usinix aberto: o novo substitui o anterior
         p1 = PP.PainelPropriedades().mostrar()
         self.assertTrue(p1.aberto)
         import PrumoInterferencia as I
@@ -3840,7 +3840,7 @@ class T34FluxoDeSelecao(unittest.TestCase):
         import PrumoRibbon
         rb = PrumoRibbon._state.get("ribbon")
         if rb is None:
-            self.skipTest("faixa Prumo não instalada")
+            self.skipTest("faixa Usinix não instalada")
         rb.select_tab("peca", user=True)
         self._esperar()
         bts = [b for b in rb.findChildren(PrumoRibbon.RibbonButton)
@@ -3925,7 +3925,7 @@ class T35PropriedadesDaPeca(unittest.TestCase):
     def _a36(self):
         uuids = [u for n, u in self.P.materiais_prumo() if n == "ASTM A36"]
         if not uuids:
-            self.skipTest("biblioteca Prumo não carregada")
+            self.skipTest("biblioteca Usinix não carregada")
         return uuids[0]
 
     def test_garantir_cria_as_propriedades(self):
@@ -6528,7 +6528,7 @@ class T51FaixaContextual(unittest.TestCase):
         self.R = PrumoRibbon
         self.rb = PrumoRibbon._state.get("ribbon")
         if self.rb is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         self.p = FreeCAD.ParamGet(PrumoRibbon.PARAM_PATH)
         self.tinha = "RibbonContextual" in self.p.GetBools()
         self.antes = self.p.GetBool("RibbonContextual", True)
@@ -8225,7 +8225,7 @@ class T58TelaInicialAjuda(unittest.TestCase):
 
 
 class T59PadraoVisualNosPaineis(unittest.TestCase):
-    """Padrão visual em todo o sistema: chaves liga/desliga, cartões, painéis Prumo sem quadro repetido."""
+    """Padrão visual em todo o sistema: chaves liga/desliga, cartões, painéis Usinix sem quadro repetido."""
 
     def test_estilo_global(self):
         import PrumoEstilo as E
@@ -8306,7 +8306,7 @@ class T59PadraoVisualNosPaineis(unittest.TestCase):
                 if w.property("prumo") is True:
                     quadro = w
                 w = w.parentWidget()
-            self.assertIsNotNone(quadro, "o quadro do FreeCAD não foi integrado ao painel Prumo")
+            self.assertIsNotNone(quadro, "o quadro do FreeCAD não foi integrado ao painel Usinix")
             cab = [f for f in quadro.findChildren(QtWidgets.QFrame) if f.property("class") == "header"
                    and f.parentWidget() is quadro]
             self.assertTrue(all(not f.isVisible() for f in cab))
@@ -8329,7 +8329,7 @@ class T60Atualizacao(unittest.TestCase):
 
     def test_instalador_abre_depois_de_fechar_com_permissao(self):
         """No Windows o instalador pede administrador: tem de ir pelo Start-Process (UAC), esperando o
-        Prumo fechar; Popen direto falhava (WinError 740) e o Prumo fechava sem instalar."""
+        Usinix fechar; Popen direto falhava (WinError 740) e o Usinix fechava sem instalar."""
         import sys
         import PrumoAtualizar as A
         antes = sys.platform
@@ -8352,7 +8352,7 @@ class T60Atualizacao(unittest.TestCase):
         self.assertIn("'C:\\Users\\D''Ávila\\x.exe'", cmd[-1])
 
     def test_instalador_nao_abre_dentro_da_pasta_do_prumo(self):
-        """0.9.12 → 1.0.0: o instalador herdava a pasta de trabalho do Prumo (o atalho abre em ...\\bin) e o
+        """0.9.12 → 1.0.0: o instalador herdava a pasta de trabalho do Usinix (o atalho abre em ...\\bin) e o
         Windows não deixava renomear a pasta da versão antiga ("Não foi possível apagar a pasta", sem nenhum
         programa na lista). O instalador agora abre com a pasta de trabalho na pasta do download."""
         import sys
@@ -8445,7 +8445,7 @@ class T60Atualizacao(unittest.TestCase):
     def _lista(self):
         def r(tag, pre=True, draft=False):
             return {"tag_name": tag, "prerelease": pre, "draft": draft, "html_url": "https://x/" + tag,
-                    "body": "## Prumo 3D\n\n### Novo\n\n- coisa nova\n\n## Downloads\n\nlixo",
+                    "body": "## Usinix\n\n### Novo\n\n- coisa nova\n\n## Downloads\n\nlixo",
                     "assets": [{"name": "Prumo3D_%s-Windows-x86_64-py311-installer.exe" % tag[1:], "size": 10,
                                 "browser_download_url": "https://x/a.exe", "digest": "sha256:00"},
                                {"name": "Prumo3D_%s-Linux-x86_64-py311.AppImage" % tag[1:], "size": 20,
@@ -8548,7 +8548,7 @@ class T60Atualizacao(unittest.TestCase):
             self._esp(0.3)
             botoes = [b for w in QtWidgets.QApplication.topLevelWidgets()
                       if isinstance(w, QtWidgets.QDialog) and w.isVisible()
-                      and w.windowTitle() == "Atualização do Prumo 3D"
+                      and w.windowTitle() == "Atualização do Usinix"
                       for b in w.findChildren(QtWidgets.QPushButton) if b.text() == "Atualizar agora"]
             self.assertTrue(botoes, "o aviso não ficou aberto")
             botoes[-1].click()
@@ -8587,7 +8587,7 @@ class T60Atualizacao(unittest.TestCase):
             self.assertEqual(j.barra.value(), 1000)
             self.assertIn("Pronto", j.situacao.text())
             self.assertTrue(j.principal.isVisible())
-            self.assertEqual(j.principal.text(), "Fechar o Prumo e instalar")
+            self.assertEqual(j.principal.text(), "Fechar o Usinix e instalar")
             self.assertEqual(j.secundario.text(), "Depois")
             self.assertEqual(textos_com_problema(j.d), [], "texto cortado na janela de atualização")
             self.assertTrue(os.path.exists(os.path.join(pasta, ativo["nome"])))
@@ -8995,8 +8995,8 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
     # ---------------------------------------------------------------- ajudantes
     @staticmethod
     def _erros_do_prumo(texto):
-        """Tracebacks que passam pelo código do Prumo. (Ferramentas do próprio FreeCAD avisam por Traceback
-        quando a seleção não serve, ex.: booleana com um sólido só; isso não é defeito do Prumo.)"""
+        """Tracebacks que passam pelo código do Usinix. (Ferramentas do próprio FreeCAD avisam por Traceback
+        quando a seleção não serve, ex.: booleana com um sólido só; isso não é defeito do Usinix.)"""
         out = []
         partes = texto.split("Traceback (most recent call last):")[1:]
         for p in partes:
@@ -9271,7 +9271,7 @@ class T63FerramentasDePontaAPonta(unittest.TestCase):
     def test_duas_verticais_automaticas_nao_jogam_os_circulos_longe(self):
         """Caso relatado na 0.8.1: círculos de Ø50 e Ø30 com o centro só no eixo X; a linha de um ao outro
         pega tangente + duas "Vertical" (alinhamento com os centros). O recálculo do FreeCAD com o conflito
-        jogava os círculos a bilhões de mm; o Prumo tem de voltar ao desenho e retirar o que menos mexe."""
+        jogava os círculos a bilhões de mm; o Usinix tem de voltar ao desenho e retirar o que menos mexe."""
         import Part
         import Sketcher
         import PrumoPainelEsboco as E
@@ -9440,7 +9440,7 @@ def operacao_em_edicao(tipo, nome_doc="PrumoTesteOperacao"):
 
 
 class T64TextosNasTelas(unittest.TestCase):
-    """Nenhum texto cortado ou sobreposto nos painéis do Prumo e nos assistentes."""
+    """Nenhum texto cortado ou sobreposto nos painéis do Usinix e nos assistentes."""
 
     # mesmos ajudantes do T63: fecha janelas modais sozinho e limpa a tela entre comandos
     setUp = T63FerramentasDePontaAPonta.setUp
@@ -10476,7 +10476,7 @@ class T72SimulacaoEmCartoes(unittest.TestCase):
 
 
 class T73Preferencias(unittest.TestCase):
-    """Preferências do Prumo em cartões: abre pelo comando, cada interruptor grava na hora, sem texto
+    """Preferências do Usinix em cartões: abre pelo comando, cada interruptor grava na hora, sem texto
     cortado, unidades com nomes em português."""
 
     def setUp(self):
@@ -10785,7 +10785,7 @@ class T75RoteirosDoEsboco(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not FreeCAD.GuiUp or "Sketcher_CreateConstructionLine" not in FreeCADGui.listCommands():
-            raise unittest.SkipTest("precisa do esboço compilado do Prumo (pontos-ímã)")
+            raise unittest.SkipTest("precisa do esboço compilado do Usinix (pontos-ímã)")
 
     def setUp(self):
         # sem gerenciador de janelas (Xvfb) a janela pode ter crescido além da tela em testes anteriores
@@ -11394,7 +11394,7 @@ class T79InserirNoEsboco(unittest.TestCase):
     def test_texto_vira_esboco_novo_e_fecha_contornos(self):
         pn = self.M.PainelTexto()
         self.assertIsNone(pn.alvo)
-        pn.texto.setPlainText("Prumo 3D")
+        pn.texto.setPlainText("Usinix")
         self.assertIsNone(pn.pendencia())
         self.assertTrue(pn.accept())
         sk = pn.resultado_esboco
@@ -11585,7 +11585,7 @@ class T79InserirNoEsboco(unittest.TestCase):
             self.assertTrue(FreeCADGui.Command.get(c).getInfo()["pixmap"])
 
     def test_aba_superficies_e_sem_bim(self):
-        """O Prumo é de engenharia mecânica: sem a aba e a bancada BIM (arquitetura)."""
+        """O Usinix é de engenharia mecânica: sem a aba e a bancada BIM (arquitetura)."""
         import PrumoRibbon as R
         import PrumoGui
         ids = [t["id"] for t in R.TABS]
@@ -11615,7 +11615,7 @@ class T79InserirNoEsboco(unittest.TestCase):
         import PrumoRibbon as R
         rb = R._state.get("ribbon")
         if rb is None:
-            self.skipTest("faixa Prumo não instalada nesta sessão")
+            self.skipTest("faixa Usinix não instalada nesta sessão")
         mw = FreeCADGui.getMainWindow()
         tam0 = mw.size()
         try:
@@ -11652,7 +11652,7 @@ class T79InserirNoEsboco(unittest.TestCase):
         self.assertTrue(all(s == "S" for _c, s, _r in sol[1:]), "só o Sólido fica grande")
 
     def test_draft_funciona_sem_a_bancada_draft(self):
-        # o Prumo não traz mais o BIM (metal-mecânica); o Draft continua por baixo (texto, DXF, matriz)
+        # o Usinix não traz mais o BIM (metal-mecânica); o Draft continua por baixo (texto, DXF, matriz)
         import PrumoGui
         self.assertIn("DraftWorkbench", PrumoGui.BANCADAS_DESLIGADAS)
         import Draft
@@ -12459,7 +12459,7 @@ class T84EsbocoNaoSuperRestringe(unittest.TestCase):
         self.doc.recompute()
         FreeCADGui.ActiveDocument.setEdit(self.sk)
         self._esp(0.8)
-        self.G.ao_editar(self.sk)     # (o observador do Prumo já faz isso; aqui garante a ordem no teste)
+        self.G.ao_editar(self.sk)     # (o observador do Usinix já faz isso; aqui garante a ordem no teste)
 
     def tearDown(self):
         try:
@@ -12715,7 +12715,7 @@ class T85SoldaRugosidadeAjuste(unittest.TestCase):
                 QtWidgets.QApplication.processEvents()
 
     def test_nenhum_painel_sobrescreve_metodo_interno(self):
-        """Nenhum painel do Prumo redefine sem querer um método interno (_nome) da base PainelTarefa."""
+        """Nenhum painel do Usinix redefine sem querer um método interno (_nome) da base PainelTarefa."""
         import importlib, os
         import PrumoPainel as P
         pasta = os.path.dirname(P.__file__)
@@ -13166,7 +13166,7 @@ class T88CatalogosSteelStructures(unittest.TestCase):
         m = rhs["massa_kgm"] / 7850 * 1e6
         self.assertLess(abs(rhs["A"] - m) / m, 0.02)
         # conferência independente: o mesmo tubo com arcos de verdade (sólido de 1 mm com os cantos arredondados
-        # pelo OpenCASCADE); o polígono do Prumo aproxima cada arco por 6 segmentos
+        # pelo OpenCASCADE); o polígono do Usinix aproxima cada arco por 6 segmentos
         import Part
         b, h, t, ro = 50.0, 100.0, 3.0, 6.0
 
@@ -13432,7 +13432,7 @@ class T89NovidadesDoZW3D(unittest.TestCase):
             self.skipTest("sem interface")
         import os
         from PySide import QtWidgets
-        for _k in range(5):        # trocas de tradutor pendentes (outras bancadas) são resolvidas pelo Prumo
+        for _k in range(5):        # trocas de tradutor pendentes (outras bancadas) são resolvidas pelo Usinix
             QtWidgets.QApplication.processEvents()
         tr = FreeCAD.Qt.translate
         self.assertEqual(tr("Assembly", "Ground Part?"), "Fixar a peça?")
@@ -14580,7 +14580,7 @@ class T107LayoutEDutos(unittest.TestCase):
         import inspect
         fonte = inspect.getsource(SheetMetalTools.smIsNetworkxAvailable)
         if "Prumo3D" not in fonte:
-            self.skipTest("o SheetMetal desta instalação não é o do Prumo (programa de teste antigo)")
+            self.skipTest("o SheetMetal desta instalação não é o do Usinix (programa de teste antigo)")
         self.assertIn("libs", fonte)
 
 
@@ -14769,7 +14769,7 @@ class T90TracadoNasConexoes(unittest.TestCase):
 
 
 class T91JuntaInteligente(unittest.TestCase):
-    """Junta inteligente (como o SolidWorks): duas faces/arestas escolhidas e o Prumo põe a junta certa, com a
+    """Junta inteligente (como o SolidWorks): duas faces/arestas escolhidas e o Usinix põe a junta certa, com a
     peça já no lugar."""
 
     _esp = T62PainelDeComando._esp
@@ -15051,7 +15051,7 @@ class T92BarraDeVarredura(unittest.TestCase):
 
 class T93MenusComAcento(unittest.TestCase):
     """Bancada externa com menu acentuado (ex.: Movie, "Câmeras e Objetos") não pode virar "CÃ¢meras" quando o
-    Prumo retraduz a interface."""
+    Usinix retraduz a interface."""
 
     def test_menu_acentuado_sobrevive_a_retraducao(self):
         if not FreeCAD.GuiUp:

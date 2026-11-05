@@ -2,12 +2,12 @@
 """Um fluxo só para a seleção: função antes ou peça antes, os dois funcionam.
 
 No FreeCAD, algumas bancadas pedem a peça selecionada antes do comando (operações booleanas do
-Sólidos, vistas do Desenho) e outras abrem o comando e pedem a seleção depois (Peça). No Prumo,
+Sólidos, vistas do Desenho) e outras abrem o comando e pedem a seleção depois (Peça). No Usinix,
 quando um comando que exige seleção prévia é chamado sem ela, abre um painel que diz o que
 selecionar, mostra o que já foi escolhido e roda o comando ao clicar em OK.
 
 - SELECAO_PRIMEIRO: comandos do FreeCAD tratados assim (a faixa mantém o botão ligado);
-- pedir(...): painel genérico usado também pelos comandos do Prumo.
+- pedir(...): painel genérico usado também pelos comandos do Usinix.
 """
 
 import FreeCAD

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: barra de vistas flutuante, pequena, embaixo da vista 3D (como a barra "heads-up" dos outros CAD).
+"""Usinix: barra de vistas flutuante, pequena, embaixo da vista 3D (como a barra "heads-up" dos outros CAD).
 
 Fica centralizada na parte de baixo de cada vista 3D, por cima do modelo: enquadrar, vistas padrão (com as
-demais num menu), estilo de exibição, plano de corte e sombras. Pode ser desligada em Preferências do Prumo
+demais num menu), estilo de exibição, plano de corte e sombras. Pode ser desligada em Preferências do Usinix
 (parâmetro BarraVista).
 """
 import os
@@ -209,7 +209,7 @@ class BarraVista(QtWidgets.QFrame):
             if PrumoSombras.ligado() != bool(marcado):
                 PrumoSombras.definir(bool(marcado))
         except Exception as exc:
-            FreeCAD.Console.PrintWarning("Prumo: sombras: %s\n" % exc)
+            FreeCAD.Console.PrintWarning("Usinix: sombras: %s\n" % exc)
 
     def atualizar(self):
         b = self.botoes.get("Prumo_Sombras")

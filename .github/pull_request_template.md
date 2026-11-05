@@ -3,7 +3,7 @@
 <!--
 Obrigado pela contribuição!
 Ao abrir um Pull Request você concorda com o processo de contribuição, que está na raiz do código-fonte
-(CONTRIBUTING.md) ou em https://github.com/prumo3d/prumo3d/blob/main/CONTRIBUTING.md
+(CONTRIBUTING.md) ou em https://github.com/usinix/usinix/blob/main/CONTRIBUTING.md
 
 Este modelo orienta como preparar um PR que possa ser revisado e aprovado rapidamente. Os comentários podem
 ser apagados.
@@ -13,7 +13,7 @@ possam ajudar.
 -->
 
 <!--
-O Prumo 3D não aceita saída de IA sem verificação em PRs, nem textos escritos por IA em issues, PRs e
+O Usinix não aceita saída de IA sem verificação em PRs, nem textos escritos por IA em issues, PRs e
 comentários. Marque a caixa abaixo:
 -->
 

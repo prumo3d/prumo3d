@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Identidade do Prumo 3D, lida pelo FreeCAD antes de qualquer outra coisa.
+  Identidade do Usinix, lida pelo FreeCAD antes de qualquer outra coisa.
   Os roteiros de empacotamento (package/rattler-build/*/create_bundle.sh) copiam este arquivo
   para a pasta "bin" do pacote. Na compilação de desenvolvimento, o prumo-build/compilar.ps1
   copia para .pixi/envs/default/Library/bin.
 
   ExeName/ExeVendor também definem a pasta de dados do usuário:
-  %APPDATA%\Prumo3D (Windows) e ~/.local/share/Prumo3D (Linux), separadas do FreeCAD original.
+  %APPDATA%\Usinix (Windows) e ~/.local/share/Usinix (Linux), separadas do FreeCAD original.
 -->
 <Branding version="1.0">
-  <Application>Prumo 3D</Application>
-  <WindowTitle>Prumo 3D</WindowTitle>
-  <ExeName>Prumo3D</ExeName>
-  <ExeVendor>Prumo3D</ExeVendor>
+  <Application>Usinix</Application>
+  <WindowTitle>Usinix</WindowTitle>
+  <ExeName>Usinix</ExeName>
+  <ExeVendor>Usinix</ExeVendor>
   <AppDataSkipVendor>true</AppDataSkipVendor>
   <!-- caminho relativo à pasta de instalação -->
   <SplashScreen>Mod/Prumo3D/Resources/splash_image.png</SplashScreen>
-  <!-- tema de ícones do Prumo (descompactado pelo CMake na instalação): vale desde a primeira abertura -->
+  <!-- tema de ícones do Usinix (descompactado pelo CMake na instalação): vale desde a primeira abertura -->
   <ProgramIcons>Mod/Prumo3D/Resources/icones-tema</ProgramIcons>
-  <SplashTextColor>#003A70</SplashTextColor>
+  <SplashTextColor>#0F2A4A</SplashTextColor>
   <!-- versão desenhada pelo FreeCAD sobre a splash: transparente (a splash já traz o texto) -->
   <SplashInfoColor>#00FFFFFF</SplashInfoColor>
   <SplashWarningColor>#C0392B</SplashWarningColor>

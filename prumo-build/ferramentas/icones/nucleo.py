@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# Prumo 3D - núcleo do gerador de ícones (estilo do guia ilustrado).
+# Usinix - núcleo do gerador de ícones (estilo do guia ilustrado).
 """Primitivas de desenho para ícones 64x64.
 
 Tudo é desenhado em coordenadas de modelo e enquadrado automaticamente no quadro 64x64

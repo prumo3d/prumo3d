@@ -1,4 +1,4 @@
-# Prumo 3D: gera os arquivos de exemplo da tela inicial (src/Mod/Prumo3D/Resources/exemplos).
+# Usinix: gera os arquivos de exemplo da tela inicial (src/Mod/Prumo3D/Resources/exemplos).
 #
 # Rodar com a interface do Prumo/FreeCAD aberta (as vistas, cores e miniaturas precisam dela):
 #   FreeCAD gerar_exemplos.py      (ou pelo console Python: exec(open(...).read()))
@@ -109,7 +109,7 @@ def exemplo_peca():
         import PrumoFolhas
         PrumoFolhas.nova_folha(doc, "A3", "NBR16752", False,
                                {"titulo": "SUPORTE DE FIXAÇÃO", "material": "ASTM A36",
-                                "empresa": "Exemplo Prumo 3D"}, [corpo], None)
+                                "empresa": "Exemplo Usinix"}, [corpo], None)
         import PrumoBOM
         pagina = [o for o in doc.Objects if o.TypeId == "TechDraw::DrawPage"][0]
         sh = PrumoBOM.gravar_planilha(doc, PrumoBOM.coletar([corpo]))

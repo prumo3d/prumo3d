@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Prumo 3D: modelagem direta (ideias da bancada Direct, de Sergio Uhry, reescritas para o Prumo).
+"""Usinix: modelagem direta (ideias da bancada Direct, de Sergio Uhry, reescritas para o Usinix).
 
 - Extrudar face: a face plana vira o perfil de uma Extrusão (como puxar a face). O contorno é copiado para um
   esboço próprio, sem ligar na face, então mudar a peça depois não quebra a extrusão.

@@ -672,7 +672,7 @@ if P is not None:
 if P is not None:
     class PainelFolhasLote(P.PainelTarefa):
         titulo = "Folhas em lote"
-        ajuda = ("Escolha a montagem, a estrutura ou as peças: o Prumo faz uma folha ABNT para cada peça "
+        ajuda = ("Escolha a montagem, a estrutura ou as peças: o Usinix faz uma folha ABNT para cada peça "
                  "fabricada, com as vistas, a legenda da peça e as cotas gerais. Peças iguais saem numa folha só.")
 
         def __init__(self, doc=None, objs=None):
@@ -748,7 +748,7 @@ if P is not None:
                                          self.cotas.isChecked(), pasta, formato == "A4")
             if self.feitas:
                 _mostrar(self.feitas[0][0])
-            FreeCAD.Console.PrintMessage("Prumo: %d folha(s) criadas%s.\n" % (
+            FreeCAD.Console.PrintMessage("Usinix: %d folha(s) criadas%s.\n" % (
                 len(self.feitas), (" e salvas em PDF em " + pasta) if pasta else ""))
             return [p for p, _o, _q in self.feitas]
 
