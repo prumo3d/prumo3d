@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "cfaea751-32a8-5db4-bebf-1d3fd26a307f"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "AISI 304L (A240)"
   Description: "Limites mínimos da especificação ASTM A240 / ASME SA-240 Type 304L. Fonte da conferência: ASTM A213/A240 via tubingchina. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

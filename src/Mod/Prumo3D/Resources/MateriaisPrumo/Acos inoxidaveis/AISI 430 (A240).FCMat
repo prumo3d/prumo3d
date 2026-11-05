@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "3e8c626f-9e6f-552d-9a73-277e8c95daca"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "AISI 430 (A240)"
   Description: "Mínimos ASTM A240/SA-240 Type 430 (S43000), recozido: LE 205 MPa, LR 450 MPa, alongamento 22 % (20 % até 1,27 mm). Densidade, E e Poisson típicos. Fonte da conferência: ATI 430 e tabela da ASTM A240."

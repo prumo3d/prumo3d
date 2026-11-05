@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "702f78a3-6443-5377-8a02-74aab3ce2a84"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "SAE 8620"
   Description: "SAE J403/J404 especificam só a composição química. Propriedades mecânicas conforme a condição de fornecimento (recozido, para cementação) e o certificado; densidade, módulo de elasticidade e Poisson típicos."

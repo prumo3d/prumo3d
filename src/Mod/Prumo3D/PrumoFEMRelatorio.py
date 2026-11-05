@@ -308,7 +308,7 @@ def _capa(p, W, H, k, est):
         p.drawImage(QtCore.QRectF(MARGEM_MM * k, 22 * k, 26 * k, 26 * k), QtGui.QImage(LOGO))
     p.setPen(QtGui.QColor("#FFFFFF"))
     p.setFont(_fonte(5.0 * k, QtGui.QFont.DemiBold))
-    p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 24 * k, W, 10 * k), "PRUMO 3D")
+    p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 24 * k, W, 10 * k), "USINIX")
     p.setFont(_fonte(3.6 * k))
     p.drawText(QtCore.QRectF((MARGEM_MM + 32) * k, 33 * k, W, 10 * k), "CAD 3D da metal-mecânica · software livre")
     p.setFont(_fonte(8.5 * k, QtGui.QFont.Bold))
@@ -347,7 +347,7 @@ def _cabecalho(p, W, k, est):
     p.setPen(QtGui.QColor(INK2))
     p.setFont(_fonte(3.0 * k))
     p.drawText(QtCore.QRectF(W - (MARGEM_MM + 60) * k, 8 * k, 60 * k, 6 * k),
-               QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter, "PRUMO 3D")
+               QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter, "USINIX")
     p.fillRect(QtCore.QRectF(MARGEM_MM * k, 15 * k, W - 2 * MARGEM_MM * k, 0.5 * k), QtGui.QColor(NAVY))
 
 

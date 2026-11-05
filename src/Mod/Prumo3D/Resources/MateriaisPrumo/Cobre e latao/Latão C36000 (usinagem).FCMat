@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "fbd47aa1-97f4-592e-a9fd-309a121c7181"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Latão C36000 (usinagem)"
   Description: "ASTM B16 (latão de corte livre C36000): os mínimos dependem da têmpera (H02 usual) e do diâmetro; use a tabela da B16 ou o certificado. Densidade 8500 kg/m³ e E 97 GPa típicos."

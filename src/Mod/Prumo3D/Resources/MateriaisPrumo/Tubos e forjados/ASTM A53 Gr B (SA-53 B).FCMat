@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "03daae28-5b09-54fd-8c7b-e46d36e2259e"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A53 Gr B (SA-53 B)"
   Description: "Limites mínimos da especificação ASTM A53 / ASME SA-53 Grade B. Fonte da conferência: fedsteel.com. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

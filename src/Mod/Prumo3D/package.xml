@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <package format="1">
   <name>Prumo</name>
-  <description>Interface do Prumo 3D: faixa de ferramentas, tradução pt-BR, tela inicial, assistente de simulação, tutorial, tema e ícones.</description>
+  <description>Interface do Usinix: faixa de ferramentas, tradução pt-BR, tela inicial, assistente de simulação, tutorial, tema e ícones.</description>
   <version>0.1.0</version>
   <date>2026-10-16</date>
-  <maintainer email="">Prumo 3D</maintainer>
+  <maintainer email="">Usinix</maintainer>
   <license file="LICENSE">LGPL-2.1-or-later</license>
   <icon>Resources/icons/prumo.png</icon>
   <freecadmin>1.0.0</freecadmin>

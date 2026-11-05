@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "ae13d641-2fc7-5ae4-827e-5a7ea920a42b"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A285 Gr C (SA-285 C)"
   Description: "LR 380 a 515 MPa. Limites mínimos da especificação ASTM A285 / ASME SA-285 Grade C. Fonte da conferência: aasteel.com, SSAB. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

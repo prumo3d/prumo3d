@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "9d0b1dec-db0b-5634-a709-3513058fce5c"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Alumínio 5052-H32"
   Description: "Mínimos ASTM B209 5052-H32: LR 215 a 262 MPa (31 a 38 ksi), LE 160 MPa (23 ksi); faixa de espessura conforme a B209 (a checar). Densidade e E típicos. Fonte da conferência: tabela da ASTM B209 (reproduzida por distribuidores)."

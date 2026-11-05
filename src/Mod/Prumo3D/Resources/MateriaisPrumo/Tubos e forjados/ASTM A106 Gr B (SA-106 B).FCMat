@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "a096cb70-ea63-551a-b18b-f8aa14862762"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A106 Gr B (SA-106 B)"
   Description: "Limites mínimos da especificação ASTM A106 / ASME SA-106 Grade B. Fonte da conferência: projectmaterials.com. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

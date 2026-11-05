@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "f77c7720-592c-5a6c-864c-9203b8a2a9c0"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A515 Gr 70 (SA-515 70)"
   Description: "LR 485 a 620 MPa. Limites mínimos da especificação ASTM A515 / ASME SA-515 Grade 70. Fonte da conferência: aasteel.com. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

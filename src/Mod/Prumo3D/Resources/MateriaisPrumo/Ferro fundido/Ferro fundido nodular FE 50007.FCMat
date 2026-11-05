@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "841755cf-6709-5972-a6a6-73a0698f81e5"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Ferro fundido nodular FE 50007"
   Description: "NBR 6916 FE 50007: LR mín. 500 MPa, alongamento mín. 7 % (corpo de prova fundido separadamente); LE ≈ 320 MPa como no EN-GJS-500-7 (a checar na NBR 6916). E 169 GPa típico."

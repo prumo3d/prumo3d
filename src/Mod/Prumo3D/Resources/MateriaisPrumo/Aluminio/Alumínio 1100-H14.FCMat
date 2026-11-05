@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "f4efbeb1-cf42-53de-b253-8e3a72960a8e"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Alumínio 1100-H14"
   Description: "Mínimos ASTM B209 1100-H14: LR 110 a 145 MPa, LE 95 MPa. Densidade 2710 kg/m³ e E 69 GPa típicos. Fonte da conferência: ASM (NIST) e tabela da ASTM B209."

@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "f7880eb5-3506-57fe-8b80-bdcc181d7fe5"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A516 Gr 70 (SA-516 70)"
   Description: "LR 485 a 620 MPa. Limites mínimos da especificação ASTM A516 / ASME SA-516 Grade 70. Fonte da conferência: epcland.com, Usiminas. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

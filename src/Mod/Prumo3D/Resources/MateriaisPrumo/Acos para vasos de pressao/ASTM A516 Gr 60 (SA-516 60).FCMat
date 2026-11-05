@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "1b44754e-958d-5103-94eb-ca932550351f"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A516 Gr 60 (SA-516 60)"
   Description: "LR 415 a 550 MPa. Limites mínimos da especificação ASTM A516 / ASME SA-516 Grade 60. Fonte da conferência: epcland.com, Usiminas. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

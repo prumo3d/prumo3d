@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "fb9da41a-8bb5-5b35-8cff-5bafbdbe3238"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A572 Gr 50"
   Description: "LE 345 MPa, LR 450 MPa mín. (chapa até 100 mm). Limites mínimos da especificação ASTM A572 Grade 50. Fonte da conferência: ArcelorMittal. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

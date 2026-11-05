@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "7261ea29-ef13-5180-8074-b8cc0e686731"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "AISI 316L (A240)"
   Description: "Limites mínimos da especificação ASTM A240 / ASME SA-240 Type 316L. Fonte da conferência: Aperam (mínimos ASTM). Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

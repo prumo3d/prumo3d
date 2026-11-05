@@ -1,5 +1,5 @@
 {
- "descricao": "Biblioteca de perfis do Prumo 3D. Gerada por gerar_perfis.py e importar_steel_structures.py (catálogos convertido da bancada Steel Structures de Marcos Roberto da Silva (github.com/marcos-rds/steel-structures, LGPL-2.1)).",
+ "descricao": "Biblioteca de perfis do Usinix. Gerada por gerar_perfis.py e importar_steel_structures.py (catálogos convertido da bancada Steel Structures de Marcos Roberto da Silva (github.com/marcos-rds/steel-structures, LGPL-2.1)).",
  "unidades": "mm, kg/m",
  "fontes": {
   "F_NBR10068_IFSC": {

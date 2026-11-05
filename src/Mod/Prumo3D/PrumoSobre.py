@@ -74,7 +74,7 @@ class SobreDialog(QtWidgets.QDialog):
         g.setContentsMargins(18, 14, 18, 14)
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(8)
-        emp = QtWidgets.QLabel("PRUMO 3D")
+        emp = QtWidgets.QLabel("USINIX")
         emp.setObjectName("SwSobreEmpresa")
         g.addWidget(emp, 0, 0, 1, 2)
         linhas = [

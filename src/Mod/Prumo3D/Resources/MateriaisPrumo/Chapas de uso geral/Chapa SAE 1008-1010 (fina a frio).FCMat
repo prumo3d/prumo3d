@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "e1ad081f-b0e5-5d90-b95c-b1a653acbf0f"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Chapa SAE 1008-1010 (fina a frio)"
   Description: "A resistência do Chapa SAE 1008-1010 (fina a frio) depende do estado de fornecimento (laminado, trefilado, beneficiado) e a norma não fixa mínimo: use o valor do certificado. Densidade, módulo de elasticidade e Poisson típicos."

@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "94ec4123-71cb-5e4b-90cf-4425ada0b497"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "NBR 6648 CG250"
   Description: "LR 400 a 550 MPa. Limites mínimos da especificação ABNT NBR 6648 CG250. Fonte da conferência: ArcelorMittal Chapas 2019. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

@@ -1,5 +1,5 @@
 {
- "descricao": "Catálogo dos pisos e fechamentos do Prumo 3D. Todos os valores de catálogo estão A CHECAR no catálogo do fabricante antes de uso em projeto.",
+ "descricao": "Catálogo dos pisos e fechamentos do Usinix. Todos os valores de catálogo estão A CHECAR no catálogo do fabricante antes de uso em projeto.",
  "materiais": {
   "Aço carbono": {
    "densidade": 7850

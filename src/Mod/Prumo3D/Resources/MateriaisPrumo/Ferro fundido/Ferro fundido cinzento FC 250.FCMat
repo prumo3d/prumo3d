@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "a8487e3d-55a5-59c5-be4c-91155850c0de"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Ferro fundido cinzento FC 250"
   Description: "NBR 6589 FC 250: LR mín. 250 MPa em corpo de prova separado; sem escoamento definido (não serve para verificação por escoamento). E de 103 a 118 GPa conforme a classe e Poisson 0,26 típicos (a checar na NBR 6589)."

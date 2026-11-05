@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "30ee5312-ff79-58aa-b908-3cca377fcbe1"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "Alumínio 6061-T6 (B209)"
   Description: "Limites mínimos da especificação ASTM B209 6061-T6. Fonte da conferência: matmatch.com. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

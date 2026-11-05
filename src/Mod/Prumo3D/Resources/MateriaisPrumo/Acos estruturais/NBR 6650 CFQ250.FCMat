@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "8e45c7dc-b2ab-5fb5-ad54-60c509184102"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "NBR 6650 CFQ250"
   Description: "LR 400 a 550 MPa. Limites mínimos da especificação ABNT NBR 6650 CFQ250. Fonte da conferência: ArcelorMittal Chapas 2019. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

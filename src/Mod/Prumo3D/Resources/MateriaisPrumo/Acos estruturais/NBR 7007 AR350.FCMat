@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "81bdf70e-e9d9-511e-9b6d-4abd8b250fa2"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "NBR 7007 AR350"
   Description: "Limites mínimos da especificação ABNT NBR 7007 AR350. Fonte da conferência: ArcelorMittal. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

@@ -2,7 +2,7 @@
 <svg width="594mm" height="420mm" viewBox="0 0 594 420" version="1.1" id="svg"
    xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"
    xmlns:freecad="https://www.freecad.org/wiki/index.php?title=Svg_Namespace">
-<title>Prumo 3D — Folha A2 paisagem — ABNT NBR 10068</title>
+<title>Usinix — Folha A2 paisagem — ABNT NBR 10068</title>
 <desc>Gerado por prumo-build/ferramentas/gerar_folhas_abnt.py. Norma: ABNT NBR 10068. Margens (mm): esquerda 25, direita 7, superior 7, inferior 7. Quadro 0.7 mm. Legenda 178 × 58 mm.</desc>
 <rect id="quadro" x="25" y="7" width="562" height="406" style="fill:none;stroke:#000000;stroke-width:0.7;stroke-linejoin:miter"/>
 <g id="marcas_de_centro" style="fill:none;stroke:#000000;stroke-width:0.7">
@@ -167,5 +167,5 @@
 <path d="M 567.222,403 V 413"/>
 </g>
 </g>
-<text id="marca" x="409" y="354" style="font-size:1.8px;font-family:osifont;font-weight:normal;text-anchor:start;fill:#000000;stroke:none"><tspan>Prumo 3D</tspan></text>
+<text id="marca" x="409" y="354" style="font-size:1.8px;font-family:osifont;font-weight:normal;text-anchor:start;fill:#000000;stroke:none"><tspan>Usinix</tspan></text>
 </svg>

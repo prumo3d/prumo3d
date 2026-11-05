@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "71902e03-021c-5c37-b7f5-145748678606"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "SAE 4340"
   Description: "SAE J403/J404 especificam só a composição química. Propriedades mecânicas conforme a condição de fornecimento (beneficiado — temperado e revenido; informe a faixa de dureza) e o certificado; densidade, módulo de elasticidade e Poisson típicos."

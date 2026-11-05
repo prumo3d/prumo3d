@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "7cf0264d-d6f3-5cb8-8b69-86a97002cc63"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "ASTM A36"
   Description: "LE 250 MPa (chapa até 200 mm; 220 MPa acima), LR 400 a 550 MPa. Limites mínimos da especificação ASTM A36. Fonte da conferência: ArcelorMittal. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

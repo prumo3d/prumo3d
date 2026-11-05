@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "fd0413a8-604f-5df5-833c-6ee893f60771"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "SAE 1020"
   Description: "SAE J403/J404 especificam só a composição química. Propriedades mecânicas conforme a condição de fornecimento (laminado a quente, salvo outra condição declarada) e o certificado; densidade, módulo de elasticidade e Poisson típicos."

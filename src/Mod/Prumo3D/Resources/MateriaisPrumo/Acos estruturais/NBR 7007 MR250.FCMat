@@ -1,8 +1,8 @@
 ---
-# Biblioteca de materiais do Prumo 3D
+# Biblioteca de materiais do Usinix
 General:
   UUID: "68d56bf9-d416-5967-a7f2-e99308d09571"
-  Author: "Prumo 3D"
+  Author: "Usinix"
   License: "CC-BY-4.0"
   Name: "NBR 7007 MR250"
   Description: "Limites mínimos da especificação ABNT NBR 7007 MR250. Fonte da conferência: ArcelorMittal. Densidade, módulo de elasticidade e Poisson típicos. Confirme com o certificado do material."

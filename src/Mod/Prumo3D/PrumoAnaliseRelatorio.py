@@ -262,7 +262,7 @@ def _capa(p, W, H, k, analise):
         p.drawImage(QtCore.QRectF(M * k, 22 * k, 26 * k, 26 * k), QtGui.QImage(R.LOGO))
     p.setPen(QtGui.QColor("#FFFFFF"))
     p.setFont(R._fonte(5.0 * k, QtGui.QFont.DemiBold))
-    p.drawText(QtCore.QRectF((M + 32) * k, 24 * k, W, 10 * k), "PRUMO 3D")
+    p.drawText(QtCore.QRectF((M + 32) * k, 24 * k, W, 10 * k), "USINIX")
     p.setFont(R._fonte(8.5 * k, QtGui.QFont.Bold))
     p.drawText(QtCore.QRectF(M * k, 55 * k, W - 2 * M * k, 30 * k), QtCore.Qt.TextWordWrap,
                "Memória de cálculo — estrutura metálica")
@@ -295,5 +295,5 @@ def _cabecalho(p, W, k, analise):
     p.setPen(QtGui.QColor(R.INK2))
     p.setFont(R._fonte(3.0 * k))
     p.drawText(QtCore.QRectF(W - (M + 60) * k, 8 * k, 60 * k, 6 * k), QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter,
-               "PRUMO 3D")
+               "USINIX")
     p.fillRect(QtCore.QRectF(M * k, 15 * k, W - 2 * M * k, 0.5 * k), QtGui.QColor(R.NAVY))
